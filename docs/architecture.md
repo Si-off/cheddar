@@ -8,6 +8,7 @@
 - 저장소 구성: pnpm workspace 기반 모노레포.
 - 개발 도구: Codex.
 - 필요한 구성요소: Figma 플러그인, 웹사이트, 백엔드 서버.
+- 백엔드 위치: 같은 저장소의 `apps/api/`. 백엔드 기술과 내부 구조는 별도 설계한다.
 - 초기 환경: 로그인·검색 노출 없이 개발자 PC에서 로컬 검증. 백엔드·DB도 로컬 실행한다.
 - 사내 배포 환경과 방식은 추후 결정한다.
 - 공통 에이전트 지침: 루트 `AGENTS.md`.
@@ -48,6 +49,9 @@ cheddar/
 ├── README.md
 ├── .github/
 │   └── pull_request_template.md
+├── apps/
+│   └── api/
+│       └── .gitkeep
 └── docs/
     ├── product.md
     ├── architecture.md
@@ -60,7 +64,8 @@ cheddar/
         └── change.md
 ```
 
-- 고정 폴더: `.github/`, `docs/`, `docs/decisions/`, `docs/changes/`, `docs/templates/`.
+- 고정 폴더: `.github/`, `apps/`, `apps/api/`, `docs/`, `docs/decisions/`, `docs/changes/`, `docs/templates/`.
+- `apps/api/`는 백엔드 위치로 승인되었다. `.gitkeep`은 빈 폴더를 Git에서 유지하기 위한 파일이다. 백엔드 내부 폴더·파일 구성은 미정이며 별도 결정 후 반영한다.
 - 이미 합의된 작업 기록 형식으로 `docs/changes/<change-id>/` 한 단계의 폴더를 허용한다. 현재 사용자가 요청한 작업에 기록이 필요한 경우에만 생성한다. 그 아래의 추가 폴더는 별도 승인이 필요하다.
 - 결정 기록은 `docs/decisions/` 안에 Markdown 파일로 추가한다. 작업·결정 기록 생성에 관한 상세 기준은 각 디렉터리의 안내를 따른다.
 - 기능별 소스 폴더, `.agents/`, `.codex/`, 워크플로 폴더 등 이 목록 밖의 폴더는 아직 승인되지 않았다. 향후 확장 예시나 미정 항목에 언급된 이름을 생성 허가로 해석하지 않는다.
@@ -77,7 +82,7 @@ cheddar/
 
 | 항목 | 상태 |
 | --- | --- |
-| 앱·공통 패키지의 이름과 실제 폴더 경로 | 미정 |
+| 웹·플러그인 앱과 공통 패키지의 이름·폴더 경로 | 미정 |
 | 앱별 FSD 레이어·슬라이스·세그먼트 구성 | 미정 |
 | Figma 문서 접근 영역과 React UI의 메시지·빌드 경계 | 미정 |
 | 공통 UI·디자인 토큰 패키지의 구성과 공개 API | 미정 |
