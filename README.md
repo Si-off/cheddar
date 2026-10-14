@@ -20,6 +20,16 @@ Codex에서 이 저장소를 프로젝트 작업 위치로 연다. 루트 `AGENT
 | [작업 기록 안내](docs/changes/README.md) | 특정 작업을 기록하고 재개하는 방법 |
 | [작업 템플릿](docs/templates/change.md) | 필요한 작업에서 사용하는 양식 |
 
+## 소스 위치
+
+- `apps/web/`: 웹 앱
+- `apps/figma-plugin/`: Figma 실행 코드·메시지 계약·React UI
+- `apps/api/`: 백엔드 위치, 내부 구조는 별도 설계
+- `packages/ui/`: 기본 UI
+- `packages/design-tokens/`: 디자인 토큰
+
+현재는 승인된 폴더와 Git 유지용 `.gitkeep`만 생성했다. 실행 코드·설정 파일·의존성은 아직 없으며, 상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다.
+
 ## 개발 환경
 
 - 웹·플러그인: TypeScript, React, Vite, Tailwind CSS, Motion, TanStack Query, Zustand

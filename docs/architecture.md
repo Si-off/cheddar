@@ -8,7 +8,9 @@
 - 저장소 구성: pnpm workspace 기반 모노레포.
 - 개발 도구: Codex.
 - 필요한 구성요소: Figma 플러그인, 웹사이트, 백엔드 서버.
-- 백엔드 위치: 같은 저장소의 `apps/api/`. 백엔드 기술과 내부 구조는 별도 설계한다.
+- 앱 위치: 웹 `apps/web/`, Figma 플러그인 `apps/figma-plugin/`, 백엔드 `apps/api/`.
+- 공통 패키지 위치: `packages/ui/`, `packages/design-tokens/`.
+- 백엔드 기술과 내부 구조는 별도 설계한다.
 - 초기 환경: 로그인·검색 노출 없이 개발자 PC에서 로컬 검증. 백엔드·DB도 로컬 실행한다.
 - 사내 배포 환경과 방식은 추후 결정한다.
 - 공통 에이전트 지침: 루트 `AGENTS.md`.
@@ -39,6 +41,29 @@
 - 공유 링크는 초기 읽기 전용으로 제공하고, 향후 링크별 편집 권한을 지원한다.
 - 백엔드·DB·AI 실행·저장 구조의 세부 설계는 이번 범위에 포함하지 않는다.
 
+## 소스 경로의 역할
+
+| 경로 | 역할 |
+| --- | --- |
+| `apps/web/src/app/` | 웹 초기화·프로바이더·라우트·앱 스타일 |
+| `apps/web/src/pages/test-case-editor/` | 테스트 케이스 생성·편집 화면 |
+| `apps/web/src/pages/shared-test-cases/` | 공유 링크 열람 화면 |
+| `apps/web/src/widgets/test-case-table/` | 편집·열람 화면에서 사용하는 표 |
+| `apps/web/src/entities/test-case/` | 웹 내부에서 사용하는 테스트 케이스 모델과 관련 처리 |
+| `apps/web/src/shared/` | 웹 전용 API 연결·설정·라이브러리·기본 UI |
+| `apps/figma-plugin/src/main/` | Figma 문서 접근과 프레임 데이터·이미지 추출 |
+| `apps/figma-plugin/src/protocol/` | Figma 실행 코드와 React UI 사이의 메시지 계약 |
+| `apps/figma-plugin/src/ui/` | React UI의 FSD 루트: 앱 초기화·프레임 업로드 화면·플러그인 UI 전용 공통 코드 |
+| 각 앱의 `shared/api/generated/` | `@hey-api/openapi-ts`로 생성할 API 코드의 위치 |
+| `packages/ui/src/` | 앱에 종속되지 않는 기본 UI 컴포넌트 |
+| `packages/design-tokens/src/` | 앱에서 공유하는 디자인 토큰 |
+
+웹은 `app`, `pages`, `widgets`, `entities`, `shared` 레이어로 시작한다. 플러그인의 FSD 적용 범위는 `src/ui/`이며 `app`, `pages`, `shared` 레이어로 시작한다. `main/`과 `protocol/`은 React UI의 FSD 루트 밖에 둔다.
+
+앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
+
+현재 소스 폴더는 `.gitkeep`으로 위치만 확보한 상태다. API 명세나 생성 코드, 실행 코드, `manifest.json`, 패키지·빌드 설정은 아직 생성되지 않았다. pnpm workspace 설정과 의존성 설치도 후속 작업이다.
+
 ## 허용된 폴더 구조
 
 현재 승인된 고정 구조는 다음과 같다. `.git`은 Git 관리 메타데이터이며 프로젝트 산출물 폴더가 아니다.
@@ -50,8 +75,45 @@ cheddar/
 ├── .github/
 │   └── pull_request_template.md
 ├── apps/
-│   └── api/
-│       └── .gitkeep
+│   ├── api/
+│   ├── web/
+│   │   └── src/
+│   │       ├── app/
+│   │       │   ├── providers/
+│   │       │   ├── routes/
+│   │       │   └── styles/
+│   │       ├── pages/
+│   │       │   ├── test-case-editor/
+│   │       │   └── shared-test-cases/
+│   │       ├── widgets/
+│   │       │   └── test-case-table/
+│   │       ├── entities/
+│   │       │   └── test-case/
+│   │       └── shared/
+│   │           ├── api/
+│   │           │   └── generated/
+│   │           ├── config/
+│   │           ├── lib/
+│   │           └── ui/
+│   └── figma-plugin/
+│       └── src/
+│           ├── main/
+│           ├── protocol/
+│           └── ui/
+│               ├── app/
+│               ├── pages/
+│               │   └── frame-upload/
+│               └── shared/
+│                   ├── api/
+│                   │   └── generated/
+│                   ├── config/
+│                   ├── lib/
+│                   └── ui/
+├── packages/
+│   ├── ui/
+│   │   └── src/
+│   └── design-tokens/
+│       └── src/
 └── docs/
     ├── product.md
     ├── architecture.md
@@ -64,11 +126,11 @@ cheddar/
         └── change.md
 ```
 
-- 고정 폴더: `.github/`, `apps/`, `apps/api/`, `docs/`, `docs/decisions/`, `docs/changes/`, `docs/templates/`.
+- 위 트리에 표시된 모든 폴더가 승인된 고정 구조다. `.gitkeep`은 각 빈 말단 폴더를 Git에서 유지하기 위한 파일이며 트리에서는 생략했다. 실제 구현 파일이 생기면 같은 폴더의 `.gitkeep`을 제거할 수 있다.
 - `apps/api/`는 백엔드 위치로 승인되었다. `.gitkeep`은 빈 폴더를 Git에서 유지하기 위한 파일이다. 백엔드 내부 폴더·파일 구성은 미정이며 별도 결정 후 반영한다.
 - 이미 합의된 작업 기록 형식으로 `docs/changes/<change-id>/` 한 단계의 폴더를 허용한다. 현재 사용자가 요청한 작업에 기록이 필요한 경우에만 생성한다. 그 아래의 추가 폴더는 별도 승인이 필요하다.
 - 결정 기록은 `docs/decisions/` 안에 Markdown 파일로 추가한다. 작업·결정 기록 생성에 관한 상세 기준은 각 디렉터리의 안내를 따른다.
-- 기능별 소스 폴더, `.agents/`, `.codex/`, 워크플로 폴더 등 이 목록 밖의 폴더는 아직 승인되지 않았다. 향후 확장 예시나 미정 항목에 언급된 이름을 생성 허가로 해석하지 않는다.
+- 위 트리 밖의 추가 소스 폴더, `.agents/`, `.codex/`, 워크플로 폴더 등은 아직 승인되지 않았다. 향후 확장 예시나 미정 항목에 언급된 이름을 생성 허가로 해석하지 않는다.
 - 폴더 생성·이동·이름 변경으로 이 범위를 벗어나려면 경로·목적·영향을 먼저 제시하고 명시적 승인을 받는다. 승인 후 실제 구조와 이 목록을 함께 갱신한다. 에이전트가 목록을 먼저 수정해 스스로 승인할 수 없다.
 - 기존에 발견한 폴더는 그 존재만으로 승인된 구조에 편입하지 않는다. 목록과 다르면 사용자 변경 여부와 필요성을 확인하고 임의 삭제하지 않는다.
 
@@ -82,11 +144,10 @@ cheddar/
 
 | 항목 | 상태 |
 | --- | --- |
-| 웹·플러그인 앱과 공통 패키지의 이름·폴더 경로 | 미정 |
-| 앱별 FSD 레이어·슬라이스·세그먼트 구성 | 미정 |
-| Figma 문서 접근 영역과 React UI의 메시지·빌드 경계 | 미정 |
-| 공통 UI·디자인 토큰 패키지의 구성과 공개 API | 미정 |
-| API 명세 전달·코드 생성 위치·갱신 절차 | 미정 |
+| 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
+| 플러그인 메시지 형식·처리와 두 런타임의 빌드 설정 | 미정 |
+| 공통 UI·디자인 토큰의 세부 구현과 공개 API | 미정 |
+| API 명세 전달·코드 생성 설정·갱신 절차 | 미정 |
 | TanStack Query와 Zustand의 세부 책임 분담 | 미정 |
 | 표 편집 구현 도구·열 유형·문자열 검색 대상과 일치 기준 | 미정 |
 | XLSX 생성 위치와 라이브러리 | 미정 |
