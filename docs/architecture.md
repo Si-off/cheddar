@@ -23,6 +23,7 @@
 | --- | --- |
 | 공통 언어 | TypeScript |
 | 기본 UI 스택 | React, Vite, Tailwind CSS, Motion |
+| 공통 UI 기반 | shadcn/ui의 Base UI 구성, 프로젝트 토큰과 스타일로 커스텀 |
 | 데이터·상태 도구 | TanStack Query, Zustand |
 | 린터 | Biome |
 | 웹 라우터 | TanStack Router |
@@ -75,7 +76,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
 
-현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`, Query·Motion 프로바이더를 구성했다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 Button·Surface, 토큰은 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 사용자가 확인할 영속 미리보기다. 업무 상태 저장소·표·생성·업로드 기능은 아직 구현하지 않았다.
+현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`, Query·Motion 프로바이더를 구성했다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업무 상태 저장소·표·생성·업로드 기능은 아직 구현하지 않았다.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 실제 명세·생성 코드는 미정이며 해당 디렉터리는 `.gitkeep`만 유지한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 실제 명세 확정 후 생성하며 생성 코드를 직접 편집하지 않는다.
 

@@ -63,6 +63,8 @@
   --color-border: var(--color-neutral-200);
   --color-border-control: var(--color-neutral-400);
   --color-focus: var(--color-brand-600);
+  --color-focus-border: var(--color-neutral-900);
+  --color-focus-surface: var(--color-brand-100);
   --color-disabled: var(--color-neutral-100);
   --color-disabled-foreground: var(--color-neutral-500);
   --color-success: #216e4e;
@@ -114,6 +116,10 @@
 :root {
   color-scheme: light;
   --border-width-default: 1px;
+  --opacity-disabled: 0.5;
+  --size-textarea-min: 6rem;
+  --size-dialog-max: 28rem;
+  --size-tooltip-max: 20rem;
   --focus-width: 2px;
   --focus-offset: 3px;
   --duration-feedback: 120ms;
@@ -125,4 +131,6 @@
   --layer-popover: 20;
   --layer-dialog: 30;
   --layer-toast: 40;
+  --layer-select: 35;
+  --layer-tooltip: 50;
 }

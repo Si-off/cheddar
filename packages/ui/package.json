@@ -4,16 +4,29 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./utils": "./src/utils.ts",
+    "./*": "./src/*.tsx"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "react": "19.3.1",
-    "@types/react": "19.3.0"
+    "react-dom": "19.3.1"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.9.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.56.0",
+    "tailwind-merge": "3.7.0"
   }
 }
