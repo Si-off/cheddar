@@ -22,7 +22,8 @@
 - 웹·플러그인·공통 UI·토큰과 루트의 5개 workspace 프로젝트 확인.
 - 의존성 설치·잠금 파일 생성·기본 설정 11개 Biome 검사 통과.
 - 2단계 완료 및 추가 디자인 반영: primary #515299, 자체 호스팅 Noto Sans·Noto Sans KR, 의미별 컬러·폰트·radius·간격 토큰. AGENTS.md에 토큰 사용 의무 반영. 공통 UI·웹 타입 검사와 웹 빌드 통과.
-- 앱 실행 코드가 아직 없어 전체 타입 검사·빌드는 다음 단계에서 수행.
+- 3단계 완료: 웹 Vite·Tailwind·TanStack Router·Query/Motion 프로바이더와 최소 실행 화면 구성. / 및 /share/$shareId 브라우저 진입, primary 토큰·폰트 패밀리·noindex 확인. 웹 타입 검사·빌드 통과.
+- 플러그인 실행 코드와 전체 통합 검증은 다음 단계에서 수행.
 
 ## 미정과 경계
 
