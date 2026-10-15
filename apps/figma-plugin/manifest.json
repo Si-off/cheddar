@@ -1,5 +1,6 @@
 {
   "name": "Cheddar",
+  "id": "1692417282897261384",
   "api": "1.0.0",
   "editorType": ["figma", "dev"],
   "capabilities": ["inspect"],
@@ -9,6 +10,6 @@
   "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": ["none"],
-    "devAllowedDomains": ["http://127.0.0.1:3102"]
+    "devAllowedDomains": ["http://localhost:3102"]
   }
 }

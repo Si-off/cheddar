@@ -17,6 +17,7 @@ import {
   uploadFile,
 } from "@/shared/api/generated/sdk.gen";
 import {
+  createRequestId,
   exportSelectedFrame,
   FigmaExportError,
   prepareFrameUpload,
@@ -175,7 +176,7 @@ export function FrameUploadPage() {
           prepared.sessionId,
           prepared.fileKey,
           prepared.frames,
-          crypto.randomUUID(),
+          createRequestId(),
         );
       }
       setStatus("uploading");
