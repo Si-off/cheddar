@@ -9,6 +9,7 @@ import {
   Label,
   Textarea,
 } from "@cheddar/ui";
+import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
@@ -82,6 +83,20 @@ export function SheetEditor({
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [comparison, setComparison] = useState(false);
+  const [pendingLeave, setPendingLeave] = useState<() => void>();
+  const [retained, setRetained] = useState<boolean>();
+  const allowLeave = useRef(false);
+  const blocker = useBlocker({
+    shouldBlockFn: async () => {
+      if (allowLeave.current) {
+        allowLeave.current = false;
+        return false;
+      }
+      return !(await session.settle());
+    },
+    enableBeforeUnload: () => session.store.getState().status !== "saved",
+    withResolver: true,
+  });
   const [recovery, setRecovery] = useState<StoredDraft[]>([]);
   const [confirm, setConfirm] = useState<{
     title: string;
@@ -110,13 +125,6 @@ export function SheetEditor({
       live = false;
     };
   }, [origin, snapshot.projectId, snapshot.id]);
-  useEffect(() => {
-    function beforeUnload(event: BeforeUnloadEvent) {
-      if (session.store.getState().status !== "saved") event.preventDefault();
-    }
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [session]);
   useEffect(() => {
     if (!uploadId || !detailId) return;
     let live = true;
@@ -154,13 +162,33 @@ export function SheetEditor({
   async function back() {
     const saved = await session.settle();
     if (saved) onBack();
-    else
-      setConfirm({
-        title: "저장되지 않은 입력이 있습니다",
-        description: "입력은 초안으로 보관됩니다. 이 화면을 나갈까요?",
-        action: onBack,
-      });
+    else setPendingLeave(() => onBack);
   }
+  function cancelLeave() {
+    setPendingLeave(undefined);
+    if (blocker.status === "blocked") blocker.reset();
+  }
+  function proceedLeave() {
+    const action = pendingLeave;
+    setPendingLeave(undefined);
+    if (blocker.status === "blocked") blocker.proceed();
+    else if (action) {
+      allowLeave.current = true;
+      action();
+    }
+  }
+  const leaving = !!pendingLeave || blocker.status === "blocked";
+  useEffect(() => {
+    if (!leaving) return;
+    let live = true;
+    setRetained(undefined);
+    void session.retain().then((ok) => {
+      if (live) setRetained(ok);
+    });
+    return () => {
+      live = false;
+    };
+  }, [leaving, session]);
   async function download() {
     setMessage(undefined);
     setBusy(true);
@@ -532,6 +560,43 @@ export function SheetEditor({
           })}
         </section>
       )}
+      <Dialog
+        open={leaving}
+        onOpenChange={(open) => {
+          if (!open) cancelLeave();
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>저장되지 않은 입력이 있습니다</DialogTitle>
+          <DialogDescription>
+            {retained === undefined
+              ? "입력을 보관하는 중입니다."
+              : retained
+                ? "입력을 이 브라우저에 보관했습니다. 이동한 뒤 시트를 열어 초안을 복원할 수 있습니다."
+                : "입력을 이 브라우저에 보관하지 못했습니다. 이 화면에서 저장을 마친 뒤 이동해주세요."}
+          </DialogDescription>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelLeave}>
+              계속 편집
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                void session.retry().then(async () => {
+                  if (session.store.getState().status === "saved")
+                    proceedLeave();
+                  else setRetained(await session.retain());
+                });
+              }}
+            >
+              저장 후 이동
+            </Button>
+            <Button disabled={!retained} onClick={proceedLeave}>
+              초안 보관 후 이동
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={!!confirm}
         onOpenChange={(open) => {

@@ -101,6 +101,8 @@ export class SheetSession {
   private sessionId: string = crypto.randomUUID();
   private disposed = false;
   private storageAttempt = 0;
+  private persistence?: Promise<void>;
+  private stored?: { key: string; version: number };
   private pending?: {
     kind: "content" | "view";
     sent: Snapshot;
@@ -141,10 +143,12 @@ export class SheetSession {
       updatedAt: Date.now(),
     };
     const attempt = ++this.storageAttempt;
-    void storeDraft(record)
+    this.persistence = storeDraft(record)
       .then(() => {
-        if (attempt === this.storageAttempt && record.key === this.key)
+        if (attempt === this.storageAttempt && record.key === this.key) {
+          this.stored = { key: record.key, version: record.version };
           this.store.setState({ storageError: undefined });
+        }
       })
       .catch(() => {
         if (attempt === this.storageAttempt && record.key === this.key)
@@ -374,6 +378,14 @@ export class SheetSession {
         : undefined,
     });
     if (!conflict) this.schedule();
+  }
+  async retain() {
+    if (this.store.getState().status === "saved") return true;
+    const version = this.store.getState().version;
+    const key = this.key;
+    this.persist();
+    await this.persistence;
+    return this.stored?.key === key && this.stored.version >= version;
   }
   async settle() {
     await this.flush();
