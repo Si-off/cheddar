@@ -99,17 +99,17 @@ FONT_LICENSES -->
       .selection-control { position: relative; display: inline-grid; place-items: center; flex: 0 0 var(--spacing-icon-md); width: var(--spacing-icon-md); height: var(--spacing-icon-md); }
       .selection-control input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
       .control-indicator { position: relative; display: grid; place-items: center; width: 100%; height: 100%; pointer-events: none; border: var(--border-width-default) solid var(--color-border-control); border-radius: var(--radius-small); background: var(--color-surface); transition: opacity var(--duration-selection) var(--ease-standard); }
-      .control-indicator::before { content: ""; position: absolute; inset: calc(-1 * var(--border-width-default)); border: var(--border-width-default) solid var(--color-primary); border-radius: inherit; background: var(--color-primary); clip-path: inset(100% 0 0 0); transition: clip-path var(--duration-selection) var(--ease-standard); }
+      .control-indicator::before { content: ""; position: absolute; inset: calc(-1 * var(--border-width-default)); border: var(--border-width-default) solid var(--color-primary); border-radius: inherit; background: var(--color-primary); clip-path: circle(0% at 50% 50%); transition: clip-path var(--duration-selection) var(--ease-standard); }
       .control-indicator svg { position: relative; width: var(--spacing-icon-sm); height: var(--spacing-icon-sm); color: var(--color-primary-foreground); opacity: 0; transition: opacity var(--duration-selection) var(--ease-standard); }
       .control-indicator svg path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset var(--duration-selection) var(--ease-standard); }
-      .selection-control input:checked + .control-indicator::before { clip-path: inset(0); }
+      .selection-control input:checked + .control-indicator::before { clip-path: circle(75% at 50% 50%); }
       .selection-control input:checked + .control-indicator svg { opacity: 1; }
       .selection-control input:checked + .control-indicator svg path { stroke-dashoffset: 0; }
       .selection-control input[type="radio"] + .control-indicator { border-radius: var(--radius-full); }
       .selection-control input[type="radio"] + .control-indicator::before { background: transparent; clip-path: none; opacity: 0; transition: opacity var(--duration-state) var(--ease-standard); }
       .selection-control input[type="radio"]:checked + .control-indicator::before { opacity: 1; }
-      .selection-control input[type="radio"] + .control-indicator::after { content: ""; position: relative; width: var(--spacing-radio-dot); height: var(--spacing-radio-dot); border-radius: var(--radius-full); background: var(--color-primary); opacity: 0; transition: opacity var(--duration-state) var(--ease-standard); }
-      .selection-control input[type="radio"]:checked + .control-indicator::after { opacity: 1; }
+      .selection-control input[type="radio"] + .control-indicator::after { content: ""; position: relative; width: var(--spacing-radio-dot); height: var(--spacing-radio-dot); border-radius: var(--radius-full); background: var(--color-primary); clip-path: circle(0% at 50% 50%); transition: clip-path var(--duration-selection) var(--ease-standard); }
+      .selection-control input[type="radio"]:checked + .control-indicator::after { clip-path: circle(50% at 50% 50%); }
       .selection-control input:disabled + .control-indicator { opacity: 0.5; }
       .selection-control input:focus-visible + .control-indicator { outline: var(--focus-width) solid var(--color-focus); outline-offset: var(--focus-offset); }
       .selection-control input:hover:not(:disabled) + .control-indicator { border-color: var(--color-primary); }
@@ -143,7 +143,7 @@ FONT_LICENSES -->
       .motion-stage { position: relative; overflow: hidden; background: var(--color-primary-subtle); padding: var(--spacing-8); min-height: 230px; border-radius: var(--radius-panel); display: grid; align-items: center; }
       .motion-card { padding: var(--spacing-6); background: var(--color-surface); border: var(--border-width-default) solid var(--color-border); border-radius: var(--radius-panel); box-shadow: var(--shadow-raised); width: min(100%, 280px); justify-self: center; }
       .motion-sample { position: relative; display: grid; place-items: center; width: var(--spacing-12); height: var(--spacing-12); margin-top: var(--spacing-4); border-radius: var(--radius-control); background: var(--color-primary-subtle); overflow: hidden; }
-      .motion-fill { position: absolute; inset: 0; background: var(--color-primary); clip-path: inset(0); }
+      .motion-fill { position: absolute; inset: 0; background: var(--color-primary); clip-path: circle(75% at 50% 50%); }
       .motion-drawing { position: relative; width: var(--spacing-icon-lg); height: var(--spacing-icon-lg); color: var(--color-primary-foreground); }
       .motion-stroke { stroke-dasharray: 1; stroke-dashoffset: 0; }
       @keyframes enter { from { opacity: 0; } to { opacity: 1; } }
@@ -265,7 +265,7 @@ FONT_LICENSES -->
         const timing = { duration, easing: token("ease-standard") };
         for (const animation of motionAnimations) animation.cancel();
         motionAnimations = [
-          $(".motion-fill").animate([{ clipPath: "inset(100% 0 0 0)" }, { clipPath: "inset(0)" }], timing),
+          $(".motion-fill").animate([{ clipPath: "circle(0% at 50% 50%)" }, { clipPath: "circle(75% at 50% 50%)" }], timing),
           $(".motion-drawing path").animate([{ strokeDashoffset: "1" }, { strokeDashoffset: "0" }], timing),
         ];
       });
