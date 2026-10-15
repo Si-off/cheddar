@@ -1,7 +1,7 @@
 # 작업: 2A 프레임 업로드
 
 - 작업 ID: 2026-10-15-stage-2a-frame-upload
-- 상태: 구현·검증 중 — API·프런트 코드 검증 완료, 공통 라우트·브라우저 실행 검증 대기
+- 상태: 구현·검증 중 — API·브라우저 검증 완료, 실제 Figma 업로드 및 2B 시트 연계 미확인
 - 요청 근거: 2026-10-15 사용자가 구현 계획·필요한 공통 변경·새 폴더 승인안을 먼저 정리하고 미정 사항을 함께 결정한 뒤 구현하도록 요청했다.
 - 실행 범위: 2026-10-15 사용자가 직접 선택한 Frame, 구현 계획과 두 소스 폴더 생성을 승인하고 공통 변경을 조율 채팅과 협의해 구현하도록 지시했다. 검증·자신의 변경 커밋·일반 푸시를 포함한다. 공통 담당 파일·다른 worktree는 직접 수정하지 않는다. 조율 채팅과의 완료 보고·공통 변경·개발 조율 메시지는 허용되며, 다른 작업 채팅과 직접 연락·PR·병합·배포는 승인되지 않았다.
 - 기준: `codex/stage-2a-frame-upload` · 최초 `4cfd066574ca97241372d3b56561fb96f0430847`, 공통 선행 `c7fb51bdd40c49318707893c308e40a5d3fa1816` fast-forward 수용
@@ -139,3 +139,32 @@
 - 신규/변경 UI 문구의 독립 검수 지적 3건을 반영·재검수했다: 확정 충돌과 응답 유실의 행동 분리, 파일 전송 결과의 불확실성, 시트 목록 확인 후에만 재생성 안내. gateway 표시 조건·응답 유실 중 생성 guard·언마운트 후 이동 방지도 추가 검수해 문제 없음을 확인했다. 실제 브라우저/Figma 검수와는 구분한다.
 - `pnpm check` 전체 lint·타입·빌드 통과. 공통 기존 경고 2건(디자인 HTML 크기, shared-schema 테스트 optional chain) 외 신규 소유 파일 경고는 없다. main/재시도 세션 테스트 6개 통과.
 - 다음: 프런트 커밋을 조율 담당에게 전달해 공통 웹 라우트를 통합한다. 테스트 DB 슬롯 배정 후 임시 API/저장소/플러그인 iframe harness 및 웹에서 업로드·실패·재시도·20프레임을 확인한다. 브라우저 harness는 실제 Figma 실행을 대신하지 않는다. 실제 Figma ID 준비와 2B 실제 연계는 별도 미확인 사항이다.
+
+## 2026-10-15 브라우저 실행 검증
+
+- 프런트 `95b8cb2244b13ce9c4c36e28a35c092117af617d`를 일반 푸시하고 원격 SHA를 확인했다. 조율 담당의 실제 업로드 목록·상세 라우트 `ad2e871`을 수용했다. 이후 공통 API/SDK·설정 화면·플러그인 localhost 설정을 포함한 `c74b3ca`까지 fast-forward 수용했다.
+- 조율된 슬롯에서 기존 `openTestDatabase()`의 DB/role 검사·advisory lock·자기 UUID 정리를 그대로 사용했다. OS 임시 경로의 서버와 임시 파일 저장소, API3102·웹5175·iframe harness8766을 사용했다. 환경 파일은 프로세스로만 읽고 복사·출력하지 않았다.
+- Chrome에서 실제 빌드 플러그인 UI를 opaque-origin iframe에 실행했다. main 메시지만 모사하며 파일/묶음 요청은 실제 API·PostgreSQL에 전달했다. 두 번째 파일 요청503에서 묶음이 등록되지 않았고, 재시도 후 확인된 첫 이미지 파일을 재전송하지 않았다(2프레임의 파일4개에 POST 총5회).
+- 최종201 응답의 연결을 끊자 Chrome 전송 계층이 같은 POST를 재전송했고, API는 같은 묶음 ID로200을 반환했다. 수동 “등록 결과 확인” 화면은 이 브라우저 실행에서 관찰하지 못했으며, 정확한 요청 재생은 세션 테스트로 별도 검증했다.
+- 20프레임·40파일을 하나의 묶음으로 등록했다. 빈 선택과 다른 유형 혼합 선택에서 업로드가 비활성화됨을 확인했다. 웹 목록→상세, 상세 직접 새로고침, 뒤로/앞으로, 프로젝트 목록 복귀와 실제 이미지 표시를 확인했다. JSON 내려받기는 버튼 실행까지만 확인했고 OS 저장 파일은 확인하지 못했다. 시트 gateway 미통합 상태로 시트 UI는 숨겨졌으며 시트 생성·편집기 이동은 미확인이다.
+- 검증 결과: `/private/tmp/cheddar-2a-browser.cbVSQr/browser-results.json`. 보존 화면: `/Users/sion/.codex/visualizations/2026/10/15/01a13d9c-8619-7a20-b73a-0de6f2437e4a/cheddar-upload-list.jpg`. 임시 API·웹·harness 종료와 자기 UUID/저장소/잠금 정리를 확인하고 슬롯을 반환했다. 사용자 Figma 원본은 변경하지 않았다.
+
+## 2026-10-15 실제 Figma 등록·호환 수정
+
+- 사용자가 별도 ID 발급 채팅에서 “생성한 플러그인 ID 1692417282897261384를 Cheddar 2A — 프레임 업로드 채팅에 전달하고, 기존 코드에 반영해서 실제 Figma 검증까지 진행하도록 해주세요.”라고 지시한 기록을 `read_thread`로 확인했다. 해당 ID와 기본 템플릿 manifest를 대조하고 2A manifest에 ID만 반영했다. 템플릿 구현으로 코드를 교체하지 않았다.
+- 앱 종료가 미저장 Untitled 작업 손실 가능성으로 자동 승인 검토에서 차단된 뒤, 사용자가 “미저장 작업 없음 — Figma 정상 종료·재실행 허용”을 명시적으로 선택했다. 이후 정상 종료·재실행했다. 강제 종료는 하지 않았다.
+- Figma desktop에서 `http://127.0.0.1:3102` devAllowedDomains가 invalid URL로 거부됨을 재현했다. [공식 manifest 문서](https://developers.figma.com/docs/plugins/manifest/)가 지원하는 `http://localhost:3102`로 바꿔 import 성공을 확인했다. 공통 담당에게 base URL·환경 예시·문서 변경을 요청했고 `c74b3ca`로 수용했다. 루프백 IPv4 bind를 유지한 채 `http://localhost:3102/health/ready` 응답을 확인했다.
+- 동일 ID의 기본 템플릿 개발 등록 때문에 템플릿 코드가 실행돼, 기본 템플릿의 로컬 개발 등록만 해제하고 현재 저장소 manifest 등록을 유지했다. 파일 삭제·공개 게시·권한 변경은 하지 않았다.
+- 실제 Figma는 main→UI 메시지를 immediate parent가 아닌 `https://www.figma.com` 편집기 창에서 전달했다. 기존 source guard가 이를 버리는 오류를 수정했다. 직접 parent 또는 정확한 Figma Origin과 manifest pluginId가 일치하는 메시지만 기존 payload 검증을 거쳐 받는다. 임시 진단 로그는 모두 제거했다.
+- 사용자의 개인 검증 파일 `703ncJiK3QQZKNTwHf7qoS`에서 검증용 기본 Frame1개를 만들고 직접 선택했다. 실제 UI에 `iPhone 13 & 14 - 1`, 390×844가 표시됐고 localhost API의 프로젝트 목록도 조회했다. 제공된 회사 읽기 전용 파일의 내용은 수정하지 않았다.
+- 업로드 시작 시 실제 opaque-origin UI의 `crypto.randomUUID is not a function`을 재현했다. crypto.getRandomValues를 사용하는 UUIDv4 fallback을 넣고 bridge 요청 키·최종 묶음 키에 공통 적용했다. 수정 전 실패는 POST 이전에 발생했다.
+- 수정 후 재실행 과정에서 네이티브 제어의 elementHasNoFrame/noWindowsAvailable 및 조작·관찰 불일치가 반복됐다. 세션 재연결·정상 재시작까지 시도했으나 실제 파일 추출→등록을 다시 검증하지 못했다. 이 실제 Figma 슬롯의 파일/묶음 POST는0건이며 성공으로 보고하지 않는다.
+- 약15분 슬롯을 다음 작업에 반환하기 위해 서버3102/5175/8766을 종료하고 자기 프로젝트2개·저장소·advisory lock 정리 로그 및 포트 해제를 확인했다. 런타임 DB는 변경하지 않았다.
+- `pnpm check` 전체 통과. 기존 lint 경고2건 및 공통 설정 화면 통합 후 웹 bundle 크기 경고가 있다. main·세션·실제 relay/다른Origin·다른plugin 차단·randomUUID 없는 환경을 검증하는 Node 테스트9개 통과. 연결 표시 조건의 지정 독립 UX 재검수는 문제 없음(코드 기반). UUID fallback은 문구·의미를 바꾸지 않는다.
+
+## 남은 검증과 재개
+
+- 현재 브랜치 `codex/stage-2a-frame-upload`, 공통 기준 `c74b3ca`. 소유 변경은 manifest ID/localhost, bridge relay/UUID 호환과 회귀 테스트, 이 기록이다. API·프런트는 앞선 커밋으로 원격 반영돼 있다.
+- 실제 Figma가 정상적인 편집 창으로 표시되고 개발 플러그인 입력을 제어할 수 있는 상태에서, 조율 담당에게 새 DB 슬롯을 배정받아 직접 선택→PNG/JSON 추출→파일 등록→묶음201→웹 재조회를 확인해야 한다. 읽기 전용 회사 파일의 Dev Mode 실행과 약20개 실제 Figma 프레임도 미확인이다.
+- 2B의 실제 sheetGateway와 편집기 라우트 통합 후 기존 시트/단위·통합 생성→편집기 이동을 확인해야 한다. JSON의 실제 다운로드 저장도 재확인한다.
+- PR·main 병합·배포는 수행하지 않았다. 공통 소유 문서·라우트는 조율 담당이 갱신한다. 이 작업에서 지침 파일은 수정하지 않았다.
