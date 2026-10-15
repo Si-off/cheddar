@@ -35,7 +35,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 ## 구성요소 경계와 공유
 
 - 플러그인은 선택한 Figma 프레임의 데이터·이미지 업로드에 집중한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
-- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`의 ui-ready/plugin-ready 메시지로 연결을 확인하고, 실제 프레임 업로드 계약은 후속 설계한다.
+- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`에서 연결·선택·업로드 준비·프레임 추출·완료 전 검증 메시지를 구분한다. 실제 Figma 중첩 iframe relay는 정확한 Figma Origin과 manifest pluginId를 검사하고, opaque-origin UI 요청 UUID는 crypto.getRandomValues로 보완한다.
 - 기본 UI와 디자인 토큰은 공유한다.
 - 화면·업무 기능·상태 저장소는 앱별로 관리한다.
 - 웹은 TanStack Table 기반 표·상세 편집과 별도 초안·저장 모델을 구현한다. 사용자 열은 텍스트이며 표시 문자열 부분 검색을 사용한다. TanStack Query는 서버 데이터, Zustand/화면 상태는 미저장 입력·선택·검색을 담당한다.
@@ -97,7 +97,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 현재 명세는 `apps/api/openapi.json`이며 두 앱의 생성 타입·SDK·Query 코드를 관리한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 명세 변경 후 재생성하며 생성 코드를 직접 편집하지 않는다.
 
-Figma ID는 아직 발급되지 않았다. `manifest.json`에 임의 ID를 넣지 않았으며 실제 Figma 실행은 ID 발급·반영 후 검증한다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시키며 실제 Figma의 origin·로컬 접근은 2A에서 확인한다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
+발급된 Figma ID `1692417282897261384`를 `manifest.json`에 반영했다. 실제 import·실행·프로젝트 조회·선택 프레임 이름/크기는 확인했으며 호환 수정 후 실제 업로드는 재검증이 남아 있다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시키며 실제 Figma의 origin·로컬 접근은 2A에서 확인한다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
 
 ## 문서와 검수 에이전트의 역할
 
@@ -235,13 +235,13 @@ cheddar/
 | 항목 | 상태 |
 | --- | --- |
 | 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
-| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 연결 메시지만 구성, 업무 계약은 미정 |
+| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 직접 선택 Frame의 PNG·JSON 추출과 묶음 업로드 구현. 실제 Figma 업로드 최종 검증 대기 |
 | 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
 | 실제 API 명세 | 1단계 프로젝트·파일 제공. 후속 업무 경로는 단계별 구현 |
 | TanStack Query와 Zustand의 세부 책임 분담 | 서버 응답과 미저장 화면 상태 분리. 화면별 구현은 후속 |
 | 표 편집 | TanStack Table·텍스트 사용자 열·표시 문자열 부분 검색 확정. 실제 인터랙션 후속 |
 | XLSX 생성 위치와 라이브러리 | API에서 ExcelJS 4.4.0으로 저장된 전체 시트 생성. 사용자 문자열을 수식으로 변환하지 않으며 표현 불가능한 데이터는 잘라내지 않고 오류로 알림 |
-| Figma 발급 플러그인 ID·실제 Figma 실행 검증 | 미정 |
+| Figma 발급 플러그인 ID·실제 Figma 실행 검증 | ID 반영·import·실행 확인. 실제 업로드와 회사 읽기 전용 Dev Mode 검증 대기 |
 | 테스트 프레임워크·CI | API node:test 구성. UI 테스트 도구·CI는 미정 |
 | 백엔드 기술 스택·API·DB·AI 실행 구조 | NestJS·Drizzle·PostgreSQL 기반 구성. AI 상세는 3B |
 | 초기 로컬 구성요소 연결·공유 링크 접근 방식 | API loopback·명시 Origin. Figma 연결 검증·공유 후속 |

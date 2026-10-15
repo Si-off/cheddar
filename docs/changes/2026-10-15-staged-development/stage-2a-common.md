@@ -52,3 +52,11 @@ Node24.22.0/pnpm12.11.2. pnpm check 통과(기존 디자인 HTML 크기 경고1�
 2A가 실제 Figma import에서 devAllowedDomains의 숫자 IP 주소를 invalid URL로 거부하는 현상을 보고했다. 공식 manifest 문서의 개발 서버 패턴을 확인하고 공통 플러그인 env 기본값과 .env.example을 http://localhost:3102로 변경했다. README에 빌드 시 환경변수·manifest 허용 주소 일치·재빌드 조건을 기록했다. 웹 기본값과 API loopback listen은 유지한다. manifest 수정과 실제 Figma import/실행은2A가 소유하며 후속 커밋으로 수신한다.
 
 pnpm check가 통과했고 생성된 플러그인 UI HTML에 localhost:3102 주소가 포함됨을 확인했다. 런타임 DB·서버는 변경하지 않았다. 실제 Figma 네트워크 연결과 IPv4/IPv6 localhost 동작은2A 검증 대기이며 빌드 성공을 네트워크 성공으로 간주하지 않는다. UI 문구나 표시 조건 변경은 없다.
+
+## Figma 호환 수정 통합
+
+2A의1625a56을 검토·병합했다. 발급된 ID1692417282897261384와 localhost 개발 허용 주소를 manifest에 반영하고, 실제 Figma relay의 Origin/pluginId 검증과 crypto.getRandomValues 기반 UUIDv4 대체 생성을 수용했다. 조율에서 main/업로드세션/bridge9개 테스트와 pnpm check를 실행해 통과했다. 기존 린트·번들 크기 경고는 유지했다.
+
+2A는 실제 Figma import·실행·프로젝트GET·선택Frame이름/390x844표시를 확인했다. 첫 업로드는 randomUUID 오류로 POST 전에 중단돼 실제 파일·묶음 생성은0건이며, 수정 후 네이티브UI 제어 불안정으로 재검증하지 못했다. 실제Figma업로드·회사읽기전용DevMode·JSON OS저장 확인은 미완료로 유지한다. 웹/하네스 실제API 업로드 성공과 실제Figma업로드를 구분한다. 2B sheetGateway는 조율d28504f에서 연결됐고2B 실제API 브라우저 검증을 기다린다. 2A는 테스트서버·자기UUID·임시저장소·잠금을 정리하고 슬롯을 반환했으며, 추가Figma검증은환경복구후재배정한다.
+
+README/구조문서의 ID미발급·실행미검증 설명을 현재 상태로 수정했다. 독립UX 연결표시조건 재검수는2A의 완료결과를 확인했고 조율에서 추가문구/표시조건을 변경하지 않았다. 실행DB migration·PR/main병합·배포는 없다.
