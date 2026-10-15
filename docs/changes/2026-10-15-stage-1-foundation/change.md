@@ -1,7 +1,7 @@
 # 작업: 1단계 백엔드 기반·공통 계약 구현
 
 - 작업 ID: 2026-10-15-stage-1-foundation
-- 상태: 구현 중
+- 상태: 구현·검증 완료, 원격 푸시 승인 대기
 - 요청과 결정의 근거: 사용자가 2026-10-15 이 채팅에서 “당신이 모든 설계를 진행하고 제가 확인 후 피드백 또는 승인해서 작업을 실시”하도록 요청했다.
 - 실행 범위: 2026-10-15 사용자가 설계안을 승인하고 1단계 백엔드 개발을 명시적으로 지시했다. 설계의 경로·전용 DB·저장·검증·브랜치 절차를 수행하며, 검증 후 자신의 변경을 커밋·일반 푸시한다. PR·병합·배포·채팅 간 메시지 전송은 승인 범위가 아니다. 디자인 시안 이미지는 구현에 참고하지 않는다.
 - 기준 브랜치·커밋: `codex/stage-1-foundation-implementation` · `e1e059bc62d317b5d904ae0935754faef45fe8cb` (원격 main을 fetch해 확인). 준비 브랜치의 디자인 커밋은 포함하지 않았다.
@@ -74,4 +74,23 @@
 - 후속 2A/2B/2C의 경로 소유권은 승인 설계 9절을 따른다. API·DB schema·migration·SDK·lockfile 공통 변경은 현재 기반 담당이 소유하며 병렬 기능 채팅은 직접 수정하지 않는다.
 - 20프레임·500케이스 규모, 실제 Figma 연결·업로드, 웹 편집·한글 입력·복붙·접근성, IA·XLSX·AI·플로우는 미구현/미검증이다.
 - LangGraph 상세·공유·로그인·클라우드 이전·배포는 이번에 결정하거나 실행하지 않았다.
-- 변경 커밋·원격 반영은 최종 인계에서 기록한다. PR·병합·배포·채팅 간 메시지 전송은 없음.
+- 구현 계약 커밋: `70ea20e652e3c6e027e5b86b4979f0aa94da1ccf`. PR·병합·배포·채팅 간 메시지 전송은 없음.
+
+## 후속 구현에 전달할 계약
+
+- 기준: `codex/stage-1-foundation-implementation`의 구현 커밋 `70ea20e652e3c6e027e5b86b4979f0aa94da1ccf`. 이후 문서 인계 커밋은 코드 계약을 변경하지 않는다.
+- 제공 API: 프로젝트 생성·목록·조회·수정, 프로젝트 소속 파일 등록·목록·메타데이터·다운로드, liveness/readiness. 수정은 `expectedRevision`, 목록은 `limit`/`cursor`, 오류는 `error.code`/`message`/`requestId`를 사용한다.
+- 명세: [openapi.json](../../../apps/api/openapi.json). 후속 업로드·시트·IA·양식 DTO는 components에만 포함되며 실제 API 경로는 아직 없다.
+- 계약 예시와 유효·무효 입력: [contracts.test.ts](../../../apps/api/test/contracts.test.ts). 실제 HTTP·두 SDK 사용 예시: [api.test.ts](../../../apps/api/test/api.test.ts).
+- DTO 위치: `apps/api/src/contracts/`. DB와 DTO를 직접 공유하지 않고 후속 저장 schema는 기반 담당과 조율한다. 소유권은 [설계 9절](design.md#9-브랜치-기준과-후속-소유권)을 따른다.
+- 생성 SDK: 웹 `apps/web/src/shared/api/generated/`, 플러그인 `apps/figma-plugin/src/ui/shared/api/generated/`. 직접 수정하지 않고 명세에서 함께 재생성한다.
+- 실행: 루트에서 `pnpm dev:api`. 현재 DB·Git 제외 환경 파일은 구성돼 있고 서버는 검증 후 종료했다. 새 worktree는 환경 파일을 따로 준비해야 한다. migration은 `pnpm db:migrate`로 명시 적용한다.
+- 검증: `pnpm check`, `pnpm test:api`(16개 통과), `pnpm --filter @cheddar/api openapi:check`. 실행 환경 Node 24.22.0, pnpm 12.11.2, PostgreSQL 17.11. 실제 별도 프로세스 재시작 후 저장 보존과 SHA 일치도 확인했다.
+- 통합 기준: 구현 시작점은 `e1e059b`이며 완료 시 저장된 `origin/main`은 다른 작업이 반영된 `437e1d4`다. 이번 브랜치에 그 디자인 변경을 병합하거나 참조하지 않았다. main 통합 시 현재 문서 변경을 비교해야 하며 이번에는 병합하지 않는다.
+
+## 원격 반영 상태
+
+- 대상 저장소: `https://github.com/Si-off/cheddar.git`
+- 대상 브랜치: `codex/stage-1-foundation-implementation`
+- 구현 커밋 후 위 작업 브랜치로 일반 푸시를 시도했으나 자동 승인 검토가 실행 전에 차단했다. 사유는 이번 소스·문서 payload와 GitHub 대상에 대한 사용자 명시적 승인 부족이다. 저장소 작업 지침의 일반 푸시 허용과 별개로 적용된 차단이며 우회하지 않았다.
+- 따라서 구현은 로컬 완료이며 원격 반영은 미완료다. 사용자가 이 저장소·브랜치에 대한 변경 전송을 승인하면 커밋 목록과 대상 확인 후 일반 푸시하고 원격 SHA를 검증한다. 비밀번호·환경 파일·빌드·의존성 산출물은 스테이징에 포함되지 않았음을 확인했다.

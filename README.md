@@ -62,7 +62,7 @@ pnpm dev:plugin
 
 플러그인 UI와 main을 각각 감시 빌드하여 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. UI는 CSS·폰트를 포함한 단일 HTML이다. 브라우저에서 UI만 확인하려면 `pnpm --filter @cheddar/figma-plugin dev:ui`를 사용한다 (`http://127.0.0.1:5174/`).
 
-Figma 플러그인 ID는 아직 발급되지 않아 manifest의 `id`를 생략했다. Figma에서 새 플러그인을 만들고 [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 발급된 ID를 manifest에 반영한 뒤 개발용으로 가져온다. 현재 실제 Figma 내 실행은 미검증이다. API 주소·허용 도메인은 백엔드 설계 후 정한다.
+Figma 플러그인 ID는 아직 발급되지 않아 manifest의 `id`를 생략했다. Figma에서 새 플러그인을 만들고 [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 발급된 ID를 manifest에 반영한 뒤 개발용으로 가져온다. 현재 실제 Figma 내 실행은 미검증이다. API 기본 주소는 `http://127.0.0.1:3101`이며 실제 Figma origin·네트워크 허용은 2A에서 검증한다.
 
 ## 검증과 API 코드 생성
 
@@ -84,7 +84,7 @@ OPENAPI_INPUT="$PWD/apps/api/openapi.json" pnpm gen:api:web
 OPENAPI_INPUT="$PWD/apps/api/openapi.json" pnpm gen:api:plugin
 ```
 
-검증용 명세와 생성 결과는 저장소 밖에서만 사용했다. 생성 코드는 직접 편집하지 않고 명세·설정 변경 후 다시 만든다.
+생성 코드는 위 지정된 경로에 커밋한다. 비교용·테스트용 사본은 OS 임시 경로에 두며 생성 코드를 직접 편집하지 않고 명세·설정 변경 후 다시 만든다.
 
 ## 디자인 토큰
 
