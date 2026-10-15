@@ -18,6 +18,10 @@ import type {
   ProjectTemplateDto,
 } from "../src/contracts/ia.dto";
 import type { ProjectDto, ProjectPageDto } from "../src/contracts/projects.dto";
+import type {
+  SheetPageDto,
+  SheetSnapshotDto,
+} from "../src/contracts/sheets.dto";
 import { DatabaseService } from "../src/database/database.service";
 import { MAX_FILE_BYTES } from "../src/files/file-validation";
 import { FilesRepository } from "../src/files/files.repository";
@@ -89,7 +93,7 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
         const exported = await (await request("/openapi.json")).json();
         assert.deepEqual(exported, document);
         assert.ok(
-          !Object.keys(document.paths).some((p) => p.includes("sheets")),
+          Object.keys(document.paths).some((p) => p.includes("sheets")),
         );
         assert.ok(
           Object.keys(document.paths).some((p) => p.includes("uploads")),
@@ -559,6 +563,77 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
             throwOnError: true,
           });
           assert.equal(deleted.response.status, 204);
+          const newSheet = await sdk.createSheet({
+            baseUrl: base,
+            path: { projectId: value.id },
+            body: { name: "SDK 시트", kind: "unit" },
+            throwOnError: true,
+          });
+          assert.equal(newSheet.response.status, 201);
+          const sheet = newSheet.data as SheetSnapshotDto;
+          matches("SheetSnapshotDto", sheet);
+          assert.equal(sheet.sourceTemplateRevision, 2);
+          const savedSheet = await sdk.updateSheetContent({
+            baseUrl: base,
+            path: { projectId: value.id, sheetId: sheet.id },
+            body: {
+              expectedRevision: 1,
+              columns: sheet.columns,
+              cases: [
+                {
+                  id: randomUUID(),
+                  caseCode: "",
+                  title: "=문자열",
+                  preconditions: "",
+                  steps: "",
+                  expectedResult: "",
+                  priority: null,
+                  relatedFrameIds: [],
+                  screenIds: [],
+                  customValues: {},
+                },
+              ],
+            },
+            throwOnError: true,
+          });
+          const saved = savedSheet.data as SheetSnapshotDto;
+          assert.equal(saved.contentRevision, 2);
+          assert.equal(saved.cases[0].caseCode, "TC-001");
+          const viewed = await sdk.updateSheetView({
+            baseUrl: base,
+            path: { projectId: value.id, sheetId: sheet.id },
+            body: { expectedRevision: 1, columns: [...saved.view].reverse() },
+            throwOnError: true,
+          });
+          const finalSheet = viewed.data as SheetSnapshotDto;
+          assert.equal(finalSheet.viewRevision, 2);
+          const readSheet = await sdk.getSheet({
+            baseUrl: base,
+            path: { projectId: value.id, sheetId: sheet.id },
+            throwOnError: true,
+          });
+          assert.deepEqual(readSheet.data, finalSheet);
+          const sheetList = await sdk.listSheets({
+            baseUrl: base,
+            path: { projectId: value.id },
+            throwOnError: true,
+          });
+          assert.equal((sheetList.data as SheetPageDto).items[0].id, sheet.id);
+          const xlsx = await sdk.exportSheetXlsx({
+            baseUrl: base,
+            path: { projectId: value.id, sheetId: sheet.id },
+            query: { contentRevision: 2, viewRevision: 2 },
+            parseAs: "blob",
+            throwOnError: true,
+          });
+          assert.equal(xlsx.response.status, 200);
+          assert.ok(xlsx.data instanceof Blob);
+          assert.equal(
+            Buffer.from(await xlsx.data.arrayBuffer())
+              .subarray(0, 2)
+              .toString(),
+            "PK",
+          );
           const listed = await sdk.listProjects({
             baseUrl: base,
             query: { limit: 1 },

@@ -47,3 +47,12 @@ Node 24.22.0/pnpm 12.11.2에서 실제 DB·HTTP·DTO 테스트 23개, pnpm check
 2C가 보고한 실제DB/HTTP35개 통과와 독립 API 문구검수 결과를 확인했다. 조율에서는 통합 후 pnpm check·OpenAPI 일치가 통과했고, 양SDK의 IA CRUD/양식 조회·저장 HTTP 검증을 공통 테스트에 추가했다. 이 기록 시점에는2A가 브라우저 테스트DB 슬롯을 사용 중이므로 추가 통합DB 검증은 반환 뒤 실행한다. 테스트 모듈도 appModule만으로 기능을 제공하도록 연결해 중복 기능 module import에 의존하지 않는다.
 
 현재 커밋은2B의 양식 API 의존성과2C 화면 구현에 사용할 수 있으며, 통합DB 검증 완료 여부는 후속 기록으로 구분한다. PR/main 병합·배포는 없다.
+
+
+## 2B API 연결과 2B·2C 통합 검증
+
+2B API 커밋1b050d8을 병합하고 SheetsModule/ExportsModule을 실제 appModule에 등록했다. 시트 생성·목록·조회·내용 저장·보기 저장·XLSX 내보내기 6개 operation을 양쪽 SDK에 생성했다. 시트 HTTP 테스트는 실제 appModule만 사용하도록 바꿔 등록 누락을 감지한다. 공통 SDK HTTP 테스트는 양쪽 클라이언트의 시트 생성, 빈 번호 자동 부여, 내용·보기 revision 저장, 목록·조회와 XLSX Blob 응답을 검증한다. 후속 계약이라는 이전 health 테스트 가정은 실제 시트 경로 존재 검사로 변경했다.
+
+2A가 자기 테스트 데이터·임시 서버·잠금 정리를 보고한 뒤 통합 테스트를 실행했다. Node24.22.0/pnpm12.11.2에서 pnpm check, OpenAPI 일치, 실제 PostgreSQL·HTTP·SDK·XLSX를 포함한 API 테스트50개가 모두 통과했다(실패·건너뜀0). 기존 시트에 기본 양식 변경이 전파되지 않는 교차 검증도 통과했다. 500개 케이스 검증은 저장321ms, payload323933bytes, 내보내기·읽기167ms였으며 해당 로컬 실행의 측정값이다. 테스트 lease는 종료됐으며 실행 DB는 변경하지 않았다.
+
+2B·2C API 통합 검증 대기는 해소됐다. 다음은 2B·2C 업무 화면 라우트 연결과 실제 브라우저 검증이며 DB 슬롯은 2B→2C→2A 실제 Figma 업로드 순서로 조율한다. PR/main 병합·배포는 없다.

@@ -6,13 +6,12 @@ import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
+import { appModule } from "../src/app.module";
 import { configureApp } from "../src/common/application";
-import { configModule } from "../src/config/env";
 import type {
   CaseContentDto,
   SheetSnapshotDto,
 } from "../src/contracts/sheets.dto";
-import { DatabaseModule } from "../src/database/database.module";
 import {
   files,
   iaItems,
@@ -21,9 +20,6 @@ import {
   uploadFrames,
   uploads,
 } from "../src/database/schema";
-import { ExportsModule } from "../src/exports/exports.module";
-import { ProjectsModule } from "../src/projects/projects.module";
-import { SheetsModule } from "../src/sheets/sheets.module";
 import { openTestDatabase } from "./database";
 
 function draft(extra: Partial<CaseContentDto> = {}): CaseContentDto {
@@ -46,13 +42,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
   let app: INestApplication | undefined;
   try {
     const module = await Test.createTestingModule({
-      imports: [
-        configModule(lease.config),
-        DatabaseModule,
-        ProjectsModule,
-        SheetsModule,
-        ExportsModule,
-      ],
+      imports: [appModule(lease.config, lease.folder)],
     }).compile();
     app = module.createNestApplication({ logger: false });
     configureApp(app, lease.config);

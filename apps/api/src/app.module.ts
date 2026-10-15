@@ -1,6 +1,7 @@
 import { type DynamicModule, Module } from "@nestjs/common";
 import { type ApiEnv, configModule } from "./config/env";
 import { DatabaseModule } from "./database/database.module";
+import { ExportsModule } from "./exports/exports.module";
 import { FilesModule } from "./files/files.module";
 import {
   HealthController,
@@ -8,6 +9,7 @@ import {
 } from "./health/health.controller";
 import { IaModule } from "./ia/ia.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { SheetsModule } from "./sheets/sheets.module";
 import { StorageModule } from "./storage/storage.module";
 import { TemplatesModule } from "./templates/templates.module";
 import { UploadsModule } from "./uploads/uploads.module";
@@ -29,6 +31,8 @@ export function appModule(
       UploadsModule,
       IaModule,
       TemplatesModule,
+      SheetsModule,
+      ExportsModule,
     ],
     controllers: [HealthController],
     providers: [{ provide: MIGRATIONS_FOLDER, useValue: migrationsFolder }],

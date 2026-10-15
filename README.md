@@ -164,12 +164,12 @@ pnpm test:api
 pnpm typecheck
 ```
 
-명세 export/check는 DB 연결·포트 listen·파일 저장 루트 생성 없이 실행한다. DTO와 실제 응답을 계약 테스트로 검증하고 두 생성 SDK의 프로젝트·multipart·다운로드 호출도 HTTP로 확인한다. 생성 코드는 직접 편집하지 않는다. 업로드·시트·IA DTO는 후속 계약이며 해당 기능 API가 이미 구현됐다는 뜻이 아니다.
+명세 export/check는 DB 연결·포트 listen·파일 저장 루트 생성 없이 실행한다. DTO와 실제 응답을 계약 테스트로 검증하고 두 생성 SDK의 프로젝트·multipart·다운로드 호출도 HTTP로 확인한다. 생성 코드는 직접 편집하지 않는다. 업로드·시트·IA·기본 양식은 실제 API와 양쪽 생성 SDK에 연결되어 있다.
 
 DB 백업과 `FILE_STORAGE_ROOT` 전체를 함께 옮기면 저장 키를 바꾸지 않고 새 루트로 연결할 수 있다. 실제 이전·클라우드 배포는 후속 검증 대상이다. 중단된 업로드는 시작 시 개수만 보고하며 자동 삭제하지 않는다. 프로젝트·파일 삭제와 보관 만료도 아직 제공하지 않는다.
 
 Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이 설정은 Figma 신원을 인증하지 않으며 같은 `null` origin을 보내는 다른 opaque origin에도 적용된다. 일반 웹 origin은 계속 `CORS_ORIGINS`에 정확히 나열한다. 실제 Figma 실행 검증은 2A에서 수행한다.
 
-업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시트는 현재 schema 계약이며 실제 실행 API는 후속 통합한다.
+업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시트 생성·목록·조회는 `.../sheets`, 내용·보기 저장은 `.../sheets/{sheetId}/content`·`.../view`, XLSX 내보내기는 `.../sheets/{sheetId}/export.xlsx`에서 제공한다. 내보내기는 서버에 저장된 전체 시트를 대상으로 하며 내용·보기 revision을 지정해 최신 저장본과 일치하는지 검사할 수 있다.
 
 두 앱의 공통 API client는 `VITE_API_BASE_URL`을 사용하고 기본값은 `http://127.0.0.1:3101`이다. 2A 실행에서는 `http://127.0.0.1:3102`로 지정한다. POST mutation 자동 재시도는 비활성화한다. Playwright는 `PLAYWRIGHT_BASE_URL`로 이미 실행된 웹에 연결하며 브라우저 캐시는 `PLAYWRIGHT_BROWSERS_PATH`로 OS 임시 경로에 지정한다.

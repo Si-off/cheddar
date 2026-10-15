@@ -195,6 +195,12 @@ export type UpdateTemplateDto = {
     view: Array<ColumnViewDto>;
 };
 
+export type SheetPageQueryDto = {
+    limit?: number;
+    cursor?: string;
+    uploadId?: string;
+};
+
 export type CreateSheetDto = {
     name: string;
     kind: 'unit' | 'integration';
@@ -217,46 +223,6 @@ export type CaseContentDto = {
     customValues: {
         [key: string]: string;
     };
-};
-
-export type SheetContentDto = {
-    expectedRevision: number;
-    /**
-     * All system fields once; custom columns have valueType text.
-     */
-    columns: Array<SheetColumnDto>;
-    cases: Array<CaseContentDto>;
-};
-
-export type SheetViewDto = {
-    expectedRevision: number;
-    /**
-     * Array order is display order. IDs must exactly match the sheet columns.
-     */
-    columns: Array<ColumnViewDto>;
-};
-
-export type SheetSummaryDto = {
-    id: string;
-    projectId: string;
-    name: string;
-    kind: 'unit' | 'integration';
-    uploadId: string | null;
-    contentRevision: number;
-    viewRevision: number;
-    createdAt: string;
-    updatedAt: string;
-};
-
-export type SheetPageDto = {
-    items: Array<SheetSummaryDto>;
-    nextCursor: string | null;
-};
-
-export type SheetPageQueryDto = {
-    limit?: number;
-    cursor?: string;
-    uploadId?: string;
 };
 
 export type FrameReferenceDto = {
@@ -295,6 +261,40 @@ export type SheetSnapshotDto = {
     cases: Array<CaseContentDto>;
     view: Array<ColumnViewDto>;
     references: SheetReferencesDto;
+};
+
+export type SheetSummaryDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    kind: 'unit' | 'integration';
+    uploadId: string | null;
+    contentRevision: number;
+    viewRevision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type SheetPageDto = {
+    items: Array<SheetSummaryDto>;
+    nextCursor: string | null;
+};
+
+export type SheetContentDto = {
+    expectedRevision: number;
+    /**
+     * All system fields once; custom columns have valueType text.
+     */
+    columns: Array<SheetColumnDto>;
+    cases: Array<CaseContentDto>;
+};
+
+export type SheetViewDto = {
+    expectedRevision: number;
+    /**
+     * Array order is display order. IDs must exactly match the sheet columns.
+     */
+    columns: Array<ColumnViewDto>;
 };
 
 export type SheetExportQueryDto = {
@@ -801,3 +801,176 @@ export type UpdateProjectTemplateResponses = {
 };
 
 export type UpdateProjectTemplateResponse = UpdateProjectTemplateResponses[keyof UpdateProjectTemplateResponses];
+
+export type ListSheetsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+        uploadId?: string;
+    };
+    url: '/api/v1/projects/{projectId}/sheets';
+};
+
+export type ListSheetsErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    413: ErrorResponseDto;
+    500: ErrorResponseDto;
+};
+
+export type ListSheetsError = ListSheetsErrors[keyof ListSheetsErrors];
+
+export type ListSheetsResponses = {
+    200: SheetPageDto;
+};
+
+export type ListSheetsResponse = ListSheetsResponses[keyof ListSheetsResponses];
+
+export type CreateSheetData = {
+    body: CreateSheetDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets';
+};
+
+export type CreateSheetErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    413: ErrorResponseDto;
+    500: ErrorResponseDto;
+};
+
+export type CreateSheetError = CreateSheetErrors[keyof CreateSheetErrors];
+
+export type CreateSheetResponses = {
+    201: SheetSnapshotDto;
+};
+
+export type CreateSheetResponse = CreateSheetResponses[keyof CreateSheetResponses];
+
+export type GetSheetData = {
+    body?: never;
+    path: {
+        projectId: string;
+        sheetId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}';
+};
+
+export type GetSheetErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    413: ErrorResponseDto;
+    500: ErrorResponseDto;
+};
+
+export type GetSheetError = GetSheetErrors[keyof GetSheetErrors];
+
+export type GetSheetResponses = {
+    200: SheetSnapshotDto;
+};
+
+export type GetSheetResponse = GetSheetResponses[keyof GetSheetResponses];
+
+export type UpdateSheetContentData = {
+    body: SheetContentDto;
+    path: {
+        projectId: string;
+        sheetId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/content';
+};
+
+export type UpdateSheetContentErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    413: ErrorResponseDto;
+    500: ErrorResponseDto;
+};
+
+export type UpdateSheetContentError = UpdateSheetContentErrors[keyof UpdateSheetContentErrors];
+
+export type UpdateSheetContentResponses = {
+    200: SheetSnapshotDto;
+};
+
+export type UpdateSheetContentResponse = UpdateSheetContentResponses[keyof UpdateSheetContentResponses];
+
+export type UpdateSheetViewData = {
+    body: SheetViewDto;
+    path: {
+        projectId: string;
+        sheetId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/view';
+};
+
+export type UpdateSheetViewErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    413: ErrorResponseDto;
+    500: ErrorResponseDto;
+};
+
+export type UpdateSheetViewError = UpdateSheetViewErrors[keyof UpdateSheetViewErrors];
+
+export type UpdateSheetViewResponses = {
+    200: SheetSnapshotDto;
+};
+
+export type UpdateSheetViewResponse = UpdateSheetViewResponses[keyof UpdateSheetViewResponses];
+
+export type ExportSheetXlsxData = {
+    body?: never;
+    path: {
+        projectId: string;
+        sheetId: string;
+    };
+    query?: {
+        contentRevision?: number;
+        viewRevision?: number;
+    };
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/export.xlsx';
+};
+
+export type ExportSheetXlsxErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    422: ErrorResponseDto;
+    500: ErrorResponseDto;
+};
+
+export type ExportSheetXlsxError = ExportSheetXlsxErrors[keyof ExportSheetXlsxErrors];
+
+export type ExportSheetXlsxResponses = {
+    200: Blob | File;
+};
+
+export type ExportSheetXlsxResponse = ExportSheetXlsxResponses[keyof ExportSheetXlsxResponses];

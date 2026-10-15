@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createIaItem, createProject, createUpload, deleteIaItem, downloadFile, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getUpload, listFiles, listIaItems, listProjects, listUploads, type Options, updateIaItem, updateProject, updateProjectTemplate, uploadFile } from '../sdk.gen';
-import type { CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
+import { createIaItem, createProject, createSheet, createUpload, deleteIaItem, downloadFile, exportSheetXlsx, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getSheet, getUpload, listFiles, listIaItems, listProjects, listSheets, listUploads, type Options, updateIaItem, updateProject, updateProjectTemplate, updateSheetContent, updateSheetView, uploadFile } from '../sdk.gen';
+import type { CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateSheetData, CreateSheetError, CreateSheetResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportSheetXlsxData, ExportSheetXlsxError, ExportSheetXlsxResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetSheetData, GetSheetError, GetSheetResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListSheetsData, ListSheetsError, ListSheetsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateSheetContentData, UpdateSheetContentError, UpdateSheetContentResponse, UpdateSheetViewData, UpdateSheetViewError, UpdateSheetViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -425,3 +425,117 @@ export const updateProjectTemplateMutation = (options?: Partial<Options<UpdatePr
     };
     return mutationOptions;
 };
+
+export const listSheetsQueryKey = (options: Options<ListSheetsData>) => createQueryKey('listSheets', options);
+
+export const listSheetsOptions = (options: Options<ListSheetsData>) => queryOptions<ListSheetsResponse, ListSheetsError, ListSheetsResponse, ReturnType<typeof listSheetsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSheets({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSheetsQueryKey(options)
+});
+
+export const listSheetsInfiniteQueryKey = (options: Options<ListSheetsData>): QueryKey<Options<ListSheetsData>> => createQueryKey('listSheets', options, true);
+
+export const listSheetsInfiniteOptions = (options: Options<ListSheetsData>) => {
+    const opts = infiniteQueryOptions<ListSheetsResponse, ListSheetsError, InfiniteData<ListSheetsResponse>, QueryKey<Options<ListSheetsData>>, string | Pick<QueryKey<Options<ListSheetsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListSheetsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listSheets({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listSheetsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const createSheetMutation = (options?: Partial<Options<CreateSheetData>>): UseMutationOptions<CreateSheetResponse, CreateSheetError, Options<CreateSheetData>> => {
+    const mutationOptions: UseMutationOptions<CreateSheetResponse, CreateSheetError, Options<CreateSheetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createSheet({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getSheetQueryKey = (options: Options<GetSheetData>) => createQueryKey('getSheet', options);
+
+export const getSheetOptions = (options: Options<GetSheetData>) => queryOptions<GetSheetResponse, GetSheetError, GetSheetResponse, ReturnType<typeof getSheetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSheet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSheetQueryKey(options)
+});
+
+export const updateSheetContentMutation = (options?: Partial<Options<UpdateSheetContentData>>): UseMutationOptions<UpdateSheetContentResponse, UpdateSheetContentError, Options<UpdateSheetContentData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSheetContentResponse, UpdateSheetContentError, Options<UpdateSheetContentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSheetContent({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const updateSheetViewMutation = (options?: Partial<Options<UpdateSheetViewData>>): UseMutationOptions<UpdateSheetViewResponse, UpdateSheetViewError, Options<UpdateSheetViewData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSheetViewResponse, UpdateSheetViewError, Options<UpdateSheetViewData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSheetView({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const exportSheetXlsxQueryKey = (options: Options<ExportSheetXlsxData>) => createQueryKey('exportSheetXlsx', options);
+
+export const exportSheetXlsxOptions = (options: Options<ExportSheetXlsxData>) => queryOptions<ExportSheetXlsxResponse, ExportSheetXlsxError, ExportSheetXlsxResponse, ReturnType<typeof exportSheetXlsxQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportSheetXlsx({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportSheetXlsxQueryKey(options)
+});
