@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   ArrayUnique,
   IsArray,
@@ -18,6 +18,8 @@ import {
   type ValidatorConstraintInterface,
 } from "class-validator";
 
+import { PageQueryDto } from "./common.dto";
+
 export const SYSTEM_FIELDS = [
   "caseCode",
   "title",
@@ -34,6 +36,7 @@ export class SheetColumnDto {
   @IsIn(["system", "custom"])
   kind!: "system" | "custom";
   @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @MaxLength(100)
@@ -178,6 +181,7 @@ export class SheetViewDto {
 }
 export class CreateSheetDto {
   @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @MaxLength(100)
@@ -189,4 +193,67 @@ export class CreateSheetDto {
   @ValidateIf((_o, v) => v !== undefined && v !== null)
   @IsUUID()
   uploadId?: string | null;
+}
+
+export class SheetPageQueryDto extends PageQueryDto {
+  @ApiPropertyOptional({ format: "uuid" })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsUUID()
+  uploadId?: string;
+}
+export class SheetExportQueryDto {
+  @ApiPropertyOptional({ type: "integer", minimum: 1 })
+  @ValidateIf((_o, v) => v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  contentRevision?: number;
+  @ApiPropertyOptional({ type: "integer", minimum: 1 })
+  @ValidateIf((_o, v) => v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  viewRevision?: number;
+}
+export class SheetSummaryDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty({ format: "uuid" }) projectId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ enum: ["unit", "integration"] }) kind!: "unit" | "integration";
+  @ApiProperty({ type: String, format: "uuid", nullable: true }) uploadId!:
+    | string
+    | null;
+  @ApiProperty({ type: "integer", minimum: 1 }) contentRevision!: number;
+  @ApiProperty({ type: "integer", minimum: 1 }) viewRevision!: number;
+  @ApiProperty({ format: "date-time" }) createdAt!: string;
+  @ApiProperty({ format: "date-time" }) updatedAt!: string;
+}
+export class SheetPageDto {
+  @ApiProperty({ type: [SheetSummaryDto] }) items!: SheetSummaryDto[];
+  @ApiProperty({ type: String, nullable: true }) nextCursor!: string | null;
+}
+export class FrameReferenceDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty({ format: "uuid" }) uploadId!: string;
+  @ApiProperty() figmaFileKey!: string;
+  @ApiProperty() figmaNodeId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ format: "uuid" }) imageFileId!: string;
+  @ApiProperty({ format: "uuid" }) dataFileId!: string;
+}
+export class IaReferenceDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty() screenId!: string;
+  @ApiProperty() name!: string;
+}
+export class SheetReferencesDto {
+  @ApiProperty({ type: [FrameReferenceDto] }) frames!: FrameReferenceDto[];
+  @ApiProperty({ type: [IaReferenceDto] }) iaItems!: IaReferenceDto[];
+}
+export class SheetSnapshotDto extends SheetSummaryDto {
+  @ApiProperty({ type: "integer", minimum: 1 }) sourceTemplateRevision!: number;
+  @ApiProperty({ type: [SheetColumnDto] }) columns!: SheetColumnDto[];
+  @ApiProperty({ type: [CaseContentDto] }) cases!: CaseContentDto[];
+  @ApiProperty({ type: [ColumnViewDto] }) view!: ColumnViewDto[];
+  @ApiProperty({ type: SheetReferencesDto }) references!: SheetReferencesDto;
 }

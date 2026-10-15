@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
   ArrayUnique,
@@ -29,6 +29,7 @@ export class CreateIaItemDto {
   @MaxLength(100)
   screenId!: string;
   @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @MaxLength(100)
@@ -47,7 +48,9 @@ export class CreateIaItemDto {
   @Min(0)
   position!: number;
 }
-export class UpdateIaItemDto extends CreateIaItemDto {
+export class UpdateIaItemDto extends PartialType(CreateIaItemDto, {
+  skipNullProperties: false,
+}) {
   @ApiProperty({ type: "integer", minimum: 1 })
   @IsInt()
   @Min(1)
@@ -88,4 +91,37 @@ export class UpdateTemplateDto {
   @ValidateNested({ each: true })
   @Validate(TemplateRules)
   view!: ColumnViewDto[];
+}
+
+export class DeleteIaQueryDto {
+  @ApiProperty({ type: "integer", minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedRevision!: number;
+}
+export class IaItemDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty({ format: "uuid" }) projectId!: string;
+  @ApiProperty() screenId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: String, nullable: true }) description!: string | null;
+  @ApiProperty({ type: String, format: "uuid", nullable: true }) parentId!:
+    | string
+    | null;
+  @ApiProperty({ type: "integer", minimum: 0 }) position!: number;
+  @ApiProperty({ type: "integer", minimum: 1 }) revision!: number;
+  @ApiProperty({ format: "date-time" }) createdAt!: string;
+  @ApiProperty({ format: "date-time" }) updatedAt!: string;
+}
+export class IaPageDto {
+  @ApiProperty({ type: [IaItemDto] }) items!: IaItemDto[];
+}
+export class ProjectTemplateDto {
+  @ApiProperty({ format: "uuid" }) projectId!: string;
+  @ApiProperty({ type: [SheetColumnDto] }) columns!: SheetColumnDto[];
+  @ApiProperty({ type: [ColumnViewDto] }) view!: ColumnViewDto[];
+  @ApiProperty({ type: "integer", minimum: 1 }) revision!: number;
+  @ApiProperty({ format: "date-time" }) createdAt!: string;
+  @ApiProperty({ format: "date-time" }) updatedAt!: string;
 }

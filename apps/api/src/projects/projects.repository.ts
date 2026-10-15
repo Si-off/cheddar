@@ -7,7 +7,9 @@ import type {
   UpdateProjectDto,
 } from "../contracts/projects.dto";
 import { DatabaseService } from "../database/database.service";
-import { projects } from "../database/schema";
+import { projects, projectTemplates } from "../database/schema";
+
+import { createDefaultTemplate } from "./default-template";
 
 @Injectable()
 export class ProjectsRepository {
@@ -15,11 +17,16 @@ export class ProjectsRepository {
     @Inject(DatabaseService) private readonly database: DatabaseService,
   ) {}
   async create(input: CreateProjectDto) {
-    const [row] = await this.database.db
-      .insert(projects)
-      .values({ name: input.name, description: input.description ?? null })
-      .returning();
-    return row;
+    return this.database.db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(projects)
+        .values({ name: input.name, description: input.description ?? null })
+        .returning();
+      await tx
+        .insert(projectTemplates)
+        .values({ projectId: row.id, ...createDefaultTemplate() });
+      return row;
+    });
   }
   async get(id: string) {
     const [row] = await this.database.db

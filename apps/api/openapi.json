@@ -1074,6 +1074,11 @@
       "CreateUploadDto": {
         "type": "object",
         "properties": {
+          "clientRequestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable ID for retries of the same upload bundle."
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -1089,8 +1094,151 @@
           }
         },
         "required": [
+          "clientRequestId",
           "name",
           "frames"
+        ],
+        "additionalProperties": false
+      },
+      "UploadFrameDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "figmaFileKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "figmaNodeId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "imageFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataFileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "figmaFileKey",
+          "figmaNodeId",
+          "name",
+          "width",
+          "height",
+          "imageFileId",
+          "dataFileId"
+        ],
+        "additionalProperties": false
+      },
+      "UploadDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "frames": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadFrameDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "createdAt",
+          "frames"
+        ],
+        "additionalProperties": false
+      },
+      "UploadSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "frameCount": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "createdAt",
+          "frameCount"
+        ],
+        "additionalProperties": false
+      },
+      "UploadPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadSummaryDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ],
         "additionalProperties": false
       },
@@ -1339,6 +1487,412 @@
         ],
         "additionalProperties": false
       },
+      "DeleteIaQueryDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ],
+        "additionalProperties": false
+      },
+      "IaItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "screenId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "screenId",
+          "name",
+          "description",
+          "parentId",
+          "position",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "IaPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IaItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectTemplateDto": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetColumnDto"
+            }
+          },
+          "view": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnViewDto"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "projectId",
+          "columns",
+          "view",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "SheetSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration"
+            ]
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "contentRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "viewRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "kind",
+          "uploadId",
+          "contentRevision",
+          "viewRevision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "SheetPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetSummaryDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "SheetPageQueryDto": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FrameReferenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "figmaFileKey": {
+            "type": "string"
+          },
+          "figmaNodeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "imageFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataFileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "uploadId",
+          "figmaFileKey",
+          "figmaNodeId",
+          "name",
+          "imageFileId",
+          "dataFileId"
+        ],
+        "additionalProperties": false
+      },
+      "IaReferenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "screenId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "screenId",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "SheetReferencesDto": {
+        "type": "object",
+        "properties": {
+          "frames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FrameReferenceDto"
+            }
+          },
+          "iaItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IaReferenceDto"
+            }
+          }
+        },
+        "required": [
+          "frames",
+          "iaItems"
+        ],
+        "additionalProperties": false
+      },
+      "SheetSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration"
+            ]
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "contentRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "viewRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceTemplateRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetColumnDto"
+            }
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseContentDto"
+            }
+          },
+          "view": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnViewDto"
+            }
+          },
+          "references": {
+            "$ref": "#/components/schemas/SheetReferencesDto"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "kind",
+          "uploadId",
+          "contentRevision",
+          "viewRevision",
+          "createdAt",
+          "updatedAt",
+          "sourceTemplateRevision",
+          "columns",
+          "cases",
+          "view",
+          "references"
+        ],
+        "additionalProperties": false
+      },
+      "SheetExportQueryDto": {
+        "type": "object",
+        "properties": {
+          "contentRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "viewRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateIaItemDto": {
         "type": "object",
         "properties": {
@@ -1373,9 +1927,6 @@
           }
         },
         "required": [
-          "screenId",
-          "name",
-          "position",
           "expectedRevision"
         ],
         "additionalProperties": false
