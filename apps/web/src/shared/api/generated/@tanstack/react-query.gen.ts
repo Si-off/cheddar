@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createProject, createUpload, downloadFile, getFile, getLiveness, getProject, getReadiness, getUpload, listFiles, listProjects, listUploads, type Options, updateProject, uploadFile } from '../sdk.gen';
-import type { CreateProjectData, CreateProjectError, CreateProjectResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
+import { createIaItem, createProject, createUpload, deleteIaItem, downloadFile, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getUpload, listFiles, listIaItems, listProjects, listUploads, type Options, updateIaItem, updateProject, updateProjectTemplate, uploadFile } from '../sdk.gen';
+import type { CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -339,3 +339,89 @@ export const getUploadOptions = (options: Options<GetUploadData>) => queryOption
     },
     queryKey: getUploadQueryKey(options)
 });
+
+export const listIaItemsQueryKey = (options: Options<ListIaItemsData>) => createQueryKey('listIaItems', options);
+
+export const listIaItemsOptions = (options: Options<ListIaItemsData>) => queryOptions<ListIaItemsResponse, ListIaItemsError, ListIaItemsResponse, ReturnType<typeof listIaItemsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listIaItems({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listIaItemsQueryKey(options)
+});
+
+export const createIaItemMutation = (options?: Partial<Options<CreateIaItemData>>): UseMutationOptions<CreateIaItemResponse, CreateIaItemError, Options<CreateIaItemData>> => {
+    const mutationOptions: UseMutationOptions<CreateIaItemResponse, CreateIaItemError, Options<CreateIaItemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createIaItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const deleteIaItemMutation = (options?: Partial<Options<DeleteIaItemData>>): UseMutationOptions<DeleteIaItemResponse, DeleteIaItemError, Options<DeleteIaItemData>> => {
+    const mutationOptions: UseMutationOptions<DeleteIaItemResponse, DeleteIaItemError, Options<DeleteIaItemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteIaItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const updateIaItemMutation = (options?: Partial<Options<UpdateIaItemData>>): UseMutationOptions<UpdateIaItemResponse, UpdateIaItemError, Options<UpdateIaItemData>> => {
+    const mutationOptions: UseMutationOptions<UpdateIaItemResponse, UpdateIaItemError, Options<UpdateIaItemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateIaItem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getProjectTemplateQueryKey = (options: Options<GetProjectTemplateData>) => createQueryKey('getProjectTemplate', options);
+
+export const getProjectTemplateOptions = (options: Options<GetProjectTemplateData>) => queryOptions<GetProjectTemplateResponse, GetProjectTemplateError, GetProjectTemplateResponse, ReturnType<typeof getProjectTemplateQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getProjectTemplate({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getProjectTemplateQueryKey(options)
+});
+
+export const updateProjectTemplateMutation = (options?: Partial<Options<UpdateProjectTemplateData>>): UseMutationOptions<UpdateProjectTemplateResponse, UpdateProjectTemplateError, Options<UpdateProjectTemplateData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectTemplateResponse, UpdateProjectTemplateError, Options<UpdateProjectTemplateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectTemplate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

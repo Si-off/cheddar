@@ -13,7 +13,6 @@ import {
   testCaseIaLinks,
   testCases,
 } from "../src/database/schema";
-import { IaModule } from "../src/ia/ia.module";
 import { ProjectsRepository } from "../src/projects/projects.repository";
 import { openTestDatabase } from "./database";
 
@@ -28,7 +27,7 @@ async function errorValue(response: Response) {
 test("IA HTTP preserves identity, hierarchy and references under concurrent changes", async (t) => {
   const lease = await openTestDatabase();
   const module = await Test.createTestingModule({
-    imports: [appModule(lease.config, lease.folder), IaModule],
+    imports: [appModule(lease.config, lease.folder)],
   }).compile();
   const app = module.createNestApplication({ logger: false });
   try {

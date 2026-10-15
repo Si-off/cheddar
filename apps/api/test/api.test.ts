@@ -12,6 +12,11 @@ import { configureApp } from "../src/common/application";
 import { createDocument } from "../src/common/openapi";
 import { readEnv } from "../src/config/env";
 import type { FileDto, FilePageDto } from "../src/contracts/files.dto";
+import type {
+  IaItemDto,
+  IaPageDto,
+  ProjectTemplateDto,
+} from "../src/contracts/ia.dto";
 import type { ProjectDto, ProjectPageDto } from "../src/contracts/projects.dto";
 import { DatabaseService } from "../src/database/database.service";
 import { MAX_FILE_BYTES } from "../src/files/file-validation";
@@ -503,6 +508,57 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
           const value = result.data as ProjectDto;
           created.push(value.id);
           matches("ProjectDto", value);
+          const template = await sdk.getProjectTemplate({
+            baseUrl: base,
+            path: { projectId: value.id },
+            throwOnError: true,
+          });
+          const initialTemplate = template.data as ProjectTemplateDto;
+          matches("ProjectTemplateDto", initialTemplate);
+          const updatedTemplate = await sdk.updateProjectTemplate({
+            baseUrl: base,
+            path: { projectId: value.id },
+            body: {
+              expectedRevision: 1,
+              columns: initialTemplate.columns.map((column, index) =>
+                index === 0 ? { ...column, name: "검증 번호" } : column,
+              ),
+              view: initialTemplate.view,
+            },
+            throwOnError: true,
+          });
+          assert.equal(
+            (updatedTemplate.data as ProjectTemplateDto).revision,
+            2,
+          );
+          const ia = await sdk.createIaItem({
+            baseUrl: base,
+            path: { projectId: value.id },
+            body: { screenId: "SDK-01", name: "SDK 화면", position: 0 },
+            throwOnError: true,
+          });
+          const iaItem = ia.data as IaItemDto;
+          matches("IaItemDto", iaItem);
+          const changed = await sdk.updateIaItem({
+            baseUrl: base,
+            path: { projectId: value.id, itemId: iaItem.id },
+            body: { expectedRevision: 1, name: "수정 화면" },
+            throwOnError: true,
+          });
+          assert.equal((changed.data as IaItemDto).revision, 2);
+          const iaList = await sdk.listIaItems({
+            baseUrl: base,
+            path: { projectId: value.id },
+            throwOnError: true,
+          });
+          assert.equal((iaList.data as IaPageDto).items[0].name, "수정 화면");
+          const deleted = await sdk.deleteIaItem({
+            baseUrl: base,
+            path: { projectId: value.id, itemId: iaItem.id },
+            query: { expectedRevision: 2 },
+            throwOnError: true,
+          });
+          assert.equal(deleted.response.status, 204);
           const listed = await sdk.listProjects({
             baseUrl: base,
             query: { limit: 1 },

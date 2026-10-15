@@ -9,14 +9,13 @@ import { configureApp } from "../src/common/application";
 import type { ProjectTemplateDto } from "../src/contracts/ia.dto";
 import { projects, projectTemplates } from "../src/database/schema";
 import { ProjectsRepository } from "../src/projects/projects.repository";
-import { TemplatesModule } from "../src/templates/templates.module";
 import { TemplatesRepository } from "../src/templates/templates.repository";
 import { openTestDatabase } from "./database";
 
 test("project template HTTP saves a complete version while preserving column identity", async (t) => {
   const lease = await openTestDatabase();
   const module = await Test.createTestingModule({
-    imports: [appModule(lease.config, lease.folder), TemplatesModule],
+    imports: [appModule(lease.config, lease.folder)],
   }).compile();
   const app = module.createNestApplication({ logger: false });
   try {

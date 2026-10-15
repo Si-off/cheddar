@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
+import type { CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -72,3 +72,36 @@ export const createUpload = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 export const getUpload = <ThrowOnError extends boolean = false>(options: Options<GetUploadData, ThrowOnError>): RequestResult<GetUploadResponses, GetUploadErrors, ThrowOnError> => (options.client ?? client).get<GetUploadResponses, GetUploadErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/uploads/{uploadId}', ...options });
+
+export const listIaItems = <ThrowOnError extends boolean = false>(options: Options<ListIaItemsData, ThrowOnError>): RequestResult<ListIaItemsResponses, ListIaItemsErrors, ThrowOnError> => (options.client ?? client).get<ListIaItemsResponses, ListIaItemsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/ia', ...options });
+
+export const createIaItem = <ThrowOnError extends boolean = false>(options: Options<CreateIaItemData, ThrowOnError>): RequestResult<CreateIaItemResponses, CreateIaItemErrors, ThrowOnError> => (options.client ?? client).post<CreateIaItemResponses, CreateIaItemErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/ia',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const deleteIaItem = <ThrowOnError extends boolean = false>(options: Options<DeleteIaItemData, ThrowOnError>): RequestResult<DeleteIaItemResponses, DeleteIaItemErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIaItemResponses, DeleteIaItemErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/ia/{itemId}', ...options });
+
+export const updateIaItem = <ThrowOnError extends boolean = false>(options: Options<UpdateIaItemData, ThrowOnError>): RequestResult<UpdateIaItemResponses, UpdateIaItemErrors, ThrowOnError> => (options.client ?? client).patch<UpdateIaItemResponses, UpdateIaItemErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/ia/{itemId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getProjectTemplate = <ThrowOnError extends boolean = false>(options: Options<GetProjectTemplateData, ThrowOnError>): RequestResult<GetProjectTemplateResponses, GetProjectTemplateErrors, ThrowOnError> => (options.client ?? client).get<GetProjectTemplateResponses, GetProjectTemplateErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/template', ...options });
+
+export const updateProjectTemplate = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectTemplateData, ThrowOnError>): RequestResult<UpdateProjectTemplateResponses, UpdateProjectTemplateErrors, ThrowOnError> => (options.client ?? client).put<UpdateProjectTemplateResponses, UpdateProjectTemplateErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/template',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

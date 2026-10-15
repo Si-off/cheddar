@@ -28,7 +28,7 @@ export function createDocument(app: INestApplication) {
     .setTitle("Cheddar API")
     .setVersion("1.0.0")
     .setDescription(
-      "Local project, file and upload API. Sheet and IA schemas are contracts for subsequent stages, not implemented routes.",
+      "Local project, file, upload, IA and template API. Sheet schemas are contracts for the subsequent stage, not implemented routes.",
     )
     .build();
   const document = SwaggerModule.createDocument(app, config, {
