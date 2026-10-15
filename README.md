@@ -88,4 +88,4 @@ OPENAPI_INPUT=<실제-명세-URL-또는-절대경로> pnpm gen:api:plugin
 
 ## 디자인 토큰
 
-primary는 `#515299`, 폰트는 자체 호스팅 Noto Sans와 한글용 Noto Sans KR이다. `packages/design-tokens/src/theme.css`가 폰트·컬러·radius·타이포그래피·간격의 공통 정의다. 앱과 공통 UI는 의미별 토큰을 반드시 사용한다. 상세 규칙은 [AGENTS.md](AGENTS.md)를 따른다.
+UI 디자인 기준과 토큰 사용 규칙은 [공통 디자인 기준](docs/architecture.md#공통-디자인-기준)을 따른다.

@@ -43,10 +43,14 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 ## 공통 디자인 기준
 
-- primary 컬러: `#515299`. hover·subtle·배경·텍스트·경계선 컬러는 공통 의미별 토큰으로 정의한다.
-- 폰트: Noto Sans와 한글용 Noto Sans KR. Fontsource 패키지로 자체 호스팅한다.
-- 폰트·컬러·radius·타이포그래피·간격의 정의 위치는 `packages/design-tokens/src/theme.css`다. 앱과 공통 UI는 이 토큰을 사용한다.
-- UI에서 원시 색상이나 임의 폰트·radius를 직접 쓰거나 앱별로 같은 의미의 값을 재정의하지 않는다.
+웹·Figma 플러그인 UI·공통 UI에 동일하게 적용한다.
+
+- UI의 폰트·컬러·radius와 공통 타이포그래피·간격은 `packages/design-tokens/src/theme.css`의 토큰을 반드시 사용한다.
+- primary 컬러는 `#515299`다. hover·subtle·배경·텍스트·경계선 컬러는 공통 의미별 토큰으로 정의한다.
+- 기본 폰트는 Noto Sans다. 한글은 Noto Sans KR로 보완하며, Fontsource 패키지로 폰트 파일을 자체 호스팅한다.
+- 앱과 공통 UI에 원시 색상값, 임의의 폰트·radius 값, 토큰을 우회하는 Tailwind arbitrary 값을 직접 넣지 않는다. 의미가 맞는 기존 토큰을 사용하고 부족하면 공통 토큰에 정의한다.
+- 앱은 공통 토큰을 로드한다. 앱별 스타일이나 컴포넌트에서 같은 의미의 디자인 값을 별도로 재정의하지 않는다.
+- 디자인 기준 자체를 변경하는 경우에는 사용자 결정을 먼저 반영한다. 기술적 기본값을 새로운 디자인 결정으로 임의 확대하지 않는다.
 
 ## 소스 경로의 역할
 
