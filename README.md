@@ -98,4 +98,4 @@ UI 디자인 기준과 토큰 사용 규칙은 [공통 디자인 기준](docs/ar
 node packages/design-tokens/build-preview.mjs
 ```
 
-HTML 안의 CSS 다운로드는 일반 CSS 변수와 모션 감소 설정을 내보낸다. 다운로드하는 CSS에는 폰트 파일이 포함되지 않는다. HTML에는 Fontsource의 Noto Sans와 Noto Sans KR 및 해당 라이선스가 함께 포함된다.
+HTML 안의 CSS 다운로드는 일반 CSS 변수를 내보낸다. 다운로드하는 CSS에는 폰트 파일이 포함되지 않는다. HTML에는 Fontsource의 Noto Sans와 Noto Sans KR 및 해당 라이선스가 함께 포함된다.

@@ -53,3 +53,15 @@
 - `pnpm check` 통과. 폰트 내장 HTML은 기본 검사 크기 한도 경고가 있어 `biome check --files-max-size=7000000`으로 원본·생성 HTML을 별도 검사했고 통과했다. `git diff --check` 통과.
 - 스킬 frontmatter가 기존과 동일함을 확인했다. skill-creator의 quick_validate.py는 시스템·번들 Python 모두 PyYAML이 없어 실행하지 못했다.
 - 원격 푸시·PR·배포는 수행하지 않았다.
+
+## 후속: 버튼 색상 반응과 secondary
+
+- 사용자 결정: 버튼 클릭 시 위치 이동 없이 색상만 변화, 모션 감소 기능 미도입, secondary 추가, 체크박스 상태 전환 및 라디오 내부 원 확대.
+- 버튼의 누름 이동과 색상 스와치 호버 이동, 선택 컨트롤 본체의 누름 축소를 제거했다. 스위치 손잡이 이동은 상태 표현으로 유지했다.
+- secondary 구현안은 `#2F746F`이며 hover, active, subtle, foreground 토큰과 미리보기 스와치·보조 버튼에 적용했다. 일반 텍스트 대비는 기본 5.46:1, 호버 7.32:1, 누름 9.47:1.
+- 체크박스는 배경과 체크 표시의 opacity를 240ms로 양방향 전환한다. 라디오 내부 원은 8px에서 10px로 확대했다. 반복 JavaScript나 라이브러리는 추가하지 않았다.
+- 공통 CSS·내장 미리보기·다운로드 CSS의 모션 감소 분기와 미리보기 설정·안내를 제거했다. 웹·플러그인 MotionConfig는 reducedMotion="never"로 변경했다. 이전 모션 감소 관련 결정과 검증 기록은 과거 이력이며 현재 기준은 이 절과 DESIGN.md다.
+- 브라우저에서 체크박스 Space 선택·해제 중 opacity 중간값, 라디오 방향키 및 10px 내부 원, 모션 감소 스위치 제거, 모션 재생, secondary 선택·대비 값, 390px 화면의 넘침 없음을 확인했다.
+- `pnpm check` 및 생성 HTML의 크기 한도를 늘린 별도 Biome 검사 통과. `git diff --check` 통과.
+- 독립 UX 문구 검수: 기준 6d4e22a, 신규 secondary 명칭·값 및 모션 감소 UI 삭제 범위에서 문제 없음. 기존 불필요 문구를 따로 정리하지 말라는 사용자 지시는 유지했다.
+- DESIGN.md와 README의 현재 기준을 갱신했다. 원격 푸시·PR·배포는 수행하지 않았다.
