@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
-const apiBase = "http://127.0.0.1:3104";
+const apiPort = Number(process.env.SETTINGS_TEST_API_PORT ?? 3104);
+const apiBase = `http://127.0.0.1:${apiPort}`;
 type TestLease = {
   config: {
     databaseUrl: string;
@@ -62,8 +63,8 @@ test.beforeAll(async () => {
     const { configureApp } = load(join(output, "src/common/application.js"));
     const config = {
       ...lease.config,
-      port: 3104,
-      corsOrigins: ["http://127.0.0.1:5177"],
+      port: apiPort,
+      corsOrigins: [process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5177"],
     };
     const module = await Test.createTestingModule({
       imports: [appModule(config, lease.folder)],
@@ -71,7 +72,7 @@ test.beforeAll(async () => {
     const app = module.createNestApplication({ logger: false });
     stopApi = () => app.close();
     configureApp(app, config);
-    await app.listen(3104, "127.0.0.1");
+    await app.listen(apiPort, "127.0.0.1");
   } catch (error) {
     await stopApi();
     await lease?.close();
@@ -427,4 +428,116 @@ test("서버 재조회는 깨끗한 편집값만 갱신하고 미저장 초안�
   await expect(
     page.getByRole("button", { name: "저장", exact: true }),
   ).toBeDisabled();
+});
+
+for (const kind of ["project", "template"] as const) {
+  for (const dirtyAfterSave of [false, true]) {
+    test(`${kind}: 저장 전 지연 조회는 저장 후 ${dirtyAfterSave ? "미저장 입력" : "화면과 탭 재진입"}을 되돌리지 않는다`, async ({
+      page,
+    }) => {
+      const projectId = new URL(page.url()).pathname.split("/")[2];
+      const endpoint = `${apiBase}/api/v1/projects/${projectId}${kind === "template" ? "/template" : ""}`;
+      if (kind === "template")
+        await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
+      const input =
+        kind === "project"
+          ? page.getByLabel("프로젝트 이름")
+          : page.getByLabel("너비", { exact: true }).first();
+      const savedValue = kind === "project" ? "저장한 새 이름" : "240";
+      const draftValue = kind === "project" ? "다음 미저장 이름" : "280";
+      await input.fill(savedValue);
+      let release = () => {};
+      let captured = () => {};
+      let completed = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        captured = resolve;
+      });
+      const finished = new Promise<void>((resolve) => {
+        completed = resolve;
+      });
+      let held = false;
+      await page.route(endpoint, async (route) => {
+        if (route.request().method() !== "GET" || held) {
+          await route.continue();
+          return;
+        }
+        held = true;
+        const response = await route.fetch();
+        captured();
+        await gate;
+        try {
+          await route.fulfill({ response });
+        } catch {
+          // A successful save may cancel the original browser request.
+        } finally {
+          completed();
+        }
+      });
+      try {
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("visibilitychange")),
+        );
+        await ready;
+        await page.getByRole("button", { name: "저장", exact: true }).click();
+        await expect(page.getByRole("status")).toHaveText("저장됨");
+        if (dirtyAfterSave) await input.fill(draftValue);
+        release();
+        await finished;
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve) => {
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve()),
+              );
+            }),
+        );
+        await expect(input).toHaveValue(
+          dirtyAfterSave ? draftValue : savedValue,
+        );
+        await expect(page.getByRole("alert")).toHaveCount(0);
+        if (dirtyAfterSave) {
+          await page.getByRole("button", { name: "저장", exact: true }).click();
+          await expect(page.getByRole("status")).toHaveText("저장됨");
+        } else {
+          await page.getByRole("tab", { name: "IA", exact: true }).click();
+          await page
+            .getByRole("tab", {
+              name: kind === "project" ? "기본 정보" : "기본 양식",
+              exact: true,
+            })
+            .click();
+          await expect(input).toHaveValue(savedValue);
+        }
+      } finally {
+        release();
+      }
+    });
+  }
+}
+
+test("기본 양식 너비 상한을 넘는 입력은 저장하지 않고 수정할 수 있다", async ({
+  page,
+  request,
+}) => {
+  const projectId = new URL(page.url()).pathname.split("/")[2];
+  const endpoint = `${apiBase}/api/v1/projects/${projectId}/template`;
+  const before = await (await request.get(endpoint)).json();
+  await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
+  const width = page.getByLabel("너비", { exact: true }).first();
+  await width.fill("2147483648");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(width).toHaveAttribute("aria-invalid", "true");
+  expect(await (await request.get(endpoint)).json()).toEqual(before);
+  await width.fill("240");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("저장됨");
+  const created = await request.post(
+    `${apiBase}/api/v1/projects/${projectId}/sheets`,
+    { data: { name: "너비 검증", kind: "unit" } },
+  );
+  expect(created.status()).toBe(201);
+  expect((await created.json()).view[0].width).toBe(240);
 });

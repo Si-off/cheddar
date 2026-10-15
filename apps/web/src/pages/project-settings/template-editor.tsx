@@ -1,5 +1,5 @@
 import { Button, Input, Label } from "@cheddar/ui";
-import type { FieldErrors, TemplateForm } from "./model";
+import { type FieldErrors, MAX_COLUMN_WIDTH, type TemplateForm } from "./model";
 
 export function TemplateEditor({
   value,
@@ -94,6 +94,7 @@ export function TemplateEditor({
                     className="w-24"
                     type="number"
                     min={1}
+                    max={MAX_COLUMN_WIDTH}
                     step={1}
                     value={entry.width}
                     onValueChange={(width) =>

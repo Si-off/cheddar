@@ -16,6 +16,7 @@ import {
   files,
   iaItems,
   projectTemplates,
+  sheets,
   testCases,
   uploadFrames,
   uploads,
@@ -126,6 +127,58 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
             .status,
           404,
         );
+      },
+    );
+    await t.test(
+      "invalid legacy template widths reject sheet creation atomically",
+      async () => {
+        const [template] = await lease.database.db
+          .select()
+          .from(projectTemplates)
+          .where(eq(projectTemplates.projectId, projectId));
+        const before = await lease.database.db
+          .select({ id: sheets.id })
+          .from(sheets)
+          .where(eq(sheets.projectId, projectId));
+        try {
+          for (const width of [2147483648, 0, -1, 1.5]) {
+            await lease.database.db
+              .update(projectTemplates)
+              .set({
+                view: template.view.map((c, i) =>
+                  i === 0 ? { ...c, width } : c,
+                ),
+              })
+              .where(eq(projectTemplates.projectId, projectId));
+            const response = await request(prefix, "POST", {
+              name: "잘못된 너비",
+              kind: "unit",
+            });
+            assert.equal(response.status, 400, await response.clone().text());
+            assert.deepEqual(
+              await lease.database.db
+                .select({ id: sheets.id })
+                .from(sheets)
+                .where(eq(sheets.projectId, projectId)),
+              before,
+            );
+          }
+          await lease.database.db
+            .update(projectTemplates)
+            .set({
+              view: template.view.map((c, i) =>
+                i === 0 ? { ...c, width: 2147483647 } : c,
+              ),
+            })
+            .where(eq(projectTemplates.projectId, projectId));
+          const boundary = await create();
+          assert.equal(boundary.view[0].width, 2147483647);
+        } finally {
+          await lease.database.db
+            .update(projectTemplates)
+            .set({ view: template.view })
+            .where(eq(projectTemplates.projectId, projectId));
+        }
       },
     );
     await t.test(

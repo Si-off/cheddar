@@ -79,10 +79,13 @@ async function mockApi(page: Page) {
       dataFileId: string;
     }[],
     requests: [] as SheetContentDto[],
+    viewRequests: [] as SheetViewDto[],
     reject: false,
+    rejectGet: false,
     loseResponse: false,
     hold: undefined as (() => void) | undefined,
     holdNext: false,
+    holdViewNext: false,
     exports: [] as string[],
   };
   await page.route("**/api/v1/**", async (route) => {
@@ -128,7 +131,19 @@ async function mockApi(page: Page) {
         body: Buffer.from([80, 75, 3, 4]),
       });
     }
-    if (path.endsWith(`/sheets/${sheetId}`)) return json(control.saved);
+    if (path.endsWith(`/sheets/${sheetId}`))
+      return control.rejectGet
+        ? json(
+            {
+              error: {
+                message: "일시적으로 시트를 불러오지 못했습니다.",
+                requestId: "test",
+                code: "DEPENDENCY_UNAVAILABLE",
+              },
+            },
+            503,
+          )
+        : json(control.saved);
     if (path.endsWith("/content")) {
       const body = request.postDataJSON() as SheetContentDto;
       control.requests.push(body);
@@ -161,7 +176,14 @@ async function mockApi(page: Page) {
         );
       const known = new Set(control.saved.cases.map((c) => c.id));
       const columnsChanged =
-        body.columns.length !== control.saved.columns.length;
+        body.columns
+          .map((c) => c.id)
+          .sort()
+          .join() !==
+        control.saved.columns
+          .map((c) => c.id)
+          .sort()
+          .join();
       control.saved = {
         ...control.saved,
         columns: body.columns,
@@ -198,12 +220,31 @@ async function mockApi(page: Page) {
     }
     if (path.endsWith("/view")) {
       const body = request.postDataJSON() as SheetViewDto;
+      control.viewRequests.push(body);
+      if (body.expectedRevision !== control.saved.viewRevision)
+        return json(
+          {
+            error: {
+              code: "REVISION_CONFLICT",
+              message: "다른 변경 사항이 저장되어 있습니다.",
+              requestId: "test",
+            },
+          },
+          409,
+        );
       control.saved = {
         ...control.saved,
         view: body.columns,
         viewRevision: control.saved.viewRevision + 1,
       };
-      return json(control.saved);
+      const reply = structuredClone(control.saved);
+      if (control.holdViewNext) {
+        control.holdViewNext = false;
+        await new Promise<void>((resolve) => {
+          control.hold = resolve;
+        });
+      }
+      return json(reply);
     }
     return json(
       {
@@ -288,6 +329,205 @@ test("multi-cell paste, search, keyboard navigation and atomic rejection preserv
       .getByRole("grid")
       .evaluate((grid) => grid.contains(document.activeElement)),
   ).toBe(false);
+});
+
+test("saving a local width adopts remote case additions, deletions, order and column names without writing content", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  const original = control.saved.cases[0];
+  const second = {
+    ...structuredClone(original),
+    id: "40000000-0000-4000-8000-000000000002",
+    caseCode: "TC-002",
+    title: "원격 둘",
+  };
+  const third = {
+    ...structuredClone(original),
+    id: "40000000-0000-4000-8000-000000000003",
+    caseCode: "TC-003",
+    title: "원격 셋",
+  };
+  control.saved.cases.push(second, third);
+  await open(page);
+  const fourth = {
+    ...structuredClone(original),
+    id: "40000000-0000-4000-8000-000000000004",
+    caseCode: "TC-004",
+    title: "원격 넷",
+  };
+  control.saved.cases = [third, second, fourth];
+  control.saved.columns[1].name = "원격 제목";
+  control.saved.contentRevision++;
+  await page.getByRole("button", { name: "열 설정", exact: true }).click();
+  await page.getByLabel("너비", { exact: true }).first().fill("240");
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장됨" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("gridcell", { name: "1행 원격 제목", exact: true }),
+  ).toContainText("원격 셋");
+  await expect(
+    page.getByRole("gridcell", { name: "3행 원격 제목", exact: true }),
+  ).toContainText("원격 넷");
+  expect(control.requests).toHaveLength(0);
+  expect(control.saved.cases.map((c) => c.id)).toEqual([
+    third.id,
+    second.id,
+    fourth.id,
+  ]);
+});
+
+test("saving local content adopts a remote view order and width without writing the view", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  await open(page);
+  const view = [...control.saved.view]
+    .reverse()
+    .map((v) => ({ ...v, width: 260 }));
+  control.saved.view = view;
+  control.saved.viewRevision++;
+  await editTitle(page, "내 제목 변경");
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장됨" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "열 설정", exact: true }).click();
+  await expect(page.getByLabel("열 이름", { exact: true }).first()).toHaveValue(
+    "IA 화면",
+  );
+  await expect(page.getByLabel("너비", { exact: true }).first()).toHaveValue(
+    "260",
+  );
+  expect(control.saved.view).toEqual(view);
+  expect(control.viewRequests).toHaveLength(0);
+});
+
+test("local content typed during a view save conflicts with independently changed content instead of overwriting it", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  await open(page);
+  control.saved.cases[0].title = "원격 내용 보존";
+  control.saved.contentRevision++;
+  control.holdViewNext = true;
+  await page.getByRole("button", { name: "열 설정", exact: true }).click();
+  await page.getByLabel("너비", { exact: true }).first().fill("240");
+  await expect.poll(() => !!control.hold).toBe(true);
+  await editTitle(page, "전송 이후 로컬 내용");
+  control.hold?.();
+  await expect(
+    page.getByRole("status").filter({ hasText: "변경 충돌" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "제목 편집", exact: true }),
+  ).toHaveValue("전송 이후 로컬 내용");
+  expect(control.requests).toHaveLength(0);
+  expect(control.saved.cases[0].title).toBe("원격 내용 보존");
+  await page
+    .getByRole("button", { name: "내 입력과 최신 내용 확인", exact: true })
+    .click();
+  await expect(page.getByLabel("최신 내용", { exact: true })).toContainText(
+    "원격 내용 보존",
+  );
+});
+
+test("local view edits during a content save conflict with an independently changed view instead of overwriting it", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  await open(page);
+  const remoteView = [...control.saved.view].reverse();
+  control.saved.view = remoteView;
+  control.saved.viewRevision++;
+  control.holdNext = true;
+  await editTitle(page, "현재 내용 저장");
+  await expect.poll(() => !!control.hold).toBe(true);
+  await page.getByRole("button", { name: "열 설정", exact: true }).click();
+  await page.getByLabel("너비", { exact: true }).first().fill("240");
+  control.hold?.();
+  await expect(
+    page.getByRole("status").filter({ hasText: "변경 충돌" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("너비", { exact: true }).first()).toHaveValue(
+    "240",
+  );
+  expect(control.saved.view).toEqual(remoteView);
+  expect(control.viewRequests).toHaveLength(0);
+});
+
+test("a delayed content acknowledgement preserves later row and column additions, deletions and view order", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  const oldColumn = {
+    id: "30000000-0000-4000-8000-000000000009",
+    kind: "custom" as const,
+    valueType: "text" as const,
+    name: "기존 메모",
+  };
+  control.saved.columns.push(oldColumn);
+  control.saved.view.push({ columnId: oldColumn.id, width: 180 });
+  control.saved.cases.push({
+    ...structuredClone(control.saved.cases[0]),
+    id: "40000000-0000-4000-8000-000000000002",
+    caseCode: "TC-002",
+    title: "삭제할 행",
+  });
+  await open(page);
+  control.holdNext = true;
+  await editTitle(page, "먼저 보낸 입력");
+  await expect.poll(() => !!control.hold).toBe(true);
+  await page.getByRole("checkbox", { name: "2행 선택", exact: true }).check();
+  await page.getByRole("button", { name: "선택 행 삭제", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "케이스 삭제", exact: true })
+    .getByRole("button", { name: "확인", exact: true })
+    .click();
+  await page.getByRole("button", { name: "행 추가", exact: true }).click();
+  await page
+    .getByRole("gridcell", { name: "2행 제목", exact: true })
+    .dblclick();
+  await page
+    .getByRole("textbox", { name: "제목 편집", exact: true })
+    .fill("전송 이후 추가행");
+  await page.getByRole("button", { name: "열 설정", exact: true }).click();
+  await page.getByRole("button", { name: "열 삭제", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "사용자 열 삭제", exact: true })
+    .getByRole("button", { name: "확인", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "텍스트 열 추가", exact: true })
+    .click();
+  await page
+    .getByLabel("열 이름", { exact: true })
+    .last()
+    .fill("나중에 추가한 열");
+  await page
+    .getByRole("button", {
+      name: "나중에 추가한 열 열 앞으로 이동",
+      exact: true,
+    })
+    .click();
+  control.hold?.();
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장됨" }),
+  ).toBeVisible();
+  expect(control.saved.cases.map((c) => c.title)).toEqual([
+    "먼저 보낸 입력",
+    "전송 이후 추가행",
+  ]);
+  expect(control.saved.cases.some((c) => c.id.endsWith("000000000002"))).toBe(
+    false,
+  );
+  expect(control.saved.columns.some((c) => c.id === oldColumn.id)).toBe(false);
+  const added = control.saved.columns.find(
+    (c) => c.name === "나중에 추가한 열",
+  );
+  expect(added).toBeTruthy();
+  expect(control.saved.view.at(-2)?.columnId).toBe(added?.id);
+  expect(control.saved.cases[1].caseCode).toBe("TC-002");
 });
 
 test("a delayed save response cannot overwrite newer typing and an acknowledged lost response is not resent", async ({
@@ -696,6 +936,109 @@ test("internal navigation stays blocked when both the server save and browser dr
   await dialog
     .getByRole("button", { name: "저장 후 이동", exact: true })
     .click();
-  await expect(page).toHaveURL("http://127.0.0.1:5176/");
+  await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:\d+\/$/);
   expect(control.saved.cases[0].title).toBe("어디에도 저장되지 않은 입력");
+});
+
+test("a background snapshot failure keeps the editor and unsaved input even when IndexedDB is unavailable", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  control.reject = true;
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "indexedDB", {
+      get() {
+        throw new DOMException("Blocked", "SecurityError");
+      },
+    }),
+  );
+  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await expect(
+    page.getByRole("grid", { name: "테스트 케이스 편집" }),
+  ).toBeVisible();
+  await editTitle(page, "메모리에만 남은 입력");
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+  ).toBeVisible();
+  control.rejectGet = true;
+  const response = page.waitForResponse(
+    (r) => r.url().endsWith(`/sheets/${sheetId}`) && r.status() === 503,
+  );
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("visibilitychange")),
+  );
+  await response;
+  await expect(
+    page.getByRole("grid", { name: "테스트 케이스 편집" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "제목 편집", exact: true }),
+  ).toHaveValue("메모리에만 남은 입력");
+  const refreshWarning = page
+    .getByRole("alert")
+    .filter({ hasText: "시트의 최신 저장 내용을 확인하지 못했습니다" });
+  await expect(refreshWarning).toBeVisible();
+  control.rejectGet = false;
+  await refreshWarning
+    .getByRole("button", { name: "다시 확인", exact: true })
+    .click();
+  await expect(refreshWarning).toHaveCount(0);
+  await expect(
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText("메모리에만 남은 입력");
+  control.reject = false;
+  await page
+    .getByRole("button", { name: "저장 다시 시도", exact: true })
+    .click();
+  await expect
+    .poll(() => control.saved.cases[0].title)
+    .toBe("메모리에만 남은 입력");
+});
+
+test("restoring an old draft during an in-flight save cannot clear its conflict or submit it automatically", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  control.reject = true;
+  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await expect(
+    page.getByRole("grid", { name: "테스트 케이스 편집" }),
+  ).toBeVisible();
+  await editTitle(page, "복원할 옛 입력");
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+  ).toBeVisible();
+  control.saved.contentRevision++;
+  control.saved.cases[0].title = "서버 최신 입력";
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "초안 복원", exact: true }),
+  ).toBeVisible();
+  control.reject = false;
+  control.holdNext = true;
+  await editTitle(page, "늦게 응답할 현재 입력");
+  await expect.poll(() => !!control.hold).toBe(true);
+  const count = control.requests.length;
+  await page.getByRole("button", { name: "초안 복원", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "변경 충돌" }),
+  ).toBeVisible();
+  control.hold?.();
+  await expect(
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText("복원할 옛 입력");
+  // Give the released response and the autosave debounce time to expose a stale follow-up write.
+  await page.waitForTimeout(800);
+  await expect(
+    page.getByRole("status").filter({ hasText: "변경 충돌" }),
+  ).toBeVisible();
+  expect(control.requests).toHaveLength(count);
+  expect(control.saved.cases[0].title).toBe("늦게 응답할 현재 입력");
+  await page
+    .getByRole("button", { name: "내 입력과 최신 내용 확인", exact: true })
+    .click();
+  await expect(page.getByLabel("최신 내용", { exact: true })).toContainText(
+    "늦게 응답할 현재 입력",
+  );
 });

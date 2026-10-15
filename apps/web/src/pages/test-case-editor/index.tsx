@@ -115,7 +115,7 @@ export function TestCaseEditorPage({
     return <p role="alert">프로젝트와 시트를 목록에서 다시 선택해주세요.</p>;
   if (activeSheet && snapshot.isPending)
     return <p role="status">시트를 불러오는 중</p>;
-  if (activeSheet && snapshot.isError)
+  if (activeSheet && snapshot.isError && !snapshot.data)
     return (
       <div>
         <p role="alert">{snapshot.error.message}</p>
@@ -154,6 +154,19 @@ export function TestCaseEditorPage({
             }
           }}
         />
+        {snapshot.isError && (
+          <p role="alert">
+            시트의 최신 저장 내용을 확인하지 못했습니다. 편집 중인 입력은
+            유지됩니다.{" "}
+            <Button
+              variant="link"
+              disabled={snapshot.isFetching}
+              onClick={() => void snapshot.refetch()}
+            >
+              다시 확인
+            </Button>
+          </p>
+        )}
         {references.isError && (
           <p role="alert">
             프레임·IA 목록을 불러오지 못했습니다.{" "}

@@ -89,6 +89,13 @@ test("project template HTTP saves a complete version while preserving column ide
             columns: initial.columns,
             view: initial.view.map((column) => ({ ...column, width: 0 })),
           },
+          {
+            columns: initial.columns,
+            view: initial.view.map((column) => ({
+              ...column,
+              width: 2147483648,
+            })),
+          },
         ]) {
           assert.equal(
             (await put({ ...input, expectedRevision: 1 })).status,

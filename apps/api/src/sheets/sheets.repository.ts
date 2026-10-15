@@ -167,6 +167,12 @@ export class SheetsRepository {
       );
       check(
         validColumns(template.columns) &&
+          template.view.every(
+            (c) =>
+              Number.isInteger(c.width) &&
+              c.width >= 1 &&
+              c.width <= 2147483647,
+          ) &&
           idsMatch(
             template.view.map((c) => c.columnId),
             template.columns.map((c) => c.id),

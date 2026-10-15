@@ -53,6 +53,13 @@ type Confirmation =
   | { kind: "reload" }
   | null;
 
+function newestRevision<T extends { revision: number }>(
+  current: T | undefined,
+  incoming: T,
+): T {
+  return current && current.revision > incoming.revision ? current : incoming;
+}
+
 export function ProjectSettingsPage({ projectId }: { projectId: string }) {
   return <SettingsEditor key={projectId} projectId={projectId} />;
 }
@@ -63,16 +70,43 @@ function SettingsEditor({ projectId }: { projectId: string }) {
   const path = { projectId };
   const project = useQuery({
     queryKey: key("project"),
-    queryFn: async () => (await getProject({ path, throwOnError: true })).data,
+    queryFn: async ({ signal }) => {
+      const data = (await getProject({ path, signal, throwOnError: true }))
+        .data;
+      return newestRevision(
+        queryClient.getQueryData<ProjectDto>(key("project")),
+        data,
+      );
+    },
   });
   const ia = useQuery({
     queryKey: key("ia"),
-    queryFn: async () => (await listIaItems({ path, throwOnError: true })).data,
+    queryFn: async ({ signal }) => {
+      const data = (await listIaItems({ path, signal, throwOnError: true }))
+        .data;
+      const current = queryClient.getQueryData<IaPageDto>(key("ia"));
+      return {
+        ...data,
+        items: data.items.map((item) =>
+          newestRevision(
+            current?.items.find((entry) => entry.id === item.id),
+            item,
+          ),
+        ),
+      };
+    },
   });
   const template = useQuery({
     queryKey: key("template"),
-    queryFn: async () =>
-      (await getProjectTemplate({ path, throwOnError: true })).data,
+    queryFn: async ({ signal }) => {
+      const data = (
+        await getProjectTemplate({ path, signal, throwOnError: true })
+      ).data;
+      return newestRevision(
+        queryClient.getQueryData<ProjectTemplateDto>(key("template")),
+        data,
+      );
+    },
   });
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -132,7 +166,8 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       }
       next = { kind: "ia", base: item, value: iaForm(item) };
     }
-    if (!next || next.base?.revision === draft.base?.revision) return;
+    if (!next || (next.base?.revision ?? 0) <= (draft.base?.revision ?? 0))
+      return;
     if (dirty) setIssue(saveIssue({ error: { code: "REVISION_CONFLICT" } }));
     else setDraft(next);
   }, [
@@ -206,22 +241,30 @@ function SettingsEditor({ projectId }: { projectId: string }) {
     if (blocker.status === "blocked") blocker.proceed();
     else action?.();
   }
-  function acceptSaved(next: SettingsDraft) {
+  async function acceptSaved(next: SettingsDraft) {
+    await queryClient.cancelQueries({ queryKey: key(next.kind), exact: true });
     setDraft(next);
     setErrors({});
     setIssue(null);
     setLatest(null);
     setNotice("저장됨");
     if (next.kind === "project")
-      queryClient.setQueryData(key("project"), next.base);
+      queryClient.setQueryData<ProjectDto>(key("project"), (current) =>
+        newestRevision(current, next.base),
+      );
     if (next.kind === "template")
-      queryClient.setQueryData(key("template"), next.base);
+      queryClient.setQueryData<ProjectTemplateDto>(key("template"), (current) =>
+        newestRevision(current, next.base),
+      );
     if (next.kind === "ia" && next.base) {
       const item = next.base;
       queryClient.setQueryData<IaPageDto>(key("ia"), (current) => ({
         items: [
           ...(current?.items ?? []).filter((entry) => entry.id !== item.id),
-          item,
+          newestRevision(
+            current?.items.find((entry) => entry.id === item.id),
+            item,
+          ),
         ],
       }));
       void queryClient.invalidateQueries({ queryKey: key("ia") });
@@ -263,7 +306,11 @@ function SettingsEditor({ projectId }: { projectId: string }) {
             throwOnError: true,
           })
         ).data;
-        acceptSaved({ kind: "project", base: data, value: projectForm(data) });
+        await acceptSaved({
+          kind: "project",
+          base: data,
+          value: projectForm(data),
+        });
       } else if (draft.kind === "ia") {
         const body = {
           screenId: draft.value.screenId.trim(),
@@ -281,7 +328,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
               })
             ).data
           : (await createIaItem({ path, body, throwOnError: true })).data;
-        acceptSaved({ kind: "ia", base: data, value: iaForm(data) });
+        await acceptSaved({ kind: "ia", base: data, value: iaForm(data) });
       } else {
         const data = (
           await updateProjectTemplate({
@@ -297,7 +344,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
             throwOnError: true,
           })
         ).data;
-        acceptSaved({
+        await acceptSaved({
           kind: "template",
           base: data,
           value: templateForm(data),
@@ -336,6 +383,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
         query: { expectedRevision: target.revision },
         throwOnError: true,
       });
+      await queryClient.cancelQueries({ queryKey: key("ia"), exact: true });
       chooseIa(null);
       setNotice("삭제됨");
       await queryClient.invalidateQueries({ queryKey: key("ia") });
@@ -353,12 +401,21 @@ function SettingsEditor({ projectId }: { projectId: string }) {
     try {
       let next: SettingsDraft | null;
       if (draft.kind === "project") {
-        const data = (await getProject({ path, throwOnError: true })).data;
+        const received = (await getProject({ path, throwOnError: true })).data;
+        const data = newestRevision(
+          queryClient.getQueryData<ProjectDto>(key("project")),
+          received,
+        );
         queryClient.setQueryData(key("project"), data);
         next = { kind: "project", base: data, value: projectForm(data) };
       } else if (draft.kind === "template") {
-        const data = (await getProjectTemplate({ path, throwOnError: true }))
-          .data;
+        const received = (
+          await getProjectTemplate({ path, throwOnError: true })
+        ).data;
+        const data = newestRevision(
+          queryClient.getQueryData<ProjectTemplateDto>(key("template")),
+          received,
+        );
         queryClient.setQueryData(key("template"), data);
         next = { kind: "template", base: data, value: templateForm(data) };
       } else {
@@ -399,7 +456,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
                   position: String(Number(draft.value.position)),
                 };
         if (lastAction === "save" && next && sameValue(expected, next.value)) {
-          acceptSaved(next);
+          await acceptSaved(next);
           return;
         }
         if (

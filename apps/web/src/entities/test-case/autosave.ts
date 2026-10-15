@@ -31,44 +31,65 @@ export type EditorState = {
   backup?: Snapshot;
   storageError?: string;
 };
+function projectView(view: Snapshot["view"], columns: Snapshot["columns"]) {
+  const retained = view.filter((v) => columns.some((c) => c.id === v.columnId));
+  return [
+    ...retained,
+    ...columns
+      .filter((c) => !retained.some((v) => v.columnId === c.id))
+      .map((c) => ({ columnId: c.id, width: 180 })),
+  ];
+}
 function mergeAcknowledgement(
   server: Snapshot,
   sent: Snapshot,
   current: Snapshot,
-): Snapshot {
-  const cases = current.cases.map((item) => {
-    const previous = sent.cases.find((c) => c.id === item.id),
-      saved = server.cases.find((c) => c.id === item.id);
-    if (!previous || !saved) return item;
-    return Object.fromEntries(
-      Object.entries(item).map(([key, value]) => [
-        key,
-        equal(value, previous[key as keyof typeof previous])
-          ? saved[key as keyof typeof saved]
-          : value,
-      ]),
-    ) as typeof item;
-  });
-  const columns = current.columns.map((column) => {
-    const previous = sent.columns.find((c) => c.id === column.id),
-      saved = server.columns.find((c) => c.id === column.id);
-    return previous && saved && equal(column, previous) ? saved : column;
-  });
-  const view = current.view
-    .filter((v) => columns.some((c) => c.id === v.columnId))
-    .map((v) => {
-      const previous = sent.view.find((c) => c.columnId === v.columnId),
-        saved = server.view.find((c) => c.columnId === v.columnId);
-      return previous && saved && v.width === previous.width
-        ? { ...v, width: saved.width }
-        : v;
-    });
-  for (const saved of server.view)
-    if (
-      columns.some((c) => c.id === saved.columnId) &&
-      !view.some((v) => v.columnId === saved.columnId)
-    )
-      view.push(saved);
+  base: Snapshot,
+  kind: "content" | "view",
+): Snapshot | undefined {
+  const structureChanged = !equal(
+    base.columns.map((c) => c.id).sort(),
+    sent.columns.map((c) => c.id).sort(),
+  );
+  const remoteContent =
+    kind === "view" && server.contentRevision !== base.contentRevision;
+  const remoteView =
+    kind === "content" &&
+    server.viewRevision !== base.viewRevision + (structureChanged ? 1 : 0);
+  const localContent = !equal(content(current), content(base));
+  const localView = !equal(
+    current.view,
+    projectView(base.view, current.columns),
+  );
+  // An independently revised domain must never become a new overwrite base
+  // for stale local rows, columns or display order.
+  if ((remoteContent && localContent) || (remoteView && localView)) return;
+  const cases = remoteContent
+    ? server.cases
+    : current.cases.map((item) => {
+        const previous = sent.cases.find((c) => c.id === item.id),
+          saved = server.cases.find((c) => c.id === item.id);
+        if (!previous || !saved) return item;
+        return Object.fromEntries(
+          Object.entries(item).map(([key, value]) => [
+            key,
+            equal(value, previous[key as keyof typeof previous])
+              ? saved[key as keyof typeof saved]
+              : value,
+          ]),
+        ) as typeof item;
+      });
+  const columns = remoteContent
+    ? server.columns
+    : current.columns.map((column) => {
+        const previous = sent.columns.find((c) => c.id === column.id),
+          saved = server.columns.find((c) => c.id === column.id);
+        return previous && saved && equal(column, previous) ? saved : column;
+      });
+  const view = projectView(
+    kind === "content" && !localView ? server.view : current.view,
+    columns,
+  );
   return {
     ...server,
     cases,
@@ -101,10 +122,12 @@ export class SheetSession {
   private sessionId: string = crypto.randomUUID();
   private disposed = false;
   private storageAttempt = 0;
+  private epoch = 0;
   private persistence?: Promise<void>;
   private stored?: { key: string; version: number };
   private pending?: {
     kind: "content" | "view";
+    base: Snapshot;
     sent: Snapshot;
     version: number;
   };
@@ -194,9 +217,26 @@ export class SheetSession {
         void this.flush();
       }, 500);
   }
-  private acknowledge(server: Snapshot, sent: Snapshot, version: number) {
+  private acknowledge(
+    server: Snapshot,
+    sent: Snapshot,
+    version: number,
+    base: Snapshot,
+    kind: "content" | "view",
+  ) {
     const current = this.store.getState();
-    const draft = mergeAcknowledgement(server, sent, current.draft);
+    const draft = mergeAcknowledgement(server, sent, current.draft, base, kind);
+    if (!draft) {
+      this.store.setState({
+        status: "conflict",
+        latest: server,
+        message:
+          "다른 변경 사항이 저장되어 있습니다. 내 입력과 최신 내용을 확인해주세요.",
+      });
+      this.pending = undefined;
+      this.persist();
+      return;
+    }
     const dirty = this.dirty(server, draft);
     this.store.setState({
       base: server,
@@ -226,7 +266,8 @@ export class SheetSession {
     }
   }
   private async run() {
-    while (!this.disposed && !this.composing) {
+    const epoch = this.epoch;
+    while (!this.disposed && !this.composing && epoch === this.epoch) {
       const state = this.store.getState();
       if (state.status === "conflict" || state.status === "error") return;
       const message = validate(state.draft);
@@ -246,7 +287,7 @@ export class SheetSession {
       }
       const sent = structuredClone(state.draft),
         version = state.version;
-      this.pending = { kind, sent, version };
+      this.pending = { kind, sent, version, base: state.base };
       this.store.setState({ status: "saving", message: undefined });
       try {
         const saved =
@@ -259,8 +300,10 @@ export class SheetSession {
                 columns: sent.view,
                 expectedRevision: state.base.viewRevision,
               });
-        this.acknowledge(saved, sent, version);
+        if (epoch !== this.epoch) return;
+        this.acknowledge(saved, sent, version, state.base, kind);
       } catch (error) {
+        if (epoch !== this.epoch) return;
         const isConflict = error instanceof SaveError && error.status === 409;
         const message =
           error instanceof SaveError
@@ -283,8 +326,10 @@ export class SheetSession {
     }
   }
   private async checkResult() {
+    const epoch = this.epoch;
     try {
       const latest = await this.transport.get();
+      if (epoch !== this.epoch) return;
       const { base } = this.store.getState();
       const pending = this.pending;
       if (pending) {
@@ -296,7 +341,13 @@ export class SheetSession {
               equal(latest.view, pending.sent.view) &&
               latest.contentRevision === base.contentRevision;
         if (matches) {
-          this.acknowledge(latest, pending.sent, pending.version);
+          this.acknowledge(
+            latest,
+            pending.sent,
+            pending.version,
+            pending.base,
+            pending.kind,
+          );
           return;
         }
       }
@@ -334,12 +385,15 @@ export class SheetSession {
       await this.flush();
   }
   async loadLatest() {
+    const epoch = this.epoch;
+    await this.running;
     const latest = await this.transport.get();
-    this.store.setState({ latest });
+    if (epoch === this.epoch) this.store.setState({ latest });
   }
   startFromLatest() {
     const state = this.store.getState();
     if (!state.latest) return;
+    this.epoch++;
     this.persist();
     this.sessionId = crypto.randomUUID();
     this.key = this.makeKey(state.latest);
@@ -355,6 +409,9 @@ export class SheetSession {
     });
   }
   restore(record: StoredDraft) {
+    const inFlight = !!this.running;
+    this.epoch++;
+    this.pending = undefined;
     const previous = this.store.getState();
     const current = previous.base;
     const backup = this.dirty(previous.base, previous.draft)
@@ -364,6 +421,7 @@ export class SheetSession {
     this.sessionId = record.sessionId;
     this.key = record.key;
     const conflict =
+      inFlight ||
       record.base.contentRevision !== current.contentRevision ||
       record.base.viewRevision !== current.viewRevision;
     this.store.setState({
@@ -372,7 +430,7 @@ export class SheetSession {
       backup,
       version: record.version,
       status: conflict ? "conflict" : "dirty",
-      latest: conflict ? current : undefined,
+      latest: conflict && !inFlight ? current : undefined,
       message: conflict
         ? "보관한 입력 이후 시트가 변경되었습니다. 최신 내용과 비교해주세요."
         : undefined,

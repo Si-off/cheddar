@@ -45,6 +45,13 @@
   overflow: hidden;
   white-space: pre;
   text-overflow: ellipsis;
+  min-height: var(--spacing-control-lg);
+  max-height: var(--spacing-control-lg);
+}
+.sheet-table td[data-column] :is(.cd-input, .cd-textarea, select) {
+  box-sizing: border-box;
+  height: var(--spacing-control-lg);
+  min-height: var(--spacing-control-lg);
   max-height: var(--spacing-control-lg);
 }
 .sheet-column-header {

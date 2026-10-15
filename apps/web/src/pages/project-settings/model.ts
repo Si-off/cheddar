@@ -5,6 +5,8 @@ import type {
   SheetColumnDto,
 } from "@/shared/api/generated";
 
+export const MAX_COLUMN_WIDTH = 2147483647;
+
 export type ProjectForm = { name: string; description: string };
 export type IaForm = {
   screenId: string;
@@ -103,10 +105,11 @@ export function validateDraft(draft: SettingsDraft): FieldErrors {
       if (
         !/^\d+$/.test(entry.width) ||
         !Number.isSafeInteger(Number(entry.width)) ||
-        Number(entry.width) < 1
+        Number(entry.width) < 1 ||
+        Number(entry.width) > MAX_COLUMN_WIDTH
       )
         errors[`width-${entry.columnId}`] =
-          "너비는 1 이상의 정수로 입력해주세요.";
+          "너비는 1부터 2,147,483,647 사이의 정수로 입력해주세요.";
     }
   }
   return errors;
