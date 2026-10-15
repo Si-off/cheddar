@@ -6,8 +6,10 @@ import {
   HealthController,
   MIGRATIONS_FOLDER,
 } from "./health/health.controller";
+import { IaModule } from "./ia/ia.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { StorageModule } from "./storage/storage.module";
+import { TemplatesModule } from "./templates/templates.module";
 import { UploadsModule } from "./uploads/uploads.module";
 
 @Module({})
@@ -25,6 +27,8 @@ export function appModule(
       ProjectsModule,
       FilesModule,
       UploadsModule,
+      IaModule,
+      TemplatesModule,
     ],
     controllers: [HealthController],
     providers: [{ provide: MIGRATIONS_FOLDER, useValue: migrationsFolder }],

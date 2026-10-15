@@ -1035,11 +1035,579 @@
           "uploads"
         ]
       }
+    },
+    "/api/v1/projects/{projectId}/ia": {
+      "get": {
+        "operationId": "listIaItems",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IaPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "ia"
+        ]
+      },
+      "post": {
+        "operationId": "createIaItem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIaItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IaItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "ia"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/ia/{itemId}": {
+      "patch": {
+        "operationId": "updateIaItem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIaItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IaItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "ia"
+        ]
+      },
+      "delete": {
+        "operationId": "deleteIaItem",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expectedRevision",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "ia"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/template": {
+      "get": {
+        "operationId": "getProjectTemplate",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectTemplateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "templates"
+        ]
+      },
+      "put": {
+        "operationId": "updateProjectTemplate",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectTemplateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "templates"
+        ]
+      }
     }
   },
   "info": {
     "title": "Cheddar API",
-    "description": "Local project, file and upload API. Sheet and IA schemas are contracts for subsequent stages, not implemented routes.",
+    "description": "Local project, file, upload, IA and template API. Sheet schemas are contracts for the subsequent stage, not implemented routes.",
     "version": "1.0.0",
     "contact": {}
   },
@@ -1521,30 +2089,162 @@
         ],
         "additionalProperties": false
       },
-      "CreateSheetDto": {
+      "DeleteIaQueryDto": {
         "type": "object",
         "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ],
+        "additionalProperties": false
+      },
+      "IaItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "screenId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "screenId",
+          "name",
+          "description",
+          "parentId",
+          "position",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "IaPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IaItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CreateIaItemDto": {
+        "type": "object",
+        "properties": {
+          "screenId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Case-sensitive business identifier, not a Figma node ID."
+          },
           "name": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100
           },
-          "kind": {
+          "description": {
             "type": "string",
-            "enum": [
-              "unit",
-              "integration"
-            ]
+            "nullable": true,
+            "maxLength": 2000
           },
-          "uploadId": {
+          "parentId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
+          "screenId",
           "name",
-          "kind"
+          "position"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateIaItemDto": {
+        "type": "object",
+        "properties": {
+          "screenId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Case-sensitive business identifier, not a Figma node ID."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "expectedRevision"
         ],
         "additionalProperties": false
       },
@@ -1591,6 +2291,120 @@
           "id",
           "kind",
           "name"
+        ],
+        "additionalProperties": false
+      },
+      "ColumnViewDto": {
+        "type": "object",
+        "properties": {
+          "columnId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "columnId",
+          "width"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectTemplateDto": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetColumnDto"
+            }
+          },
+          "view": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnViewDto"
+            }
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "projectId",
+          "columns",
+          "view",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetColumnDto"
+            }
+          },
+          "view": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnViewDto"
+            }
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "columns",
+          "view"
+        ],
+        "additionalProperties": false
+      },
+      "CreateSheetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "integration"
+            ]
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "kind"
         ],
         "additionalProperties": false
       },
@@ -1691,24 +2505,6 @@
         ],
         "additionalProperties": false
       },
-      "ColumnViewDto": {
-        "type": "object",
-        "properties": {
-          "columnId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "width": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "columnId",
-          "width"
-        ],
-        "additionalProperties": false
-      },
       "SheetViewDto": {
         "type": "object",
         "properties": {
@@ -1727,169 +2523,6 @@
         "required": [
           "expectedRevision",
           "columns"
-        ],
-        "additionalProperties": false
-      },
-      "CreateIaItemDto": {
-        "type": "object",
-        "properties": {
-          "screenId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100,
-            "description": "Case-sensitive business identifier, not a Figma node ID."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000
-          },
-          "parentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "position": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "screenId",
-          "name",
-          "position"
-        ],
-        "additionalProperties": false
-      },
-      "DeleteIaQueryDto": {
-        "type": "object",
-        "properties": {
-          "expectedRevision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "expectedRevision"
-        ],
-        "additionalProperties": false
-      },
-      "IaItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "projectId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "screenId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "parentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "position": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "projectId",
-          "screenId",
-          "name",
-          "description",
-          "parentId",
-          "position",
-          "revision",
-          "createdAt",
-          "updatedAt"
-        ],
-        "additionalProperties": false
-      },
-      "IaPageDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IaItemDto"
-            }
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "additionalProperties": false
-      },
-      "ProjectTemplateDto": {
-        "type": "object",
-        "properties": {
-          "projectId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetColumnDto"
-            }
-          },
-          "view": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ColumnViewDto"
-            }
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "projectId",
-          "columns",
-          "view",
-          "revision",
-          "createdAt",
-          "updatedAt"
         ],
         "additionalProperties": false
       },
@@ -2170,71 +2803,6 @@
             "minimum": 1
           }
         },
-        "additionalProperties": false
-      },
-      "UpdateIaItemDto": {
-        "type": "object",
-        "properties": {
-          "screenId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100,
-            "description": "Case-sensitive business identifier, not a Figma node ID."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000
-          },
-          "parentId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "position": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "expectedRevision": {
-            "type": "integer",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "expectedRevision"
-        ],
-        "additionalProperties": false
-      },
-      "UpdateTemplateDto": {
-        "type": "object",
-        "properties": {
-          "expectedRevision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SheetColumnDto"
-            }
-          },
-          "view": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ColumnViewDto"
-            }
-          }
-        },
-        "required": [
-          "expectedRevision",
-          "columns",
-          "view"
-        ],
         "additionalProperties": false
       }
     }

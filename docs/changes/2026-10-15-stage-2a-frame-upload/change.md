@@ -1,7 +1,7 @@
 # 작업: 2A 프레임 업로드
 
 - 작업 ID: 2026-10-15-stage-2a-frame-upload
-- 상태: 구현 중 — 사용자 계획·경로 승인 완료, 공통 변경 조율 중
+- 상태: 구현·검증 중 — API·프런트 코드 검증 완료, 공통 라우트·브라우저 실행 검증 대기
 - 요청 근거: 2026-10-15 사용자가 구현 계획·필요한 공통 변경·새 폴더 승인안을 먼저 정리하고 미정 사항을 함께 결정한 뒤 구현하도록 요청했다.
 - 실행 범위: 2026-10-15 사용자가 직접 선택한 Frame, 구현 계획과 두 소스 폴더 생성을 승인하고 공통 변경을 조율 채팅과 협의해 구현하도록 지시했다. 검증·자신의 변경 커밋·일반 푸시를 포함한다. 공통 담당 파일·다른 worktree는 직접 수정하지 않는다. 조율 채팅과의 완료 보고·공통 변경·개발 조율 메시지는 허용되며, 다른 작업 채팅과 직접 연락·PR·병합·배포는 승인되지 않았다.
 - 기준: `codex/stage-2a-frame-upload` · 최초 `4cfd066574ca97241372d3b56561fb96f0430847`, 공통 선행 `c7fb51bdd40c49318707893c308e40a5d3fa1816` fast-forward 수용
@@ -127,4 +127,15 @@
 - 플러그인 직접 선택/고정·PNG/JSON 추출·문서 변경 감지와 파일별 재시도, 웹 목록·상세·시트 연결 UI는 구현 중이다. main/업로드 세션 동작 테스트 6개가 통과했다. 실행 명령은 `node --test apps/figma-plugin/src/main/index.test.mjs apps/figma-plugin/src/ui/pages/frame-upload/upload-session.test.mjs`다.
 - 주어진 Figma 파일은 사용자가 편집 권한이 없다고 확인했다. 같은 읽기 전용 추출을 Dev Mode inspect에서도 지원하도록 manifest를 확장했다. 사용자에게 실제 ID 생성법을 안내했으며 ID는 아직 준비되지 않았다. 실제 Figma 실행은 미검증이다.
 - 데이터 파일 형식: UTF-8 JSON `{schemaVersion:1,source:{figmaFileKey,figmaNodeId},frame:{nodeId,name,width,height},exportedAt,document:<JSON_REST_V1 결과>}`. 선택 Frame의 하위 구조를 포함하며 외부 REST API/인증 토큰은 사용하지 않는다.
-- 남은 일: API 커밋 전달 → 공통 모듈/명세·SDK·라우트/환경 통합 → 전체 타입·빌드·브라우저/규모·UX 검증 → 실제 Figma ID 준비 후 실행 검증. UI는 아직 없는 SDK operation을 소비하도록 작성 중이므로 현재 전체 앱 타입 검사가 완료됐다고 보고하지 않는다.
+- API 선행 커밋 `aae7bad0886428601cd098bb4bbca4fed67833e2`를 `origin/codex/stage-2a-frame-upload`에 일반 푸시하고 원격 SHA 일치를 확인했다. PR/main 병합·배포는 하지 않았다.
+
+## 2026-10-15 프런트 구현·공통 연결
+
+- 조율 커밋 `493bf31`을 fast-forward 수용했다. `aae7bad`·공통 2B/2C 기반·UploadsModule 실제 등록·OpenAPI·양쪽 업로드 SDK·공통 client 설정을 포함한다. 업로드 테스트의 공통 lease 전환·SDK 추가 검증도 조율 담당이 통합했다. 조율 채팅의 30개 통과는 전달받은 검증 결과이며, 이 채팅에서 직접 실행한 앞선 24개와 구분한다.
+- 플러그인 UI: 프로젝트 페이지 조회·이름 입력·직접 선택 Frame 목록·고정된 선택의 순차 추출/파일 전송·진행·실패·동일 실행 재시도·새 업로드를 구현했다. main은 현재 페이지 nodechange/stylechange를 감지하고 준비한 세션의 변경·삭제를 중단한다. 다른 선택으로 바꿔도 진행 중 선택은 유지한다.
+- 이미지/JSON 성공 응답을 받은 파일 ID는 재사용하고 바이트는 전송 확인 후 해제한다. 최종 묶음 등록 응답이 불확실할 때는 같은 요청 키·같은 입력으로 결과를 확인한다. 확정 충돌·입력 오류·만료/변경 세션은 같은 재요청을 반복하지 않고 새 업로드 행동을 제공한다.
+- 웹 UI: 업로드 목록·상세, 프레임 이미지 확대·데이터 내려받기, 연결 시트 목록·이름/종류 입력·새 시트 만들기를 구현했다. 이미지 object URL은 해제하며 사용자 입력은 텍스트로 렌더링한다.
+- 2B 실제 API가 아직 없어 조율 담당과 optional `sheetGateway` 경계를 합의했다. `ProjectUploadDetailPage`는 `{list:(cursor?:string)=>Promise<SheetPageDto>,create:(input:CreateSheetDto)=>Promise<SheetSnapshotDto>}`를 받는다. 공통 라우트 closure가 projectId/uploadId와 실제 SDK를 연결한다. gateway 미제공 시 시트 UI·호출은 모두 숨긴다. 이 상태를 실제 시트 연계 완료로 보고하지 않는다.
+- 신규/변경 UI 문구의 독립 검수 지적 3건을 반영·재검수했다: 확정 충돌과 응답 유실의 행동 분리, 파일 전송 결과의 불확실성, 시트 목록 확인 후에만 재생성 안내. gateway 표시 조건·응답 유실 중 생성 guard·언마운트 후 이동 방지도 추가 검수해 문제 없음을 확인했다. 실제 브라우저/Figma 검수와는 구분한다.
+- `pnpm check` 전체 lint·타입·빌드 통과. 공통 기존 경고 2건(디자인 HTML 크기, shared-schema 테스트 optional chain) 외 신규 소유 파일 경고는 없다. main/재시도 세션 테스트 6개 통과.
+- 다음: 프런트 커밋을 조율 담당에게 전달해 공통 웹 라우트를 통합한다. 테스트 DB 슬롯 배정 후 임시 API/저장소/플러그인 iframe harness 및 웹에서 업로드·실패·재시도·20프레임을 확인한다. 브라우저 harness는 실제 Figma 실행을 대신하지 않는다. 실제 Figma ID 준비와 2B 실제 연계는 별도 미확인 사항이다.

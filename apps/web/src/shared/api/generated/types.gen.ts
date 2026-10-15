@@ -123,10 +123,48 @@ export type UploadPageDto = {
     nextCursor: string | null;
 };
 
-export type CreateSheetDto = {
+export type DeleteIaQueryDto = {
+    expectedRevision: number;
+};
+
+export type IaItemDto = {
+    id: string;
+    projectId: string;
+    screenId: string;
     name: string;
-    kind: 'unit' | 'integration';
-    uploadId?: string | null;
+    description: string | null;
+    parentId: string | null;
+    position: number;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type IaPageDto = {
+    items: Array<IaItemDto>;
+};
+
+export type CreateIaItemDto = {
+    /**
+     * Case-sensitive business identifier, not a Figma node ID.
+     */
+    screenId: string;
+    name: string;
+    description?: string | null;
+    parentId?: string | null;
+    position: number;
+};
+
+export type UpdateIaItemDto = {
+    /**
+     * Case-sensitive business identifier, not a Figma node ID.
+     */
+    screenId?: string;
+    name?: string;
+    description?: string | null;
+    parentId?: string | null;
+    position?: number;
+    expectedRevision: number;
 };
 
 export type SheetColumnDto = {
@@ -135,6 +173,32 @@ export type SheetColumnDto = {
     name: string;
     field?: 'caseCode' | 'title' | 'preconditions' | 'steps' | 'expectedResult' | 'priority' | 'relatedFrames' | 'screens';
     valueType?: 'text';
+};
+
+export type ColumnViewDto = {
+    columnId: string;
+    width: number;
+};
+
+export type ProjectTemplateDto = {
+    projectId: string;
+    columns: Array<SheetColumnDto>;
+    view: Array<ColumnViewDto>;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type UpdateTemplateDto = {
+    expectedRevision: number;
+    columns: Array<SheetColumnDto>;
+    view: Array<ColumnViewDto>;
+};
+
+export type CreateSheetDto = {
+    name: string;
+    kind: 'unit' | 'integration';
+    uploadId?: string | null;
 };
 
 export type CaseContentDto = {
@@ -164,58 +228,12 @@ export type SheetContentDto = {
     cases: Array<CaseContentDto>;
 };
 
-export type ColumnViewDto = {
-    columnId: string;
-    width: number;
-};
-
 export type SheetViewDto = {
     expectedRevision: number;
     /**
      * Array order is display order. IDs must exactly match the sheet columns.
      */
     columns: Array<ColumnViewDto>;
-};
-
-export type CreateIaItemDto = {
-    /**
-     * Case-sensitive business identifier, not a Figma node ID.
-     */
-    screenId: string;
-    name: string;
-    description?: string | null;
-    parentId?: string | null;
-    position: number;
-};
-
-export type DeleteIaQueryDto = {
-    expectedRevision: number;
-};
-
-export type IaItemDto = {
-    id: string;
-    projectId: string;
-    screenId: string;
-    name: string;
-    description: string | null;
-    parentId: string | null;
-    position: number;
-    revision: number;
-    createdAt: string;
-    updatedAt: string;
-};
-
-export type IaPageDto = {
-    items: Array<IaItemDto>;
-};
-
-export type ProjectTemplateDto = {
-    projectId: string;
-    columns: Array<SheetColumnDto>;
-    view: Array<ColumnViewDto>;
-    revision: number;
-    createdAt: string;
-    updatedAt: string;
 };
 
 export type SheetSummaryDto = {
@@ -282,24 +300,6 @@ export type SheetSnapshotDto = {
 export type SheetExportQueryDto = {
     contentRevision?: number;
     viewRevision?: number;
-};
-
-export type UpdateIaItemDto = {
-    /**
-     * Case-sensitive business identifier, not a Figma node ID.
-     */
-    screenId?: string;
-    name?: string;
-    description?: string | null;
-    parentId?: string | null;
-    position?: number;
-    expectedRevision: number;
-};
-
-export type UpdateTemplateDto = {
-    expectedRevision: number;
-    columns: Array<SheetColumnDto>;
-    view: Array<ColumnViewDto>;
 };
 
 export type GetLivenessData = {
@@ -631,3 +631,173 @@ export type GetUploadResponses = {
 };
 
 export type GetUploadResponse = GetUploadResponses[keyof GetUploadResponses];
+
+export type ListIaItemsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/ia';
+};
+
+export type ListIaItemsErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ListIaItemsError = ListIaItemsErrors[keyof ListIaItemsErrors];
+
+export type ListIaItemsResponses = {
+    200: IaPageDto;
+};
+
+export type ListIaItemsResponse = ListIaItemsResponses[keyof ListIaItemsResponses];
+
+export type CreateIaItemData = {
+    body: CreateIaItemDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/ia';
+};
+
+export type CreateIaItemErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type CreateIaItemError = CreateIaItemErrors[keyof CreateIaItemErrors];
+
+export type CreateIaItemResponses = {
+    201: IaItemDto;
+};
+
+export type CreateIaItemResponse = CreateIaItemResponses[keyof CreateIaItemResponses];
+
+export type DeleteIaItemData = {
+    body?: never;
+    path: {
+        projectId: string;
+        itemId: string;
+    };
+    query: {
+        expectedRevision: number;
+    };
+    url: '/api/v1/projects/{projectId}/ia/{itemId}';
+};
+
+export type DeleteIaItemErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type DeleteIaItemError = DeleteIaItemErrors[keyof DeleteIaItemErrors];
+
+export type DeleteIaItemResponses = {
+    204: void;
+};
+
+export type DeleteIaItemResponse = DeleteIaItemResponses[keyof DeleteIaItemResponses];
+
+export type UpdateIaItemData = {
+    body: UpdateIaItemDto;
+    path: {
+        projectId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/ia/{itemId}';
+};
+
+export type UpdateIaItemErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type UpdateIaItemError = UpdateIaItemErrors[keyof UpdateIaItemErrors];
+
+export type UpdateIaItemResponses = {
+    200: IaItemDto;
+};
+
+export type UpdateIaItemResponse = UpdateIaItemResponses[keyof UpdateIaItemResponses];
+
+export type GetProjectTemplateData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/template';
+};
+
+export type GetProjectTemplateErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type GetProjectTemplateError = GetProjectTemplateErrors[keyof GetProjectTemplateErrors];
+
+export type GetProjectTemplateResponses = {
+    200: ProjectTemplateDto;
+};
+
+export type GetProjectTemplateResponse = GetProjectTemplateResponses[keyof GetProjectTemplateResponses];
+
+export type UpdateProjectTemplateData = {
+    body: UpdateTemplateDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/template';
+};
+
+export type UpdateProjectTemplateErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type UpdateProjectTemplateError = UpdateProjectTemplateErrors[keyof UpdateProjectTemplateErrors];
+
+export type UpdateProjectTemplateResponses = {
+    200: ProjectTemplateDto;
+};
+
+export type UpdateProjectTemplateResponse = UpdateProjectTemplateResponses[keyof UpdateProjectTemplateResponses];

@@ -1,8 +1,203 @@
-import { isUiToMainMessage, type MainToUiMessage } from "../protocol/messages";
+import {
+  type ExportErrorCode,
+  type FrameSelection,
+  isUiToMainMessage,
+  MAX_FRAME_DATA_BYTES,
+  MAX_IMAGE_BYTES,
+  type MainToUiMessage,
+  type SelectedFrame,
+  type UiToMainMessage,
+} from "../protocol/messages";
 
-figma.showUI(__html__, { width: 360, height: 420, themeColors: true });
-
+figma.showUI(__html__, { width: 400, height: 640, themeColors: true });
+type Session = {
+  id: string;
+  fileKey: string;
+  page: PageNode;
+  frames: SelectedFrame[];
+  changed: boolean;
+  onChange: () => void;
+};
+let selectionVersion = 0;
+let session: Session | undefined;
+function send(message: MainToUiMessage) {
+  figma.ui.postMessage(message);
+}
+function metadata(node: FrameNode): SelectedFrame {
+  return {
+    nodeId: node.id,
+    name: node.name,
+    width: node.width,
+    height: node.height,
+  };
+}
+function selection(): FrameSelection {
+  const nodes = figma.currentPage.selection;
+  const selected = nodes.filter(
+    (node): node is FrameNode => node.type === "FRAME",
+  );
+  const supported = selected.filter(
+    (node) =>
+      node.name.length > 0 &&
+      node.name.length <= 255 &&
+      Number.isFinite(node.width) &&
+      node.width >= 0.01 &&
+      Number.isFinite(node.height) &&
+      node.height >= 0.01,
+  );
+  return {
+    version: selectionVersion,
+    fileKey: figma.fileKey ?? null,
+    frames: supported.map(metadata),
+    unsupportedCount: nodes.length - supported.length,
+  };
+}
+function publishSelection() {
+  selectionVersion += 1;
+  send({ type: "selection-changed", selection: selection() });
+}
+let observedPage = figma.currentPage;
+observedPage.on("nodechange", publishSelection);
+figma.on("currentpagechange", () => {
+  if (!observedPage.removed) observedPage.off("nodechange", publishSelection);
+  observedPage = figma.currentPage;
+  observedPage.on("nodechange", publishSelection);
+  publishSelection();
+});
+function release() {
+  if (session && !session.page.removed)
+    session.page.off("nodechange", session.onChange);
+  session = undefined;
+}
+function active(id: string): Session {
+  if (!session || session.id !== id) throw new Error("SESSION_EXPIRED");
+  if (session.changed || session.page.removed) throw new Error("FRAME_CHANGED");
+  return session;
+}
+// TextEncoder isn't available in the Figma main sandbox.
+function utf8Size(value: string) {
+  let bytes = 0;
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0;
+    bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+  }
+  return bytes;
+}
+async function handle(
+  message: Exclude<
+    UiToMainMessage,
+    { type: "ui-ready" } | { type: "release-upload" }
+  >,
+) {
+  if (message.type === "prepare-upload") {
+    const selected = selection();
+    if (
+      selected.version !== message.selectionVersion ||
+      selected.unsupportedCount ||
+      !selected.frames.length
+    )
+      throw new Error("INVALID_SELECTION");
+    if (!selected.fileKey) throw new Error("FILE_KEY_UNAVAILABLE");
+    release();
+    const current: Session = {
+      id: message.requestId,
+      fileKey: selected.fileKey,
+      page: figma.currentPage,
+      frames: selected.frames,
+      changed: false,
+      onChange: () => {
+        current.changed = true;
+      },
+    };
+    current.page.on("nodechange", current.onChange);
+    session = current;
+    send({
+      type: "upload-prepared",
+      requestId: message.requestId,
+      sessionId: current.id,
+      fileKey: current.fileKey,
+      frames: current.frames,
+    });
+    return;
+  }
+  const current = active(message.sessionId);
+  if (message.type === "validate-upload") {
+    send({
+      type: "upload-validated",
+      requestId: message.requestId,
+      sessionId: current.id,
+    });
+    return;
+  }
+  const expected = current.frames.find(
+    (item) => item.nodeId === message.nodeId,
+  );
+  if (!expected) throw new Error("INVALID_SELECTION");
+  const node = await figma.getNodeByIdAsync(message.nodeId);
+  if (
+    node?.type !== "FRAME" ||
+    node.removed ||
+    JSON.stringify(metadata(node)) !== JSON.stringify(expected)
+  )
+    throw new Error("FRAME_CHANGED");
+  const rest = await node.exportAsync({ format: "JSON_REST_V1" });
+  const data = JSON.stringify({
+    schemaVersion: 1,
+    source: { figmaFileKey: current.fileKey, figmaNodeId: expected.nodeId },
+    frame: expected,
+    exportedAt: new Date().toISOString(),
+    document: rest,
+  });
+  if (utf8Size(data) > MAX_FRAME_DATA_BYTES) throw new Error("DATA_TOO_LARGE");
+  const image = await node.exportAsync({
+    format: "PNG",
+    constraint: { type: "SCALE", value: 1 },
+  });
+  if (!image.length || image.length > MAX_IMAGE_BYTES)
+    throw new Error("IMAGE_TOO_LARGE");
+  active(current.id);
+  if (JSON.stringify(metadata(node)) !== JSON.stringify(expected))
+    throw new Error("FRAME_CHANGED");
+  send({
+    type: "frame-exported",
+    requestId: message.requestId,
+    sessionId: current.id,
+    frame: expected,
+    image,
+    data,
+  });
+}
+figma.on("selectionchange", publishSelection);
+figma.on("stylechange", () => {
+  if (session) session.changed = true;
+});
+figma.on("close", () => {
+  if (!observedPage.removed) observedPage.off("nodechange", publishSelection);
+  release();
+});
 figma.ui.onmessage = (message: unknown) => {
   if (!isUiToMainMessage(message)) return;
-  figma.ui.postMessage({ type: "plugin-ready" } satisfies MainToUiMessage);
+  if (message.type === "ui-ready") {
+    publishSelection();
+    return;
+  }
+  if (message.type === "release-upload") {
+    if (session?.id === message.sessionId) release();
+    return;
+  }
+  void handle(message).catch((error: unknown) => {
+    const known: ExportErrorCode[] = [
+      "INVALID_SELECTION",
+      "FILE_KEY_UNAVAILABLE",
+      "FRAME_CHANGED",
+      "IMAGE_TOO_LARGE",
+      "DATA_TOO_LARGE",
+      "SESSION_EXPIRED",
+    ];
+    const code =
+      error instanceof Error && known.includes(error.message as ExportErrorCode)
+        ? (error.message as ExportErrorCode)
+        : "EXPORT_FAILED";
+    send({ type: "export-error", requestId: message.requestId, code });
+  });
 };

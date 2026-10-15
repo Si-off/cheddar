@@ -37,3 +37,11 @@ Node24.22.0/pnpm12.11.2. pnpm check 통과(기존 디자인 HTML 크기 경고1�
 2A 프런트는 아직 통합 전이다. 시트 연결은 선택적 sheetGateway(list/create) props로 분리하고 2B 실제 SDK가 준비되면 라우트 closure에서 projectId/uploadId를 주입한다. 미제공 상태에서는 시트 연결 UI를 숨기며 이 기능의 완료로 보고하지 않는다. 실제 Figma는 플러그인 ID 준비와 실행 검증이 남아 있다. 실행 DB migration·상시 서버 시작은 하지 않았다.
 
 2C 요청에 따라 Playwright testDir를 src/pages로 넓혀 project-settings의 spec도 발견한다. 공통 검사 통과와 브라우저 검증 완료는 구분한다.
+
+## 웹 라우트 연결
+
+2A 프런트95b8cb2를 fast-forward로 수용했다. `/projects/$projectId/uploads`는 목록, `/projects/$projectId/uploads/$uploadId`는 상세로 연결하며 같은 프로젝트의 목록 복귀와 브라우저 히스토리를 사용한다. 상세는 projectId/uploadId 변경 시 새 인스턴스로 초기화한다. sheetGateway와 편집 경로는2B 기능 통합 때 함께 연결하며 현재 시트 UI는 숨김 상태다. 루트의 프로젝트 선택·편집 진입도2B 통합 대상이다.
+
+라우트 연결 후 pnpm check, 플러그인 main/재시도 테스트6개, diff 검사를 통과했다. 기존 optional-chain/디자인HTML 크기 경고2건이 남아 있다. 새 UI 문구는 추가하지 않았으며2A의 독립 문구검수·gateway 조건검수 결과를 유지했다. 실제 목록→상세→뒤로/앞으로/목록 복귀와 직접 URL 새로고침은 테스트DB 슬롯을 가진2A의 브라우저 검증에서 확인한다. 아직 브라우저 검증 완료로 보고하지 않는다.
+
+2C 로컬83c7612는 소스·테스트 전송 허용 범위를 이유로 자동 승인 검토가 푸시를 거절했고 해당 채팅에서 사용자 승인을 요청했다. 이 라우트 커밋에는2C 코드를 포함하지 않는다. 승인 전 다른 브랜치를 통한 원격 전송도 보류한다.
