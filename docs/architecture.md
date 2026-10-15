@@ -45,6 +45,8 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 웹·Figma 플러그인 UI·공통 UI에 동일하게 적용한다.
 
+라이트 모드의 톤앤매너와 디자인 원칙은 [DESIGN.md](../DESIGN.md)를 따른다.
+
 - UI의 폰트·컬러·radius와 공통 타이포그래피·간격은 `packages/design-tokens/src/theme.css`의 토큰을 반드시 사용한다.
 - primary 컬러는 `#515299`다. hover·subtle·배경·텍스트·경계선 컬러는 공통 의미별 토큰으로 정의한다.
 - 기본 폰트는 Noto Sans다. 한글은 Noto Sans KR로 보완하며, Fontsource 패키지로 폰트 파일을 자체 호스팅한다.
