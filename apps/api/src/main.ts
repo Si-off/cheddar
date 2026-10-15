@@ -1,0 +1,38 @@
+import "reflect-metadata";
+import { resolve } from "node:path";
+import { createApp } from "./common/application";
+import { readEnv } from "./config/env";
+import { DatabaseService } from "./database/database.service";
+import { LocalStorage } from "./storage/local-storage";
+
+async function main() {
+  const config = readEnv();
+  const app = await createApp(config, resolve(process.cwd(), "migrations"));
+  try {
+    await app.get(LocalStorage).initialize();
+    const database = app.get(DatabaseService);
+    const pending = await database.pool.query<{ count: string }>(
+      "SELECT count(*) FROM files WHERE status = 'pending'",
+    );
+    if (Number(pending.rows[0].count))
+      process.stderr.write(
+        `Database has ${pending.rows[0].count} unfinished upload(s); no rows deleted.\n`,
+      );
+    app.enableShutdownHooks();
+    await app.listen(config.port, "127.0.0.1");
+    process.stdout.write(
+      `Cheddar API listening on http://127.0.0.1:${config.port}\n`,
+    );
+  } catch {
+    await app.close();
+    throw new Error(
+      "API startup failed. Check database migrations and storage access.",
+    );
+  }
+}
+main().catch((error) => {
+  process.stderr.write(
+    `${error instanceof Error ? error.message : "API startup failed."}\n`,
+  );
+  process.exitCode = 1;
+});

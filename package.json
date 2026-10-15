@@ -18,7 +18,11 @@
     "format": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm build",
     "gen:api:web": "pnpm --filter @cheddar/web gen:api",
-    "gen:api:plugin": "pnpm --filter @cheddar/figma-plugin gen:api"
+    "gen:api:plugin": "pnpm --filter @cheddar/figma-plugin gen:api",
+    "dev:api": "pnpm --filter @cheddar/api dev",
+    "test:api": "pnpm --filter @cheddar/api test",
+    "db:migrate": "pnpm --filter @cheddar/api db:migrate",
+    "openapi:export": "pnpm --filter @cheddar/api openapi:export"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
