@@ -19,4 +19,15 @@ export async function checkMigrations(
   await database.pool.query("SELECT id FROM files LIMIT 0");
   await database.pool.query("SELECT id FROM uploads LIMIT 0");
   await database.pool.query("SELECT id FROM upload_frames LIMIT 0");
+  await database.pool.query("SELECT id FROM ia_items LIMIT 0");
+  await database.pool.query("SELECT project_id FROM project_templates LIMIT 0");
+  await database.pool.query("SELECT id FROM sheets LIMIT 0");
+  await database.pool.query("SELECT id FROM sheet_columns LIMIT 0");
+  await database.pool.query("SELECT column_id FROM sheet_column_views LIMIT 0");
+  await database.pool.query("SELECT id FROM test_cases LIMIT 0");
+  await database.pool.query("SELECT case_id FROM test_case_values LIMIT 0");
+  await database.pool.query(
+    "SELECT case_id FROM test_case_frame_links LIMIT 0",
+  );
+  await database.pool.query("SELECT case_id FROM test_case_ia_links LIMIT 0");
 }

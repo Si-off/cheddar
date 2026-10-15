@@ -6,10 +6,17 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { decodeCursor, encodeCursor } from "../src/common/pagination";
 import { readEnv } from "../src/config/env";
-import { CreateIaItemDto, UpdateTemplateDto } from "../src/contracts/ia.dto";
+import {
+  CreateIaItemDto,
+  DeleteIaQueryDto,
+  UpdateIaItemDto,
+  UpdateTemplateDto,
+} from "../src/contracts/ia.dto";
 import {
   CreateSheetDto,
   SheetContentDto,
+  SheetExportQueryDto,
+  SheetPageQueryDto,
   SheetViewDto,
   SYSTEM_FIELDS,
 } from "../src/contracts/sheets.dto";
@@ -261,4 +268,82 @@ test("configuration and cursor failures do not disclose secrets", () => {
   assert.deepEqual(decodeCursor(encodeCursor(row)), row);
   assert.throws(() => decodeCursor("not-a-cursor"));
   assert.throws(() => decodeCursor(""));
+});
+
+test("IA partial updates distinguish omitted fields from nullable clears", async () => {
+  for (const patch of [
+    { expectedRevision: 1, name: " 수정 " },
+    { expectedRevision: 1, parentId: null, description: null },
+  ]) {
+    assert.deepEqual(
+      await validate(plainToInstance(UpdateIaItemDto, patch), options),
+      [],
+    );
+  }
+  for (const patch of [
+    { name: "수정" },
+    { expectedRevision: 1, name: null },
+    { expectedRevision: 1, screenId: null },
+    { expectedRevision: 1, position: null },
+    { expectedRevision: 1, name: "  " },
+  ]) {
+    assert.ok(
+      (await validate(plainToInstance(UpdateIaItemDto, patch), options)).length,
+    );
+  }
+  assert.deepEqual(
+    await validate(
+      plainToInstance(DeleteIaQueryDto, { expectedRevision: "2" }),
+      options,
+    ),
+    [],
+  );
+  for (const expectedRevision of [undefined, "", 0, 1.5])
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(DeleteIaQueryDto, { expectedRevision }),
+          options,
+        )
+      ).length,
+    );
+});
+test("sheet filters and export versions reject invalid identifiers and revisions", async () => {
+  assert.deepEqual(
+    await validate(
+      plainToInstance(SheetPageQueryDto, {
+        uploadId: randomUUID(),
+        limit: "50",
+      }),
+      options,
+    ),
+    [],
+  );
+  for (const uploadId of [null, "", "wrong"])
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(SheetPageQueryDto, { uploadId }),
+          options,
+        )
+      ).length,
+    );
+  assert.deepEqual(
+    await validate(
+      plainToInstance(SheetExportQueryDto, {
+        contentRevision: "1",
+        viewRevision: "2",
+      }),
+      options,
+    ),
+    [],
+  );
+  assert.ok(
+    (
+      await validate(
+        plainToInstance(SheetExportQueryDto, { contentRevision: 0 }),
+        options,
+      )
+    ).length,
+  );
 });

@@ -188,15 +188,111 @@ export type CreateIaItemDto = {
     position: number;
 };
 
+export type DeleteIaQueryDto = {
+    expectedRevision: number;
+};
+
+export type IaItemDto = {
+    id: string;
+    projectId: string;
+    screenId: string;
+    name: string;
+    description: string | null;
+    parentId: string | null;
+    position: number;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type IaPageDto = {
+    items: Array<IaItemDto>;
+};
+
+export type ProjectTemplateDto = {
+    projectId: string;
+    columns: Array<SheetColumnDto>;
+    view: Array<ColumnViewDto>;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type SheetSummaryDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    kind: 'unit' | 'integration';
+    uploadId: string | null;
+    contentRevision: number;
+    viewRevision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type SheetPageDto = {
+    items: Array<SheetSummaryDto>;
+    nextCursor: string | null;
+};
+
+export type SheetPageQueryDto = {
+    limit?: number;
+    cursor?: string;
+    uploadId?: string;
+};
+
+export type FrameReferenceDto = {
+    id: string;
+    uploadId: string;
+    figmaFileKey: string;
+    figmaNodeId: string;
+    name: string;
+    imageFileId: string;
+    dataFileId: string;
+};
+
+export type IaReferenceDto = {
+    id: string;
+    screenId: string;
+    name: string;
+};
+
+export type SheetReferencesDto = {
+    frames: Array<FrameReferenceDto>;
+    iaItems: Array<IaReferenceDto>;
+};
+
+export type SheetSnapshotDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    kind: 'unit' | 'integration';
+    uploadId: string | null;
+    contentRevision: number;
+    viewRevision: number;
+    createdAt: string;
+    updatedAt: string;
+    sourceTemplateRevision: number;
+    columns: Array<SheetColumnDto>;
+    cases: Array<CaseContentDto>;
+    view: Array<ColumnViewDto>;
+    references: SheetReferencesDto;
+};
+
+export type SheetExportQueryDto = {
+    contentRevision?: number;
+    viewRevision?: number;
+};
+
 export type UpdateIaItemDto = {
     /**
      * Case-sensitive business identifier, not a Figma node ID.
      */
-    screenId: string;
-    name: string;
+    screenId?: string;
+    name?: string;
     description?: string | null;
     parentId?: string | null;
-    position: number;
+    position?: number;
     expectedRevision: number;
 };
 

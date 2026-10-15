@@ -55,8 +55,9 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 - 실제 경로만 OpenAPI에 포함한다. 후속 업로드·시트·IA DTO는 schema와 검증 예시만 제공한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
 - 생성 명세와 Drizzle meta는 Biome 포맷 대상에서 제외하고 명세 재생성 비교·계약 테스트·migration 재현으로 검증한다. 기존 소스 검사를 완화하지 않는다.
 - API 테스트는 `node:test`, `@nestjs/testing`, 실제 PostgreSQL·HTTP를 사용한다. 컴파일·SDK 실행 테스트·파일 fixture는 OS 임시 경로를 사용한다. 테스트 데이터는 이 실행이 만든 UUID 행만 정리한다.
+- 프로젝트 생성 시 기본 양식을 같은 트랜잭션에서 저장하고, 기존 프로젝트에는 migration으로 누락분만 보충한다. IA·양식·시트 공통 모델은 [2B·2C 공통 계약](changes/2026-10-15-staged-development/stage-2bc-common.md)을 따른다. 기능 API와 화면은 후속 통합 대상이다.
 - 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 2A 서비스 책임이며 현재 실행 API는 후속 통합 대상이다.
-- 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 2A 사용자가 승인한 `uploads/`·웹 `project-uploads/`는 아래 구조에 반영했다. 다른 후속 경로는 해당 승인과 조율 반영을 따른다.
+- 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 2A·2B·2C 사용자가 승인한 기능 경로는 아래 구조에 반영했다. 추가 하위 폴더는 해당 승인 절차를 따른다.
 
 ## 공통 디자인 기준
 
@@ -135,7 +136,11 @@ cheddar/
 │   │   │   ├── health/
 │   │   │   ├── projects/
 │   │   │   ├── files/
-│   │   │   └── uploads/
+│   │   │   ├── uploads/
+│   │   │   ├── sheets/
+│   │   │   ├── exports/
+│   │   │   ├── ia/
+│   │   │   └── templates/
 │   │   ├── scripts/
 │   │   ├── test/
 │   │   └── migrations/
@@ -147,6 +152,7 @@ cheddar/
 │   │       │   └── styles/
 │   │       ├── pages/
 │   │       │   ├── project-uploads/
+│   │       │   ├── project-settings/
 │   │       │   ├── test-case-editor/
 │   │       │   └── shared-test-cases/
 │   │       ├── widgets/

@@ -15,6 +15,13 @@
       "when": 1792036824917,
       "tag": "0001_neat_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792037134846,
+      "tag": "0002_shocking_wiccan",
+      "breakpoints": true
     }
   ]
 }
