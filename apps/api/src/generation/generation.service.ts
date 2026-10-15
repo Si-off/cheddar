@@ -150,6 +150,9 @@ export class GenerationService implements OnModuleDestroy {
       images,
       frameIds: context.frames.map((f) => f.id),
       screenIds: context.ia.map((i) => i.id),
+      customColumnIds: job.snapshot.columns
+        .filter((column) => column.kind === "custom")
+        .map((column) => column.id),
     };
   }
   private async run(job: Job, key: string, abort: AbortSignal) {
@@ -187,6 +190,14 @@ export class GenerationService implements OnModuleDestroy {
         .compile();
       await graph.invoke({}, { signal });
     } catch (error) {
+      // Generation validators/providers only attach categorical diagnostics; no input or keys.
+      if (
+        error instanceof ApiError &&
+        ["INVALID_AI_RESULT", "AI_REQUEST_FAILED"].includes(error.code)
+      )
+        process.stderr.write(
+          `${JSON.stringify({ event: "generation_failed", jobId: job.id, provider: job.provider, code: error.code, details: error.details })}\n`,
+        );
       const message =
         error instanceof ApiError
           ? error.message

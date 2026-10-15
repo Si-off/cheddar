@@ -16,32 +16,55 @@ const object = (properties: Record<string, unknown>) => ({
   additionalProperties: false,
 });
 const string = { type: "string" };
-const strings = { type: "array", items: string };
-const caseSchema = object({
-  title: string,
-  preconditions: string,
-  steps: string,
-  expectedResult: string,
-  priority: { type: ["string", "null"], enum: ["high", "medium", "low", null] },
-  relatedFrameIds: strings,
-  screenIds: strings,
-  customValues: {
+export function createResultSchema(
+  frameIds: string[],
+  screenIds: string[],
+  customColumnIds: string[],
+) {
+  const references = (ids: string[]) => ({
     type: "array",
-    items: object({ columnId: string, value: string }),
-  },
-});
-export const resultSchema = object({
-  cases: { type: "array", items: caseSchema },
-  candidates: {
-    type: "array",
-    items: object({ reason: string, content: caseSchema }),
-  },
-});
-export const invalidResult = () =>
+    items: { type: "string", enum: ids },
+  });
+  const nonempty = { type: "string", pattern: "\\S" };
+  const caseSchema = object({
+    title: nonempty,
+    preconditions: string,
+    steps: nonempty,
+    expectedResult: nonempty,
+    priority: {
+      anyOf: [
+        { type: "string", enum: ["high", "medium", "low"] },
+        { type: "null" },
+      ],
+    },
+    ...(frameIds.length ? { relatedFrameIds: references(frameIds) } : {}),
+    ...(screenIds.length ? { screenIds: references(screenIds) } : {}),
+    ...(customColumnIds.length
+      ? {
+          customValues: {
+            type: "array",
+            items: object({
+              columnId: { type: "string", enum: customColumnIds },
+              value: string,
+            }),
+          },
+        }
+      : {}),
+  });
+  return object({
+    cases: { type: "array", items: caseSchema },
+    candidates: {
+      type: "array",
+      items: object({ reason: nonempty, content: caseSchema }),
+    },
+  });
+}
+export const invalidResult = (reason = "invalid_structure") =>
   new ApiError(
     422,
     "INVALID_AI_RESULT",
     "생성 결과의 형식이나 연결된 화면 정보를 확인하지 못했습니다. 기존 시트는 유지됩니다. 입력을 확인한 뒤 다시 생성해주세요.",
+    { reason },
   );
 export type GenerationResult = {
   cases: CaseContentDto[];
@@ -59,7 +82,7 @@ export function validateContent(
   if (
     validateSync(input, { whitelist: true, forbidNonWhitelisted: true }).length
   )
-    throw invalidResult();
+    throw invalidResult("case_fields");
 }
 export function parseResult(
   raw: string,
@@ -67,7 +90,30 @@ export function parseResult(
   frameIds: string[],
   screenIds: string[],
 ): GenerationResult {
-  const parsed = JSON.parse(raw);
+  let parsed: Record<string, unknown> | null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw invalidResult("invalid_json");
+  }
+  const customColumnIds = snapshot.columns
+    .filter((column) => column.kind === "custom")
+    .map((column) => column.id);
+  function references(
+    value: unknown,
+    allowed: string[],
+    field: string,
+  ): string[] {
+    if (value === undefined && !allowed.length) return [];
+    if (!Array.isArray(value) || value.some((id) => typeof id !== "string"))
+      throw invalidResult(field);
+    const normalized = [
+      ...new Set(value.map((id) => (id as string).trim().toLowerCase())),
+    ];
+    if (normalized.some((id) => !allowed.includes(id)))
+      throw invalidResult(field);
+    return normalized;
+  }
   if (
     !parsed ||
     !Array.isArray(parsed.cases) ||
@@ -76,33 +122,52 @@ export function parseResult(
   )
     throw invalidResult();
   function convert(value: Record<string, unknown>): CaseContentDto {
-    if (!value || !Array.isArray(value.customValues)) throw invalidResult();
-    const entries = value.customValues as { columnId: string; value: string }[];
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw invalidResult("case_structure");
+    const customValues =
+      value.customValues ?? (!customColumnIds.length ? [] : undefined);
+    if (!Array.isArray(customValues)) throw invalidResult("custom_values");
+    const entries = customValues as { columnId: string; value: string }[];
     if (
       entries.some(
         (e) =>
           !e || typeof e.columnId !== "string" || typeof e.value !== "string",
       ) ||
-      new Set(entries.map((e) => e.columnId)).size !== entries.length
+      new Set(entries.map((e) => e.columnId.trim().toLowerCase())).size !==
+        entries.length
     )
-      throw invalidResult();
+      throw invalidResult("custom_values");
+    if (
+      entries.some(
+        (e) => !customColumnIds.includes(e.columnId.trim().toLowerCase()),
+      )
+    )
+      throw invalidResult("custom_column_reference");
     const content = {
       ...value,
       id: randomUUID(),
       caseCode: "",
+      priority:
+        typeof value.priority === "string"
+          ? value.priority.trim().toLowerCase()
+          : value.priority,
+      relatedFrameIds: references(
+        value.relatedFrameIds,
+        frameIds,
+        "frame_reference",
+      ),
+      screenIds: references(value.screenIds, screenIds, "ia_reference"),
       customValues: Object.fromEntries(
-        entries.map((e) => [e.columnId, e.value]),
+        entries.map((e) => [e.columnId.trim().toLowerCase(), e.value]),
       ),
     } as CaseContentDto;
     validateContent(snapshot, [content]);
     if (
       !content.title.trim() ||
       !content.steps.trim() ||
-      !content.expectedResult.trim() ||
-      content.relatedFrameIds.some((id) => !frameIds.includes(id)) ||
-      content.screenIds.some((id) => !screenIds.includes(id))
+      !content.expectedResult.trim()
     )
-      throw invalidResult();
+      throw invalidResult("empty_case_text");
     return content;
   }
   const cases = parsed.cases.map(convert);
@@ -113,7 +178,7 @@ export function parseResult(
         typeof candidate.reason !== "string" ||
         !candidate.reason.trim()
       )
-        throw invalidResult();
+        throw invalidResult("candidate_reason");
       const content = convert(candidate.content);
       return {
         id: content.id,
