@@ -32,7 +32,7 @@
 ## 검증과 남은 사항
 
 - 실행 명령: pnpm check, pnpm dev:web, pnpm dev:plugin, 두 앱 gen:api --output <OS 임시 경로>, 생성 결과 tsc 검사.
-- 브라우저: 웹 /·/share 경로, noindex, primary·폰트 패밀리, 플러그인 모의 host 연결과 브라우저 단독 실행 안내 확인. 최종 플러그인 단독 UI 콘솔 오류·경고 없음. 모의 host iframe 검사에서는 브라우저 도구의 MutationObserver 오류 로그가 관찰되어 실제 Figma 콘솔 확인은 후속 검증으로 남긴다.
+- 브라우저: 웹 /·/share 경로, noindex, primary·폰트 패밀리, 플러그인 모의 host 연결과 브라우저 단독 실행 안내 확인. 최종 플러그인 단독 UI 콘솔 오류·경고 없음. 모의 host iframe 검사에서는 출처를 확인하지 못한 MutationObserver 오류 로그가 관찰되었다. 최종 번들에는 MutationObserver 코드가 없고 단독 UI에는 해당 오류가 없었다. 실제 Figma 콘솔 확인은 후속 검증으로 남긴다.
 - 브라우저 모의 환경은 실제 Figma 런타임 검증이 아니다. 발급 ID·실제 문서 접근·업로드·API 호출은 미검증이다.
 - 실제 OpenAPI 명세는 미정. 도구가 generated/ 아래에 만드는 client/·core/·@tanstack/ 경로는 저장소 밖에서만 검증했으며 사용자가 생성 코드 전용으로 명시 승인했다. 실제 명세 확정 전까지 저장소에 생성하지 않는다.
 - Noto Sans·KR를 모두 자체 호스팅하여 현재 플러그인 단일 HTML은 약 5.6 MB다. 실제 Figma 실행 시 로딩을 확인하고 필요하면 사용하는 언어·글리프 범위를 조정한다.
