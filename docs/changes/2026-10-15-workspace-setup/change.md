@@ -23,7 +23,9 @@
 - 의존성 설치·잠금 파일 생성·기본 설정 11개 Biome 검사 통과.
 - 2단계 완료 및 추가 디자인 반영: primary #515299, 자체 호스팅 Noto Sans·Noto Sans KR, 의미별 컬러·폰트·radius·간격 토큰. AGENTS.md에 토큰 사용 의무 반영. 공통 UI·웹 타입 검사와 웹 빌드 통과.
 - 3단계 완료: 웹 Vite·Tailwind·TanStack Router·Query/Motion 프로바이더와 최소 실행 화면 구성. / 및 /share/$shareId 브라우저 진입, primary 토큰·폰트 패밀리·noindex 확인. 웹 타입 검사·빌드 통과.
-- 플러그인 실행 코드와 전체 통합 검증은 다음 단계에서 수행.
+- 4단계 완료: Figma main IIFE·UI 단일 HTML 빌드, ui-ready/plugin-ready 메시지 계약, Query/Motion 프로바이더·Zustand 연결 상태 구성. 타입·빌드·동시 감시 빌드 통과. 저장소 밖 브라우저 host 모의 환경에서 양방향 메시지 연결과 단독 실행 안내를 확인.
+- 사용자 확인: Figma 플러그인 ID는 아직 발급받지 않음. manifest에 임의 ID를 넣지 않는다.
+- 전체 검증과 최종 문서 정리를 진행 중.
 
 ## 미정과 경계
 

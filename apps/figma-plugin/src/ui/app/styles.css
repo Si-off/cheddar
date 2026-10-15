@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "@cheddar/design-tokens/theme.css";
+@source "../../../../../packages/ui/src";
+
+html {
+  font-family: var(--font-sans);
+}
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
