@@ -133,8 +133,10 @@
     color: var(--color-muted);
   }
   .cd-input:focus-visible {
-    background: var(--color-focus-surface);
     border-color: var(--color-focus-border);
+  }
+  .cd-select-trigger:focus-visible {
+    background: var(--color-focus-surface);
   }
   .cd-textarea {
     display: block;
