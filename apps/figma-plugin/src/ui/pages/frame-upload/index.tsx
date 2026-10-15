@@ -227,6 +227,7 @@ export function FrameUploadPage() {
     selection?.fileKey &&
     frames.length > 0 &&
     selection.unsupportedCount === 0 &&
+    selection.emptySectionCount === 0 &&
     projectId &&
     name.trim().length > 0;
   return (
@@ -332,8 +333,14 @@ export function FrameUploadPage() {
             </div>
             <section aria-labelledby="selected-frames" className="space-y-2">
               <h2 id="selected-frames" className="text-label font-heading">
-                선택한 프레임 {frames.length}개
+                업로드할 프레임 {frames.length}개
               </h2>
+              {!locked && selection && selection.sectionCount > 0 && (
+                <p className="text-label text-muted">
+                  섹션 안의 최상위 Frame을 포함합니다. Frame 내부의 중첩
+                  프레임은 별도 항목으로 추가하지 않습니다.
+                </p>
+              )}
               {frames.length > 0 ? (
                 <ol className="divide-y divide-border rounded-panel border border-border">
                   {frames.map((frame) => (
@@ -345,15 +352,24 @@ export function FrameUploadPage() {
                     </li>
                   ))}
                 </ol>
-              ) : (
+              ) : selection &&
+                selection.sectionCount === 0 &&
+                selection.unsupportedCount === 0 ? (
                 <p className="text-label text-muted">
-                  Figma에서 업로드할 Frame을 선택해주세요.
+                  Figma에서 업로드할 Frame이나 섹션을 선택해주세요.
                 </p>
-              )}
+              ) : null}
               {!locked && selection && selection.unsupportedCount > 0 && (
                 <p role="alert" className="text-label text-danger">
-                  Frame만 선택해주세요. 다른 레이어나 이름·크기를 확인해야 하는
-                  항목이 {selection.unsupportedCount}개 있습니다.
+                  Frame이나 섹션만 선택해주세요. 다른 레이어나 이름·크기를
+                  확인해야 하는 항목이 {selection.unsupportedCount}개 있습니다.
+                </p>
+              )}
+              {!locked && selection && selection.emptySectionCount > 0 && (
+                <p role="alert" className="text-label text-danger">
+                  Frame이 없는 섹션이 {selection.emptySectionCount}개 있습니다.
+                  해당 섹션을 선택에서 제외하거나 Frame이 있는 섹션을
+                  선택해주세요.
                 </p>
               )}
               {!locked && selection && !selection.fileKey && (

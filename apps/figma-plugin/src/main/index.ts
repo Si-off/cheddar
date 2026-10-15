@@ -33,9 +33,43 @@ function metadata(node: FrameNode): SelectedFrame {
 }
 function selection(): FrameSelection {
   const nodes = figma.currentPage.selection;
-  const selected = nodes.filter(
-    (node): node is FrameNode => node.type === "FRAME",
-  );
+  const collected = new Map<string, FrameNode>();
+  let unsupportedCount = 0;
+  let sectionCount = 0;
+  let emptySectionCount = 0;
+  for (const node of nodes) {
+    if (node.type === "FRAME") {
+      collected.set(node.id, node);
+    } else if (node.type === "SECTION") {
+      sectionCount += 1;
+      let found = false;
+      const pending: SceneNode[] = [...node.children].reverse();
+      while (pending.length) {
+        const child = pending.pop();
+        if (!child) continue;
+        if (child.type === "FRAME") {
+          found = true;
+          collected.set(child.id, child);
+          // A screen's nested layout frames belong to that screen's export.
+        } else if ("children" in child) {
+          for (let index = child.children.length - 1; index >= 0; index -= 1)
+            pending.push(child.children[index]);
+        }
+      }
+      if (!found) emptySectionCount += 1;
+    } else {
+      unsupportedCount += 1;
+    }
+  }
+  // Selection order may place a descendant before its selected ancestor.
+  const selected = [...collected.values()].filter((node) => {
+    let parent = node.parent;
+    while (parent) {
+      if (collected.has(parent.id)) return false;
+      parent = parent.parent;
+    }
+    return true;
+  });
   const supported = selected.filter(
     (node) =>
       node.name.length > 0 &&
@@ -49,7 +83,9 @@ function selection(): FrameSelection {
     version: selectionVersion,
     fileKey: figma.fileKey ?? null,
     frames: supported.map(metadata),
-    unsupportedCount: nodes.length - supported.length,
+    unsupportedCount: unsupportedCount + selected.length - supported.length,
+    sectionCount,
+    emptySectionCount,
   };
 }
 function publishSelection() {
@@ -94,6 +130,7 @@ async function handle(
     if (
       selected.version !== message.selectionVersion ||
       selected.unsupportedCount ||
+      selected.emptySectionCount ||
       !selected.frames.length
     )
       throw new Error("INVALID_SELECTION");
