@@ -45,3 +45,10 @@ Node24.22.0/pnpm12.11.2. pnpm check 통과(기존 디자인 HTML 크기 경고1�
 라우트 연결 후 pnpm check, 플러그인 main/재시도 테스트6개, diff 검사를 통과했다. 기존 optional-chain/디자인HTML 크기 경고2건이 남아 있다. 새 UI 문구는 추가하지 않았으며2A의 독립 문구검수·gateway 조건검수 결과를 유지했다. 실제 목록→상세→뒤로/앞으로/목록 복귀와 직접 URL 새로고침은 테스트DB 슬롯을 가진2A의 브라우저 검증에서 확인한다. 아직 브라우저 검증 완료로 보고하지 않는다.
 
 2C 로컬83c7612는 소스·테스트 전송 허용 범위를 이유로 자동 승인 검토가 푸시를 거절했고 해당 채팅에서 사용자 승인을 요청했다. 이 라우트 커밋에는2C 코드를 포함하지 않는다. 승인 전 다른 브랜치를 통한 원격 전송도 보류한다.
+
+
+## 실제 Figma 개발 주소 수정
+
+2A가 실제 Figma import에서 devAllowedDomains의 숫자 IP 주소를 invalid URL로 거부하는 현상을 보고했다. 공식 manifest 문서의 개발 서버 패턴을 확인하고 공통 플러그인 env 기본값과 .env.example을 http://localhost:3102로 변경했다. README에 빌드 시 환경변수·manifest 허용 주소 일치·재빌드 조건을 기록했다. 웹 기본값과 API loopback listen은 유지한다. manifest 수정과 실제 Figma import/실행은2A가 소유하며 후속 커밋으로 수신한다.
+
+pnpm check가 통과했고 생성된 플러그인 UI HTML에 localhost:3102 주소가 포함됨을 확인했다. 런타임 DB·서버는 변경하지 않았다. 실제 Figma 네트워크 연결과 IPv4/IPv6 localhost 동작은2A 검증 대기이며 빌드 성공을 네트워크 성공으로 간주하지 않는다. UI 문구나 표시 조건 변경은 없다.

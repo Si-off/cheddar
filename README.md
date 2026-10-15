@@ -62,7 +62,7 @@ pnpm dev:plugin
 
 플러그인 UI와 main을 각각 감시 빌드하여 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. UI는 CSS·폰트를 포함한 단일 HTML이다. 브라우저에서 UI만 확인하려면 `pnpm --filter @cheddar/figma-plugin dev:ui`를 사용한다 (`http://127.0.0.1:5174/`).
 
-Figma 플러그인 ID는 아직 발급되지 않아 manifest의 `id`를 생략했다. Figma에서 새 플러그인을 만들고 [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 발급된 ID를 manifest에 반영한 뒤 개발용으로 가져온다. 현재 실제 Figma 내 실행은 미검증이다. API 기본 주소는 `http://127.0.0.1:3101`이며 실제 Figma origin·네트워크 허용은 2A에서 검증한다.
+Figma 플러그인 ID는 아직 발급되지 않아 manifest의 `id`를 생략했다. Figma에서 새 플러그인을 만들고 [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 발급된 ID를 manifest에 반영한 뒤 개발용으로 가져온다. 현재 실제 Figma 내 실행은 미검증이다. 플러그인의 개발 API 기본 주소는 `http://localhost:3102`이며 실제 Figma origin·네트워크 접근은 2A에서 검증한다.
 
 ## 검증과 API 코드 생성
 
@@ -172,4 +172,4 @@ Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이
 
 업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시트 생성·목록·조회는 `.../sheets`, 내용·보기 저장은 `.../sheets/{sheetId}/content`·`.../view`, XLSX 내보내기는 `.../sheets/{sheetId}/export.xlsx`에서 제공한다. 내보내기는 서버에 저장된 전체 시트를 대상으로 하며 내용·보기 revision을 지정해 최신 저장본과 일치하는지 검사할 수 있다.
 
-두 앱의 공통 API client는 `VITE_API_BASE_URL`을 사용하고 기본값은 `http://127.0.0.1:3101`이다. 2A 실행에서는 `http://127.0.0.1:3102`로 지정한다. POST mutation 자동 재시도는 비활성화한다. Playwright는 `PLAYWRIGHT_BASE_URL`로 이미 실행된 웹에 연결하며 브라우저 캐시는 `PLAYWRIGHT_BROWSERS_PATH`로 OS 임시 경로에 지정한다.
+두 앱의 공통 API client는 빌드 시 `VITE_API_BASE_URL`을 사용한다. 웹 기본값은 `http://127.0.0.1:3101`, 플러그인 개발 기본값은 `http://localhost:3102`다. 2A 웹 검증 시 웹에는 `http://127.0.0.1:3102`를 지정할 수 있다. Figma 플러그인 주소는 manifest의 `networkAccess.devAllowedDomains`와 일치시킨다. Figma import에서 숫자 IP 주소가 거부되어 [공식 manifest 문서](https://developers.figma.com/docs/plugins/manifest/)의 개발 서버 패턴인 `http://localhost:3102`를 사용한다. 값을 바꾸면 UI를 다시 빌드하며 기존 로컬 환경 설정이 기본값을 덮어쓸 수 있다. API listen은 loopback으로 제한한다. POST mutation 자동 재시도는 비활성화한다. Playwright는 `PLAYWRIGHT_BASE_URL`로 이미 실행된 웹에 연결하며 브라우저 캐시는 `PLAYWRIGHT_BROWSERS_PATH`로 OS 임시 경로에 지정한다.

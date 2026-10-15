@@ -97,7 +97,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 현재 명세는 `apps/api/openapi.json`이며 두 앱의 생성 타입·SDK·Query 코드를 관리한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 명세 변경 후 재생성하며 생성 코드를 직접 편집하지 않는다.
 
-Figma ID는 아직 발급되지 않았다. `manifest.json`에 임의 ID를 넣지 않았으며 실제 Figma 실행은 ID 발급·반영 후 검증한다. API 기본 주소는 `http://127.0.0.1:3101`이며 실제 Figma의 origin·로컬 접근은 2A에서 확인한다. 그 전까지 플러그인 외부 네트워크 허용은 `none`이다.
+Figma ID는 아직 발급되지 않았다. `manifest.json`에 임의 ID를 넣지 않았으며 실제 Figma 실행은 ID 발급·반영 후 검증한다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시키며 실제 Figma의 origin·로컬 접근은 2A에서 확인한다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
 
 ## 문서와 검수 에이전트의 역할
 
