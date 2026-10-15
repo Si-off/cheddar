@@ -1,11 +1,14 @@
 {
   "name": "Cheddar",
   "api": "1.0.0",
-  "editorType": ["figma"],
+  "editorType": ["figma", "dev"],
+  "capabilities": ["inspect"],
+  "enablePrivatePluginApi": true,
   "main": "dist/main.js",
   "ui": "dist/index.html",
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["none"]
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://127.0.0.1:3102"]
   }
 }
