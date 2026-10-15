@@ -4,7 +4,9 @@ import {
   createRouter,
   Link,
   Outlet,
+  useParams,
 } from "@tanstack/react-router";
+import { ProjectSettingsPage } from "@/pages/project-settings";
 import {
   ProjectUploadDetailPage,
   ProjectUploadsPage,
@@ -13,12 +15,31 @@ import { SharedTestCasesPage } from "@/pages/shared-test-cases";
 import { TestCaseEditorPage } from "@/pages/test-case-editor";
 
 function RootLayout() {
+  const { projectId } = useParams({ strict: false });
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-surface px-page py-4">
+      <header className="flex items-center gap-6 border-b border-border bg-surface px-page py-4">
         <Link to="/" className="text-brand font-heading">
           Cheddar
         </Link>
+        {projectId && (
+          <nav aria-label="프로젝트 메뉴" className="flex items-center gap-4">
+            <Link
+              to="/projects/$projectId/uploads"
+              params={{ projectId }}
+              activeProps={{ "aria-current": "page" }}
+            >
+              업로드
+            </Link>
+            <Link
+              to="/projects/$projectId/settings"
+              params={{ projectId }}
+              activeProps={{ "aria-current": "page" }}
+            >
+              프로젝트 설정
+            </Link>
+          </nav>
+        )}
       </header>
       <main className="mx-auto max-w-content p-page">
         <Outlet />
@@ -79,6 +100,14 @@ const uploadDetailRoute = createRoute({
     );
   },
 });
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects/$projectId/settings",
+  component: function SettingsRoute() {
+    const { projectId } = settingsRoute.useParams();
+    return <ProjectSettingsPage key={projectId} projectId={projectId} />;
+  },
+});
 const sharedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/share/$shareId",
@@ -90,6 +119,7 @@ export const router = createRouter({
     editorRoute,
     uploadsRoute,
     uploadDetailRoute,
+    settingsRoute,
     sharedRoute,
   ]),
 });
