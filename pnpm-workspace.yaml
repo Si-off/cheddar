@@ -1,0 +1,15 @@
+packages:
+  - apps/web
+  - apps/figma-plugin
+  - packages/*
+
+engineStrict: true
+saveExact: true
+pmOnFail: error
+runtimeOnFail: error
+allowBuilds:
+  '@tailwindcss/oxide': true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - react-dom@19.3.1
+  - react@19.3.1

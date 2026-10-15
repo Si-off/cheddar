@@ -1,0 +1,27 @@
+{
+  "name": "cheddar",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24.22.0 <25",
+    "pnpm": "12.11.2"
+  },
+  "scripts": {
+    "dev": "pnpm dev:web",
+    "dev:web": "pnpm --filter @cheddar/web dev",
+    "dev:plugin": "pnpm --filter @cheddar/figma-plugin dev",
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "pnpm lint && pnpm typecheck && pnpm build",
+    "gen:api:web": "pnpm --filter @cheddar/web gen:api",
+    "gen:api:plugin": "pnpm --filter @cheddar/figma-plugin gen:api"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "typescript": "5.9.3"
+  }
+}

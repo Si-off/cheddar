@@ -28,7 +28,7 @@ Codex에서 이 저장소를 프로젝트 작업 위치로 연다. 루트 `AGENT
 - `packages/ui/`: 기본 UI
 - `packages/design-tokens/`: 디자인 토큰
 
-현재는 승인된 폴더와 Git 유지용 `.gitkeep`만 생성했다. 실행 코드·설정 파일·의존성은 아직 없으며, 상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다.
+workspace·기본 도구 설정을 구성 중이다. 단계별 상태는 [작업 기록](docs/changes/2026-10-15-workspace-setup/change.md)을, 상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다.
 
 ## 개발 환경
 

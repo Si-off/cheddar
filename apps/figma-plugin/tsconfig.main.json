@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017"],
+    "types": ["@figma/plugin-typings"]
+  },
+  "include": ["src/main", "src/protocol"]
+}
