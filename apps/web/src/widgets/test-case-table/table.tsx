@@ -1,4 +1,4 @@
-import { Checkbox, Input, Textarea } from "@cheddar/ui";
+import { Checkbox, Textarea } from "@cheddar/ui";
 import {
   type ColumnDef,
   flexRender,
@@ -256,6 +256,9 @@ export function TestCaseTable({
       <table
         ref={tableRef}
         className="sheet-table"
+        style={{
+          width: `calc(${table.getTotalSize()}px + var(--spacing-control-lg))`,
+        }}
         // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: WAI-ARIA APG data-grids applies grid to a native table.
         role="grid"
         aria-label="테스트 케이스 편집"
@@ -378,11 +381,6 @@ export function TestCaseTable({
                 const edit =
                   editing?.rowId === row.id && editing.columnId === column.id;
                 const value = displayValue(snapshot, row.original, column);
-                const multiline = [
-                  "preconditions",
-                  "steps",
-                  "expectedResult",
-                ].includes(column.field ?? "");
                 return (
                   <td
                     key={cell.id}
@@ -412,58 +410,48 @@ export function TestCaseTable({
                     }}
                     onDoubleClick={() => start(position)}
                   >
-                    {edit ? (
-                      column.field === "priority" ? (
-                        <select
-                          ref={(node) => node?.focus()}
-                          aria-label="우선순위 편집"
-                          value={row.original.priority ?? ""}
-                          onChange={(e) =>
-                            changeCell(row.id, column, e.target.value)
-                          }
-                          onBlur={() => setEditing(undefined)}
-                        >
-                          <option value="">미지정</option>
-                          <option value="high">높음</option>
-                          <option value="medium">보통</option>
-                          <option value="low">낮음</option>
-                        </select>
-                      ) : multiline ? (
-                        <Textarea
-                          ref={focusEditor}
-                          aria-label={`${column.name} 편집`}
-                          value={value}
-                          onCompositionStart={() => onComposition(true)}
-                          onCompositionEnd={() => onComposition(false)}
-                          onChange={(e) =>
-                            changeCell(row.id, column, e.target.value)
-                          }
-                          onBlur={() => {
-                            onComposition(false);
-                            setEditing(undefined);
-                          }}
-                        />
-                      ) : (
-                        <Input
-                          ref={focusEditor}
-                          aria-label={`${column.name} 편집`}
-                          value={value}
-                          onCompositionStart={() => onComposition(true)}
-                          onCompositionEnd={() => onComposition(false)}
-                          onValueChange={(value) =>
-                            changeCell(row.id, column, value)
-                          }
-                          onBlur={() => {
-                            onComposition(false);
-                            setEditing(undefined);
-                          }}
-                        />
-                      )
-                    ) : (
-                      <span className="sheet-cell-text">
-                        {value || <span aria-hidden="true">&nbsp;</span>}
+                    <div className="sheet-cell-content" data-editing={edit}>
+                      <span
+                        className="sheet-cell-text"
+                        aria-hidden={edit || undefined}
+                      >
+                        {value}
+                        {"\u200b"}
                       </span>
-                    )}
+                      {edit &&
+                        (column.field === "priority" ? (
+                          <select
+                            ref={(node) => node?.focus()}
+                            aria-label="우선순위 편집"
+                            value={row.original.priority ?? ""}
+                            onChange={(e) =>
+                              changeCell(row.id, column, e.target.value)
+                            }
+                            onBlur={() => setEditing(undefined)}
+                          >
+                            <option value="">미지정</option>
+                            <option value="high">높음</option>
+                            <option value="medium">보통</option>
+                            <option value="low">낮음</option>
+                          </select>
+                        ) : (
+                          <Textarea
+                            ref={focusEditor}
+                            rows={1}
+                            aria-label={`${column.name} 편집`}
+                            value={value}
+                            onCompositionStart={() => onComposition(true)}
+                            onCompositionEnd={() => onComposition(false)}
+                            onChange={(e) =>
+                              changeCell(row.id, column, e.target.value)
+                            }
+                            onBlur={() => {
+                              onComposition(false);
+                              setEditing(undefined);
+                            }}
+                          />
+                        ))}
+                    </div>
                   </td>
                 );
               })}

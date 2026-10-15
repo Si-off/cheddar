@@ -26,6 +26,7 @@ import {
 } from "@/entities/test-case";
 import { TestCaseTable } from "@/widgets/test-case-table";
 import { DetailPanel } from "./detail-panel";
+import { GenerationPanel } from "./generation-panel";
 import "./editor.css";
 
 type Props = {
@@ -81,6 +82,7 @@ export function SheetEditor({
   const [detailId, setDetailId] = useState<string>();
   const [columnSettings, setColumnSettings] = useState(false);
   const [message, setMessage] = useState<string>();
+  const [generationLocked, setGenerationLocked] = useState(true);
   const [busy, setBusy] = useState(false);
   const [comparison, setComparison] = useState(false);
   const [pendingLeave, setPendingLeave] = useState<() => void>();
@@ -150,7 +152,7 @@ export function SheetEditor({
     [session],
   );
   const item = state.draft.cases.find((c) => c.id === detailId);
-  const disabled = busy;
+  const disabled = busy || generationLocked;
   function details(id: string) {
     returnFocus.current = document.activeElement as HTMLElement;
     setDetailId(id);
@@ -260,7 +262,7 @@ export function SheetEditor({
           {state.status === "error" && (
             <Button
               variant="outline"
-              disabled={busy}
+              disabled={disabled}
               onClick={() => void session.retry()}
             >
               저장 다시 시도
@@ -268,7 +270,7 @@ export function SheetEditor({
           )}
           <Button
             disabled={
-              busy ||
+              disabled ||
               state.status === "conflict" ||
               state.status === "error" ||
               state.status === "invalid"
@@ -279,6 +281,12 @@ export function SheetEditor({
           </Button>
         </div>
       </div>
+      <GenerationPanel
+        snapshot={state.draft}
+        session={session}
+        uploads={uploads}
+        onLock={setGenerationLocked}
+      />
       {state.message && (
         <div className="sheet-notice" role="alert">
           {state.message}
@@ -322,6 +330,7 @@ export function SheetEditor({
               <span>{new Date(record.updatedAt).toLocaleString("ko-KR")}</span>
               <Button
                 variant="outline"
+                disabled={disabled}
                 onClick={() => {
                   session.restore(record);
                   setRecovery([]);
@@ -612,6 +621,7 @@ export function SheetEditor({
             </Button>
             <Button
               variant="destructive"
+              disabled={disabled}
               onClick={() => {
                 const action = confirm?.action;
                 setConfirm(undefined);
@@ -653,7 +663,7 @@ export function SheetEditor({
               닫기
             </Button>
             <Button
-              disabled={!state.latest}
+              disabled={disabled || !state.latest}
               onClick={() => {
                 session.startFromLatest();
                 setComparison(false);

@@ -1,4 +1,4 @@
-import { isAbsolute, resolve, sep } from "node:path";
+import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
 
 export const API_ENV = Symbol("API_ENV");
@@ -7,6 +7,12 @@ export interface ApiEnv {
   storageRoot: string;
   port: number;
   corsOrigins: string[];
+  ai?: {
+    anthropicKey?: string;
+    openaiKey?: string;
+    anthropicModel: string;
+    openaiModel: string;
+  };
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
@@ -26,7 +32,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   if (
     !storageRoot ||
     !isAbsolute(storageRoot) ||
-    resolve(storageRoot) === sep
+    resolve(storageRoot) === parse(resolve(storageRoot)).root
   ) {
     throw new Error(
       "FILE_STORAGE_ROOT must be an absolute, dedicated directory.",
@@ -60,6 +66,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     storageRoot: resolve(storageRoot),
     port,
     corsOrigins,
+    ai: {
+      anthropicKey: env.ANTHROPIC_API_KEY?.trim() || undefined,
+      openaiKey: env.OPENAI_API_KEY?.trim() || undefined,
+      anthropicModel: env.ANTHROPIC_MODEL?.trim() || "claude-haiku-5-5",
+      openaiModel: env.OPENAI_MODEL?.trim() || "gpt-6-luna",
+    },
   };
 }
 

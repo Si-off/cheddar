@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateSheetData, CreateSheetErrors, CreateSheetResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportSheetXlsxData, ExportSheetXlsxErrors, ExportSheetXlsxResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSheetData, GetSheetErrors, GetSheetResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListSheetsData, ListSheetsErrors, ListSheetsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateSheetContentData, UpdateSheetContentErrors, UpdateSheetContentResponses, UpdateSheetViewData, UpdateSheetViewErrors, UpdateSheetViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
+import type { CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateSheetData, CreateSheetErrors, CreateSheetResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportSheetXlsxData, ExportSheetXlsxErrors, ExportSheetXlsxResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSheetData, GetSheetErrors, GetSheetResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListSheetsData, ListSheetsErrors, ListSheetsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReviewCandidateData, ReviewCandidateErrors, ReviewCandidateResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateSheetContentData, UpdateSheetContentErrors, UpdateSheetContentResponses, UpdateSheetViewData, UpdateSheetViewErrors, UpdateSheetViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -138,3 +138,25 @@ export const updateSheetView = <ThrowOnError extends boolean = false>(options: O
 });
 
 export const exportSheetXlsx = <ThrowOnError extends boolean = false>(options: Options<ExportSheetXlsxData, ThrowOnError>): RequestResult<ExportSheetXlsxResponses, ExportSheetXlsxErrors, ThrowOnError> => (options.client ?? client).get<ExportSheetXlsxResponses, ExportSheetXlsxErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/sheets/{sheetId}/export.xlsx', ...options });
+
+export const listGenerations = <ThrowOnError extends boolean = false>(options: Options<ListGenerationsData, ThrowOnError>): RequestResult<ListGenerationsResponses, ListGenerationsErrors, ThrowOnError> => (options.client ?? client).get<ListGenerationsResponses, ListGenerationsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations', ...options });
+
+export const startGeneration = <ThrowOnError extends boolean = false>(options: Options<StartGenerationData, ThrowOnError>): RequestResult<StartGenerationResponses, StartGenerationErrors, ThrowOnError> => (options.client ?? client).post<StartGenerationResponses, StartGenerationErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const reviewCandidate = <ThrowOnError extends boolean = false>(options: Options<ReviewCandidateData, ThrowOnError>): RequestResult<ReviewCandidateResponses, ReviewCandidateErrors, ThrowOnError> => (options.client ?? client).put<ReviewCandidateResponses, ReviewCandidateErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/candidates/{candidateId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listGenerationProviders = <ThrowOnError extends boolean = false>(options?: Options<ListGenerationProvidersData, ThrowOnError>): RequestResult<ListGenerationProvidersResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGenerationProvidersResponses, unknown, ThrowOnError>({ url: '/api/v1/generation/providers', ...options });

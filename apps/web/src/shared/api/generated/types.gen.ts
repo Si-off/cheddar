@@ -302,6 +302,55 @@ export type SheetExportQueryDto = {
     viewRevision?: number;
 };
 
+export type CandidateDto = {
+    id: string;
+    status: 'pending' | 'added' | 'excluded';
+    reason: string;
+    content: CaseContentDto;
+};
+
+export type GenerationDto = {
+    id: string;
+    sheetId: string;
+    provider: 'anthropic' | 'openai';
+    model: string;
+    status: 'running' | 'succeeded' | 'failed';
+    error: string | null;
+    revision: number;
+    caseCount: number;
+    candidates: Array<CandidateDto>;
+    createdAt: string;
+};
+
+export type GenerationListDto = {
+    items: Array<GenerationDto>;
+};
+
+export type StartGenerationDto = {
+    clientRequestId: string;
+    provider: 'anthropic' | 'openai';
+    expectedRevision: number;
+    uploadId?: string | null;
+    description?: string;
+    exampleSheetId?: string;
+};
+
+export type ReviewCandidateDto = {
+    expectedRevision: number;
+    action: 'add' | 'exclude' | 'restore' | 'edit';
+    content?: CaseContentDto;
+};
+
+export type GenerationProviderDto = {
+    id: 'anthropic' | 'openai';
+    model: string;
+    configured: boolean;
+};
+
+export type GenerationProvidersDto = {
+    items: Array<GenerationProviderDto>;
+};
+
 export type GetLivenessData = {
     body?: never;
     path?: never;
@@ -974,3 +1023,101 @@ export type ExportSheetXlsxResponses = {
 };
 
 export type ExportSheetXlsxResponse = ExportSheetXlsxResponses[keyof ExportSheetXlsxResponses];
+
+export type ListGenerationsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        sheetId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations';
+};
+
+export type ListGenerationsErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ListGenerationsError = ListGenerationsErrors[keyof ListGenerationsErrors];
+
+export type ListGenerationsResponses = {
+    200: GenerationListDto;
+};
+
+export type ListGenerationsResponse = ListGenerationsResponses[keyof ListGenerationsResponses];
+
+export type StartGenerationData = {
+    body: StartGenerationDto;
+    path: {
+        projectId: string;
+        sheetId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations';
+};
+
+export type StartGenerationErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type StartGenerationError = StartGenerationErrors[keyof StartGenerationErrors];
+
+export type StartGenerationResponses = {
+    202: GenerationDto;
+};
+
+export type StartGenerationResponse = StartGenerationResponses[keyof StartGenerationResponses];
+
+export type ReviewCandidateData = {
+    body: ReviewCandidateDto;
+    path: {
+        projectId: string;
+        sheetId: string;
+        jobId: string;
+        candidateId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/candidates/{candidateId}';
+};
+
+export type ReviewCandidateErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ReviewCandidateError = ReviewCandidateErrors[keyof ReviewCandidateErrors];
+
+export type ReviewCandidateResponses = {
+    200: GenerationDto;
+};
+
+export type ReviewCandidateResponse = ReviewCandidateResponses[keyof ReviewCandidateResponses];
+
+export type ListGenerationProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/generation/providers';
+};
+
+export type ListGenerationProvidersResponses = {
+    200: GenerationProvidersDto;
+};
+
+export type ListGenerationProvidersResponse = ListGenerationProvidersResponses[keyof ListGenerationProvidersResponses];

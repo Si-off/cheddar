@@ -54,7 +54,7 @@ pnpm install --frozen-lockfile
 pnpm dev:web
 ```
 
-웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시트를 선택하고 `/projects/<projectId>/sheets/<sheetId>`에서 편집한다. 프로젝트별 `/uploads`, `/sheets`, `/settings` 경로를 제공한다. 설정과 시트 편집·업로드 연계·XLSX는 실제 DB·브라우저 검증을 마쳤다. AI 생성과 `/share/<shareId>`의 실제 공유 기능은 후속이다.
+웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시트를 선택하고 `/projects/<projectId>/sheets/<sheetId>`에서 편집한다. 프로젝트별 `/uploads`, `/sheets`, `/settings` 경로를 제공한다. 설정과 시트 편집·업로드 연계·XLSX는 실제 DB·브라우저 검증을 마쳤다. AI 생성·후보 검토는 연결됐으며 실제 모델 호출과 화면 검증은 사용자 확인 대기다. `/share/<shareId>`의 실제 공유 기능은 후속이다.
 
 ```sh
 pnpm dev:plugin
@@ -123,6 +123,8 @@ HTML 안의 CSS 다운로드는 일반 CSS 변수를 내보낸다. 다운로드�
 | `DATABASE_URL` | 전용 실행 DB 연결 |
 | `TEST_DATABASE_URL` | 전용 테스트 DB 연결. 실행 DB와 달라야 함 |
 | `FILE_STORAGE_ROOT` | Git 밖의 전용 영속 파일 루트. 현재 승인 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files` |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI 제공자 키. 서버 전용, 사용할 제공자의 키만 설정 |
+| `ANTHROPIC_MODEL` / `OPENAI_MODEL` | 기본 `claude-haiku-5-5` / `gpt-6-luna` |
 | `API_PORT` | 기본 `3101`, loopback에만 listen |
 | `CORS_ORIGINS` | 기본 `http://127.0.0.1:5173`. 쉼표로 구분한 정확한 origin |
 | `ALLOW_FIGMA_NULL_ORIGIN` | 기본 `false`. `true`는 `NODE_ENV=development`에서만 허용하며 Figma iframe의 `Origin: null`을 허용 |
@@ -175,3 +177,19 @@ Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이
 업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시트 생성·목록·조회는 `.../sheets`, 내용·보기 저장은 `.../sheets/{sheetId}/content`·`.../view`, XLSX 내보내기는 `.../sheets/{sheetId}/export.xlsx`에서 제공한다. 내보내기는 서버에 저장된 전체 시트를 대상으로 하며 내용·보기 revision을 지정해 최신 저장본과 일치하는지 검사할 수 있다.
 
 두 앱의 공통 API client는 빌드 시 `VITE_API_BASE_URL`을 사용한다. 웹 기본값은 `http://127.0.0.1:3101`, 플러그인 개발 기본값은 `http://localhost:3102`다. 2A 웹 검증 시 웹에는 `http://127.0.0.1:3102`를 지정할 수 있다. Figma 플러그인 주소는 manifest의 `networkAccess.devAllowedDomains`와 일치시킨다. Figma import에서 숫자 IP 주소가 거부되어 [공식 manifest 문서](https://developers.figma.com/docs/plugins/manifest/)의 개발 서버 패턴인 `http://localhost:3102`를 사용한다. 값을 바꾸면 UI를 다시 빌드하며 기존 로컬 환경 설정이 기본값을 덮어쓸 수 있다. API listen은 loopback으로 제한한다. POST mutation 자동 재시도는 비활성화한다. Playwright는 `PLAYWRIGHT_BASE_URL`로 이미 실행된 웹에 연결하며 브라우저 캐시는 `PLAYWRIGHT_BROWSERS_PATH`로 OS 임시 경로에 지정한다.
+
+## MVP AI 생성 실행
+
+`apps/api/.env.local`에 키를 입력한다. 기존 파일을 예제 파일로 덮어쓰지 않는다. 이 파일의 키를 웹 `VITE_` 환경변수에 넣지 않는다. 새 체크아웃에서 실행한다면 `DATABASE_URL`, `FILE_STORAGE_ROOT`와 포트·CORS 설정도 기존 로컬 환경에 맞게 준비해야 한다. 환경 파일은 worktree마다 별개다.
+
+이번 변경은 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블이 필요하다. 기존 서버에서 새 기능을 사용하려면 연결 설정을 확인하고 `pnpm db:migrate`를 실행한 뒤 이 체크아웃에서 API를 다시 실행한다. 현재 작업에서는 DB migration 적용이나 실행 중인 서버 재시작을 하지 않았다.
+
+1. 웹에서 프로젝트를 선택하거나 만든다.
+2. 새 시트를 만들고 단위/통합을 선택하거나 기존 시트를 연다.
+3. `AI 케이스 생성·후보 검토`에서 모델과 업로드 묶음 또는 설명을 지정한다.
+4. 기존 케이스가 있다면 교체 확인 후 생성한다. 기존 케이스는 작성 예시로도 사용한다.
+5. 생성 완료 후 표를 편집하고 후보를 확인해 추가·편집·제외한다. 제외한 후보는 다시 표시하고 복원할 수 있다.
+
+생성 중 대상 시트는 잠기며 다른 시트는 계속 편집할 수 있다. 작업 상태는 새로고침 후 다시 읽는다. AI 호출이 중단되면 자동 재호출하지 않는다. 서버 중단으로 상태가 남은 작업은 10분 후 조회할 때 실패 처리하며, 사용자가 다시 생성할 수 있다. 같은 요청 ID를 다시 보내도 AI 작업은 중복 생성하지 않는다. 입력 크기 초과·출력 잘림·참조 오류는 기존 시트를 교체하지 않는다.
+
+AI 호출은 공식 [Claude structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)와 [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) 형식을 사용한다. 실제 키 권한·응답 품질은 각 환경에서 확인한다.

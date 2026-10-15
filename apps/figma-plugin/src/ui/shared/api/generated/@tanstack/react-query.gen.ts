@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createIaItem, createProject, createSheet, createUpload, deleteIaItem, downloadFile, exportSheetXlsx, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getSheet, getUpload, listFiles, listIaItems, listProjects, listSheets, listUploads, type Options, updateIaItem, updateProject, updateProjectTemplate, updateSheetContent, updateSheetView, uploadFile } from '../sdk.gen';
-import type { CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateSheetData, CreateSheetError, CreateSheetResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportSheetXlsxData, ExportSheetXlsxError, ExportSheetXlsxResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetSheetData, GetSheetError, GetSheetResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListSheetsData, ListSheetsError, ListSheetsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateSheetContentData, UpdateSheetContentError, UpdateSheetContentResponse, UpdateSheetViewData, UpdateSheetViewError, UpdateSheetViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
+import { createIaItem, createProject, createSheet, createUpload, deleteIaItem, downloadFile, exportSheetXlsx, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getSheet, getUpload, listFiles, listGenerationProviders, listGenerations, listIaItems, listProjects, listSheets, listUploads, type Options, reviewCandidate, startGeneration, updateIaItem, updateProject, updateProjectTemplate, updateSheetContent, updateSheetView, uploadFile } from '../sdk.gen';
+import type { CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateSheetData, CreateSheetError, CreateSheetResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportSheetXlsxData, ExportSheetXlsxError, ExportSheetXlsxResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetSheetData, GetSheetError, GetSheetResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListGenerationProvidersData, ListGenerationProvidersResponse, ListGenerationsData, ListGenerationsError, ListGenerationsResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListSheetsData, ListSheetsError, ListSheetsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, ReviewCandidateData, ReviewCandidateError, ReviewCandidateResponse, StartGenerationData, StartGenerationError, StartGenerationResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateSheetContentData, UpdateSheetContentError, UpdateSheetContentResponse, UpdateSheetViewData, UpdateSheetViewError, UpdateSheetViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -538,4 +538,62 @@ export const exportSheetXlsxOptions = (options: Options<ExportSheetXlsxData>) =>
         return data;
     },
     queryKey: exportSheetXlsxQueryKey(options)
+});
+
+export const listGenerationsQueryKey = (options: Options<ListGenerationsData>) => createQueryKey('listGenerations', options);
+
+export const listGenerationsOptions = (options: Options<ListGenerationsData>) => queryOptions<ListGenerationsResponse, ListGenerationsError, ListGenerationsResponse, ReturnType<typeof listGenerationsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGenerations({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGenerationsQueryKey(options)
+});
+
+export const startGenerationMutation = (options?: Partial<Options<StartGenerationData>>): UseMutationOptions<StartGenerationResponse, StartGenerationError, Options<StartGenerationData>> => {
+    const mutationOptions: UseMutationOptions<StartGenerationResponse, StartGenerationError, Options<StartGenerationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const reviewCandidateMutation = (options?: Partial<Options<ReviewCandidateData>>): UseMutationOptions<ReviewCandidateResponse, ReviewCandidateError, Options<ReviewCandidateData>> => {
+    const mutationOptions: UseMutationOptions<ReviewCandidateResponse, ReviewCandidateError, Options<ReviewCandidateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reviewCandidate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listGenerationProvidersQueryKey = (options?: Options<ListGenerationProvidersData>) => createQueryKey('listGenerationProviders', options);
+
+export const listGenerationProvidersOptions = (options?: Options<ListGenerationProvidersData>) => queryOptions<ListGenerationProvidersResponse, DefaultError, ListGenerationProvidersResponse, ReturnType<typeof listGenerationProvidersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listGenerationProviders({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listGenerationProvidersQueryKey(options)
 });

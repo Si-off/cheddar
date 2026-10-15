@@ -3,6 +3,7 @@ import { type ApiEnv, configModule } from "./config/env";
 import { DatabaseModule } from "./database/database.module";
 import { ExportsModule } from "./exports/exports.module";
 import { FilesModule } from "./files/files.module";
+import { GenerationModule } from "./generation/generation.module";
 import {
   HealthController,
   MIGRATIONS_FOLDER,
@@ -33,6 +34,7 @@ export function appModule(
       TemplatesModule,
       SheetsModule,
       ExportsModule,
+      GenerationModule,
     ],
     controllers: [HealthController],
     providers: [{ provide: MIGRATIONS_FOLDER, useValue: migrationsFolder }],

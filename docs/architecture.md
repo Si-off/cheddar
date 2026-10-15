@@ -137,6 +137,7 @@ cheddar/
 │   │   │   ├── projects/
 │   │   │   ├── files/
 │   │   │   ├── uploads/
+│   │   │   ├── generation/
 │   │   │   ├── sheets/
 │   │   │   ├── exports/
 │   │   │   ├── ia/
@@ -243,10 +244,14 @@ cheddar/
 | XLSX 생성 위치와 라이브러리 | API에서 ExcelJS 4.4.0으로 저장된 전체 시트 생성. 사용자 문자열을 수식으로 변환하지 않으며 표현 불가능한 데이터는 잘라내지 않고 오류로 알림 |
 | Figma 발급 플러그인 ID·실제 Figma 실행 검증 | ID 반영·import·실행 확인. 실제 업로드와 회사 읽기 전용 Dev Mode 검증 대기 |
 | 테스트 프레임워크·CI | API node:test와 UI Playwright/Chromium 구성. CI는 미정 |
-| 백엔드 기술 스택·API·DB·AI 실행 구조 | NestJS·Drizzle·PostgreSQL 기반 구성. AI 상세는 3B |
+| 백엔드 기술 스택·API·DB·AI 실행 구조 | NestJS·Drizzle·PostgreSQL 기반 구성. AI는 아래 MVP LangGraph 흐름 |
 | 초기 로컬 구성요소 연결·공유 링크 접근 방식 | API loopback·명시 Origin. Figma 연결 검증·공유 후속 |
 | 사내 배포·릴리스·관측 방식 | 추후 결정 |
 
 ## 갱신 기준
 
 구조가 결정되면 이 문서에 현재 상태를 반영한다. 여러 대안 중 선택한 이유가 이후 판단에 필요하면 `decisions/`에 별도 기록을 남기고 연결한다. 과거 작업 계획만으로 현재 구조를 판단하지 않는다.
+
+### MVP AI 생성
+
+사용자 승인으로 `apps/api/src/generation/`을 추가했다. LangGraph는 입력 준비 → 모델 생성 → 형식·참조 검사 → 저장의 단일 흐름이며 자동 재시도·분할 생성은 초기 범위에서 제외한다. 생성 작업과 후보는 DB에 저장하고, 대상 시트만 편집을 잠근다. 키·모델은 서버 환경변수에서 관리한다. 생성 요청 ID로 중복 실행을 막고, 프로젝트 쓰기 잠금 안에서 시트 교체와 성공 상태를 한 트랜잭션으로 저장한다. 시트 자동 저장과 후보 추가도 같은 잠금 규칙을 따른다. 모델 호출 동안 DB 트랜잭션을 열어두지 않는다.
