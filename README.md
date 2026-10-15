@@ -64,6 +64,8 @@ pnpm dev:plugin
 
 Figma 플러그인 ID `1692417282897261384`를 manifest에 반영했다. [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 개발용 manifest를 가져온다. 실제 Figma import·실행·프로젝트 조회·선택 Frame 이름/크기 표시는 확인했다. 중첩 iframe 메시지와 opaque-origin UUID 호환 수정을 반영했으며, 수정 후 실제 업로드 성공은 아직 미검증이다. 플러그인의 개발 API 기본 주소는 `http://localhost:3102`이며 실제 Figma origin·네트워크 접근은 2A에서 검증한다.
 
+업로드할 Frame 또는 Section을 선택한다. Section을 선택하면 내부의 최상위 Frame들을 목록에 표시하며, 각 Frame 안의 중첩 프레임은 별도 항목으로 추가하지 않는다. 섹션과 그 안의 프레임을 함께 선택해도 중복 없이 포함한다. 업로드 전에 목록과 개수를 확인한다.
+
 ## 검증과 API 코드 생성
 
 ```sh

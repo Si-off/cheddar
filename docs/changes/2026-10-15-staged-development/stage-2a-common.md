@@ -60,3 +60,16 @@ pnpm check가 통과했고 생성된 플러그인 UI HTML에 localhost:3102 주�
 2A는 실제 Figma import·실행·프로젝트GET·선택Frame이름/390x844표시를 확인했다. 첫 업로드는 randomUUID 오류로 POST 전에 중단돼 실제 파일·묶음 생성은0건이며, 수정 후 네이티브UI 제어 불안정으로 재검증하지 못했다. 실제Figma업로드·회사읽기전용DevMode·JSON OS저장 확인은 미완료로 유지한다. 웹/하네스 실제API 업로드 성공과 실제Figma업로드를 구분한다. 2B sheetGateway는 조율d28504f에서 연결됐고2B 실제API 브라우저 검증을 기다린다. 2A는 테스트서버·자기UUID·임시저장소·잠금을 정리하고 슬롯을 반환했으며, 추가Figma검증은환경복구후재배정한다.
 
 README/구조문서의 ID미발급·실행미검증 설명을 현재 상태로 수정했다. 독립UX 연결표시조건 재검수는2A의 완료결과를 확인했고 조율에서 추가문구/표시조건을 변경하지 않았다. 실행DB migration·PR/main병합·배포는 없다.
+
+
+## Section 선택으로 프레임 일괄 수집
+
+사용자는 조율 채팅에서 “섹션을 선택하면 그 안의 프레임들을 한꺼번에 업로드할 수 있도록 수정해주세요.”라고 요청했다. 이전 직접선택Frame만 허용한 제한을 이 범위에서 확장한다. 실제제공링크9074:41868과조회시선택9085:45118은SECTION이며내부9085:45119는FRAME으로metadata에서확인했다.
+
+2A가 소유main/protocol/UI와테스트를수정하고 조율은제품/구조문서·통합·등록된조율manifest의dist재빌드를맡는다. 수집은선택Section경계안에서중첩Section/Group등을따라첫Frame까지탐색하고그Frame하위는별도수집하지않는다. 동일nodeId중복과포함관계중복을제거하며직접선택Frame은계속지원한다. Section내텍스트/벡터는업로드항목이아니며빈Section은업로드할Frame이없음을알린다. 최종목록·순서고정/문서변경중단/부분실패재시도와기존API계약을유지한다. 실제사용자가runtimeAPI3102/웹5175로수동테스트중이므로해당서버·DB·Figma파일을정리하거나재시작하지않는다.
+
+2A 구현8b03b99를 조율에 병합했다. 내부메시지의sectionCount/emptySectionCount를main/UI에함께반영하고,업로드할목록과섹션수집범위를표시한다. 빈Section혼합선택은빈섹션을제외하도록안내하고등록을막는다. API/DB/새폴더/의존성변경은없다. 2A는pnpm check·Node13개·독립UX재검수를통과했고,실제mainVM과빌드UI를연결한격리하네스에서2개Frame표시/4파일·2Frame묶음전송·빈Section/기타타입차단을확인했다. 하네스의노드/API는모사이므로실제Figma업로드성공으로표현하지않는다.
+
+조율에서도13개회귀·플러그인타입/소유파일Biome검사를통과하고 VITE_API_BASE_URL=http://localhost:3102로main/UI를함께재빌드했다. 사용자등록경로는조율worktree의manifest이며 Figma에서플러그인을닫았다다시열면최신코드를사용한다. runtimeAPI3102의health정상도확인했고서버/데이터/Figma파일은변경하지않았다. UI문구검수의빈선택안내중복1건은2A가수정후재검수통과했다. 실제Figma의Section선택→업로드는사용자재확인대기다.
+
+2A의최초push는명시전송허가근거부족으로자동검토가거절했다. 2A가사용자AGENTS→workflow5절의일반push허용과기존원격을근거로재검토받아승인·성공했음을보고했고, 조율에서원격SHA8b03b99를직접확인했다. 원격미반영으로기록하지않는다. PR/main병합·배포는없다.

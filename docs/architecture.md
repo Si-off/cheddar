@@ -34,7 +34,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 ## 구성요소 경계와 공유
 
-- 플러그인은 선택한 Figma 프레임의 데이터·이미지 업로드에 집중한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
+- 플러그인은 직접 선택한 Frame과 선택 Section 내부의 최상위 Frame 데이터를 업로드한다. Section은 자식 순서로 탐색하고 Frame을 만나면 그 하위 탐색을 멈춘다. 같은 nodeId와 이미 수집한 조상 Frame에 포함된 Frame은 중복 등록하지 않는다. 빈 Section이나 지원하지 않는 직접 선택이 섞이면 사용자가 선택을 수정하도록 안내한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
 - Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`에서 연결·선택·업로드 준비·프레임 추출·완료 전 검증 메시지를 구분한다. 실제 Figma 중첩 iframe relay는 정확한 Figma Origin과 manifest pluginId를 검사하고, opaque-origin UI 요청 UUID는 crypto.getRandomValues로 보완한다.
 - 기본 UI와 디자인 토큰은 공유한다.
 - 화면·업무 기능·상태 저장소는 앱별로 관리한다.
@@ -235,7 +235,7 @@ cheddar/
 | 항목 | 상태 |
 | --- | --- |
 | 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
-| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 직접 선택 Frame의 PNG·JSON 추출과 묶음 업로드 구현. 실제 Figma 업로드 최종 검증 대기 |
+| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 직접 Frame·Section 내부 최상위 Frame을 중복 제거해 PNG·JSON 추출 및 묶음 업로드. 실제 Figma 업로드 최종 검증 대기 |
 | 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
 | 실제 API 명세 | 1단계 프로젝트·파일 제공. 후속 업무 경로는 단계별 구현 |
 | TanStack Query와 Zustand의 세부 책임 분담 | 서버 응답과 미저장 화면 상태 분리. 화면별 구현은 후속 |
