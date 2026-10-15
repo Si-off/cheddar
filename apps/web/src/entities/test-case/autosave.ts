@@ -384,6 +384,27 @@ export class SheetSession {
     )
       await this.flush();
   }
+  async refreshSaved() {
+    const before = this.store.getState();
+    if (before.status !== "saved") return false;
+    const epoch = this.epoch;
+    const latest = await this.transport.get();
+    const current = this.store.getState();
+    if (
+      epoch !== this.epoch ||
+      current.version !== before.version ||
+      current.status !== "saved"
+    )
+      return false;
+    this.epoch++;
+    this.store.setState({
+      base: latest,
+      draft: structuredClone(latest),
+      latest: undefined,
+      message: undefined,
+    });
+    return true;
+  }
   async loadLatest() {
     const epoch = this.epoch;
     await this.running;

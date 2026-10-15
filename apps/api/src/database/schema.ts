@@ -16,6 +16,11 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import type {
+  CandidateDto,
+  StartGenerationDto,
+} from "../contracts/generation.dto";
+import type { SheetSnapshotDto } from "../contracts/sheets.dto";
 
 export const projects = pgTable(
   "projects",
@@ -453,5 +458,54 @@ export const testCaseIaLinks = pgTable(
     }).onDelete("restrict"),
     index("test_case_ia_links_ia_idx").on(t.projectId, t.iaItemId),
     check("test_case_ia_links_position_check", sql`${t.position} >= 0`),
+  ],
+);
+
+export const generationJobs = pgTable(
+  "generation_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    sheetId: uuid("sheet_id").notNull(),
+    clientRequestId: uuid("client_request_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    provider: text("provider").$type<"anthropic" | "openai">().notNull(),
+    model: text("model").notNull(),
+    status: text("status")
+      .$type<"running" | "succeeded" | "failed">()
+      .notNull()
+      .default("running"),
+    request: jsonb("request").$type<StartGenerationDto>().notNull(),
+    snapshot: jsonb("snapshot").$type<SheetSnapshotDto>().notNull(),
+    candidates: jsonb("candidates")
+      .$type<CandidateDto[]>()
+      .notNull()
+      .default([]),
+    caseCount: integer("case_count").notNull().default(0),
+    revision: integer("revision").notNull().default(1),
+    error: text("error"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.projectId, t.sheetId],
+      foreignColumns: [sheets.projectId, sheets.id],
+    }).onDelete("restrict"),
+    unique("generation_request_unique").on(t.projectId, t.clientRequestId),
+    uniqueIndex("generation_running_sheet_unique")
+      .on(t.sheetId)
+      .where(sql`${t.status} = 'running'`),
+    index("generation_sheet_idx").on(t.sheetId, t.createdAt),
+    check(
+      "generation_status_check",
+      sql`${t.status} in ('running','succeeded','failed')`,
+    ),
+    check(
+      "generation_provider_check",
+      sql`${t.provider} in ('anthropic','openai')`,
+    ),
   ],
 );

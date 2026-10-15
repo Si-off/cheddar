@@ -19,6 +19,7 @@ import { env } from "@/shared/config/env";
 import { SheetEditor } from "./editor";
 import {
   createEmptySheet,
+  createProjectNamed,
   downloadSheet,
   framesForUpload,
   projectPage,
@@ -41,6 +42,8 @@ export function TestCaseEditorPage({
   onBack,
 }: TestCaseEditorPageProps = {}) {
   const queryClient = useQueryClient();
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [projectName, setProjectName] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [localSheet, setLocalSheet] = useState<string>();
   const [listMode, setListMode] = useState(false);
@@ -101,6 +104,19 @@ export function TestCaseEditorPage({
       void queryClient.invalidateQueries({
         queryKey: ["sheets", activeProject],
       });
+    },
+  });
+  const createProject = useMutation({
+    mutationFn: () => createProjectNamed(projectName.trim()),
+    retry: false,
+    onSuccess: async (project) => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setSelectedProject(project.id);
+      setNewProjectOpen(false);
+      setProjectName("");
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
   const transport = useMemo(
@@ -191,6 +207,66 @@ export function TestCaseEditorPage({
           새 시트
         </Button>
       </div>
+      {!projectId && (
+        <Button
+          variant="outline"
+          onClick={() => {
+            createProject.reset();
+            setNewProjectOpen(true);
+          }}
+        >
+          새 프로젝트
+        </Button>
+      )}
+      <Dialog
+        open={newProjectOpen}
+        onOpenChange={(open) => {
+          if (!createProject.isPending) setNewProjectOpen(open);
+        }}
+      >
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>새 프로젝트</DialogTitle>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (projectName.trim() && !createProject.isPending)
+                createProject.mutate();
+            }}
+          >
+            <Label htmlFor="new-project-name">프로젝트 이름</Label>
+            <Input
+              id="new-project-name"
+              value={projectName}
+              onValueChange={setProjectName}
+              maxLength={100}
+              required
+              disabled={createProject.isPending}
+            />
+            {createProject.isError && (
+              <p role="alert">
+                {createProject.error.message} 다시 만들기 전에 프로젝트 목록을
+                확인해주세요.
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createProject.isPending}
+                onClick={() => setNewProjectOpen(false)}
+              >
+                취소
+              </Button>
+              <Button
+                type="submit"
+                disabled={!projectName.trim() || createProject.isPending}
+              >
+                {createProject.isPending ? "만드는 중" : "프로젝트 만들기"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <div>
         <Label htmlFor="sheet-project">프로젝트</Label>
         <select

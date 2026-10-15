@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { ApiError, invalid, notFound } from "../common/errors";
+import { assertSheetEditable } from "../common/generation-lock";
 import { decodeCursor, encodeCursor } from "../common/pagination";
 import type { ProjectTemplateDto } from "../contracts/ia.dto";
 import {
@@ -353,6 +354,7 @@ export class SheetsRepository {
   async updateView(projectId: string, sheetId: string, input: SheetViewDto) {
     return this.write(projectId, async (tx) => {
       const sheet = await this.sheet(tx, projectId, sheetId, true);
+      await assertSheetEditable(tx, sheetId);
       if (sheet.viewRevision !== input.expectedRevision)
         throw revisionConflict("view", sheet.viewRevision);
       const columns = await tx
@@ -388,249 +390,256 @@ export class SheetsRepository {
     input: SheetContentDto,
   ) {
     return this.write(projectId, async (tx) => {
-      const sheet = await this.sheet(tx, projectId, sheetId, true);
-      if (sheet.contentRevision !== input.expectedRevision)
-        throw revisionConflict("content", sheet.contentRevision);
-      const existing = await tx
-        .select()
-        .from(sheetColumns)
-        .where(eq(sheetColumns.sheetId, sheetId));
-      check(validColumns(input.columns), "columns", "invalidColumns");
-      check(
-        existing
-          .filter((c) => c.kind === "system")
-          .every((c) =>
-            input.columns.some(
-              (n) =>
-                n.id === c.id && n.field === c.field && n.kind === "system",
-            ),
+      await assertSheetEditable(tx, sheetId);
+      return this.writeContent(tx, projectId, sheetId, input);
+    });
+  }
+  // Caller owns the project lock and commits its surrounding operation atomically.
+  async writeContent(
+    tx: DatabaseTransaction,
+    projectId: string,
+    sheetId: string,
+    input: SheetContentDto,
+  ) {
+    const sheet = await this.sheet(tx, projectId, sheetId, true);
+    if (sheet.contentRevision !== input.expectedRevision)
+      throw revisionConflict("content", sheet.contentRevision);
+    const existing = await tx
+      .select()
+      .from(sheetColumns)
+      .where(eq(sheetColumns.sheetId, sheetId));
+    check(validColumns(input.columns), "columns", "invalidColumns");
+    check(
+      existing
+        .filter((c) => c.kind === "system")
+        .every((c) =>
+          input.columns.some(
+            (n) => n.id === c.id && n.field === c.field && n.kind === "system",
           ),
-        "columns",
-        "systemColumnChanged",
-      );
-      check(
-        existing.every(
-          (c) =>
-            !input.columns.some(
-              (n) =>
-                n.id === c.id &&
-                (n.kind !== c.kind || n.field !== (c.field ?? undefined)),
-            ),
         ),
-        "columns",
-        "columnKindChanged",
-      );
-      const reusedColumns = await tx
-        .select()
-        .from(sheetColumns)
-        .where(
-          inArray(
-            sheetColumns.id,
-            input.columns.map((c) => c.id),
+      "columns",
+      "systemColumnChanged",
+    );
+    check(
+      existing.every(
+        (c) =>
+          !input.columns.some(
+            (n) =>
+              n.id === c.id &&
+              (n.kind !== c.kind || n.field !== (c.field ?? undefined)),
           ),
-        );
-      const reusedCases = await tx
-        .select()
-        .from(testCases)
-        .where(
-          inArray(
-            testCases.id,
-            input.cases.map((c) => c.id),
-          ),
-        );
-      check(
-        reusedColumns.every((c) => c.sheetId === sheetId),
-        "columns",
-        "identifierInAnotherSheet",
-      );
-      check(
-        reusedCases.every((c) => c.sheetId === sheetId),
-        "cases",
-        "identifierInAnotherSheet",
-      );
-      const frameIds = [
-        ...new Set(input.cases.flatMap((c) => c.relatedFrameIds)),
-      ];
-      const screenIds = [
-        ...new Set(input.cases.flatMap((c) => c.screenIds)),
-      ].sort();
-      const frames = await tx
-        .select({ id: uploadFrames.id })
-        .from(uploadFrames)
-        .where(
-          and(
-            eq(uploadFrames.projectId, projectId),
-            inArray(uploadFrames.id, frameIds),
-          ),
-        );
-      const ia = await tx
-        .select({ id: iaItems.id })
-        .from(iaItems)
-        .where(
-          and(eq(iaItems.projectId, projectId), inArray(iaItems.id, screenIds)),
-        )
-        .orderBy(asc(iaItems.id))
-        .for("update");
-      check(
-        frames.length === frameIds.length,
-        "cases.relatedFrameIds",
-        "invalidReference",
-      );
-      check(
-        ia.length === screenIds.length,
-        "cases.screenIds",
-        "invalidReference",
-      );
-      const existingCases = await tx
-        .select()
-        .from(testCases)
-        .where(eq(testCases.sheetId, sheetId));
-      const existingIds = new Set(existingCases.map((c) => c.id));
-      const oldColumnIds = new Set(existing.map((c) => c.id));
-      const nextIds = new Set(input.cases.map((c) => c.id));
-      const nextColumnIds = new Set(input.columns.map((c) => c.id));
-      const structureChanged = !idsMatch([...oldColumnIds], [...nextColumnIds]);
-      let nextNumber = sheet.nextCaseNumber;
-      const codes = new Set(input.cases.map((c) => c.caseCode).filter(Boolean));
-      const cases = input.cases.map((c) => {
-        if (existingIds.has(c.id) || c.caseCode) return c;
-        let code: string;
-        do {
-          code = `TC-${String(nextNumber++).padStart(3, "0")}`;
-        } while (codes.has(code));
-        codes.add(code);
-        return { ...c, caseCode: code };
-      });
-      await tx
-        .delete(testCaseValues)
-        .where(eq(testCaseValues.sheetId, sheetId));
-      await tx
-        .delete(testCaseFrameLinks)
-        .where(inArray(testCaseFrameLinks.caseId, [...existingIds]));
-      await tx
-        .delete(testCaseIaLinks)
-        .where(inArray(testCaseIaLinks.caseId, [...existingIds]));
-      await tx.delete(testCases).where(
-        inArray(
-          testCases.id,
-          [...existingIds].filter((id) => !nextIds.has(id)),
-        ),
-      );
-      const view = await tx
-        .select()
-        .from(sheetColumnViews)
-        .where(eq(sheetColumnViews.sheetId, sheetId))
-        .orderBy(asc(sheetColumnViews.position));
-      if (structureChanged)
-        await tx
-          .delete(sheetColumnViews)
-          .where(eq(sheetColumnViews.sheetId, sheetId));
-      await tx.delete(sheetColumns).where(
+      ),
+      "columns",
+      "columnKindChanged",
+    );
+    const reusedColumns = await tx
+      .select()
+      .from(sheetColumns)
+      .where(
         inArray(
           sheetColumns.id,
-          [...oldColumnIds].filter((id) => !nextColumnIds.has(id)),
+          input.columns.map((c) => c.id),
         ),
       );
-      for (const column of input.columns.filter((c) => oldColumnIds.has(c.id)))
-        await tx
-          .update(sheetColumns)
-          .set({ name: column.name })
-          .where(
-            and(
-              eq(sheetColumns.sheetId, sheetId),
-              eq(sheetColumns.id, column.id),
-            ),
-          );
-      await insertChunks(
-        input.columns
-          .filter((c) => !oldColumnIds.has(c.id))
-          .map((c) => ({ ...c, projectId, sheetId })),
-        (chunk) => tx.insert(sheetColumns).values(chunk),
+    const reusedCases = await tx
+      .select()
+      .from(testCases)
+      .where(
+        inArray(
+          testCases.id,
+          input.cases.map((c) => c.id),
+        ),
       );
-      if (structureChanged) {
-        const retained = view
-          .filter((c) => nextColumnIds.has(c.columnId))
-          .map((c) => ({ columnId: c.columnId, width: c.width }));
-        const added = input.columns
-          .filter((c) => !oldColumnIds.has(c.id))
-          .map((c) => ({ columnId: c.id, width: DEFAULT_COLUMN_WIDTH }));
-        await tx.insert(sheetColumnViews).values(
-          [...retained, ...added].map((c, position) => ({
-            ...c,
-            sheetId,
-            position,
-          })),
+    check(
+      reusedColumns.every((c) => c.sheetId === sheetId),
+      "columns",
+      "identifierInAnotherSheet",
+    );
+    check(
+      reusedCases.every((c) => c.sheetId === sheetId),
+      "cases",
+      "identifierInAnotherSheet",
+    );
+    const frameIds = [
+      ...new Set(input.cases.flatMap((c) => c.relatedFrameIds)),
+    ];
+    const screenIds = [
+      ...new Set(input.cases.flatMap((c) => c.screenIds)),
+    ].sort();
+    const frames = await tx
+      .select({ id: uploadFrames.id })
+      .from(uploadFrames)
+      .where(
+        and(
+          eq(uploadFrames.projectId, projectId),
+          inArray(uploadFrames.id, frameIds),
+        ),
+      );
+    const ia = await tx
+      .select({ id: iaItems.id })
+      .from(iaItems)
+      .where(
+        and(eq(iaItems.projectId, projectId), inArray(iaItems.id, screenIds)),
+      )
+      .orderBy(asc(iaItems.id))
+      .for("update");
+    check(
+      frames.length === frameIds.length,
+      "cases.relatedFrameIds",
+      "invalidReference",
+    );
+    check(
+      ia.length === screenIds.length,
+      "cases.screenIds",
+      "invalidReference",
+    );
+    const existingCases = await tx
+      .select()
+      .from(testCases)
+      .where(eq(testCases.sheetId, sheetId));
+    const existingIds = new Set(existingCases.map((c) => c.id));
+    const oldColumnIds = new Set(existing.map((c) => c.id));
+    const nextIds = new Set(input.cases.map((c) => c.id));
+    const nextColumnIds = new Set(input.columns.map((c) => c.id));
+    const structureChanged = !idsMatch([...oldColumnIds], [...nextColumnIds]);
+    let nextNumber = sheet.nextCaseNumber;
+    const codes = new Set(input.cases.map((c) => c.caseCode).filter(Boolean));
+    const cases = input.cases.map((c) => {
+      if (existingIds.has(c.id) || c.caseCode) return c;
+      let code: string;
+      do {
+        code = `TC-${String(nextNumber++).padStart(3, "0")}`;
+      } while (codes.has(code));
+      codes.add(code);
+      return { ...c, caseCode: code };
+    });
+    await tx.delete(testCaseValues).where(eq(testCaseValues.sheetId, sheetId));
+    await tx
+      .delete(testCaseFrameLinks)
+      .where(inArray(testCaseFrameLinks.caseId, [...existingIds]));
+    await tx
+      .delete(testCaseIaLinks)
+      .where(inArray(testCaseIaLinks.caseId, [...existingIds]));
+    await tx.delete(testCases).where(
+      inArray(
+        testCases.id,
+        [...existingIds].filter((id) => !nextIds.has(id)),
+      ),
+    );
+    const view = await tx
+      .select()
+      .from(sheetColumnViews)
+      .where(eq(sheetColumnViews.sheetId, sheetId))
+      .orderBy(asc(sheetColumnViews.position));
+    if (structureChanged)
+      await tx
+        .delete(sheetColumnViews)
+        .where(eq(sheetColumnViews.sheetId, sheetId));
+    await tx.delete(sheetColumns).where(
+      inArray(
+        sheetColumns.id,
+        [...oldColumnIds].filter((id) => !nextColumnIds.has(id)),
+      ),
+    );
+    for (const column of input.columns.filter((c) => oldColumnIds.has(c.id)))
+      await tx
+        .update(sheetColumns)
+        .set({ name: column.name })
+        .where(
+          and(
+            eq(sheetColumns.sheetId, sheetId),
+            eq(sheetColumns.id, column.id),
+          ),
         );
-      }
-      const offset =
-        Math.max(0, ...existingCases.map((c) => c.position)) + cases.length + 1;
+    await insertChunks(
+      input.columns
+        .filter((c) => !oldColumnIds.has(c.id))
+        .map((c) => ({ ...c, projectId, sheetId })),
+      (chunk) => tx.insert(sheetColumns).values(chunk),
+    );
+    if (structureChanged) {
+      const retained = view
+        .filter((c) => nextColumnIds.has(c.columnId))
+        .map((c) => ({ columnId: c.columnId, width: c.width }));
+      const added = input.columns
+        .filter((c) => !oldColumnIds.has(c.id))
+        .map((c) => ({ columnId: c.id, width: DEFAULT_COLUMN_WIDTH }));
+      await tx.insert(sheetColumnViews).values(
+        [...retained, ...added].map((c, position) => ({
+          ...c,
+          sheetId,
+          position,
+        })),
+      );
+    }
+    const offset =
+      Math.max(0, ...existingCases.map((c) => c.position)) + cases.length + 1;
+    await tx
+      .update(testCases)
+      .set({ position: sql`${testCases.position} + ${offset}`, caseCode: "" })
+      .where(eq(testCases.sheetId, sheetId));
+    const rows = cases.map(
+      (
+        {
+          customValues: _values,
+          relatedFrameIds: _frames,
+          screenIds: _screens,
+          ...c
+        },
+        position,
+      ) => ({ ...c, projectId, sheetId, position }),
+    );
+    for (const row of rows.filter((c) => existingIds.has(c.id)))
       await tx
         .update(testCases)
-        .set({ position: sql`${testCases.position} + ${offset}`, caseCode: "" })
-        .where(eq(testCases.sheetId, sheetId));
-      const rows = cases.map(
-        (
-          {
-            customValues: _values,
-            relatedFrameIds: _frames,
-            screenIds: _screens,
-            ...c
-          },
+        .set(row)
+        .where(and(eq(testCases.sheetId, sheetId), eq(testCases.id, row.id)));
+    await insertChunks(
+      rows.filter((c) => !existingIds.has(c.id)),
+      (chunk) => tx.insert(testCases).values(chunk),
+    );
+    await insertChunks(
+      cases.flatMap((c) =>
+        Object.entries(c.customValues).map(([columnId, value]) => ({
+          sheetId,
+          caseId: c.id,
+          columnId,
+          value,
+        })),
+      ),
+      (chunk) => tx.insert(testCaseValues).values(chunk),
+    );
+    await insertChunks(
+      cases.flatMap((c) =>
+        c.relatedFrameIds.map((frameId, position) => ({
+          projectId,
+          caseId: c.id,
+          frameId,
           position,
-        ) => ({ ...c, projectId, sheetId, position }),
-      );
-      for (const row of rows.filter((c) => existingIds.has(c.id)))
-        await tx
-          .update(testCases)
-          .set(row)
-          .where(and(eq(testCases.sheetId, sheetId), eq(testCases.id, row.id)));
-      await insertChunks(
-        rows.filter((c) => !existingIds.has(c.id)),
-        (chunk) => tx.insert(testCases).values(chunk),
-      );
-      await insertChunks(
-        cases.flatMap((c) =>
-          Object.entries(c.customValues).map(([columnId, value]) => ({
-            sheetId,
-            caseId: c.id,
-            columnId,
-            value,
-          })),
-        ),
-        (chunk) => tx.insert(testCaseValues).values(chunk),
-      );
-      await insertChunks(
-        cases.flatMap((c) =>
-          c.relatedFrameIds.map((frameId, position) => ({
-            projectId,
-            caseId: c.id,
-            frameId,
-            position,
-          })),
-        ),
-        (chunk) => tx.insert(testCaseFrameLinks).values(chunk),
-      );
-      await insertChunks(
-        cases.flatMap((c) =>
-          c.screenIds.map((iaItemId, position) => ({
-            projectId,
-            caseId: c.id,
-            iaItemId,
-            position,
-          })),
-        ),
-        (chunk) => tx.insert(testCaseIaLinks).values(chunk),
-      );
-      await tx
-        .update(sheets)
-        .set({
-          contentRevision: sheet.contentRevision + 1,
-          viewRevision: sheet.viewRevision + (structureChanged ? 1 : 0),
-          nextCaseNumber: nextNumber,
-          updatedAt: new Date(),
-        })
-        .where(eq(sheets.id, sheetId));
-      return this.readSnapshot(tx, projectId, sheetId);
-    });
+        })),
+      ),
+      (chunk) => tx.insert(testCaseFrameLinks).values(chunk),
+    );
+    await insertChunks(
+      cases.flatMap((c) =>
+        c.screenIds.map((iaItemId, position) => ({
+          projectId,
+          caseId: c.id,
+          iaItemId,
+          position,
+        })),
+      ),
+      (chunk) => tx.insert(testCaseIaLinks).values(chunk),
+    );
+    await tx
+      .update(sheets)
+      .set({
+        contentRevision: sheet.contentRevision + 1,
+        viewRevision: sheet.viewRevision + (structureChanged ? 1 : 0),
+        nextCaseNumber: nextNumber,
+        updatedAt: new Date(),
+      })
+      .where(eq(sheets.id, sheetId));
+    return this.readSnapshot(tx, projectId, sheetId);
   }
 }

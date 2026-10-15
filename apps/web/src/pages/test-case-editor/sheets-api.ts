@@ -5,14 +5,19 @@ import {
   type Snapshot,
 } from "@/entities/test-case";
 import {
+  createProject,
   createSheet,
   exportSheetXlsx,
   getSheet,
   getUpload,
+  listGenerationProviders,
+  listGenerations,
   listIaItems,
   listProjects,
   listSheets,
   listUploads,
+  reviewCandidate,
+  startGeneration,
   updateSheetContent,
   updateSheetView,
 } from "@/shared/api/generated/sdk.gen";
@@ -129,4 +134,35 @@ export async function downloadSheet(snapshot: Snapshot) {
   link.download = name.replaceAll("/", "_").replaceAll("\\", "_");
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function createProjectNamed(name: string) {
+  return unwrap(await createProject({ body: { name } }));
+}
+export async function generationProviders() {
+  return unwrap(await listGenerationProviders());
+}
+export async function generationList(projectId: string, sheetId: string) {
+  return unwrap(await listGenerations({ path: { projectId, sheetId } }));
+}
+export async function beginGeneration(
+  projectId: string,
+  sheetId: string,
+  body: import("@/shared/api/generated").StartGenerationDto,
+) {
+  return unwrap(await startGeneration({ path: { projectId, sheetId }, body }));
+}
+export async function updateCandidate(
+  projectId: string,
+  sheetId: string,
+  jobId: string,
+  candidateId: string,
+  body: import("@/shared/api/generated").ReviewCandidateDto,
+) {
+  return unwrap(
+    await reviewCandidate({
+      path: { projectId, sheetId, jobId, candidateId },
+      body,
+    }),
+  );
 }
