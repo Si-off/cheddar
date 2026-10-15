@@ -6,10 +6,17 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { decodeCursor, encodeCursor } from "../src/common/pagination";
 import { readEnv } from "../src/config/env";
-import { CreateIaItemDto, UpdateTemplateDto } from "../src/contracts/ia.dto";
+import {
+  CreateIaItemDto,
+  DeleteIaQueryDto,
+  UpdateIaItemDto,
+  UpdateTemplateDto,
+} from "../src/contracts/ia.dto";
 import {
   CreateSheetDto,
   SheetContentDto,
+  SheetExportQueryDto,
+  SheetPageQueryDto,
   SheetViewDto,
   SYSTEM_FIELDS,
 } from "../src/contracts/sheets.dto";
@@ -137,7 +144,11 @@ test("upload and IA contracts keep Figma identity separate from business screen 
   };
   assert.deepEqual(
     await validate(
-      plainToInstance(CreateUploadDto, { name: "주문", frames: [frame] }),
+      plainToInstance(CreateUploadDto, {
+        clientRequestId: randomUUID(),
+        name: "주문",
+        frames: [frame],
+      }),
       options,
     ),
     [],
@@ -146,6 +157,7 @@ test("upload and IA contracts keep Figma identity separate from business screen 
     (
       await validate(
         plainToInstance(CreateUploadDto, {
+          clientRequestId: randomUUID(),
           name: "주문",
           frames: [frame, frame],
         }),
@@ -157,8 +169,45 @@ test("upload and IA contracts keep Figma identity separate from business screen 
     (
       await validate(
         plainToInstance(CreateUploadDto, {
+          clientRequestId: randomUUID(),
           name: "주문",
           frames: [{ ...frame, width: 0 }],
+        }),
+        options,
+      )
+    ).length,
+  );
+  for (const clientRequestId of [undefined, null, "not-a-uuid"]) {
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(CreateUploadDto, {
+            clientRequestId,
+            name: "주문",
+            frames: [frame],
+          }),
+          options,
+        )
+      ).length,
+    );
+  }
+  const distinctSources = plainToInstance(CreateUploadDto, {
+    clientRequestId: randomUUID(),
+    name: "  주문  ",
+    frames: [
+      { ...frame, figmaFileKey: "a:b", figmaNodeId: "c" },
+      { ...frame, figmaFileKey: "a", figmaNodeId: "b:c" },
+    ],
+  });
+  assert.deepEqual(await validate(distinctSources, options), []);
+  assert.equal(distinctSources.name, "주문");
+  assert.ok(
+    (
+      await validate(
+        plainToInstance(CreateUploadDto, {
+          clientRequestId: randomUUID(),
+          name: "  ",
+          frames: [frame],
         }),
         options,
       )
@@ -199,8 +248,102 @@ test("configuration and cursor failures do not disclose secrets", () => {
   assert.throws(() => readEnv({ ...base, API_PORT: "0" }));
   assert.throws(() => readEnv({ ...base, CORS_ORIGINS: "*" }));
   assert.throws(() => readEnv({ ...base, FILE_STORAGE_ROOT: "/" }));
+  assert.ok(!readEnv(base).corsOrigins.includes("null"));
+  assert.throws(() => readEnv({ ...base, CORS_ORIGINS: "null" }));
+  assert.throws(() => readEnv({ ...base, ALLOW_FIGMA_NULL_ORIGIN: "yes" }));
+  for (const NODE_ENV of [undefined, "production", "test"]) {
+    assert.throws(() =>
+      readEnv({ ...base, NODE_ENV, ALLOW_FIGMA_NULL_ORIGIN: "true" }),
+    );
+  }
+  assert.deepEqual(
+    readEnv({
+      ...base,
+      NODE_ENV: "development",
+      ALLOW_FIGMA_NULL_ORIGIN: "true",
+    }).corsOrigins,
+    ["http://127.0.0.1:5173", "null"],
+  );
   const row = { id: randomUUID(), createdAt: new Date() };
   assert.deepEqual(decodeCursor(encodeCursor(row)), row);
   assert.throws(() => decodeCursor("not-a-cursor"));
   assert.throws(() => decodeCursor(""));
+});
+
+test("IA partial updates distinguish omitted fields from nullable clears", async () => {
+  for (const patch of [
+    { expectedRevision: 1, name: " 수정 " },
+    { expectedRevision: 1, parentId: null, description: null },
+  ]) {
+    assert.deepEqual(
+      await validate(plainToInstance(UpdateIaItemDto, patch), options),
+      [],
+    );
+  }
+  for (const patch of [
+    { name: "수정" },
+    { expectedRevision: 1, name: null },
+    { expectedRevision: 1, screenId: null },
+    { expectedRevision: 1, position: null },
+    { expectedRevision: 1, name: "  " },
+  ]) {
+    assert.ok(
+      (await validate(plainToInstance(UpdateIaItemDto, patch), options)).length,
+    );
+  }
+  assert.deepEqual(
+    await validate(
+      plainToInstance(DeleteIaQueryDto, { expectedRevision: "2" }),
+      options,
+    ),
+    [],
+  );
+  for (const expectedRevision of [undefined, "", 0, 1.5])
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(DeleteIaQueryDto, { expectedRevision }),
+          options,
+        )
+      ).length,
+    );
+});
+test("sheet filters and export versions reject invalid identifiers and revisions", async () => {
+  assert.deepEqual(
+    await validate(
+      plainToInstance(SheetPageQueryDto, {
+        uploadId: randomUUID(),
+        limit: "50",
+      }),
+      options,
+    ),
+    [],
+  );
+  for (const uploadId of [null, "", "wrong"])
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(SheetPageQueryDto, { uploadId }),
+          options,
+        )
+      ).length,
+    );
+  assert.deepEqual(
+    await validate(
+      plainToInstance(SheetExportQueryDto, {
+        contentRevision: "1",
+        viewRevision: "2",
+      }),
+      options,
+    ),
+    [],
+  );
+  assert.ok(
+    (
+      await validate(
+        plainToInstance(SheetExportQueryDto, { contentRevision: 0 }),
+        options,
+      )
+    ).length,
+  );
 });

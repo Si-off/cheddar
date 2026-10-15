@@ -80,11 +80,47 @@ export type FrameInputDto = {
 };
 
 export type CreateUploadDto = {
+    /**
+     * Stable ID for retries of the same upload bundle.
+     */
+    clientRequestId: string;
     name: string;
     /**
      * Ordered frames. File IDs must reference ready files in the same project; enforced by the future upload service.
      */
     frames: Array<FrameInputDto>;
+};
+
+export type UploadFrameDto = {
+    id: string;
+    figmaFileKey: string;
+    figmaNodeId: string;
+    name: string;
+    width: number;
+    height: number;
+    imageFileId: string;
+    dataFileId: string;
+};
+
+export type UploadDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    createdAt: string;
+    frames: Array<UploadFrameDto>;
+};
+
+export type UploadSummaryDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    createdAt: string;
+    frameCount: number;
+};
+
+export type UploadPageDto = {
+    items: Array<UploadSummaryDto>;
+    nextCursor: string | null;
 };
 
 export type CreateSheetDto = {
@@ -152,15 +188,111 @@ export type CreateIaItemDto = {
     position: number;
 };
 
+export type DeleteIaQueryDto = {
+    expectedRevision: number;
+};
+
+export type IaItemDto = {
+    id: string;
+    projectId: string;
+    screenId: string;
+    name: string;
+    description: string | null;
+    parentId: string | null;
+    position: number;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type IaPageDto = {
+    items: Array<IaItemDto>;
+};
+
+export type ProjectTemplateDto = {
+    projectId: string;
+    columns: Array<SheetColumnDto>;
+    view: Array<ColumnViewDto>;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type SheetSummaryDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    kind: 'unit' | 'integration';
+    uploadId: string | null;
+    contentRevision: number;
+    viewRevision: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type SheetPageDto = {
+    items: Array<SheetSummaryDto>;
+    nextCursor: string | null;
+};
+
+export type SheetPageQueryDto = {
+    limit?: number;
+    cursor?: string;
+    uploadId?: string;
+};
+
+export type FrameReferenceDto = {
+    id: string;
+    uploadId: string;
+    figmaFileKey: string;
+    figmaNodeId: string;
+    name: string;
+    imageFileId: string;
+    dataFileId: string;
+};
+
+export type IaReferenceDto = {
+    id: string;
+    screenId: string;
+    name: string;
+};
+
+export type SheetReferencesDto = {
+    frames: Array<FrameReferenceDto>;
+    iaItems: Array<IaReferenceDto>;
+};
+
+export type SheetSnapshotDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    kind: 'unit' | 'integration';
+    uploadId: string | null;
+    contentRevision: number;
+    viewRevision: number;
+    createdAt: string;
+    updatedAt: string;
+    sourceTemplateRevision: number;
+    columns: Array<SheetColumnDto>;
+    cases: Array<CaseContentDto>;
+    view: Array<ColumnViewDto>;
+    references: SheetReferencesDto;
+};
+
+export type SheetExportQueryDto = {
+    contentRevision?: number;
+    viewRevision?: number;
+};
+
 export type UpdateIaItemDto = {
     /**
      * Case-sensitive business identifier, not a Figma node ID.
      */
-    screenId: string;
-    name: string;
+    screenId?: string;
+    name?: string;
     description?: string | null;
     parentId?: string | null;
-    position: number;
+    position?: number;
     expectedRevision: number;
 };
 

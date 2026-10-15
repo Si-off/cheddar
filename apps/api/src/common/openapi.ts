@@ -2,15 +2,26 @@ import type { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import {
   CreateIaItemDto,
+  DeleteIaQueryDto,
+  IaPageDto,
+  ProjectTemplateDto,
   UpdateIaItemDto,
   UpdateTemplateDto,
 } from "../contracts/ia.dto";
 import {
   CreateSheetDto,
   SheetContentDto,
+  SheetExportQueryDto,
+  SheetPageDto,
+  SheetPageQueryDto,
+  SheetSnapshotDto,
   SheetViewDto,
 } from "../contracts/sheets.dto";
-import { CreateUploadDto } from "../contracts/uploads.dto";
+import {
+  CreateUploadDto,
+  UploadDto,
+  UploadPageDto,
+} from "../contracts/uploads.dto";
 
 export function createDocument(app: INestApplication) {
   const config = new DocumentBuilder()
@@ -23,10 +34,19 @@ export function createDocument(app: INestApplication) {
   const document = SwaggerModule.createDocument(app, config, {
     extraModels: [
       CreateUploadDto,
+      UploadDto,
+      UploadPageDto,
       CreateSheetDto,
       SheetContentDto,
       SheetViewDto,
       CreateIaItemDto,
+      DeleteIaQueryDto,
+      IaPageDto,
+      ProjectTemplateDto,
+      SheetPageDto,
+      SheetPageQueryDto,
+      SheetSnapshotDto,
+      SheetExportQueryDto,
       UpdateIaItemDto,
       UpdateTemplateDto,
     ],
