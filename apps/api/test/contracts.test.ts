@@ -132,6 +132,22 @@ test("view and template contracts validate unique IDs and matching columns", asy
     [],
   );
 });
+test("column widths fit PostgreSQL integer storage in both view and template contracts", async () => {
+  for (const width of [2147483647, 2147483648]) {
+    const view = columns.map((column) => ({ columnId: column.id, width }));
+    for (const dto of [
+      plainToInstance(SheetViewDto, { expectedRevision: 1, columns: view }),
+      plainToInstance(UpdateTemplateDto, {
+        expectedRevision: 1,
+        columns,
+        view,
+      }),
+    ]) {
+      const errors = await validate(dto, options);
+      assert.equal(errors.length === 0, width === 2147483647);
+    }
+  }
+});
 test("upload and IA contracts keep Figma identity separate from business screen IDs", async () => {
   const frame = {
     figmaFileKey: "AbC",

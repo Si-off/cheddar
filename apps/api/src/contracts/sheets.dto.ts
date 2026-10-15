@@ -8,6 +8,7 @@ import {
   IsObject,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -161,7 +162,11 @@ export class SheetContentDto {
 }
 export class ColumnViewDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() columnId!: string;
-  @ApiProperty({ type: "integer", minimum: 1 }) @IsInt() @Min(1) width!: number;
+  @ApiProperty({ type: "integer", minimum: 1, maximum: 2147483647 })
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  width!: number;
 }
 export class SheetViewDto {
   @ApiProperty({ type: "integer", minimum: 1 })
