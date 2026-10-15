@@ -116,6 +116,10 @@ test("프로젝트 편집은 저장·재조회하고 미저장 이동에서 입�
   ).toBeVisible();
   await page.getByRole("tab", { name: "기본 정보", exact: true }).click();
   await expect(name).toHaveValue("주문 QA 한글 입력");
+  await page.getByRole("link", { name: "업로드", exact: true }).click();
+  await expect(page).toHaveURL(/\/uploads$/);
+  await page.getByRole("link", { name: "프로젝트 설정", exact: true }).click();
+  await expect(name).toHaveValue("주문 QA 한글 입력");
   await name.fill("버릴 내용");
   await page.getByRole("link", { name: "Cheddar", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -125,7 +129,7 @@ test("프로젝트 편집은 저장·재조회하고 미저장 이동에서 입�
 
 test("IA 등록·중복 오류·계층 변경과 참조 중 삭제 제한을 실제 API로 확인한다", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.getByRole("tab", { name: "IA", exact: true }).click();
   await page.getByLabel("화면 ID", { exact: true }).fill("ORDER-01");
   await page.getByLabel("화면 이름", { exact: true }).fill("주문");
@@ -146,6 +150,10 @@ test("IA 등록·중복 오류·계층 변경과 참조 중 삭제 제한을 실
     .click();
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("저장됨");
+  await page.screenshot({
+    path: testInfo.outputPath("settings-ia.png"),
+    fullPage: true,
+  });
   await page
     .getByRole("list", { name: "IA 목록", exact: true })
     .getByRole("button")
@@ -171,7 +179,14 @@ test("IA 등록·중복 오류·계층 변경과 참조 중 삭제 제한을 실
 test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유지된다", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
+  const projectId = new URL(page.url()).pathname.split("/")[2];
+  const beforeResponse = await request.post(
+    `${apiBase}/api/v1/projects/${projectId}/sheets`,
+    { data: { name: "양식 변경 전", kind: "unit" } },
+  );
+  expect(beforeResponse.status()).toBe(201);
+  const before = await beforeResponse.json();
   await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
   await expect(
     page.getByText("변경한 양식은 새 시트에만 적용됩니다."),
@@ -184,7 +199,6 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
     .click();
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("저장됨");
-  const projectId = new URL(page.url()).pathname.split("/")[2];
   const response = await request.get(
     `${apiBase}/api/v1/projects/${projectId}/template`,
   );
@@ -194,6 +208,33 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
   );
   expect(custom.valueType).toBe("text");
   expect(stored.view[7]).toEqual({ columnId: custom.id, width: 260 });
+  const existing = await (
+    await request.get(
+      `${apiBase}/api/v1/projects/${projectId}/sheets/${before.id}`,
+    )
+  ).json();
+  expect(existing).toEqual(before);
+  const afterResponse = await request.post(
+    `${apiBase}/api/v1/projects/${projectId}/sheets`,
+    { data: { name: "양식 변경 후", kind: "unit" } },
+  );
+  expect(afterResponse.status()).toBe(201);
+  const after = await afterResponse.json();
+  expect(after.sourceTemplateRevision).toBe(stored.revision);
+  expect(
+    after.columns.some(
+      (column: { name: string }) => column.name === "품질 메모",
+    ),
+  ).toBe(true);
+  expect(
+    after.columns.every(
+      (column: { id: string }) =>
+        !stored.columns.some(
+          (original: { id: string }) => original.id === column.id,
+        ),
+    ),
+  ).toBe(true);
+
   await page.reload();
   await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
   await expect(page.getByLabel("열 이름", { exact: true }).nth(7)).toHaveValue(
@@ -202,6 +243,10 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
   await expect(page.getByLabel("너비", { exact: true }).nth(7)).toHaveValue(
     "260",
   );
+  await page.screenshot({
+    path: testInfo.outputPath("settings-template.png"),
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: "품질 메모 열 삭제", exact: true })
     .click();
@@ -236,7 +281,9 @@ test("동시 수정 충돌에서 초안과 최신 저장 내용을 각각 확인
   await page
     .getByRole("button", { name: "최신 저장 내용 확인", exact: true })
     .click();
-  await expect(page.getByText("다른 창의 수정", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("definition").filter({ hasText: "다른 창의 수정" }),
+  ).toBeVisible();
   await expect(page.getByLabel("프로젝트 이름")).toHaveValue("내 편집 내용");
   await page
     .getByRole("button", { name: "입력 버리고 불러오기", exact: true })
@@ -286,4 +333,98 @@ test("저장 응답 유실과 네트워크 실패에서 확인 전 재전송하�
     page.getByRole("button", { name: "저장", exact: true }),
   ).toBeEnabled();
   await expect(page.getByLabel("프로젝트 이름")).toHaveValue("아직 전송 안 됨");
+});
+
+test("좁은 화면에서 필수 입력 오류와 키보드 탭 이동을 확인한다", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByLabel("프로젝트 이름").fill("");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(
+    page.getByText("이름을 입력해주세요.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("프로젝트 이름")).toBeFocused();
+  await page.getByLabel("프로젝트 이름").fill("모바일 키보드 한글");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("저장됨");
+  await page.getByRole("tab", { name: "기본 정보", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "IA 추가", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("settings-mobile.png"),
+    fullPage: true,
+  });
+});
+
+test("조회 갱신 실패와 복구 중에도 현재 입력을 유지한다", async ({ page }) => {
+  await page.getByLabel("프로젝트 이름").fill("유지할 초안");
+  const endpoint = "**/api/v1/projects/*";
+  await page.route(endpoint, async (route) => {
+    if (route.request().method() === "GET")
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { code: "DEPENDENCY_UNAVAILABLE" } }),
+      });
+    else await route.continue();
+  });
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(page.getByRole("alert")).toContainText("이전에 불러온 내용", {
+    timeout: 15000,
+  });
+  await expect(page.getByLabel("프로젝트 이름")).toHaveValue("유지할 초안");
+  await page.unroute(endpoint);
+  await page
+    .getByRole("button", { name: "다시 불러오기", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByLabel("프로젝트 이름")).toHaveValue("유지할 초안");
+});
+
+test("서버 재조회는 깨끗한 편집값만 갱신하고 미저장 초안은 충돌로 보호한다", async ({
+  page,
+  request,
+}) => {
+  const projectId = new URL(page.url()).pathname.split("/")[2];
+  const endpoint = `${apiBase}/api/v1/projects/${projectId}`;
+  let current = await (await request.get(endpoint)).json();
+  expect(
+    (
+      await request.patch(endpoint, {
+        data: { expectedRevision: current.revision, name: "최신 기본 정보" },
+      })
+    ).status(),
+  ).toBe(200);
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(page.getByLabel("프로젝트 이름")).toHaveValue("최신 기본 정보");
+  await page.getByLabel("프로젝트 이름").fill("유지할 내 초안");
+  current = await (await request.get(endpoint)).json();
+  expect(
+    (
+      await request.patch(endpoint, {
+        data: { expectedRevision: current.revision, name: "서버의 다음 수정" },
+      })
+    ).status(),
+  ).toBe(200);
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(page.getByRole("alert")).toContainText("다른 변경 사항");
+  await expect(page.getByLabel("프로젝트 이름")).toHaveValue("유지할 내 초안");
+  await expect(
+    page.getByRole("button", { name: "저장", exact: true }),
+  ).toBeDisabled();
 });

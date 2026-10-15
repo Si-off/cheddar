@@ -103,6 +103,51 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       });
   }, [draft, project.data]);
 
+  useEffect(() => {
+    if (
+      !draft ||
+      saving ||
+      issue?.kind === "conflict" ||
+      issue?.kind === "uncertain"
+    )
+      return;
+    let next: SettingsDraft | null = null;
+    if (draft.kind === "project" && project.data && !project.isError)
+      next = {
+        kind: "project",
+        base: project.data,
+        value: projectForm(project.data),
+      };
+    if (draft.kind === "template" && template.data && !template.isError)
+      next = {
+        kind: "template",
+        base: template.data,
+        value: templateForm(template.data),
+      };
+    if (draft.kind === "ia" && draft.base && ia.data && !ia.isError) {
+      const item = ia.data.items.find((entry) => entry.id === draft.base?.id);
+      if (!item) {
+        setIssue(saveIssue({ error: { code: "NOT_FOUND" } }));
+        return;
+      }
+      next = { kind: "ia", base: item, value: iaForm(item) };
+    }
+    if (!next || next.base?.revision === draft.base?.revision) return;
+    if (dirty) setIssue(saveIssue({ error: { code: "REVISION_CONFLICT" } }));
+    else setDraft(next);
+  }, [
+    draft,
+    dirty,
+    saving,
+    issue,
+    project.data,
+    project.isError,
+    template.data,
+    template.isError,
+    ia.data,
+    ia.isError,
+  ]);
+
   function replace(next: SettingsDraft) {
     setDraft(next);
     setErrors({});
@@ -334,7 +379,17 @@ function SettingsEditor({ projectId }: { projectId: string }) {
         }
         const expected =
           draft.kind === "template"
-            ? draft.value
+            ? {
+                ...draft.value,
+                columns: draft.value.columns.map((column) => ({
+                  ...column,
+                  name: column.name.trim(),
+                })),
+                view: draft.value.view.map((entry) => ({
+                  ...entry,
+                  width: String(Number(entry.width)),
+                })),
+              }
             : draft.kind === "project"
               ? { ...draft.value, name: draft.value.name.trim() }
               : {
@@ -385,7 +440,10 @@ function SettingsEditor({ projectId }: { projectId: string }) {
   }
 
   const loading = project.isPending || ia.isPending || template.isPending;
-  const failed = project.isError || ia.isError || template.isError;
+  const failed =
+    (project.isError && !project.data) ||
+    (ia.isError && !ia.data) ||
+    (template.isError && !template.data);
   if (failed)
     return (
       <Surface>
@@ -412,6 +470,23 @@ function SettingsEditor({ projectId }: { projectId: string }) {
         <p className="text-label text-muted">{project.data?.name}</p>
         <h1 className="text-title font-heading">프로젝트 설정</h1>
       </div>
+      {(project.isError || ia.isError || template.isError) && (
+        <div className="space-y-3 rounded-panel border border-border bg-warning-subtle p-4">
+          <p role="alert" className="text-label">
+            설정을 갱신하지 못해 이전에 불러온 내용을 표시하고 있습니다.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              void project.refetch();
+              void ia.refetch();
+              void template.refetch();
+            }}
+          >
+            다시 불러오기
+          </Button>
+        </div>
+      )}
       <Tabs
         value={draft.kind}
         onValueChange={(value) => transition(() => selectTab(value as Tab))}
@@ -512,7 +587,8 @@ function SettingsEditor({ projectId }: { projectId: string }) {
                 ? "저장 중…"
                 : dirty
                   ? "저장하지 않은 변경사항이 있습니다"
-                  : notice || "저장됨"}
+                  : notice ||
+                    (draft.kind === "ia" && !draft.base ? "" : "저장됨")}
             </p>
             <Button
               variant="outline"

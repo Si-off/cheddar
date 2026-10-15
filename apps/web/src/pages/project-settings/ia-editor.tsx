@@ -80,7 +80,13 @@ export function IaEditor({
                     </span>
                     <span className="break-all text-label">{item.name}</span>
                     {item.parentId && (
-                      <span className="text-caption text-muted">
+                      <span
+                        className={
+                          selected?.id === item.id
+                            ? "text-caption text-secondary-foreground"
+                            : "text-caption text-muted"
+                        }
+                      >
                         상위:{" "}
                         {items.find((parent) => parent.id === item.parentId)
                           ?.screenId ?? "—"}
