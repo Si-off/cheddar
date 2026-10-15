@@ -1,0 +1,81 @@
+.sheet-table-scroll {
+  overflow: auto;
+  max-height: calc(100dvh - var(--spacing-control-lg) * 5);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+.sheet-table {
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-label);
+}
+.sheet-table thead {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-sticky);
+  background: var(--color-surface-hover);
+}
+.sheet-table th,
+.sheet-table td {
+  box-sizing: border-box;
+  border-right: var(--border-width-default) solid var(--color-border);
+  border-bottom: var(--border-width-default) solid var(--color-border);
+  padding: var(--spacing-2) var(--spacing-3);
+  text-align: left;
+  vertical-align: top;
+}
+.sheet-table th {
+  font-weight: var(--font-weight-label);
+}
+.sheet-table td[data-column] {
+  cursor: text;
+  border-color: var(--color-border);
+  outline: none;
+}
+.sheet-table [aria-selected="true"] {
+  background: var(--color-surface-selected);
+}
+.sheet-table td[data-column]:focus {
+  border-color: var(--color-focus-border);
+}
+.sheet-cell-text {
+  display: block;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+  min-height: var(--spacing-control-lg);
+  max-height: var(--spacing-control-lg);
+}
+.sheet-table td[data-column] :is(.cd-input, .cd-textarea, select) {
+  box-sizing: border-box;
+  height: var(--spacing-control-lg);
+  min-height: var(--spacing-control-lg);
+  max-height: var(--spacing-control-lg);
+}
+.sheet-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+}
+.sheet-column-header > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-resize {
+  flex: none;
+  width: var(--spacing-3);
+  align-self: stretch;
+  min-height: var(--spacing-icon-md);
+  cursor: col-resize;
+  background: transparent;
+  border: var(--border-width-default) solid var(--color-border-control);
+  border-radius: var(--radius-small);
+}
+.sheet-resize:focus-visible {
+  outline: none;
+  border-color: var(--color-focus-border);
+}

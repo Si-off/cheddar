@@ -4,13 +4,13 @@
 
 ## 설계 범위와 환경
 
-- 이번 설계 범위: Figma 플러그인과 웹의 기술 스택·폴더 구조. 백엔드는 별도 설계한다.
+- 설계 범위: 웹·플러그인과 1단계 백엔드 기반. 2026-10-15 사용자가 [1단계 설계안](changes/2026-10-15-stage-1-foundation/design.md)을 승인했다.
 - 저장소 구성: pnpm workspace 기반 모노레포.
 - 개발 도구: Codex.
 - 필요한 구성요소: Figma 플러그인, 웹사이트, 백엔드 서버.
 - 앱 위치: 웹 `apps/web/`, Figma 플러그인 `apps/figma-plugin/`, 백엔드 `apps/api/`.
 - 공통 패키지 위치: `packages/ui/`, `packages/design-tokens/`.
-- 백엔드 기술과 내부 구조는 별도 설계한다.
+- 백엔드: NestJS + Drizzle + PostgreSQL. API DTO·DB 모델·화면 모델을 분리한다.
 - 초기 환경: 로그인·검색 노출 없이 개발자 PC에서 로컬 검증. 백엔드·DB도 로컬 실행한다.
 - 사내 배포 환경과 방식은 추후 결정한다.
 - 에이전트의 작업별 문서 안내: 루트 `AGENTS.md`.
@@ -30,17 +30,34 @@
 | API 코드 생성 | `@hey-api/openapi-ts`로 타입·SDK·TanStack Query 코드 생성 |
 | UI 구조 | 웹과 플러그인 UI 모두 FSD 적용, 필요한 레이어만 구성 |
 
-workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정한다. 라이브러리 버전은 각 `package.json`과 `pnpm-lock.yaml`이 기준이며 실행 명령은 [README](../README.md)에 있다. 업무 기능은 후속 구현이다.
+workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정한다. 라이브러리 버전은 각 `package.json`과 `pnpm-lock.yaml`이 기준이며 실행 명령은 [README](../README.md)에 있다. 업로드·프로젝트 설정·시트 API와 화면은 단계별 통합 중이며 AI·공유는 후속이다.
 
 ## 구성요소 경계와 공유
 
-- 플러그인은 선택한 Figma 프레임의 데이터·이미지 업로드에 집중한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
-- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`의 ui-ready/plugin-ready 메시지로 연결을 확인하고, 실제 프레임 업로드 계약은 후속 설계한다.
+- 플러그인은 직접 선택한 Frame과 선택 Section 내부의 최상위 Frame 데이터를 업로드한다. Section은 자식 순서로 탐색하고 Frame을 만나면 그 하위 탐색을 멈춘다. 같은 nodeId와 이미 수집한 조상 Frame에 포함된 Frame은 중복 등록하지 않는다. 빈 Section이나 지원하지 않는 직접 선택이 섞이면 사용자가 선택을 수정하도록 안내한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
+- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`에서 연결·선택·업로드 준비·프레임 추출·완료 전 검증 메시지를 구분한다. 실제 Figma 중첩 iframe relay는 정확한 Figma Origin과 manifest pluginId를 검사하고, opaque-origin UI 요청 UUID는 crypto.getRandomValues로 보완한다.
 - 기본 UI와 디자인 토큰은 공유한다.
 - 화면·업무 기능·상태 저장소는 앱별로 관리한다.
-- 웹은 표 중심 편집과 긴 내용의 상세 패널 편집을 제공한다. 열 추가·이름 정의·순서 변경·너비 조절·일반 문자열 검색 기능을 포함한다. 표 구현 도구, 열 유형, 문자열 검색 대상과 일치 기준, 구체적인 상태 분담은 미정이다.
+- 웹은 TanStack Table 기반 표·상세 편집과 별도 초안·저장 모델을 구현한다. 사용자 열은 텍스트이며 표시 문자열 부분 검색을 사용한다. TanStack Query는 서버 데이터, Zustand/화면 상태는 미저장 입력·선택·검색을 담당한다.
 - 공유 링크는 초기 읽기 전용으로 제공하고, 향후 링크별 편집 권한을 지원한다.
-- 백엔드·DB·AI 실행·저장 구조의 세부 설계는 이번 범위에 포함하지 않는다.
+- API는 프로젝트·파일·업로드 묶음·IA·기본 양식·시트를 저장하며, 저장된 전체 시트를 XLSX로 내보낸다. LangGraph 내부 실행 설계는 3B로 남긴다.
+
+## 백엔드 기반
+
+- NestJS Express adapter, Drizzle node-postgres, PostgreSQL 17, API 전용 CommonJS TypeScript 빌드와 decorator metadata를 사용한다. 정확한 패키지 버전은 lockfile 기준이다.
+- `src/contracts/`는 외부 DTO, `database/schema.ts`는 DB 모델, 각 앱 모델은 화면 책임이다. 서로의 내부 타입을 직접 공유하지 않는다.
+- `projects/`·`files/`는 controller → service → repository, `storage/`는 파일 바이트 처리를 담당한다. `common/`은 입력 검증·안전한 오류·요청 ID·명세 설정을 소유한다.
+- 파일은 전용 루트의 `.incoming/`에 기록·검증한 뒤 프로젝트/파일 UUID 키로 이동하고 DB에서 ready로 확정한다. DB와 파일시스템의 실패를 분리하며 불완전 파일을 공개하지 않는다. 시작 시 잔여 pending/작업 파일을 보고하고 자동 삭제하지 않는다.
+- 저장 루트는 `FILE_STORAGE_ROOT`로 설정하며 DB에 절대 경로를 넣지 않는다. 프로젝트와 파일은 현재 삭제 API가 없다.
+- 실행 DB는 `cheddar_stage1`, 테스트 DB는 `cheddar_stage1_test`, role은 `cheddar_stage1`. 로컬 기본 저장 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files`다. 다른 환경에서는 설정을 변경한다.
+- API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. 로컬 Figma iframe은 `NODE_ENV=development`와 `ALLOW_FIGMA_NULL_ORIGIN=true`를 함께 설정할 때만 null Origin을 허용한다. AI 키는 후속 단계에서 관리한다.
+- schema에서 생성한 SQL migration을 검토·명시 적용한다. 서버 시작 시 migration/push를 실행하지 않는다. readiness는 DB migration hash와 테이블·저장 접근을 확인한다.
+- 실제 경로만 OpenAPI에 포함하며 업로드·IA·기본 양식·시트·XLSX 경로와 양쪽 SDK를 생성한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
+- 생성 명세와 Drizzle meta는 Biome 포맷 대상에서 제외하고 명세 재생성 비교·계약 테스트·migration 재현으로 검증한다. 기존 소스 검사를 완화하지 않는다.
+- API 테스트는 `node:test`, `@nestjs/testing`, 실제 PostgreSQL·HTTP를 사용한다. 컴파일·SDK 실행 테스트·파일 fixture는 OS 임시 경로를 사용한다. 테스트 데이터는 이 실행이 만든 UUID 행만 정리한다.
+- 프로젝트 생성 시 기본 양식을 같은 트랜잭션에서 저장하고, 기존 프로젝트에는 migration으로 누락분만 보충한다. IA·양식·시트 공통 모델은 [2B·2C 공통 계약](changes/2026-10-15-staged-development/stage-2bc-common.md)을 따른다. IA·양식·시트·XLSX API는 통합됐다. 시트는 생성 시 양식을 독립 UUID로 복사하며 이후 기본 양식 변경의 영향을 받지 않는다. 시트 내용과 보기는 별도 revision으로 저장하고 충돌 시 덮어쓰지 않는다. 업무 화면은 단계별 통합한다.
+- 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 uploads 서비스가 검사한다. 신규 등록201, 같은 요청 키·같은 입력200, 같은 키·다른 입력409를 반환한다.
+- 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 2A·2B·2C 사용자가 승인한 기능 경로는 아래 구조에 반영했다. 추가 하위 폴더는 해당 승인 절차를 따른다.
 
 ## 공통 디자인 기준
 
@@ -76,11 +93,11 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
 
-현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`, Query·Motion 프로바이더를 구성했다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업무 상태 저장소·표·생성·업로드 기능은 아직 구현하지 않았다.
+현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/sheets`·`/projects/$projectId/sheets/$sheetId`, Query·Motion 프로바이더를 구성했다. 프로젝트 경로의 공통 헤더에서 테스트 시트·업로드·설정을 이동한다. 설정 페이지가 미저장 변경·저장 중 이동을 확인한다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업로드 목록·상세, 프로젝트 설정, 프로젝트별 시트 목록·편집 페이지를 라우트에 연결했다. 업로드 상세의 sheetGateway는 실제 생성 SDK로 해당 업로드 시트만 조회·생성하며 POST를 자동 재시도하지 않는다. 설정과 시트 연계는 실제 DB·브라우저 검증을 마쳤다. 시트 페이지는 Router blocker로 저장을 기다리고 실패 시 IndexedDB 초안 보관을 확인한 뒤 명시 이동을 제공한다. 보관도 실패하면 이동을 막고, 전체 페이지 이탈은 beforeunload로 보호한다. AI 생성은 후속이다.
 
-두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 실제 명세·생성 코드는 미정이며 해당 디렉터리는 `.gitkeep`만 유지한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 실제 명세 확정 후 생성하며 생성 코드를 직접 편집하지 않는다.
+두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 현재 명세는 `apps/api/openapi.json`이며 두 앱의 생성 타입·SDK·Query 코드를 관리한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 명세 변경 후 재생성하며 생성 코드를 직접 편집하지 않는다.
 
-Figma ID는 아직 발급되지 않았다. `manifest.json`에 임의 ID를 넣지 않았으며 실제 Figma 실행은 ID 발급·반영 후 검증한다. API 주소가 미정이므로 플러그인 외부 네트워크 허용은 `none`이다.
+발급된 Figma ID `1692417282897261384`를 `manifest.json`에 반영했다. 실제 import·실행·프로젝트 조회·선택 프레임 이름/크기는 확인했으며 호환 수정 후 실제 업로드는 재검증이 남아 있다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시키며 실제 Figma의 origin·로컬 접근은 2A에서 확인한다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
 
 ## 문서와 검수 에이전트의 역할
 
@@ -110,6 +127,23 @@ cheddar/
 │   └── pull_request_template.md
 ├── apps/
 │   ├── api/
+│   │   ├── src/
+│   │   │   ├── config/
+│   │   │   ├── common/
+│   │   │   ├── contracts/
+│   │   │   ├── database/
+│   │   │   ├── storage/
+│   │   │   ├── health/
+│   │   │   ├── projects/
+│   │   │   ├── files/
+│   │   │   ├── uploads/
+│   │   │   ├── sheets/
+│   │   │   ├── exports/
+│   │   │   ├── ia/
+│   │   │   └── templates/
+│   │   ├── scripts/
+│   │   ├── test/
+│   │   └── migrations/
 │   ├── web/
 │   │   └── src/
 │   │       ├── app/
@@ -117,6 +151,8 @@ cheddar/
 │   │       │   ├── routes/
 │   │       │   └── styles/
 │   │       ├── pages/
+│   │       │   ├── project-uploads/
+│   │       │   ├── project-settings/
 │   │       │   ├── test-case-editor/
 │   │       │   └── shared-test-cases/
 │   │       ├── widgets/
@@ -167,9 +203,9 @@ cheddar/
         └── change.md
 ```
 
-- 두 앱의 `shared/api/generated/` 아래 `client/`·`core/`·`@tanstack/`는 API 생성 코드 전용으로 승인되었다. 실제 명세로 생성할 때만 만들며 현재는 생성하지 않는다. 임의 기능 폴더나 추가 하위 폴더로 허용 범위를 확대하지 않는다.
+- 두 앱의 `shared/api/generated/` 아래 `client/`·`core/`·`@tanstack/`는 API 생성 코드 전용으로 승인되었으며 현재 실제 명세로 생성한다. 임의 기능 폴더나 추가 하위 폴더로 허용 범위를 확대하지 않는다.
 - 위 트리에 표시된 모든 폴더가 승인된 고정 구조다. `.gitkeep`은 각 빈 말단 폴더를 Git에서 유지하기 위한 파일이며 트리에서는 생략했다. 실제 구현 파일이 생기면 같은 폴더의 `.gitkeep`을 제거할 수 있다.
-- `apps/api/`는 백엔드 위치로 승인되었다. `.gitkeep`은 빈 폴더를 Git에서 유지하기 위한 파일이다. 백엔드 내부 폴더·파일 구성은 미정이며 별도 결정 후 반영한다.
+- `apps/api/` 내부 구조는 승인된 1단계 설계안 8절을 따른다. `src/`의 위 고정 폴더와 `scripts/`, `test/`, `migrations/`를 허용한다. 마이그레이션 도구가 생성하는 SQL·snapshot·journal 하위 경로만 `migrations/` 아래 추가로 허용하며 임의 소스 폴더로 확대하지 않는다. API 루트의 설정·환경 예시·OpenAPI 명세는 같은 설계안의 파일 목록을 따른다.
 - 이미 합의된 작업 기록 형식으로 `docs/changes/<change-id>/` 한 단계의 폴더를 허용한다. 현재 사용자가 요청한 작업에 기록이 필요한 경우에만 생성한다. 그 아래의 추가 폴더는 별도 승인이 필요하다.
 - 결정 기록은 `docs/decisions/` 안에 Markdown 파일로 추가한다. 작업·결정 기록 생성에 관한 상세 기준은 각 디렉터리의 안내를 따른다.
 - `.codex/agents/`는 UX 문구 검수의 영속 에이전트 정의 위치로 승인되었다. 현재 파일은 `ux-writing-review.toml`만 사용한다. 다른 스킬·에이전트·설정·스크립트·참고자료·메타데이터용 경로의 추가 권한으로 확대하지 않는다.
@@ -188,26 +224,27 @@ cheddar/
 이번 기본 설정·설치·검증에 필요한 도구 산출물 예외는 다음과 같다. 모두 Git에서 제외한다.
 
 - 루트와 workspace 패키지의 `node_modules/`: pnpm 의존성과 workspace 링크. 루트의 `node_modules/.pnpm/`을 포함한다.
+- `apps/api/dist/`: API TypeScript 빌드 결과와 소스에 대응하는 하위 폴더. 테스트 컴파일·로그·명세 비교 출력은 OS 임시 경로에 둔다.
 - `apps/web/dist/`, `apps/figma-plugin/dist/`: 배포·Figma 개발 실행용 빌드 결과. 번들러가 만드는 하위 파일·폴더를 포함한다.
 - Vite 캐시, 코드 생성 검증 결과, 로그·스크린샷은 저장소 밖의 OS 임시 경로를 사용한다. pnpm 저장소는 저장소 밖의 사용자 기본 저장소를 사용한다. Vite 설정은 runner 로더로 읽어 설정 번들 임시 파일도 저장소에 남기지 않는다.
 
-위 예외는 현재 사용자가 요청한 workspace·앱 기본 설정에 필요한 범위다. 새로운 도구 산출물 경로나 다른 임시 파일의 저장 허가로 확대하지 않는다.
+위 예외는 workspace·앱 기본 설정과 승인된 1단계 백엔드에 필요한 범위다. 새로운 도구 산출물 경로나 다른 임시 파일의 저장 허가로 확대하지 않는다.
 
 ## 미정
 
 | 항목 | 상태 |
 | --- | --- |
 | 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
-| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 연결 메시지만 구성, 업무 계약은 미정 |
+| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 직접 Frame·Section 내부 최상위 Frame을 중복 제거해 PNG·JSON 추출 및 묶음 업로드. 실제 Figma 업로드 최종 검증 대기 |
 | 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
-| 실제 API 명세 | 미정. OPENAPI_INPUT 기반 생성 설정·출력 하위 폴더 허용은 완료 |
-| TanStack Query와 Zustand의 세부 책임 분담 | 미정 |
-| 표 편집 구현 도구·열 유형·문자열 검색 대상과 일치 기준 | 미정 |
-| XLSX 생성 위치와 라이브러리 | 미정 |
-| Figma 발급 플러그인 ID·실제 Figma 실행 검증 | 미정 |
-| 테스트 프레임워크·CI | 미정. lint·타입 검사·빌드 명령은 구성 |
-| 백엔드 기술 스택·API·DB·AI 실행 구조 | 별도 설계 |
-| 초기 로컬 구성요소 연결·공유 링크 접근 방식 | 미정 |
+| 실제 API 명세 | 1단계 프로젝트·파일 제공. 후속 업무 경로는 단계별 구현 |
+| TanStack Query와 Zustand의 세부 책임 분담 | 서버 응답과 미저장 화면 상태 분리. 화면별 구현은 후속 |
+| 표 편집 | TanStack Table·텍스트 사용자 열·표시 문자열 부분 검색 확정. 표·상세·자동저장·충돌·복붙·키보드·이동보호 구현 및 브라우저 검증 완료 |
+| XLSX 생성 위치와 라이브러리 | API에서 ExcelJS 4.4.0으로 저장된 전체 시트 생성. 사용자 문자열을 수식으로 변환하지 않으며 표현 불가능한 데이터는 잘라내지 않고 오류로 알림 |
+| Figma 발급 플러그인 ID·실제 Figma 실행 검증 | ID 반영·import·실행 확인. 실제 업로드와 회사 읽기 전용 Dev Mode 검증 대기 |
+| 테스트 프레임워크·CI | API node:test와 UI Playwright/Chromium 구성. CI는 미정 |
+| 백엔드 기술 스택·API·DB·AI 실행 구조 | NestJS·Drizzle·PostgreSQL 기반 구성. AI 상세는 3B |
+| 초기 로컬 구성요소 연결·공유 링크 접근 방식 | API loopback·명시 Origin. Figma 연결 검증·공유 후속 |
 | 사내 배포·릴리스·관측 방식 | 추후 결정 |
 
 ## 갱신 기준

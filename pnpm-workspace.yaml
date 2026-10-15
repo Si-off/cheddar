@@ -1,4 +1,5 @@
 packages:
+  - apps/api
   - apps/web
   - apps/figma-plugin
   - packages/*
@@ -8,6 +9,7 @@ saveExact: true
 pmOnFail: error
 runtimeOnFail: error
 allowBuilds:
+  '@scarf/scarf': false
   '@tailwindcss/oxide': true
   esbuild: true
 minimumReleaseAgeExclude:

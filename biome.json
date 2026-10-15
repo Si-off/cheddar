@@ -11,7 +11,9 @@
       "!**/generated",
       "!**/dist",
       "!**/node_modules",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!apps/api/openapi.json",
+      "!apps/api/migrations/meta"
     ]
   },
   "formatter": {
@@ -35,6 +37,9 @@
   "javascript": {
     "formatter": {
       "quoteStyle": "double"
+    },
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
     }
   },
   "css": {
