@@ -1,0 +1,10 @@
+/* Neutral development defaults; product branding is not decided. */
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-foreground: #0f172a;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+  --radius-control: 0.5rem;
+}
