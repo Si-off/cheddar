@@ -103,13 +103,10 @@
     color: var(--color-primary);
   }
   .cd-button-link:hover {
-    text-decoration: underline;
+    color: var(--color-primary-hover);
   }
   .cd-button:focus-visible {
     border-color: currentColor;
-    text-decoration: underline;
-    text-decoration-thickness: var(--focus-width);
-    text-underline-offset: var(--spacing-1);
   }
   .cd-button-outline:focus-visible,
   .cd-button-ghost:focus-visible,
@@ -178,13 +175,13 @@
     cursor: pointer;
   }
   .cd-checkbox {
+    overflow: hidden;
     border-radius: var(--radius-small);
   }
   .cd-checkbox::before {
     content: "";
     position: absolute;
     inset: 0;
-    border-radius: inherit;
     background: var(--color-primary);
     clip-path: circle(0% at 50% 50%);
     transition:
@@ -241,7 +238,6 @@
   .cd-choice:focus-visible {
     border-color: var(--color-focus-border);
     background: var(--color-focus-surface);
-    border-style: dashed;
   }
   .cd-checkbox:focus-visible::before {
     background: var(--color-primary-active);
@@ -291,7 +287,7 @@
     background: var(--color-danger-subtle);
   }
   .cd-input[aria-invalid="true"]:focus-visible {
-    border-style: dashed;
+    border-color: var(--color-focus-border);
   }
   .cd-switch[aria-invalid="true"] {
     background: var(--color-danger);
@@ -308,6 +304,11 @@
     opacity: var(--opacity-disabled);
     cursor: not-allowed;
     pointer-events: none;
+  }
+  .cd-switch:disabled,
+  .cd-switch[data-disabled] {
+    background: var(--color-neutral-300);
+    opacity: 1;
   }
   .cd-input:disabled,
   .cd-input[data-disabled] {
@@ -481,8 +482,6 @@
   .cd-tabs-trigger:focus-visible {
     background: var(--color-focus-surface);
     border-color: var(--color-focus-border);
-    text-decoration: underline;
-    text-underline-offset: var(--spacing-1);
   }
   .cd-tabs-trigger:disabled {
     opacity: var(--opacity-disabled);
@@ -533,7 +532,6 @@
     .cd-choice:focus-visible,
     .cd-tabs-trigger:focus-visible {
       border-color: Highlight;
-      border-style: dashed;
     }
     .cd-checkbox::before,
     .cd-radio-indicator {
@@ -554,6 +552,10 @@
     }
     .cd-switch-thumb {
       background: Canvas;
+    }
+    .cd-switch:disabled,
+    .cd-switch[data-disabled] {
+      background: GrayText;
     }
   }
 }

@@ -59,6 +59,6 @@ import { Button, Checkbox, Label } from "@cheddar/ui";
 
 ## 스타일과 유지보수
 
-공통 색상·크기·전환 값은 `packages/design-tokens/src/theme.css`에서 관리한다. 포커스는 외부 ring이나 outline 없이 내부 색상·경계선·밑줄로 표현한다. 선택 채움은 중심에서 퍼지고, 스위치 손잡이는 고정 트랙 내부에서 이동한다. 팝업은 opacity만 전환한다. 컴포넌트의 클래스는 Tailwind의 components 레이어에 있어 호출부의 유틸리티로 필요한 스타일을 조정할 수 있다.
+공통 색상·크기·전환 값은 `packages/design-tokens/src/theme.css`에서 관리한다. 포커스는 기존 배경색과 테두리 색상 변화만으로 표현하며 링·밑줄·점선·추가 배경 레이어를 사용하지 않는다. 선택 채움은 중심에서 퍼지고, 스위치 손잡이는 고정 트랙 내부에서 이동하며, 비활성 스위치는 선택 여부와 관계없이 회색 트랙을 사용한다. 팝업은 opacity만 전환한다. 컴포넌트의 클래스는 Tailwind의 components 레이어에 있어 호출부의 유틸리티로 필요한 스타일을 조정할 수 있다.
 
 workspace별 `components.json`은 `base-nova`와 공통 패키지 경로를 사용한다. 현재 구성은 원본 shadcn 스타일을 프로젝트 CSS로 커스텀한 상태이므로 CLI로 다시 추가하거나 업데이트할 때 덮어쓰기 diff를 검토하고 공통 토큰·포커스·모션 표현을 보존한다. 변경 검증은 `pnpm check`와 개발용 `/design-system.html`에서 수행한다.
