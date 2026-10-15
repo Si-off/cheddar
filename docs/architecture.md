@@ -79,6 +79,14 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 Figma ID는 아직 발급되지 않았다. `manifest.json`에 임의 ID를 넣지 않았으며 실제 Figma 실행은 ID 발급·반영 후 검증한다. API 주소가 미정이므로 플러그인 외부 네트워크 허용은 `none`이다.
 
+## 문서와 검수 스킬의 역할
+
+- `docs/ux-writing.md`는 사용자 노출 문구의 작성·판단·완료 기준을 관리한다.
+- `.agents/skills/ux-writing-review/SKILL.md`는 검수 입력, 코드 확인 절차, 결과 형식과 재검수 절차를 관리한다.
+- `.codex/agents/ux-writing-review.toml`은 검수 에이전트의 모델·effort와 스킬 실행 지시를 관리한다. 독립 컨텍스트로 호출하는 방법과 결과 반영은 `docs/workflow.md`에서 관리한다.
+- 루트 `AGENTS.md`는 각 문서와 검수를 적용할 작업 조건만 연결한다.
+- 스킬은 문구 정책을 복사하지 않고 기준 문서를 읽어 적용한다. 스킬과 에이전트 정의는 개발 작업용이며 제품 런타임에는 포함하지 않는다.
+
 ## 허용된 폴더 구조
 
 현재 승인된 고정 구조는 다음과 같다. `.git`은 Git 관리 메타데이터이며 프로젝트 산출물 폴더가 아니다.
@@ -87,6 +95,13 @@ Figma ID는 아직 발급되지 않았다. `manifest.json`에 임의 ID를 넣�
 cheddar/
 ├── AGENTS.md
 ├── README.md
+├── .agents/
+│   └── skills/
+│       └── ux-writing-review/
+│           └── SKILL.md
+├── .codex/
+│   └── agents/
+│       └── ux-writing-review.toml
 ├── .github/
 │   └── pull_request_template.md
 ├── apps/
@@ -139,6 +154,7 @@ cheddar/
     ├── product.md
     ├── architecture.md
     ├── workflow.md
+    ├── ux-writing.md
     ├── decisions/
     │   └── README.md
     ├── changes/
@@ -152,7 +168,8 @@ cheddar/
 - `apps/api/`는 백엔드 위치로 승인되었다. `.gitkeep`은 빈 폴더를 Git에서 유지하기 위한 파일이다. 백엔드 내부 폴더·파일 구성은 미정이며 별도 결정 후 반영한다.
 - 이미 합의된 작업 기록 형식으로 `docs/changes/<change-id>/` 한 단계의 폴더를 허용한다. 현재 사용자가 요청한 작업에 기록이 필요한 경우에만 생성한다. 그 아래의 추가 폴더는 별도 승인이 필요하다.
 - 결정 기록은 `docs/decisions/` 안에 Markdown 파일로 추가한다. 작업·결정 기록 생성에 관한 상세 기준은 각 디렉터리의 안내를 따른다.
-- 위 트리 밖의 추가 소스 폴더, `.agents/`, `.codex/`, 워크플로 폴더 등은 아직 승인되지 않았다. 향후 확장 예시나 미정 항목에 언급된 이름을 생성 허가로 해석하지 않는다.
+- `.agents/skills/ux-writing-review/`와 `.codex/agents/`는 이번 UX 문구 검수의 영속 스킬·에이전트 정의 위치로 승인되었다. 현재 파일은 각각 `SKILL.md`와 `ux-writing-review.toml`만 사용한다. 다른 스킬·에이전트·설정·스크립트·참고자료·메타데이터용 경로의 추가 권한으로 확대하지 않는다.
+- 위 트리 밖의 추가 소스 폴더, `.agents/`·`.codex/`의 추가 하위 경로, 워크플로 폴더 등은 아직 승인되지 않았다. 향후 확장 예시나 미정 항목에 언급된 이름을 생성 허가로 해석하지 않는다.
 - 폴더 생성·이동·이름 변경으로 이 범위를 벗어나려면 경로·목적·영향을 먼저 제시하고 명시적 승인을 받는다. 승인 후 실제 구조와 이 목록을 함께 갱신한다. 에이전트가 목록을 먼저 수정해 스스로 승인할 수 없다.
 - 기존에 발견한 폴더는 그 존재만으로 승인된 구조에 편입하지 않는다. 목록과 다르면 사용자 변경 여부와 필요성을 확인하고 임의 삭제하지 않는다.
 
