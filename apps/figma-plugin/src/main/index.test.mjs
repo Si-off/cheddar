@@ -39,18 +39,27 @@ function setup({
     },
   };
   const page = {
+    id: "page",
+    parent: null,
     selection: nodes ?? [frame],
     removed: false,
     on: (_type, callback) => pageEvents.add(callback),
     off: (_type, callback) => pageEvents.delete(callback),
   };
+  const lookup = new Map([[frame.id, frame]]);
+  const register = (node, parent) => {
+    node.parent = parent;
+    lookup.set(node.id, node);
+    for (const child of node.children ?? []) register(child, node);
+  };
+  for (const node of page.selection) register(node, node.parent ?? page);
   const figma = {
     fileKey,
     currentPage: page,
     showUI() {},
     ui: { postMessage: (message) => messages.push(message) },
     on: (event, callback) => events.set(event, callback),
-    getNodeByIdAsync: async (id) => (id === frame.id ? frame : null),
+    getNodeByIdAsync: async (id) => lookup.get(id) ?? null,
   };
   const protocol = { exports: {} };
   vm.runInNewContext(protocolCode, {
@@ -89,7 +98,7 @@ async function prepare(subject) {
     selectionVersion: ready.selection.version,
   });
 }
-test("only directly selected Frames are accepted; mixed and stale selections cannot start", async () => {
+test("unsupported direct selections and stale selections cannot start", async () => {
   const mixed = setup({ nodes: [{ id: "a", type: "INSTANCE" }] });
   const selected = await mixed.send({ type: "ui-ready" });
   assert.equal(selected.selection.frames.length, 0);
@@ -110,6 +119,165 @@ test("only directly selected Frames are accepted; mixed and stale selections can
   );
   const missing = setup({ fileKey: null });
   assert.equal((await prepare(missing)).code, "FILE_KEY_UNAVAILABLE");
+});
+
+function branch(type, id, children = []) {
+  const node = { type, id, children };
+  for (const child of children) child.parent = node;
+  return node;
+}
+function screen(id, children = []) {
+  const node = {
+    ...branch("FRAME", id, children),
+    name: `화면 ${id}`,
+    width: 390,
+    height: 844,
+    removed: false,
+    exportAsync: async ({ format }) =>
+      format === "PNG"
+        ? new Uint8Array([137, 80, 78, 71])
+        : { document: { id, type: "FRAME" } },
+  };
+  for (const child of children) child.parent = node;
+  return node;
+}
+const selectedIds = (message) =>
+  Array.from(message.selection.frames, (frame) => frame.nodeId);
+
+test("Sections collect top-level Frames through nested Sections and Groups in layer order", async () => {
+  const nestedLayout = screen("layout");
+  const first = screen("first", [nestedLayout]);
+  const second = screen("second");
+  const third = screen("third");
+  const section = branch("SECTION", "section", [
+    { id: "text", type: "TEXT" },
+    first,
+    branch("GROUP", "group", [
+      { id: "vector", type: "VECTOR" },
+      branch("SECTION", "nested-section", [second]),
+      third,
+    ]),
+  ]);
+  const outside = screen("outside");
+  branch("PAGE", "page-tree", [section, outside]);
+  const subject = setup({ nodes: [section] });
+  const selected = await subject.send({ type: "ui-ready" });
+  assert.deepEqual(selectedIds(selected), ["first", "second", "third"]);
+  assert.equal(selected.selection.sectionCount, 1);
+  assert.equal(selected.selection.emptySectionCount, 0);
+  assert.equal(selected.selection.unsupportedCount, 0);
+  const prepared = await prepare(subject);
+  assert.deepEqual(
+    Array.from(prepared.frames, (frame) => frame.nodeId),
+    ["first", "second", "third"],
+  );
+  assert.equal(
+    (
+      await subject.send({
+        type: "export-frame",
+        requestId: "outside",
+        sessionId: "session",
+        nodeId: outside.id,
+      })
+    ).code,
+    "INVALID_SELECTION",
+  );
+  const exported = await subject.send({
+    type: "export-frame",
+    requestId: "first",
+    sessionId: "session",
+    nodeId: first.id,
+  });
+  assert.equal(exported.type, "frame-exported");
+  assert.equal(JSON.parse(exported.data).source.figmaNodeId, first.id);
+});
+
+test("mixed Section and descendant selections deduplicate frames regardless of ancestor order", async () => {
+  const layout = screen("layout");
+  const first = screen("first", [layout]);
+  const second = screen("second");
+  const inner = branch("SECTION", "inner", [second]);
+  const section = branch("SECTION", "section", [first, inner]);
+  for (const nodes of [
+    [section, inner, first, layout],
+    [layout, first, inner, section],
+    [first, layout],
+  ]) {
+    const subject = setup({ nodes });
+    const selected = await subject.send({ type: "ui-ready" });
+    assert.deepEqual(
+      selectedIds(selected),
+      nodes.length === 2 ? ["first"] : ["first", "second"],
+    );
+    assert.equal(selected.selection.unsupportedCount, 0);
+  }
+});
+
+test("empty Sections, invalid frame metadata, and unsupported direct nodes block registration", async () => {
+  const empty = branch("SECTION", "empty", [
+    branch("GROUP", "group", [{ id: "text", type: "TEXT" }]),
+    branch("SECTION", "empty-inner"),
+  ]);
+  for (const nodes of [[empty], [screen("direct"), empty]]) {
+    const subject = setup({ nodes });
+    const selected = await subject.send({ type: "ui-ready" });
+    assert.equal(selected.selection.emptySectionCount, 1);
+    assert.equal(selected.selection.unsupportedCount, 0);
+    assert.equal((await prepare(subject)).code, "INVALID_SELECTION");
+  }
+  const invalid = { ...screen("invalid"), width: 0 };
+  const section = branch("SECTION", "section", [screen("valid"), invalid]);
+  const subject = setup({
+    nodes: [section, { id: "direct-text", type: "TEXT" }],
+  });
+  const selected = await subject.send({ type: "ui-ready" });
+  assert.deepEqual(selectedIds(selected), ["valid"]);
+  assert.equal(selected.selection.unsupportedCount, 2);
+  assert.equal(selected.selection.emptySectionCount, 0);
+  assert.equal((await prepare(subject)).code, "INVALID_SELECTION");
+  assert.equal(
+    subject.protocol.isMainToUiMessage({
+      ...selected,
+      selection: { ...selected.selection, emptySectionCount: 2 },
+    }),
+    false,
+  );
+});
+
+test("a prepared Section snapshot survives selection changes but stops after document edits", async () => {
+  const first = screen("first");
+  const section = branch("SECTION", "section", [first]);
+  const subject = setup({ nodes: [section] });
+  const prepared = await prepare(subject);
+  subject.page.selection = [screen("another")];
+  subject.events.get("selectionchange")();
+  assert.deepEqual(
+    Array.from(prepared.frames, (frame) => frame.nodeId),
+    ["first"],
+  );
+  assert.equal(
+    (
+      await subject.send({
+        type: "validate-upload",
+        requestId: "valid",
+        sessionId: "session",
+      })
+    ).type,
+    "upload-validated",
+  );
+  section.children.push(screen("added"));
+  for (const callback of subject.pageEvents) callback();
+  assert.equal(
+    (
+      await subject.send({
+        type: "export-frame",
+        requestId: "changed",
+        sessionId: "session",
+        nodeId: first.id,
+      })
+    ).code,
+    "FRAME_CHANGED",
+  );
 });
 test("exports immutable provenance and PNG without traversing or uploading unselected frames", async () => {
   const subject = setup();

@@ -12,6 +12,8 @@ export type FrameSelection = {
   fileKey: string | null;
   frames: SelectedFrame[];
   unsupportedCount: number;
+  sectionCount: number;
+  emptySectionCount: number;
 };
 export type ExportErrorCode =
   | "INVALID_SELECTION"
@@ -104,7 +106,12 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
       (selected.fileKey === null || text(selected.fileKey, 200)) &&
       frames(selected.frames) &&
       Number.isSafeInteger(selected.unsupportedCount) &&
-      Number(selected.unsupportedCount) >= 0
+      Number(selected.unsupportedCount) >= 0 &&
+      Number.isSafeInteger(selected.sectionCount) &&
+      Number(selected.sectionCount) >= 0 &&
+      Number.isSafeInteger(selected.emptySectionCount) &&
+      Number(selected.emptySectionCount) >= 0 &&
+      Number(selected.emptySectionCount) <= Number(selected.sectionCount)
     );
   }
   if (!text(value.requestId, 100)) return false;

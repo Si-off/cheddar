@@ -70,6 +70,8 @@ function loadBridge() {
             fileKey: "file",
             frames: [],
             unsupportedCount: 0,
+            sectionCount: 0,
+            emptySectionCount: 0,
           },
         },
       },
