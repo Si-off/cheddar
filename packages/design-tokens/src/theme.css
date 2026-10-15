@@ -1,10 +1,17 @@
 @import "@fontsource-variable/noto-sans";
 @import "@fontsource-variable/noto-sans-kr";
 
-@theme {
+@theme static {
   --font-sans: "Noto Sans Variable", "Noto Sans KR Variable", sans-serif;
   --font-weight-label: 500;
   --font-weight-heading: 600;
+  --font-weight-body: 400;
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.2;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.4;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
   --text-body: 1rem;
   --text-body--line-height: 1.6;
   --text-label: 0.875rem;
@@ -14,22 +21,109 @@
   --text-brand: 1.125rem;
   --text-brand--line-height: 1.5;
 
-  --color-primary: #515299;
-  --color-primary-hover: color-mix(in oklab, var(--color-primary) 88%, black);
-  --color-primary-foreground: #ffffff;
-  --color-primary-subtle: color-mix(in oklab, var(--color-primary) 8%, white);
-  --color-background: color-mix(in oklab, var(--color-primary) 3%, white);
-  --color-surface: #ffffff;
-  --color-foreground: color-mix(in oklab, var(--color-primary) 35%, black);
-  --color-muted: color-mix(in oklab, var(--color-primary) 65%, #666666);
-  --color-border: color-mix(in oklab, var(--color-primary) 18%, white);
+  --color-brand-50: #f5f5fb;
+  --color-brand-100: #ededf8;
+  --color-brand-200: #d9daf0;
+  --color-brand-300: #b8b9df;
+  --color-brand-400: #9293c9;
+  --color-brand-500: #7071b3;
+  --color-brand-600: #515299;
+  --color-brand-700: #454682;
+  --color-brand-800: #38396b;
+  --color-brand-900: #2b2c52;
 
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8f9fb;
+  --color-neutral-100: #f1f2f6;
+  --color-neutral-200: #e2e4eb;
+  --color-neutral-300: #c8ccd7;
+  --color-neutral-400: #8b91a3;
+  --color-neutral-500: #686f83;
+  --color-neutral-600: #50586b;
+  --color-neutral-700: #3d4557;
+  --color-neutral-800: #2b3242;
+  --color-neutral-900: #1d2433;
+
+  --color-primary: var(--color-brand-600);
+  --color-primary-hover: var(--color-brand-700);
+  --color-primary-active: var(--color-brand-800);
+  --color-primary-foreground: #ffffff;
+  --color-primary-subtle: var(--color-brand-100);
+  --color-background: var(--color-neutral-50);
+  --color-surface: var(--color-neutral-0);
+  --color-surface-hover: var(--color-neutral-100);
+  --color-surface-selected: var(--color-brand-50);
+  --color-foreground: var(--color-neutral-900);
+  --color-muted: var(--color-neutral-500);
+  --color-border: var(--color-neutral-200);
+  --color-border-control: var(--color-neutral-400);
+  --color-focus: var(--color-brand-600);
+  --color-disabled: var(--color-neutral-100);
+  --color-disabled-foreground: var(--color-neutral-500);
+  --color-success: #216e4e;
+  --color-success-subtle: #edf7f0;
+  --color-warning: #8a5800;
+  --color-warning-subtle: #fff6df;
+  --color-danger: #b33745;
+  --color-danger-subtle: #fff0f1;
+  --color-info: #255eab;
+  --color-info-subtle: #edf4ff;
+  --color-overlay: #1d243352;
+
+  --radius-small: 0.25rem;
   --radius-control: 0.5rem;
   --radius-panel: 0.75rem;
+  --radius-dialog: 1rem;
+  --radius-full: 9999px;
   --spacing: 0.25rem;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
   --spacing-page: 1.5rem;
   --spacing-panel: 1.5rem;
   --spacing-control-x: 1rem;
   --spacing-control-y: 0.5rem;
+  --spacing-control-sm: 2rem;
+  --spacing-control-md: 2.5rem;
+  --spacing-control-lg: 3rem;
+  --spacing-icon-sm: 1rem;
+  --spacing-icon-md: 1.25rem;
+  --spacing-icon-lg: 1.5rem;
   --container-content: 72rem;
+
+  --shadow-low: 0 1px 3px #1d24330a, 0 1px 2px #1d243306;
+  --shadow-raised: 0 4px 16px #1d24330d, 0 1px 4px #1d243308;
+  --shadow-floating: 0 12px 36px #1d243314, 0 2px 8px #1d24330a;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+}
+
+:root {
+  color-scheme: light;
+  --border-width-default: 1px;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+  --duration-feedback: 120ms;
+  --duration-state: 180ms;
+  --duration-enter: 240ms;
+  --layer-base: 0;
+  --layer-sticky: 10;
+  --layer-popover: 20;
+  --layer-dialog: 30;
+  --layer-toast: 40;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-feedback: 0ms;
+    --duration-state: 0ms;
+    --duration-enter: 0ms;
+  }
 }

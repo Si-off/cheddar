@@ -75,7 +75,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
 
-현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`, Query·Motion 프로바이더를 구성했다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 Button·Surface, 토큰은 CSS 진입점으로 제공한다. 업무 상태 저장소·표·생성·업로드 기능은 아직 구현하지 않았다.
+현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`, Query·Motion 프로바이더를 구성했다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 Button·Surface, 토큰은 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 사용자가 확인할 영속 미리보기다. 업무 상태 저장소·표·생성·업로드 기능은 아직 구현하지 않았다.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 실제 명세·생성 코드는 미정이며 해당 디렉터리는 `.gitkeep`만 유지한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 실제 명세 확정 후 생성하며 생성 코드를 직접 편집하지 않는다.
 
@@ -203,7 +203,7 @@ cheddar/
 | --- | --- |
 | 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
 | 플러그인 업무 메시지·프레임 추출·업로드 계약 | 연결 메시지만 구성, 업무 계약은 미정 |
-| 공통 UI·디자인 토큰 확장 | 기본 진입점 구성, 추가 요구에 맞춰 결정 |
+| 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
 | 실제 API 명세 | 미정. OPENAPI_INPUT 기반 생성 설정·출력 하위 폴더 허용은 완료 |
 | TanStack Query와 Zustand의 세부 책임 분담 | 미정 |
 | 표 편집 구현 도구·열 유형·문자열 검색 대상과 일치 기준 | 미정 |
