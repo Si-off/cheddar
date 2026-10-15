@@ -54,7 +54,7 @@ pnpm install --frozen-lockfile
 pnpm dev:web
 ```
 
-웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`와 `/share/<shareId>`는 기본 화면만 제공하며 실제 생성·편집·공유 기능은 아직 구현하지 않았다.
+웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시트를 선택하고 `/projects/<projectId>/sheets/<sheetId>`에서 편집한다. 프로젝트별 `/uploads`, `/sheets`, `/settings` 경로를 제공한다. 설정 화면은 실제 DB·브라우저 검증을 마쳤으며 시트 연계는 최종 검증 중이다. AI 생성과 `/share/<shareId>`의 실제 공유 기능은 후속이다.
 
 ```sh
 pnpm dev:plugin
