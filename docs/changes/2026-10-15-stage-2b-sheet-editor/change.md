@@ -1,7 +1,7 @@
 # 작업: 2B 시트 편집·저장·XLSX 내보내기
 
 - 작업 ID: 2026-10-15-stage-2b-sheet-editor
-- 상태: 구현 중 — API 선행 인계, 실제 DB 슬롯·공통 SDK 연결 대기
+- 상태: 웹·API 구현/독립 검증 완료 — 공통 라우트·최종 실제 연결 검증 대기
 - 요청과 결정의 근거: 사용자가 “2B 설계부터 진행”, “미정 사항과 필요한 공통 변경·새 폴더를 정리”, “실제 구현은 설계를 승인한 뒤 시작”하도록 지시했다.
 - 실행 범위: 사용자가 2026-10-15 설계 추천안, `apps/api/src/sheets/`·`apps/api/src/exports/` 생성·허용 목록 반영, 설계 문서의 `Si-off/cheddar` 저장소 `codex/stage-2b-sheet-editor` 브랜치 푸시를 명시적으로 승인했다. “공통 변경이 반영되면 2B 구현을 진행”하도록 지시했으므로 선행 변경 커밋 수용 후 승인된 구현·관련 검증을 진행한다. 공통 파일 소유권은 조율 담당에게 유지하며 PR·병합·배포는 승인되지 않았다. 후속 실제 사용자 지시에 따라 조율 채팅과의 완료 보고·공통 변경 요청·기술 조율 메시지는 허용됐다.
 - 기준 브랜치·커밋: `codex/stage-2b-sheet-editor` · `4cfd066574ca97241372d3b56561fb96f0430847`
@@ -56,3 +56,17 @@
 - 추가한 sheets.test.ts는 실제 HTTP·DB에서 양식 복사, revision 경합, UUID/번호/순서 교환, 잘못된 참조의 무변경, 사용자 열 삭제/view 충돌, 업로드 필터·XLSX·500케이스를 검증하도록 작성했다. 테스트 DB 슬롯 전달 전이므로 이 테스트의 통과를 주장하지 않는다. 런타임 DB migration·상시 서버는 실행하지 않았다.
 - 공통 요청: 실제 SheetsModule/ExportsModule 등록과 여섯 operation 명세·양 SDK 생성. 해당 변경은 조율 담당이 맡는다. API 커밋을 먼저 전달한 뒤 UI를 실제 SDK에 연결한다.
 - UI는 승인된 entity/widget 소유 경로에서 구현 중이며 API 선행 커밋에는 포함하지 않는다. 완료·통합 검증을 수행한 상태가 아니다.
+
+## 2026-10-15 웹 구현·브라우저 검증 인계
+
+- 공통 22e676b(실제 시트 module·OpenAPI·양 SDK), 66f353f(2C 설정/프로젝트 이동)을 수용했다. DB 슬롯에서 원본 환경을 프로세스에만 읽어 pnpm test:api50개를 직접 실행·통과했고 lease 종료·자기 UUID/임시 저장소·잠금 정리 후 조율에 슬롯을 반환했다. 500케이스 save125ms/payload323933bytes/export+read68ms였다.
+- 구현: 실제 생성 SDK·Query를 쓰는 프로젝트/시트 선택·빈 시트 생성, TanStack Table v8 표·상세의 같은 초안, 행 추가·삭제, 시스템/텍스트 열 이름·순서·너비·값 삭제, 문자열 검색·TSV 복붙·키보드 이동, content/view 단일 저장 대기열, 응답 유실 확인·충돌 비교·수동 재반영, 세션별 IndexedDB 복원/폐기, 저장 후 revision 지정 전체 XLSX 다운로드.
+- 웹 공개 props: TestCaseEditorPage는 projectId?/sheetId?/onOpenSheet?({projectId,sheetId})/onBack?를 제공한다. callback이 없는 루트는 내부 프로젝트/시트 선택으로 동작하며, 공통 라우트 adapter가 두 ID와 이동 callback을 연결하면 URL 진입을 제공한다. 업로드 sheetGateway와 실제 편집 상세 경로 연결은 공통 담당에게 요청한다.
+- pnpm check 통과: 공통 optional-chain 권장 경고·기존 디자인 HTML 크기 경고와 웹 청크 크기 경고가 남아 있다. OpenAPI 일치도 통과했다. 새 도구 설정이나 공통 코드는 직접 변경하지 않았다.
+- Chromium mock HTTP 브라우저9개 통과: 다중 셀 복붙/검색/키보드/전체 거부, 저장 지연 중 새 입력, 응답 유실 후 중복 재전송 방지, 충돌 입력·최신 내용 비교, 새로고침 명시 복원, 열 삭제 영향·전체 XLSX, 상세/프레임/IA 선택·composition 이벤트, 500행+13열, 보관 실패/회복. 서버 HTTP 테스트와 구분하며 실제 macOS 한글 IME 조작을 검증했다고 주장하지 않는다.
+- 500행 브라우저 fixture 측정: load1018ms/edit915ms/save+debounce856ms/search240ms. 편집 측정은 locator 탐색·더블클릭·fill을 포함하며 키 입력 자체의 지연값이 아니다. 성능 합격 수치를 임의로 확정하지 않았다. 표와 상세 패널의 테스트 데이터 화면 캡처를 OS 임시 경로에서 직접 확인했다.
+- 검증 실행: PLAYWRIGHT_BROWSERS_PATH=/private/tmp/cheddar-2b-playwright-browsers, PLAYWRIGHT_BASE_URL=http://127.0.0.1:5176, pnpm --filter @cheddar/web exec playwright test --config playwright.config.ts src/pages/test-case-editor/editor.spec.ts. 브라우저 Mach 포트가 기본 샌드박스에서 차단되어 정식 escalation 승인 후 실행했다. 브라우저·trace·스크린샷·테스트 결과는 OS 임시 경로에만 둔다.
+- Vite가 수정 전 번들을 유지하는 환경 문제가 있어 소스 변경 후 개발 서버를 재시작하고 최신 번들임을 확인해 검증했다. 기존 검증을 삭제하거나 기대값을 완화하지 않았다.
+- 접근성 표 구조는 WAI-ARIA APG data-grid의 native table/td 방식을 사용한다. Biome의 비대화형 태그 규칙과 충돌하는 role 속성 두 곳에만 근거를 적은 지역 suppression을 두었다. 전역 규칙·지침·검사 기준은 변경하지 않았다.
+- UX 독립 검수: 신규 pages/entity/widget 코드를 검수했다. 전체 출력 범위를 버튼에서 식별하도록 '전체 시트 XLSX 내보내기'로 수정했다. 서버 저장 완료 후 보관 경고 숨김, 최신 보관 성공 시 이전 오류 해제, 복원/충돌 공통 backup의 접근성 이름을 '이전 입력 내용'으로 수정했고 각 변경 범위 재검수 문제 없음. 툴팁은 추가하지 않았다. 사용자 열 삭제 영향·충돌·복원/폐기 안내는 필수 정보로 유지했다.
+- 남은 일: 공통 라우트·업로드 gateway 연결 커밋 수용, 예약된 테스트 DB 슬롯에서 실제 브라우저→API→DB→XLSX 흐름 검증. 런타임 DB·배포·실제 Excel 앱 열기·macOS 네이티브 IME는 아직 수행하지 않았다.
