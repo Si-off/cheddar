@@ -93,7 +93,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
 
-현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/sheets`·`/projects/$projectId/sheets/$sheetId`, Query·Motion 프로바이더를 구성했다. 프로젝트 경로의 공통 헤더에서 테스트 시트·업로드·설정을 이동한다. 설정 페이지가 미저장 변경·저장 중 이동을 확인한다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업로드 목록·상세, 프로젝트 설정, 프로젝트별 시트 목록·편집 페이지를 라우트에 연결했다. 업로드 상세의 sheetGateway는 실제 생성 SDK로 해당 업로드 시트만 조회·생성하며 POST를 자동 재시도하지 않는다. 설정은 실제 브라우저 검증을 마쳤고 시트 연계는 최종 검증 중이다. AI 생성은 후속이다.
+현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/sheets`·`/projects/$projectId/sheets/$sheetId`, Query·Motion 프로바이더를 구성했다. 프로젝트 경로의 공통 헤더에서 테스트 시트·업로드·설정을 이동한다. 설정 페이지가 미저장 변경·저장 중 이동을 확인한다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업로드 목록·상세, 프로젝트 설정, 프로젝트별 시트 목록·편집 페이지를 라우트에 연결했다. 업로드 상세의 sheetGateway는 실제 생성 SDK로 해당 업로드 시트만 조회·생성하며 POST를 자동 재시도하지 않는다. 설정과 시트 연계는 실제 DB·브라우저 검증을 마쳤다. 시트 페이지는 Router blocker로 저장을 기다리고 실패 시 IndexedDB 초안 보관을 확인한 뒤 명시 이동을 제공한다. 보관도 실패하면 이동을 막고, 전체 페이지 이탈은 beforeunload로 보호한다. AI 생성은 후속이다.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 현재 명세는 `apps/api/openapi.json`이며 두 앱의 생성 타입·SDK·Query 코드를 관리한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 명세 변경 후 재생성하며 생성 코드를 직접 편집하지 않는다.
 
@@ -239,10 +239,10 @@ cheddar/
 | 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
 | 실제 API 명세 | 1단계 프로젝트·파일 제공. 후속 업무 경로는 단계별 구현 |
 | TanStack Query와 Zustand의 세부 책임 분담 | 서버 응답과 미저장 화면 상태 분리. 화면별 구현은 후속 |
-| 표 편집 | TanStack Table·텍스트 사용자 열·표시 문자열 부분 검색 확정. 실제 인터랙션 후속 |
+| 표 편집 | TanStack Table·텍스트 사용자 열·표시 문자열 부분 검색 확정. 표·상세·자동저장·충돌·복붙·키보드·이동보호 구현 및 브라우저 검증 완료 |
 | XLSX 생성 위치와 라이브러리 | API에서 ExcelJS 4.4.0으로 저장된 전체 시트 생성. 사용자 문자열을 수식으로 변환하지 않으며 표현 불가능한 데이터는 잘라내지 않고 오류로 알림 |
 | Figma 발급 플러그인 ID·실제 Figma 실행 검증 | ID 반영·import·실행 확인. 실제 업로드와 회사 읽기 전용 Dev Mode 검증 대기 |
-| 테스트 프레임워크·CI | API node:test 구성. UI 테스트 도구·CI는 미정 |
+| 테스트 프레임워크·CI | API node:test와 UI Playwright/Chromium 구성. CI는 미정 |
 | 백엔드 기술 스택·API·DB·AI 실행 구조 | NestJS·Drizzle·PostgreSQL 기반 구성. AI 상세는 3B |
 | 초기 로컬 구성요소 연결·공유 링크 접근 방식 | API loopback·명시 Origin. Figma 연결 검증·공유 후속 |
 | 사내 배포·릴리스·관측 방식 | 추후 결정 |
