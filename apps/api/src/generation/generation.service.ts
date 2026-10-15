@@ -12,6 +12,7 @@ import {
   type Job,
   present,
 } from "./generation.repository";
+import { prepareFrame } from "./prepare-frame";
 import { generate, type PreparedInput } from "./provider";
 import { type GenerationResult, parseResult } from "./result";
 
@@ -126,7 +127,7 @@ export class GenerationService implements OnModuleDestroy {
       frames.push({
         id: frame.id,
         name: frame.name,
-        node: JSON.parse(buffers[0].toString("utf8")),
+        node: prepareFrame(JSON.parse(buffers[0].toString("utf8"))),
       });
       images.push({ id: frame.id, data: buffers[1].toString("base64") });
     }
