@@ -47,6 +47,14 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       throw new Error("CORS_ORIGINS must contain explicit HTTP origins.");
     }
   }
+  const allowNullOrigin = env.ALLOW_FIGMA_NULL_ORIGIN ?? "false";
+  if (!["true", "false"].includes(allowNullOrigin))
+    throw new Error("ALLOW_FIGMA_NULL_ORIGIN must be true or false.");
+  if (allowNullOrigin === "true") {
+    if (env.NODE_ENV !== "development")
+      throw new Error("ALLOW_FIGMA_NULL_ORIGIN requires NODE_ENV=development.");
+    corsOrigins.push("null");
+  }
   return {
     databaseUrl: databaseUrl as string,
     storageRoot: resolve(storageRoot),

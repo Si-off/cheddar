@@ -12,6 +12,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { appModule } from "../src/app.module";
 import { configureApp } from "../src/common/application";
 import { createDocument } from "../src/common/openapi";
+import { readEnv } from "../src/config/env";
 import type { FileDto, FilePageDto } from "../src/contracts/files.dto";
 import type { ProjectDto, ProjectPageDto } from "../src/contracts/projects.dto";
 import { DatabaseService } from "../src/database/database.service";
@@ -162,6 +163,159 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
           json({ expectedRevision: 1 }, "PATCH"),
         );
         assert.equal(patch.status, 400);
+      },
+    );
+    await t.test(
+      "null origin is rejected by default and explicitly enabled only for local development",
+      async () => {
+        const send = (origin: string): RequestInit => ({
+          ...json({ name: "" }),
+          headers: { "Content-Type": "application/json", Origin: origin },
+        });
+        assert.equal(
+          (await request("/api/v1/projects", send("null"))).status,
+          403,
+        );
+        const devConfig = readEnv({
+          DATABASE_URL: testUrl,
+          FILE_STORAGE_ROOT: storageRoot,
+          NODE_ENV: "development",
+          ALLOW_FIGMA_NULL_ORIGIN: "true",
+        });
+        const devModule = await Test.createTestingModule({
+          imports: [appModule(devConfig, folder)],
+        }).compile();
+        const devApp = devModule.createNestApplication({ logger: false });
+        try {
+          configureApp(devApp, devConfig);
+          await devApp.listen(0, "127.0.0.1");
+          const devUrl = await devApp.getUrl();
+          const preflight = await fetch(`${devUrl}/api/v1/projects`, {
+            method: "OPTIONS",
+            headers: {
+              Origin: "null",
+              "Access-Control-Request-Method": "POST",
+              "Access-Control-Request-Headers": "content-type",
+            },
+          });
+          assert.equal(preflight.status, 204);
+          assert.equal(
+            preflight.headers.get("access-control-allow-origin"),
+            "null",
+          );
+          assert.equal(
+            preflight.headers.get("access-control-allow-credentials"),
+            null,
+          );
+          const allowed = await fetch(
+            `${devUrl}/api/v1/projects`,
+            send("null"),
+          );
+          assert.equal(allowed.status, 400); // Reached DTO validation; no project was created.
+          assert.equal(
+            allowed.headers.get("access-control-allow-origin"),
+            "null",
+          );
+          assert.equal(
+            (
+              await fetch(
+                `${devUrl}/api/v1/projects`,
+                send("https://untrusted.example"),
+              )
+            ).status,
+            403,
+          );
+        } finally {
+          await devApp.close();
+        }
+      },
+    );
+    await t.test(
+      "upload constraints prevent cross-project references and duplicate retry/source identities",
+      async () => {
+        await lock.query("BEGIN");
+        try {
+          const uploadId = randomUUID(),
+            otherUpload = randomUUID(),
+            requestId = randomUUID();
+          const imageId = randomUUID(),
+            dataId = randomUUID(),
+            foreignId = randomUUID();
+          for (const [id, projectId, mime] of [
+            [imageId, project.id, "image/png"],
+            [dataId, project.id, "application/json"],
+            [foreignId, other.id, "image/png"],
+          ]) {
+            await lock.query(
+              "INSERT INTO files (id, project_id, storage_key, original_name, status, media_type, byte_size, sha256) VALUES ($1::uuid,$2,$1::uuid::text,'fixture','ready',$3,1,$4)",
+              [id, projectId, mime, "a".repeat(64)],
+            );
+          }
+          const uploadSql =
+            "INSERT INTO uploads (id,project_id,name,client_request_id,request_hash) VALUES ($1,$2,'묶음',$3,$4)";
+          await lock.query(uploadSql, [
+            uploadId,
+            project.id,
+            requestId,
+            "a".repeat(64),
+          ]);
+          await lock.query(uploadSql, [
+            otherUpload,
+            other.id,
+            requestId,
+            "a".repeat(64),
+          ]);
+          const frameSql =
+            "INSERT INTO upload_frames (id,project_id,upload_id,position,figma_file_key,figma_node_id,name,width,height,image_file_id,data_file_id) VALUES ($1,$2,$3,$4,'AbC',$5,'화면',$6,844,$7,$8)";
+          const frameValues = [
+            randomUUID(),
+            project.id,
+            uploadId,
+            0,
+            "12:34",
+            390,
+            imageId,
+            dataId,
+          ];
+          await lock.query(frameSql, frameValues);
+          const fails = async (
+            sql: string,
+            values: unknown[],
+            code: string,
+          ) => {
+            await lock.query("SAVEPOINT expected_failure");
+            try {
+              await assert.rejects(
+                lock.query(sql, values),
+                (err: unknown) => (err as { code?: string }).code === code,
+              );
+            } finally {
+              await lock.query("ROLLBACK TO SAVEPOINT expected_failure");
+            }
+          };
+          await fails(
+            uploadSql,
+            [randomUUID(), project.id, requestId, "a".repeat(64)],
+            "23505",
+          );
+          const frame = (changes: Record<number, unknown>) =>
+            Object.assign(
+              [...frameValues],
+              { 0: randomUUID(), 3: 1, 4: "12:35" },
+              changes,
+            );
+          await fails(frameSql, frame({ 2: otherUpload }), "23503");
+          await fails(frameSql, frame({ 6: foreignId }), "23503");
+          await fails(frameSql, frame({ 7: foreignId }), "23503");
+          await fails(frameSql, frame({ 3: 0 }), "23505");
+          await fails(frameSql, frame({ 4: "12:34" }), "23505");
+          for (const width of [0, -1, Infinity, NaN])
+            await fails(frameSql, frame({ 5: width }), "23514");
+          await fails("DELETE FROM files WHERE id=$1", [imageId], "23503");
+          await fails("DELETE FROM uploads WHERE id=$1", [uploadId], "23503");
+        } finally {
+          await lock.query("ROLLBACK");
+        }
       },
     );
     await t.test(

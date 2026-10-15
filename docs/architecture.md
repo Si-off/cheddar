@@ -50,12 +50,13 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 - 파일은 전용 루트의 `.incoming/`에 기록·검증한 뒤 프로젝트/파일 UUID 키로 이동하고 DB에서 ready로 확정한다. DB와 파일시스템의 실패를 분리하며 불완전 파일을 공개하지 않는다. 시작 시 잔여 pending/작업 파일을 보고하고 자동 삭제하지 않는다.
 - 저장 루트는 `FILE_STORAGE_ROOT`로 설정하며 DB에 절대 경로를 넣지 않는다. 프로젝트와 파일은 현재 삭제 API가 없다.
 - 실행 DB는 `cheddar_stage1`, 테스트 DB는 `cheddar_stage1_test`, role은 `cheddar_stage1`. 로컬 기본 저장 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files`다. 다른 환경에서는 설정을 변경한다.
-- API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. AI 키나 Figma 네트워크 설정은 이번 단계에 추가하지 않는다.
+- API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. 로컬 Figma iframe은 `NODE_ENV=development`와 `ALLOW_FIGMA_NULL_ORIGIN=true`를 함께 설정할 때만 null Origin을 허용한다. AI 키는 후속 단계에서 관리한다.
 - schema에서 생성한 SQL migration을 검토·명시 적용한다. 서버 시작 시 migration/push를 실행하지 않는다. readiness는 DB migration hash와 테이블·저장 접근을 확인한다.
 - 실제 경로만 OpenAPI에 포함한다. 후속 업로드·시트·IA DTO는 schema와 검증 예시만 제공한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
 - 생성 명세와 Drizzle meta는 Biome 포맷 대상에서 제외하고 명세 재생성 비교·계약 테스트·migration 재현으로 검증한다. 기존 소스 검사를 완화하지 않는다.
 - API 테스트는 `node:test`, `@nestjs/testing`, 실제 PostgreSQL·HTTP를 사용한다. 컴파일·SDK 실행 테스트·파일 fixture는 OS 임시 경로를 사용한다. 테스트 데이터는 이 실행이 만든 UUID 행만 정리한다.
-- 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 후속 폴더는 아직 생성 승인 범위가 아니다.
+- 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 2A 서비스 책임이며 현재 실행 API는 후속 통합 대상이다.
+- 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 2A 사용자가 승인한 `uploads/`·웹 `project-uploads/`는 아래 구조에 반영했다. 다른 후속 경로는 해당 승인과 조율 반영을 따른다.
 
 ## 공통 디자인 기준
 
@@ -133,7 +134,8 @@ cheddar/
 │   │   │   ├── storage/
 │   │   │   ├── health/
 │   │   │   ├── projects/
-│   │   │   └── files/
+│   │   │   ├── files/
+│   │   │   └── uploads/
 │   │   ├── scripts/
 │   │   ├── test/
 │   │   └── migrations/
@@ -144,6 +146,7 @@ cheddar/
 │   │       │   ├── routes/
 │   │       │   └── styles/
 │   │       ├── pages/
+│   │       │   ├── project-uploads/
 │   │       │   ├── test-case-editor/
 │   │       │   └── shared-test-cases/
 │   │       ├── widgets/

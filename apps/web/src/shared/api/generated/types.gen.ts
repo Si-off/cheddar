@@ -80,11 +80,47 @@ export type FrameInputDto = {
 };
 
 export type CreateUploadDto = {
+    /**
+     * Stable ID for retries of the same upload bundle.
+     */
+    clientRequestId: string;
     name: string;
     /**
      * Ordered frames. File IDs must reference ready files in the same project; enforced by the future upload service.
      */
     frames: Array<FrameInputDto>;
+};
+
+export type UploadFrameDto = {
+    id: string;
+    figmaFileKey: string;
+    figmaNodeId: string;
+    name: string;
+    width: number;
+    height: number;
+    imageFileId: string;
+    dataFileId: string;
+};
+
+export type UploadDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    createdAt: string;
+    frames: Array<UploadFrameDto>;
+};
+
+export type UploadSummaryDto = {
+    id: string;
+    projectId: string;
+    name: string;
+    createdAt: string;
+    frameCount: number;
+};
+
+export type UploadPageDto = {
+    items: Array<UploadSummaryDto>;
+    nextCursor: string | null;
 };
 
 export type CreateSheetDto = {

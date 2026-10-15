@@ -123,6 +123,7 @@ HTML 안의 CSS 다운로드는 일반 CSS 변수를 내보낸다. 다운로드�
 | `FILE_STORAGE_ROOT` | Git 밖의 전용 영속 파일 루트. 현재 승인 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files` |
 | `API_PORT` | 기본 `3101`, loopback에만 listen |
 | `CORS_ORIGINS` | 기본 `http://127.0.0.1:5173`. 쉼표로 구분한 정확한 origin |
+| `ALLOW_FIGMA_NULL_ORIGIN` | 기본 `false`. `true`는 `NODE_ENV=development`에서만 허용하며 Figma iframe의 `Origin: null`을 허용 |
 
 ```sh
 pnpm install --store-dir "$HOME/Library/pnpm/store/v11" --package-import-method copy
@@ -166,3 +167,5 @@ pnpm typecheck
 명세 export/check는 DB 연결·포트 listen·파일 저장 루트 생성 없이 실행한다. DTO와 실제 응답을 계약 테스트로 검증하고 두 생성 SDK의 프로젝트·multipart·다운로드 호출도 HTTP로 확인한다. 생성 코드는 직접 편집하지 않는다. 업로드·시트·IA DTO는 후속 계약이며 해당 기능 API가 이미 구현됐다는 뜻이 아니다.
 
 DB 백업과 `FILE_STORAGE_ROOT` 전체를 함께 옮기면 저장 키를 바꾸지 않고 새 루트로 연결할 수 있다. 실제 이전·클라우드 배포는 후속 검증 대상이다. 중단된 업로드는 시작 시 개수만 보고하며 자동 삭제하지 않는다. 프로젝트·파일 삭제와 보관 만료도 아직 제공하지 않는다.
+
+Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이 설정은 Figma 신원을 인증하지 않으며 같은 `null` origin을 보내는 다른 opaque origin에도 적용된다. 일반 웹 origin은 계속 `CORS_ORIGINS`에 정확히 나열한다. 실제 Figma 실행 검증은 2A에서 수행한다.

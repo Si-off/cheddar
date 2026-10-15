@@ -137,7 +137,11 @@ test("upload and IA contracts keep Figma identity separate from business screen 
   };
   assert.deepEqual(
     await validate(
-      plainToInstance(CreateUploadDto, { name: "주문", frames: [frame] }),
+      plainToInstance(CreateUploadDto, {
+        clientRequestId: randomUUID(),
+        name: "주문",
+        frames: [frame],
+      }),
       options,
     ),
     [],
@@ -146,6 +150,7 @@ test("upload and IA contracts keep Figma identity separate from business screen 
     (
       await validate(
         plainToInstance(CreateUploadDto, {
+          clientRequestId: randomUUID(),
           name: "주문",
           frames: [frame, frame],
         }),
@@ -157,8 +162,45 @@ test("upload and IA contracts keep Figma identity separate from business screen 
     (
       await validate(
         plainToInstance(CreateUploadDto, {
+          clientRequestId: randomUUID(),
           name: "주문",
           frames: [{ ...frame, width: 0 }],
+        }),
+        options,
+      )
+    ).length,
+  );
+  for (const clientRequestId of [undefined, null, "not-a-uuid"]) {
+    assert.ok(
+      (
+        await validate(
+          plainToInstance(CreateUploadDto, {
+            clientRequestId,
+            name: "주문",
+            frames: [frame],
+          }),
+          options,
+        )
+      ).length,
+    );
+  }
+  const distinctSources = plainToInstance(CreateUploadDto, {
+    clientRequestId: randomUUID(),
+    name: "  주문  ",
+    frames: [
+      { ...frame, figmaFileKey: "a:b", figmaNodeId: "c" },
+      { ...frame, figmaFileKey: "a", figmaNodeId: "b:c" },
+    ],
+  });
+  assert.deepEqual(await validate(distinctSources, options), []);
+  assert.equal(distinctSources.name, "주문");
+  assert.ok(
+    (
+      await validate(
+        plainToInstance(CreateUploadDto, {
+          clientRequestId: randomUUID(),
+          name: "  ",
+          frames: [frame],
         }),
         options,
       )
@@ -199,6 +241,22 @@ test("configuration and cursor failures do not disclose secrets", () => {
   assert.throws(() => readEnv({ ...base, API_PORT: "0" }));
   assert.throws(() => readEnv({ ...base, CORS_ORIGINS: "*" }));
   assert.throws(() => readEnv({ ...base, FILE_STORAGE_ROOT: "/" }));
+  assert.ok(!readEnv(base).corsOrigins.includes("null"));
+  assert.throws(() => readEnv({ ...base, CORS_ORIGINS: "null" }));
+  assert.throws(() => readEnv({ ...base, ALLOW_FIGMA_NULL_ORIGIN: "yes" }));
+  for (const NODE_ENV of [undefined, "production", "test"]) {
+    assert.throws(() =>
+      readEnv({ ...base, NODE_ENV, ALLOW_FIGMA_NULL_ORIGIN: "true" }),
+    );
+  }
+  assert.deepEqual(
+    readEnv({
+      ...base,
+      NODE_ENV: "development",
+      ALLOW_FIGMA_NULL_ORIGIN: "true",
+    }).corsOrigins,
+    ["http://127.0.0.1:5173", "null"],
+  );
   const row = { id: randomUUID(), createdAt: new Date() };
   assert.deepEqual(decodeCursor(encodeCursor(row)), row);
   assert.throws(() => decodeCursor("not-a-cursor"));

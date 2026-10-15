@@ -1074,6 +1074,11 @@
       "CreateUploadDto": {
         "type": "object",
         "properties": {
+          "clientRequestId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable ID for retries of the same upload bundle."
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -1089,8 +1094,151 @@
           }
         },
         "required": [
+          "clientRequestId",
           "name",
           "frames"
+        ],
+        "additionalProperties": false
+      },
+      "UploadFrameDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "figmaFileKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "figmaNodeId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "imageFileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataFileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "figmaFileKey",
+          "figmaNodeId",
+          "name",
+          "width",
+          "height",
+          "imageFileId",
+          "dataFileId"
+        ],
+        "additionalProperties": false
+      },
+      "UploadDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "frames": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadFrameDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "createdAt",
+          "frames"
+        ],
+        "additionalProperties": false
+      },
+      "UploadSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "frameCount": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "createdAt",
+          "frameCount"
+        ],
+        "additionalProperties": false
+      },
+      "UploadPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadSummaryDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ],
         "additionalProperties": false
       },

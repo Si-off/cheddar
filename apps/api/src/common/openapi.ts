@@ -10,7 +10,11 @@ import {
   SheetContentDto,
   SheetViewDto,
 } from "../contracts/sheets.dto";
-import { CreateUploadDto } from "../contracts/uploads.dto";
+import {
+  CreateUploadDto,
+  UploadDto,
+  UploadPageDto,
+} from "../contracts/uploads.dto";
 
 export function createDocument(app: INestApplication) {
   const config = new DocumentBuilder()
@@ -23,6 +27,8 @@ export function createDocument(app: INestApplication) {
   const document = SwaggerModule.createDocument(app, config, {
     extraModels: [
       CreateUploadDto,
+      UploadDto,
+      UploadPageDto,
       CreateSheetDto,
       SheetContentDto,
       SheetViewDto,
