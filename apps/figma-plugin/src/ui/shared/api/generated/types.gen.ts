@@ -86,7 +86,7 @@ export type CreateUploadDto = {
     clientRequestId: string;
     name: string;
     /**
-     * Ordered frames. File IDs must reference ready files in the same project; enforced by the future upload service.
+     * Ordered frames. File IDs must reference ready files in the same project; enforced by the upload service.
      */
     frames: Array<FrameInputDto>;
 };
@@ -546,3 +546,88 @@ export type DownloadFileResponses = {
 };
 
 export type DownloadFileResponse = DownloadFileResponses[keyof DownloadFileResponses];
+
+export type ListUploadsData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/projects/{projectId}/uploads';
+};
+
+export type ListUploadsErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ListUploadsError = ListUploadsErrors[keyof ListUploadsErrors];
+
+export type ListUploadsResponses = {
+    200: UploadPageDto;
+};
+
+export type ListUploadsResponse = ListUploadsResponses[keyof ListUploadsResponses];
+
+export type CreateUploadData = {
+    body: CreateUploadDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/uploads';
+};
+
+export type CreateUploadErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type CreateUploadError = CreateUploadErrors[keyof CreateUploadErrors];
+
+export type CreateUploadResponses = {
+    /**
+     * Previously completed request with the same content
+     */
+    200: UploadDto;
+    201: UploadDto;
+};
+
+export type CreateUploadResponse = CreateUploadResponses[keyof CreateUploadResponses];
+
+export type GetUploadData = {
+    body?: never;
+    path: {
+        projectId: string;
+        uploadId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/uploads/{uploadId}';
+};
+
+export type GetUploadErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    500: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type GetUploadError = GetUploadErrors[keyof GetUploadErrors];
+
+export type GetUploadResponses = {
+    200: UploadDto;
+};
+
+export type GetUploadResponse = GetUploadResponses[keyof GetUploadResponses];

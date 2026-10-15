@@ -8,6 +8,7 @@ import {
 } from "./health/health.controller";
 import { ProjectsModule } from "./projects/projects.module";
 import { StorageModule } from "./storage/storage.module";
+import { UploadsModule } from "./uploads/uploads.module";
 
 @Module({})
 export class AppModule {}
@@ -23,6 +24,7 @@ export function appModule(
       StorageModule,
       ProjectsModule,
       FilesModule,
+      UploadsModule,
     ],
     controllers: [HealthController],
     providers: [{ provide: MIGRATIONS_FOLDER, useValue: migrationsFolder }],

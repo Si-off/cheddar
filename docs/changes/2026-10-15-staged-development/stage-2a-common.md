@@ -27,3 +27,13 @@ Node24.22.0/pnpm12.11.2. pnpm check 통과(기존 디자인 HTML 크기 경고1�
 2B ba4f211, 2C 0adfcea 승인 설계와 공통 요청을 수신했다. 업로드 공통 커밋 다음에 시트·IA·초기 양식 계약을 준비한다. PR/main 병합·배포는 수행하지 않았다.
 
 독립 UX 검수는 a78834c 대비 env/uploads DTO와 오류 주변 코드를 확인해 문제 없음으로 보고했다. 사용자 문구는 바뀌지 않았고 Origin 허용 조건은 기존 오류 의미와 일치했다. 실제 브라우저/Figma 화면 검수는 미수행이다.
+
+## 실제 업로드 API 통합
+
+2A API 커밋 aae7bad를 검토해 조율 브랜치에 병합했다. UploadsModule을 앱에 등록하고 createUpload/listUploads/getUpload 실제 operation을 양쪽 SDK에 생성했다. 공통 client는 앱 provider에서 한 번 설정하며 VITE_API_BASE_URL을 사용한다. Query mutation 자동 재시도는 false다. uploads 테스트는 공통 DB helper로 전환해 새 project_templates 행까지 자기 UUID 범위로 정리한다.
+
+통합 후 실제 DB·HTTP·양쪽 SDK 테스트30개, pnpm check, OpenAPI 일치 검사 통과. SDK로 신규201/동일재시도200/조회/목록을 추가 검증했다. 새 SDK fixture가 기존 페이지분할 사례에 영향을 주어 해당 검증 뒤로 분리했으며 기존 assertion을 완화하지 않았다. API 문구는2A의 독립검수·수정·재검수 결과를 유지했다. 이번 연결은 UI 문구를 변경하지 않았다.
+
+2A 프런트는 아직 통합 전이다. 시트 연결은 선택적 sheetGateway(list/create) props로 분리하고 2B 실제 SDK가 준비되면 라우트 closure에서 projectId/uploadId를 주입한다. 미제공 상태에서는 시트 연결 UI를 숨기며 이 기능의 완료로 보고하지 않는다. 실제 Figma는 플러그인 ID 준비와 실행 검증이 남아 있다. 실행 DB migration·상시 서버 시작은 하지 않았다.
+
+2C 요청에 따라 Playwright testDir를 src/pages로 넓혀 project-settings의 spec도 발견한다. 공통 검사 통과와 브라우저 검증 완료는 구분한다.

@@ -1,14 +1,11 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, realpath, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { Test } from "@nestjs/testing";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { appModule } from "../src/app.module";
 import { configureApp } from "../src/common/application";
 import { createDocument } from "../src/common/openapi";
@@ -19,58 +16,18 @@ import type {
   UploadDto,
   UploadPageDto,
 } from "../src/contracts/uploads.dto";
-import { DatabaseService } from "../src/database/database.service";
 import { LocalStorage } from "../src/storage/local-storage";
-import { UploadsModule } from "../src/uploads/uploads.module";
+import { openTestDatabase } from "./database";
+import { loadSdk } from "./sdk";
 
 test("upload bundles preserve ordered frames, project boundaries and retry identity", async (t) => {
-  const testUrl = process.env.TEST_DATABASE_URL;
-  assert.ok(
-    testUrl,
-    "TEST_DATABASE_URL is required; integration tests are never skipped.",
-  );
-  const target = new URL(testUrl);
-  const runtime = new URL(process.env.DATABASE_URL ?? testUrl);
-  assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(target.hostname));
-  assert.equal(decodeURIComponent(target.pathname), "/cheddar_stage1_test");
-  assert.equal(decodeURIComponent(target.username), "cheddar_stage1");
-  assert.notEqual(
-    `${target.hostname}:${target.port}${target.pathname}`,
-    `${runtime.hostname}:${runtime.port}${runtime.pathname}`,
-  );
-  const storageRoot = await mkdtemp(
-    join(await realpath(tmpdir()), "cheddar-2a-http-"),
-  );
-  const config = {
-    databaseUrl: testUrl,
-    storageRoot,
-    port: 3102,
-    corsOrigins: ["http://127.0.0.1:5175"],
-  };
-  const folder = resolve(
-    process.env.API_SOURCE_ROOT ?? process.cwd(),
-    "migrations",
-  );
-  const admin = new DatabaseService(config);
-  const lock = await admin.pool.connect();
-  const projects: string[] = [];
+  const lease = await openTestDatabase();
+  const { config, lock, projects, folder } = lease;
+  const storageRoot = config.storageRoot;
   let closeApp: () => Promise<void> = async () => {};
-  let locked = false;
   try {
-    const identity = await lock.query<{ owner: string; superuser: boolean }>(
-      "SELECT pg_get_userbyid(datdba) owner,(SELECT rolsuper FROM pg_roles WHERE rolname=current_user) superuser FROM pg_database WHERE datname=current_database()",
-    );
-    assert.equal(identity.rows[0].owner, "cheddar_stage1");
-    assert.equal(identity.rows[0].superuser, false);
-    locked = (
-      await lock.query<{ locked: boolean }>(
-        "SELECT pg_try_advisory_lock(31015432) locked",
-      )
-    ).rows[0].locked;
-    assert.ok(locked, "Another API test process is using this DB.");
-    await migrate(admin.db, { migrationsFolder: folder });
     const module = await Test.createTestingModule({
-      imports: [appModule(config, folder), UploadsModule],
+      imports: [appModule(config, folder)],
     }).compile();
     const app = module.createNestApplication({ logger: false });
     configureApp(app, config);
@@ -308,12 +265,58 @@ test("upload bundles preserve ordered frames, project boundaries and retry ident
       },
     );
     await t.test(
+      "both generated SDKs register, retry and read upload bundles",
+      async () => {
+        const sourceRoot = process.env.API_SOURCE_ROOT ?? process.cwd();
+        for (const [name, source] of [
+          ["web", "../web/src/shared/api/generated"],
+          ["plugin", "../figma-plugin/src/ui/shared/api/generated"],
+        ]) {
+          const sdk = await loadSdk(
+            resolve(sourceRoot, source),
+            join(storageRoot, `upload-sdk-${name}`),
+          );
+          const options = {
+            baseUrl: base,
+            path: { projectId: first.id },
+            body: { ...input, clientRequestId: randomUUID() },
+            throwOnError: true,
+          };
+          const created = await sdk.createUpload(options);
+          assert.equal(created.response.status, 201);
+          const upload = created.data as UploadDto;
+          matches("UploadDto", upload);
+          const retry = await sdk.createUpload(options);
+          assert.equal(retry.response.status, 200);
+          assert.deepEqual(retry.data, upload);
+          const read = await sdk.getUpload({
+            baseUrl: base,
+            path: { projectId: first.id, uploadId: upload.id },
+            throwOnError: true,
+          });
+          assert.deepEqual(read.data, upload);
+          const list = await sdk.listUploads({
+            baseUrl: base,
+            path: { projectId: first.id },
+            query: { limit: 100 },
+            throwOnError: true,
+          });
+          matches("UploadPageDto", list.data);
+          assert.ok(
+            (list.data as UploadPageDto).items.some(
+              (item) => item.id === upload.id,
+            ),
+          );
+        }
+      },
+    );
+    await t.test(
       "new application pools can read persisted frames and source bytes",
       async () => {
         await app.close();
         closeApp = async () => {};
         const freshModule = await Test.createTestingModule({
-          imports: [appModule(config, folder), UploadsModule],
+          imports: [appModule(config, folder)],
         }).compile();
         const fresh = freshModule.createNestApplication({ logger: false });
         configureApp(fresh, config);
@@ -332,25 +335,10 @@ test("upload bundles preserve ordered frames, project boundaries and retry ident
       },
     );
   } finally {
-    await closeApp();
-    if (locked && projects.length) {
-      await lock.query(
-        "DELETE FROM upload_frames WHERE project_id=ANY($1::uuid[])",
-        [projects],
-      );
-      await lock.query("DELETE FROM uploads WHERE project_id=ANY($1::uuid[])", [
-        projects,
-      ]);
-      await lock.query("DELETE FROM files WHERE project_id=ANY($1::uuid[])", [
-        projects,
-      ]);
-      await lock.query("DELETE FROM projects WHERE id=ANY($1::uuid[])", [
-        projects,
-      ]);
+    try {
+      await closeApp();
+    } finally {
+      await lease.close();
     }
-    if (locked) await lock.query("SELECT pg_advisory_unlock(31015432)");
-    lock.release();
-    await admin.onModuleDestroy();
-    await rm(storageRoot, { recursive: true, force: true });
   }
 });

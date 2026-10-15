@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createProject, downloadFile, getFile, getLiveness, getProject, getReadiness, listFiles, listProjects, type Options, updateProject, uploadFile } from '../sdk.gen';
-import type { CreateProjectData, CreateProjectError, CreateProjectResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, ListFilesData, ListFilesError, ListFilesResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
+import { createProject, createUpload, downloadFile, getFile, getLiveness, getProject, getReadiness, getUpload, listFiles, listProjects, listUploads, type Options, updateProject, uploadFile } from '../sdk.gen';
+import type { CreateProjectData, CreateProjectError, CreateProjectResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -267,4 +267,75 @@ export const downloadFileOptions = (options: Options<DownloadFileData>) => query
         return data;
     },
     queryKey: downloadFileQueryKey(options)
+});
+
+export const listUploadsQueryKey = (options: Options<ListUploadsData>) => createQueryKey('listUploads', options);
+
+export const listUploadsOptions = (options: Options<ListUploadsData>) => queryOptions<ListUploadsResponse, ListUploadsError, ListUploadsResponse, ReturnType<typeof listUploadsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listUploads({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listUploadsQueryKey(options)
+});
+
+export const listUploadsInfiniteQueryKey = (options: Options<ListUploadsData>): QueryKey<Options<ListUploadsData>> => createQueryKey('listUploads', options, true);
+
+export const listUploadsInfiniteOptions = (options: Options<ListUploadsData>) => {
+    const opts = infiniteQueryOptions<ListUploadsResponse, ListUploadsError, InfiniteData<ListUploadsResponse>, QueryKey<Options<ListUploadsData>>, string | Pick<QueryKey<Options<ListUploadsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListUploadsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listUploads({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listUploadsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const createUploadMutation = (options?: Partial<Options<CreateUploadData>>): UseMutationOptions<CreateUploadResponse, CreateUploadError, Options<CreateUploadData>> => {
+    const mutationOptions: UseMutationOptions<CreateUploadResponse, CreateUploadError, Options<CreateUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getUploadQueryKey = (options: Options<GetUploadData>) => createQueryKey('getUpload', options);
+
+export const getUploadOptions = (options: Options<GetUploadData>) => queryOptions<GetUploadResponse, GetUploadError, GetUploadResponse, ReturnType<typeof getUploadQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getUpload({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getUploadQueryKey(options)
 });
