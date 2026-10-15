@@ -100,12 +100,12 @@ TanStack Query는 마지막 서버 응답을, 시트별 Zustand store는 기준 
 
 | 메서드·경로 | operationId 제안 | 응답·보장 |
 | --- | --- | --- |
-| POST `/projects/{projectId}/sheets` | `sheetsCreate` | CreateSheetDto, 201 SheetSnapshot. 현재 양식을 트랜잭션 안에서 복사 |
-| GET `/projects/{projectId}/sheets` | `sheetsList` | 기존 cursor/limit 규칙의 SheetSummary 목록. 케이스 전체는 제외 |
-| GET `/projects/{projectId}/sheets/{sheetId}` | `sheetsGet` | 200 SheetSnapshot, 내용·표시를 같은 DB 스냅샷에서 조회 |
-| PUT `.../sheets/{sheetId}/content` | `sheetsPutContent` | SheetContentDto, 200 SheetSnapshot. content revision 검사와 전체 원자 저장 |
-| PUT `.../sheets/{sheetId}/view` | `sheetsPutView` | SheetViewDto, 200 SheetSnapshot. view revision 검사, 열 집합 정확히 일치 |
-| GET `.../sheets/{sheetId}/export.xlsx` | `sheetsExportXlsx` | XLSX bytes. 선택적 contentRevision/viewRevision으로 저장 버전 확인 |
+| POST `/projects/{projectId}/sheets` | `createSheet` | CreateSheetDto, 201 SheetSnapshot. 현재 양식을 트랜잭션 안에서 복사 |
+| GET `/projects/{projectId}/sheets` | `listSheets` | 기존 cursor/limit 규칙, 선택적 uploadId 필터의 SheetSummary 목록. 케이스 전체는 제외 |
+| GET `/projects/{projectId}/sheets/{sheetId}` | `getSheet` | 200 SheetSnapshot, 내용·표시를 같은 DB 스냅샷에서 조회 |
+| PUT `.../sheets/{sheetId}/content` | `updateSheetContent` | SheetContentDto, 200 SheetSnapshot. content revision 검사와 전체 원자 저장 |
+| PUT `.../sheets/{sheetId}/view` | `updateSheetView` | SheetViewDto, 200 SheetSnapshot. view revision 검사, 열 집합 정확히 일치 |
+| GET `.../sheets/{sheetId}/export.xlsx` | `exportSheetXlsx` | XLSX bytes. 선택적 contentRevision/viewRevision으로 저장 버전 확인 |
 
 SheetSummary는 `id, projectId, name, kind, uploadId, contentRevision, viewRevision, createdAt, updatedAt`다. SheetSnapshot은 여기에 `columns, cases, view`를 더한다. cases 배열은 저장 행 순서, view 배열은 열 표시 순서다. 프레임 이름·IA 화면 ID 등은 같은 읽기 시점의 표시용 참조 목록으로 제공하고 저장 DTO와 분리한다. 번호 발급 결과도 cases에 포함한다. `sourceTemplateRevision`은 생성 출처로 보관하되 원본을 따라 갱신하는 연결로 쓰지 않는다.
 
@@ -215,3 +215,26 @@ UI 자동화는 Playwright를 추천한다. 셀 편집·상세 동기화, 다중
 양식 초깃값·실제 응답 DTO 이름과 공개 서비스 인터페이스, 2A/2C 참조 schema는 조율 담당과 해당 기능 설계에서 맞춰야 하는 기술 미정 사항이다. DB·storage·실제 포트·CORS·의존성 버전도 조율 커밋과 실행 전 확인으로 확정한다. 이러한 기술 조율이 위 제품 선택을 바꾸면 변경점을 다시 사용자에게 제시한다.
 
 2026-10-15 사용자는 위 추천안, 두 제품 폴더 생성, 조율 담당의 허용 목록 반영과 이 전용 브랜치로 설계 문서를 푸시하는 것을 승인했다. 공통 DTO·schema·migration·SDK·의존성·라우트·현재 공통 문서의 소유권은 유지한다. 공통 담당이 선행 변경과 경로 승인을 반영하면 그 커밋을 수용하고 2B 구현을 시작한다. 추가 구현 승인 질문은 필요하지 않으며, 승인 범위를 바꾸는 새로운 결정만 별도로 제시한다.
+
+## 12. 2A 업로드 상세 연결을 위한 기술 조율안
+
+2026-10-15 조율 담당의 요청에 따라 승인된 업로드→시트 생성·편집 흐름을 구체화한다. 기능 범위·대기 조건은 유지한다. 아래 필터·props·최종 DTO 이름은 공통 커밋에 반영할 기술 제안이며 아직 실행 가능한 API나 구현된 컴포넌트가 아니다.
+
+### 시트 목록과 생성
+
+- `listSheets`: `GET /api/v1/projects/{projectId}/sheets?uploadId={uuid}&limit=50&cursor=...`. uploadId는 선택적 단일 UUID 필터다. 지정하면 해당 프로젝트·업로드에 연결된 시트만 반환한다. 생략하면 빈 시트와 모든 업로드 연결 시트를 포함한 프로젝트 목록이다. null·특수 문자열 필터나 여러 업로드 필터는 추가하지 않는다.
+- 응답은 `{items: SheetSummary[], nextCursor: string|null}`이며 기존 기본 50·최대 100, 생성 시각/UUID 내림차순 페이지 규칙을 따른다. 필터 적용 후 페이지를 나누고 query key·페이지 커서 상태는 projectId/uploadId별로 분리한다.
+- projectId/uploadId의 UUID 형식 오류는 400, 프로젝트가 없거나 지정 업로드가 없거나 다른 프로젝트 소속이면 404다. 존재하는 업로드에 연결된 시트가 없으면 200의 빈 items다. 필터는 관련 시트 목록 조회를 구체화하며 새로운 제품 기능이 아니다.
+- `createSheet`: `POST /api/v1/projects/{projectId}/sheets`, body는 기존 CreateSheetDto의 `{name: string, kind: "unit"|"integration", uploadId?: string|null}` 그대로다. 업로드 상세는 uploadId를 명시하고 빈 시트 생성은 생략 또는 null을 사용한다. kind와 이름은 사용자가 선택·입력한다.
+- 성공은 201의 SheetSnapshot이며 2A가 소비할 최소 필드는 `id, projectId, name, kind, uploadId, contentRevision, viewRevision, createdAt, updatedAt`다. 기존 설계대로 columns/cases/view도 반환한다. 표시 참조 목록의 정확한 응답 필드명은 공통 담당이 2A/2C와 고정한다.
+- 생성은 양식 사본을 만드는 동작이다. 기존 업로드 파일·원본 양식·기존 시트를 변경하지 않고 AI를 실행하지 않는다. 2A는 생성 성공 후 반환된 projectId/id로 편집기로 이동한다. POST 자동 재시도 금지와 결과 불명확 시 목록 확인 규칙을 유지한다.
+- operationId는 실제 기존 API의 `createProject/listProjects/getProject/updateProject` 명명과 맞춰 6절처럼 `createSheet/listSheets/getSheet/updateSheetContent/updateSheetView/exportSheetXlsx`로 정리했다. 앞서 제안했던 sheets 접두어 형식은 이 기술 조율안으로 대체하며 실제 명세·SDK 등록은 공통 담당이 한다.
+
+### 편집기 경로와 page 진입
+
+- 승인된 편집기 경로 `/projects/$projectId/sheets/$sheetId`를 유지한다. 2A가 생성 후 이 경로로 이동할 때 uploadId를 중복 전달할 필요가 없다. 실제 uploadId는 시트 조회 응답을 따른다.
+- page props 제안은 `projectId?: string`, `sheetId?: string`, `onOpenSheet: (target: {projectId: string; sheetId: string}) => void`다. 루트 `/` 진입은 두 ID를 생략해 프로젝트·시트 선택을 제공하고, 편집기 라우트 adapter는 두 ID를 전달한다. sheetId만 전달하는 진입은 허용하지 않는다.
+- page에서 시트 선택·생성이 성공하면 onOpenSheet로 대상을 전달한다. URL 해석과 navigate·라우트 등록은 공통 app/routes adapter가 맡는다. page가 app 내부를 import하거나 업로드 page를 import하지 않는다.
+- 2A 업로드 상세는 공통 SDK의 listSheets/createSheet를 소비하고 공통 라우터로 이동한다. TestCaseEditorPage의 내부 상태나 시트 저장 로직을 직접 호출하지 않는다. 실제 내보낸 props 타입과 adapter는 공통 담당이 본 계약을 수용한 뒤 각 소유 경로에서 맞춘다.
+
+미정 제품 요구를 추가 확정하지 않았다. 양식 초깃값·트랜잭션 읽기 인터페이스, 실제 schema·DTO 응답 필드, 실행 환경은 계속 공통 선행 작업이다.
