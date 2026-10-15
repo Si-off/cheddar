@@ -185,6 +185,7 @@ export function GenerationPanel({ snapshot, session, uploads, onLock }: Props) {
       >
         AI 케이스 생성·후보 검토
       </Button>
+      {jobs.isPending && <p role="status">생성 상태를 확인하는 중입니다.</p>}
       {running && (
         <p role="status">
           케이스를 생성하는 중입니다. 완료될 때까지 이 시트의 편집이 잠깁니다.
