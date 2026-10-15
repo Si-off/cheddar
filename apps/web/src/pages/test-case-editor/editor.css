@@ -1,0 +1,84 @@
+.sheet-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+.sheet-editor-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-4);
+  flex-wrap: wrap;
+}
+.sheet-editor-table {
+  flex: 1;
+  min-width: 0;
+}
+.sheet-detail {
+  flex: 1 1 var(--size-dialog-max);
+  max-width: var(--size-dialog-max);
+  max-height: calc(100dvh - var(--spacing-control-lg) * 4);
+  overflow: auto;
+  padding: var(--spacing-panel);
+  background: var(--color-surface);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+.sheet-select {
+  display: block;
+  width: 100%;
+  min-height: var(--spacing-control-md);
+  padding: var(--spacing-control-y) var(--spacing-control-x);
+  margin-top: var(--spacing-1);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  border: var(--border-width-default) solid var(--color-border-control);
+  border-radius: var(--radius-control);
+  font: inherit;
+}
+.sheet-select:focus {
+  outline: none;
+  border-color: var(--color-focus-border);
+}
+.sheet-select:disabled {
+  color: var(--color-disabled-foreground);
+  background: var(--color-disabled);
+}
+.sheet-column-settings {
+  padding: var(--spacing-panel);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+.sheet-column-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-3);
+}
+.sheet-column-name {
+  flex: 1;
+}
+.sheet-width {
+  width: var(--spacing-16);
+}
+.sheet-status {
+  font-size: var(--text-label);
+  color: var(--color-muted);
+}
+.sheet-notice {
+  border: var(--border-width-default) solid var(--color-border);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-control);
+  background: var(--color-warning-subtle);
+  color: var(--color-foreground);
+}
+.sheet-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+}
+.sheet-comparison > div {
+  flex: 1;
+  min-width: var(--size-textarea-min);
+}
