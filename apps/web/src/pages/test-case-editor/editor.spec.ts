@@ -619,3 +619,83 @@ test("a recovered browser draft write clears an obsolete storage failure while s
     page.getByRole("textbox", { name: "제목 편집", exact: true }),
   ).toHaveValue("다음 보관 성공");
 });
+
+test("internal header navigation and browser back preserve failed drafts and require explicit confirmation", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  await page.goto(`/projects/${projectId}/sheets`);
+  await page
+    .getByRole("button", { name: "시트 하나 · 단위", exact: true })
+    .click();
+  await expect(
+    page.getByRole("grid", { name: "테스트 케이스 편집" }),
+  ).toBeVisible();
+  control.reject = true;
+  await editTitle(page, "내부 이동에서 유지할 입력");
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+  ).toBeVisible();
+  const dialog = page.getByRole("dialog", {
+    name: "저장되지 않은 입력이 있습니다",
+  });
+  await page.getByRole("button", { name: "시트 목록", exact: true }).click();
+  await expect(dialog).toContainText("입력을 이 브라우저에 보관했습니다");
+  await dialog.getByRole("button", { name: "계속 편집", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/sheets/${sheetId}$`));
+  await page.getByRole("link", { name: "Cheddar", exact: true }).click();
+  await expect(dialog).toContainText("입력을 이 브라우저에 보관했습니다");
+  await dialog.getByRole("button", { name: "계속 편집", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/sheets/${sheetId}$`));
+  await expect(
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText("내부 이동에서 유지할 입력");
+  await page.goBack();
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "초안 보관 후 이동", exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sheets$`));
+  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await expect(
+    page.getByRole("button", { name: "초안 복원", exact: true }),
+  ).toBeVisible();
+});
+
+test("internal navigation stays blocked when both the server save and browser draft storage fail", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  control.reject = true;
+  await page.addInitScript(() =>
+    Object.defineProperty(window, "indexedDB", {
+      get() {
+        throw new DOMException("Blocked", "SecurityError");
+      },
+    }),
+  );
+  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await expect(
+    page.getByRole("grid", { name: "테스트 케이스 편집" }),
+  ).toBeVisible();
+  await editTitle(page, "어디에도 저장되지 않은 입력");
+  await expect(
+    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Cheddar", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "저장되지 않은 입력이 있습니다",
+  });
+  await expect(dialog).toContainText(
+    "입력을 이 브라우저에 보관하지 못했습니다",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "초안 보관 후 이동", exact: true }),
+  ).toBeDisabled();
+  control.reject = false;
+  await dialog
+    .getByRole("button", { name: "저장 후 이동", exact: true })
+    .click();
+  await expect(page).toHaveURL("http://127.0.0.1:5176/");
+  expect(control.saved.cases[0].title).toBe("어디에도 저장되지 않은 입력");
+});
