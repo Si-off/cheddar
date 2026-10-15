@@ -1,7 +1,7 @@
 # 작업: 단계별 개발 및 병렬 채팅 운영 준비
 
 - 작업 ID: 2026-10-15-staged-development
-- 상태: 2단계 준비 중 — 최신 main·1단계 통합 검증 및 병렬 채팅 준비. 아래 최초 준비 기록은 당시 상태다.
+- 상태: 2단계 준비 완료 — 통합 검증·원격 푸시·세 worktree/브랜치·준비 턴 완료. 실제 구현은 각 채팅의 사용자 지시 대기. 아래 최초 준비 기록은 당시 상태다.
 - 요청 근거: 2026-10-15 조율 채팅에서 사용자가 "PLEASE IMPLEMENT THIS PLAN"으로 단계별 실행·작업 분배·통합 관리 및 채팅별 worktree·브랜치 분리를 요청했다.
 - 조율 채팅: 플러그인·웹·백엔드 계획 수립 (`01a13d09-b1e9-7b31-ac07-0e6f6b3ab6f6`)
 - 기준: `origin/main`의 `e1e059bc62d317b5d904ae0935754faef45fe8cb`
@@ -85,3 +85,23 @@
 ## 2026-10-15 통합과 2단계 준비
 
 사용자의 최신 지시에 따라 공통 파일은 이 조율 채팅이 담당한다. 최신 main과 1단계의 통합·검증 및 2A·2B·2C 별도 worktree 채팅을 준비한다. 상세 범위·공통 파일·실행 환경·시작 경계는 [stage-2.md](stage-2.md)에 기록했다.
+
+
+### 2단계 준비 결과
+
+- 공통 시작 커밋: `4cfd066574ca97241372d3b56561fb96f0430847`, 조율 브랜치 `codex/staged-development`에 푸시하고 원격 SHA 일치 확인.
+- 통합 대상: 원격 main `04c06c3`, 사용자가 포함·푸시를 승인한 로컬 main `b5754b2`, 1단계 `64dba21`. 원본 main·1단계 브랜치는 이동하지 않았다. 통합은 조율 브랜치에서 완료했으며 PR·main 반영·배포는 수행하지 않았다.
+- 충돌 해결: README는 UI/백엔드 안내 모두 보존, architecture는 최신 UI·검수 운영과 승인된 백엔드 구조 보존, lockfile은 양쪽 고정 패키지 보존. frozen-lockfile 설치 통과.
+- 검증: 최종 코드에서 pnpm check 통과. 실제 DB/HTTP·SDK 테스트 16개 및 OpenAPI 일치 통과. 마지막 main CSS 커밋 이후 API/SDK는 검증한 내용과 바이트 단위로 동일하다. UI·토큰·앱 진입점·검수 설정은 main b5754b2와 동일함을 diff로 확인했다.
+- 문서 지침: architecture.md의 승인된 1단계 경로·산출물 내용을 통합했으며 AGENTS/workflow/검수 에이전트는 최신 main을 그대로 유지했다. 후속 새 폴더는 별도 검토 대상으로 남겼다.
+- 기존 경고: 디자인 HTML 크기가 Biome 검사 상한을 초과한다. 검사 기준을 완화하지 않았다.
+
+| 채팅 | ID | worktree | 전용 브랜치 | 확인 상태 |
+| --- | --- | --- | --- | --- |
+| Cheddar 2A — 프레임 업로드 | 01a13d9c-8619-7a20-b73a-0de6f2437e4a | /Users/sion/.codex/worktrees/ad36/cheddar | codex/stage-2a-frame-upload | 준비 완료·idle |
+| Cheddar 2B — 시트 편집·내보내기 | 01a13d9c-aabb-7a51-8c14-107e8ce7962c | /Users/sion/.codex/worktrees/60eb/cheddar | codex/stage-2b-sheet-editor | 준비 완료·idle |
+| Cheddar 2C — 프로젝트 설정·IA | 01a13d9c-ce25-78b1-97e3-61ce1ebfcd2e | /Users/sion/.codex/worktrees/623c/cheddar | codex/stage-2c-project-settings | 준비 완료·idle |
+
+세 채팅 모두 기준 HEAD 일치·깨끗한 작업 트리를 보고했다. 브랜치 생성 외 파일 구현·설치·DB 변경·서비스 실행·채팅 간 메시지 전송은 없었다. 실제 구현 시작은 사용자가 각 채팅에서 지시한다.
+
+공통 담당의 후속 목록: 각 기능 응답 DTO·DB schema/migration·모듈 등록·OpenAPI/SDK·앱 라우트 및 의존성, 2B/2C 초기 양식 제공·복사 계약. 2A 추출 형식·재시도와 실제 Figma 환경, 2B 편집 상호작용·XLSX 상세, 2C IA 부분 수정·삭제 revision은 각 설계 검토에서 구체화한다. 이 목록은 구현 시작 승인이 아니다.
