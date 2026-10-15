@@ -50,6 +50,7 @@ import { Button, Checkbox, Label } from "@cheddar/ui";
 
 - Checkbox·Switch는 `checked` / `onCheckedChange` 또는 `defaultChecked`를 사용한다. Checkbox의 `indeterminate`로 부분 선택을 나타낸다.
 - Input은 `value` / `onValueChange` 또는 `defaultValue`를 사용한다. Textarea는 네이티브 `onChange`를 사용한다.
+- Input과 Textarea는 포커스 시 기존 배경색을 유지하고 테두리 색상만 변경한다. 오류 배경도 유지한다.
 - RadioGroup·Select·Tabs는 `value` / `onValueChange` 또는 `defaultValue`를 사용한다.
 - 입력 이름은 Label 또는 `aria-label` / `aria-labelledby`로 연결한다. 오류는 `aria-invalid`와 실제 오류 설명의 `aria-describedby`를 함께 전달한다.
 - DialogContent의 닫기 버튼은 기본 제공한다. `closeLabel`로 접근성 이름을 바꾸고, 명시적인 닫기 행동을 제공하는 구성에서는 `showCloseButton={false}`를 사용할 수 있다. DialogTitle을 제공한다.
