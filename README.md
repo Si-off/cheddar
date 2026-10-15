@@ -28,7 +28,7 @@ Codex에서 이 저장소를 프로젝트 작업 위치로 연다. 루트 `AGENT
 - `packages/ui/`: 기본 UI
 - `packages/design-tokens/`: 디자인 토큰
 
-workspace·기본 도구 설정을 구성 중이다. 단계별 상태는 [작업 기록](docs/changes/2026-10-15-workspace-setup/change.md)을, 상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다.
+workspace·기본 도구 설정과 최소 실행 화면을 구성했다. 단계별 결과는 [작업 기록](docs/changes/2026-10-15-workspace-setup/change.md)을, 상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다.
 
 ## 개발 환경
 
@@ -38,7 +38,54 @@ workspace·기본 도구 설정을 구성 중이다. 단계별 상태는 [작업
 - API 코드 생성: `@hey-api/openapi-ts`
 - 상세 기술 결정과 미정 사항: [구조 문서](docs/architecture.md)
 - 초기 검증: 로그인·검색 노출 없이 개발자 PC에서 로컬 실행, 백엔드·DB도 로컬 실행
+- 도구 버전: nvm 0.40.8, Node 24.22.0 LTS (`.nvmrc`), pnpm 12.11.2 (`packageManager`)
 - 백엔드 세부 설계·설치·실행·빌드·테스트 명령: 미정
 - 사내 배포 환경과 절차: 추후 결정
 
-명령과 환경은 실제 도입하고 확인한 뒤 문서에 추가한다.
+## 설치와 실행
+
+저장소 루트에서 실행한다. nvm 설치 후 새 셸을 열거나 nvm을 로드한다.
+
+```sh
+nvm install
+nvm use
+npm install --global pnpm@12.11.2
+pnpm install --frozen-lockfile
+pnpm dev:web
+```
+
+웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`와 `/share/<shareId>`는 기본 화면만 제공하며 실제 생성·편집·공유 기능은 아직 구현하지 않았다.
+
+```sh
+pnpm dev:plugin
+```
+
+플러그인 UI와 main을 각각 감시 빌드하여 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. UI는 CSS·폰트를 포함한 단일 HTML이다. 브라우저에서 UI만 확인하려면 `pnpm --filter @cheddar/figma-plugin dev:ui`를 사용한다 (`http://127.0.0.1:5174/`).
+
+Figma 플러그인 ID는 아직 발급되지 않아 manifest의 `id`를 생략했다. Figma에서 새 플러그인을 만들고 [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 발급된 ID를 manifest에 반영한 뒤 개발용으로 가져온다. 현재 실제 Figma 내 실행은 미검증이다. API 주소·허용 도메인은 백엔드 설계 후 정한다.
+
+## 검증과 API 코드 생성
+
+```sh
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm check
+```
+
+`pnpm check`는 위 세 검사를 순서대로 수행한다. 테스트 프레임워크와 CI는 미정이다. Vite 캐시·오류 로그 등 임시 자료는 저장소 밖에 둔다.
+
+두 앱의 `openapi-ts.config.ts`는 `OPENAPI_INPUT` 환경변수로 실제 명세 URL 또는 절대 경로를 받으며, 타입·Fetch SDK·TanStack Query 코드를 생성한다. 명세가 없으면 명확한 오류로 종료한다. `.env.example`은 설명용이며 코드 생성 시 환경변수는 셸에서 명시적으로 전달한다.
+
+실제 명세는 아직 미정이며 현재 `generated/`는 비워두었다. 각 `generated/` 아래 `client/`·`core/`·`@tanstack/`는 생성 코드 전용으로 허용했다. 실제 명세 확정 후 다음 명령을 사용한다.
+
+```sh
+OPENAPI_INPUT=<실제-명세-URL-또는-절대경로> pnpm gen:api:web
+OPENAPI_INPUT=<실제-명세-URL-또는-절대경로> pnpm gen:api:plugin
+```
+
+검증용 명세와 생성 결과는 저장소 밖에서만 사용했다. 생성 코드는 직접 편집하지 않고 명세·설정 변경 후 다시 만든다.
+
+## 디자인 토큰
+
+primary는 `#515299`, 폰트는 자체 호스팅 Noto Sans와 한글용 Noto Sans KR이다. `packages/design-tokens/src/theme.css`가 폰트·컬러·radius·타이포그래피·간격의 공통 정의다. 앱과 공통 UI는 의미별 토큰을 반드시 사용한다. 상세 규칙은 [AGENTS.md](AGENTS.md)를 따른다.

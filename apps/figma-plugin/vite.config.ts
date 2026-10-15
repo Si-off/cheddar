@@ -19,5 +19,10 @@ export default defineConfig({
   },
   server: { host: "127.0.0.1", port: 5174, strictPort: true },
   preview: { host: "127.0.0.1", port: 4174, strictPort: true },
-  build: { outDir: "dist", emptyOutDir: false, reportCompressedSize: false },
+  build: {
+    outDir: "dist",
+    emptyOutDir: false,
+    reportCompressedSize: false,
+    modulePreload: false,
+  },
 });
