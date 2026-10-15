@@ -84,9 +84,10 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
         const exported = await (await request("/openapi.json")).json();
         assert.deepEqual(exported, document);
         assert.ok(
-          !Object.keys(document.paths).some(
-            (p) => p.includes("sheets") || p.includes("uploads"),
-          ),
+          !Object.keys(document.paths).some((p) => p.includes("sheets")),
+        );
+        assert.ok(
+          Object.keys(document.paths).some((p) => p.includes("uploads")),
         );
         for (const input of [
           { name: "  " },

@@ -9,7 +9,7 @@ const key = createHash("sha256")
   .digest("hex")
   .slice(0, 12);
 export default defineConfig({
-  testDir: "./src/pages/test-case-editor",
+  testDir: "./src/pages",
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
   workers: 1,

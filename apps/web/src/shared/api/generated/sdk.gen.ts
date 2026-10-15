@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateProjectData, CreateProjectErrors, CreateProjectResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
+import type { CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -59,3 +59,16 @@ export const uploadFile = <ThrowOnError extends boolean = false>(options: Option
 export const getFile = <ThrowOnError extends boolean = false>(options: Options<GetFileData, ThrowOnError>): RequestResult<GetFileResponses, GetFileErrors, ThrowOnError> => (options.client ?? client).get<GetFileResponses, GetFileErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/files/{fileId}', ...options });
 
 export const downloadFile = <ThrowOnError extends boolean = false>(options: Options<DownloadFileData, ThrowOnError>): RequestResult<DownloadFileResponses, DownloadFileErrors, ThrowOnError> => (options.client ?? client).get<DownloadFileResponses, DownloadFileErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/files/{fileId}/content', ...options });
+
+export const listUploads = <ThrowOnError extends boolean = false>(options: Options<ListUploadsData, ThrowOnError>): RequestResult<ListUploadsResponses, ListUploadsErrors, ThrowOnError> => (options.client ?? client).get<ListUploadsResponses, ListUploadsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/uploads', ...options });
+
+export const createUpload = <ThrowOnError extends boolean = false>(options: Options<CreateUploadData, ThrowOnError>): RequestResult<CreateUploadResponses, CreateUploadErrors, ThrowOnError> => (options.client ?? client).post<CreateUploadResponses, CreateUploadErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/uploads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getUpload = <ThrowOnError extends boolean = false>(options: Options<GetUploadData, ThrowOnError>): RequestResult<GetUploadResponses, GetUploadErrors, ThrowOnError> => (options.client ?? client).get<GetUploadResponses, GetUploadErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/uploads/{uploadId}', ...options });

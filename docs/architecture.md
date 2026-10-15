@@ -40,7 +40,7 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 - 화면·업무 기능·상태 저장소는 앱별로 관리한다.
 - 웹은 TanStack Table 기반 표·상세 편집을 후속 구현한다. 사용자 열은 텍스트이며 표시 문자열 부분 검색을 사용한다. TanStack Query는 서버 데이터, Zustand/화면 상태는 미저장 입력·선택·검색을 담당한다.
 - 공유 링크는 초기 읽기 전용으로 제공하고, 향후 링크별 편집 권한을 지원한다.
-- API는 프로젝트·파일을 저장하며, 후속 업로드·시트·IA 계약 DTO를 제공한다. LangGraph 내부 실행 설계는 3B로 남긴다.
+- API는 프로젝트·파일·업로드 묶음을 저장하며, 후속 시트·IA 계약 DTO를 제공한다. LangGraph 내부 실행 설계는 3B로 남긴다.
 
 ## 백엔드 기반
 
@@ -52,11 +52,11 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 - 실행 DB는 `cheddar_stage1`, 테스트 DB는 `cheddar_stage1_test`, role은 `cheddar_stage1`. 로컬 기본 저장 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files`다. 다른 환경에서는 설정을 변경한다.
 - API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. 로컬 Figma iframe은 `NODE_ENV=development`와 `ALLOW_FIGMA_NULL_ORIGIN=true`를 함께 설정할 때만 null Origin을 허용한다. AI 키는 후속 단계에서 관리한다.
 - schema에서 생성한 SQL migration을 검토·명시 적용한다. 서버 시작 시 migration/push를 실행하지 않는다. readiness는 DB migration hash와 테이블·저장 접근을 확인한다.
-- 실제 경로만 OpenAPI에 포함한다. 후속 업로드·시트·IA DTO는 schema와 검증 예시만 제공한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
+- 실제 경로만 OpenAPI에 포함한다. 후속 시트·IA DTO는 schema와 검증 예시만 제공한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
 - 생성 명세와 Drizzle meta는 Biome 포맷 대상에서 제외하고 명세 재생성 비교·계약 테스트·migration 재현으로 검증한다. 기존 소스 검사를 완화하지 않는다.
 - API 테스트는 `node:test`, `@nestjs/testing`, 실제 PostgreSQL·HTTP를 사용한다. 컴파일·SDK 실행 테스트·파일 fixture는 OS 임시 경로를 사용한다. 테스트 데이터는 이 실행이 만든 UUID 행만 정리한다.
 - 프로젝트 생성 시 기본 양식을 같은 트랜잭션에서 저장하고, 기존 프로젝트에는 migration으로 누락분만 보충한다. IA·양식·시트 공통 모델은 [2B·2C 공통 계약](changes/2026-10-15-staged-development/stage-2bc-common.md)을 따른다. 기능 API와 화면은 후속 통합 대상이다.
-- 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 2A 서비스 책임이며 현재 실행 API는 후속 통합 대상이다.
+- 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 uploads 서비스가 검사한다. 신규 등록201, 같은 요청 키·같은 입력200, 같은 키·다른 입력409를 반환한다.
 - 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 2A·2B·2C 사용자가 승인한 기능 경로는 아래 구조에 반영했다. 추가 하위 폴더는 해당 승인 절차를 따른다.
 
 ## 공통 디자인 기준

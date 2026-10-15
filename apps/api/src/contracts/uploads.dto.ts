@@ -57,7 +57,7 @@ export class CreateUploadDto {
     type: [FrameInputDto],
     minItems: 1,
     description:
-      "Ordered frames. File IDs must reference ready files in the same project; enforced by the future upload service.",
+      "Ordered frames. File IDs must reference ready files in the same project; enforced by the upload service.",
   })
   @IsArray()
   @ArrayMinSize(1)
