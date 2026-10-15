@@ -8,7 +8,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`rounded-control border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`rounded-control border border-primary bg-primary px-control-x py-control-y text-label font-label text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     />
   );
