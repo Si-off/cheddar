@@ -1036,9 +1036,9 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/evidence": {
+    "/api/v1/projects/{projectId}/analysis": {
       "get": {
-        "operationId": "getEvidence",
+        "operationId": "getAnalysis",
         "parameters": [
           {
             "name": "projectId",
@@ -1055,7 +1055,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvidenceDto"
+                  "$ref": "#/components/schemas/AnalysisDto"
                 }
               }
             }
@@ -1093,11 +1093,11 @@
         },
         "summary": "",
         "tags": [
-          "evidence"
+          "analysis"
         ]
       },
       "put": {
-        "operationId": "saveEvidence",
+        "operationId": "saveAnalysis",
         "parameters": [
           {
             "name": "projectId",
@@ -1113,7 +1113,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EvidenceDto"
+                "$ref": "#/components/schemas/AnalysisDto"
               }
             }
           }
@@ -1124,7 +1124,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvidenceDto"
+                  "$ref": "#/components/schemas/AnalysisDto"
                 }
               }
             }
@@ -1172,13 +1172,13 @@
         },
         "summary": "",
         "tags": [
-          "evidence"
+          "analysis"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/evidence/extract": {
+    "/api/v1/projects/{projectId}/analysis/extract": {
       "post": {
-        "operationId": "extractEvidence",
+        "operationId": "extractAnalysis",
         "parameters": [
           {
             "name": "projectId",
@@ -1194,7 +1194,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExtractEvidenceDto"
+                "$ref": "#/components/schemas/ExtractAnalysisDto"
               }
             }
           }
@@ -1205,7 +1205,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvidenceDto"
+                  "$ref": "#/components/schemas/AnalysisDto"
                 }
               }
             }
@@ -1253,7 +1253,7 @@
         },
         "summary": "",
         "tags": [
-          "evidence"
+          "analysis"
         ]
       }
     },
@@ -1825,9 +1825,9 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets": {
+    "/api/v1/projects/{projectId}/test-scenarios": {
       "post": {
-        "operationId": "createSheet",
+        "operationId": "createTestScenario",
         "parameters": [
           {
             "name": "projectId",
@@ -1843,7 +1843,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateSheetDto"
+                "$ref": "#/components/schemas/CreateTestScenarioDto"
               }
             }
           }
@@ -1854,7 +1854,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetSnapshotDto"
+                  "$ref": "#/components/schemas/TestScenarioSnapshotDto"
                 }
               }
             }
@@ -1922,11 +1922,11 @@
         },
         "summary": "",
         "tags": [
-          "sheets"
+          "test_scenarios"
         ]
       },
       "get": {
-        "operationId": "listSheets",
+        "operationId": "listTestScenarios",
         "parameters": [
           {
             "name": "projectId",
@@ -1972,7 +1972,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetPageDto"
+                  "$ref": "#/components/schemas/TestScenarioPageDto"
                 }
               }
             }
@@ -2030,13 +2030,13 @@
         },
         "summary": "",
         "tags": [
-          "sheets"
+          "test_scenarios"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}": {
       "get": {
-        "operationId": "getSheet",
+        "operationId": "getTestScenario",
         "parameters": [
           {
             "name": "projectId",
@@ -2047,7 +2047,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2061,7 +2061,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetSnapshotDto"
+                  "$ref": "#/components/schemas/TestScenarioSnapshotDto"
                 }
               }
             }
@@ -2119,13 +2119,13 @@
         },
         "summary": "",
         "tags": [
-          "sheets"
+          "test_scenarios"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}/content": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/content": {
       "put": {
-        "operationId": "updateSheetContent",
+        "operationId": "updateTestScenarioContent",
         "parameters": [
           {
             "name": "projectId",
@@ -2136,7 +2136,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2149,7 +2149,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SheetContentDto"
+                "$ref": "#/components/schemas/TestScenarioContentDto"
               }
             }
           }
@@ -2160,7 +2160,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetSnapshotDto"
+                  "$ref": "#/components/schemas/TestScenarioSnapshotDto"
                 }
               }
             }
@@ -2228,13 +2228,13 @@
         },
         "summary": "",
         "tags": [
-          "sheets"
+          "test_scenarios"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}/view": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/view": {
       "put": {
-        "operationId": "updateSheetView",
+        "operationId": "updateTestScenarioView",
         "parameters": [
           {
             "name": "projectId",
@@ -2245,7 +2245,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2258,7 +2258,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SheetViewDto"
+                "$ref": "#/components/schemas/TestScenarioViewDto"
               }
             }
           }
@@ -2269,7 +2269,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SheetSnapshotDto"
+                  "$ref": "#/components/schemas/TestScenarioSnapshotDto"
                 }
               }
             }
@@ -2337,13 +2337,13 @@
         },
         "summary": "",
         "tags": [
-          "sheets"
+          "test_scenarios"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}/export.xlsx": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/export.xlsx": {
       "get": {
-        "operationId": "exportSheetXlsx",
+        "operationId": "exportTestScenarioXlsx",
         "parameters": [
           {
             "name": "projectId",
@@ -2354,7 +2354,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2445,11 +2445,11 @@
         },
         "summary": "",
         "tags": [
-          "sheets"
+          "test_scenarios"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}/generations": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations": {
       "get": {
         "operationId": "listGenerations",
         "parameters": [
@@ -2462,7 +2462,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2539,7 +2539,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2625,7 +2625,7 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/add": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations/{jobId}/add": {
       "post": {
         "operationId": "addGeneratedCases",
         "parameters": [
@@ -2638,7 +2638,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2732,9 +2732,9 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/candidates/{candidateId}": {
+    "/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations/{jobId}/results/{resultId}": {
       "put": {
-        "operationId": "reviewCandidate",
+        "operationId": "reviewGenerationResult",
         "parameters": [
           {
             "name": "projectId",
@@ -2745,7 +2745,7 @@
             }
           },
           {
-            "name": "sheetId",
+            "name": "testScenarioId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2761,7 +2761,7 @@
             }
           },
           {
-            "name": "candidateId",
+            "name": "resultId",
             "required": true,
             "in": "path",
             "schema": {
@@ -2774,7 +2774,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewCandidateDto"
+                "$ref": "#/components/schemas/ReviewGenerationResultDto"
               }
             }
           }
@@ -2872,7 +2872,7 @@
   },
   "info": {
     "title": "Cheddar API",
-    "description": "Local project, file, upload, IA, template, sheet and XLSX export API.",
+    "description": "Local project, file, upload, IA, template, testScenario and XLSX export API.",
     "version": "1.0.0",
     "contact": {}
   },
@@ -3354,7 +3354,7 @@
         ],
         "additionalProperties": false
       },
-      "EvidenceRegionDto": {
+      "AnalysisRegionDto": {
         "type": "object",
         "properties": {
           "x": {
@@ -3378,7 +3378,7 @@
         ],
         "additionalProperties": false
       },
-      "EvidenceItemDto": {
+      "AnalysisItemDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -3413,7 +3413,7 @@
             "format": "uuid"
           },
           "region": {
-            "$ref": "#/components/schemas/EvidenceRegionDto"
+            "$ref": "#/components/schemas/AnalysisRegionDto"
           },
           "answer": {
             "type": "string"
@@ -3446,14 +3446,14 @@
         ],
         "additionalProperties": false
       },
-      "EvidenceLinkDto": {
+      "AnalysisLinkDto": {
         "type": "object",
         "properties": {
           "requirementId": {
             "type": "string",
             "format": "uuid"
           },
-          "sheetId": {
+          "testScenarioId": {
             "type": "string",
             "format": "uuid"
           },
@@ -3464,12 +3464,12 @@
         },
         "required": [
           "requirementId",
-          "sheetId",
+          "testScenarioId",
           "caseId"
         ],
         "additionalProperties": false
       },
-      "EvidenceDto": {
+      "AnalysisDto": {
         "type": "object",
         "properties": {
           "revision": {
@@ -3479,13 +3479,13 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/EvidenceItemDto"
+              "$ref": "#/components/schemas/AnalysisItemDto"
             }
           },
           "links": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/EvidenceLinkDto"
+              "$ref": "#/components/schemas/AnalysisLinkDto"
             }
           }
         },
@@ -3496,7 +3496,7 @@
         ],
         "additionalProperties": false
       },
-      "ExtractEvidenceDto": {
+      "ExtractAnalysisDto": {
         "type": "object",
         "properties": {
           "uploadId": {
@@ -3668,7 +3668,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetColumnDto": {
+      "TestScenarioColumnDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -3743,7 +3743,7 @@
           "columns": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SheetColumnDto"
+              "$ref": "#/components/schemas/TestScenarioColumnDto"
             }
           },
           "view": {
@@ -3785,7 +3785,7 @@
           "columns": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SheetColumnDto"
+              "$ref": "#/components/schemas/TestScenarioColumnDto"
             }
           },
           "view": {
@@ -3802,7 +3802,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetPageQueryDto": {
+      "TestScenarioPageQueryDto": {
         "type": "object",
         "properties": {
           "limit": {
@@ -3822,7 +3822,7 @@
         },
         "additionalProperties": false
       },
-      "CreateSheetDto": {
+      "CreateTestScenarioDto": {
         "type": "object",
         "properties": {
           "name": {
@@ -3979,7 +3979,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetReferencesDto": {
+      "TestScenarioReferencesDto": {
         "type": "object",
         "properties": {
           "frames": {
@@ -4001,7 +4001,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetSnapshotDto": {
+      "TestScenarioSnapshotDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -4050,7 +4050,7 @@
           "columns": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SheetColumnDto"
+              "$ref": "#/components/schemas/TestScenarioColumnDto"
             }
           },
           "cases": {
@@ -4066,7 +4066,7 @@
             }
           },
           "references": {
-            "$ref": "#/components/schemas/SheetReferencesDto"
+            "$ref": "#/components/schemas/TestScenarioReferencesDto"
           }
         },
         "required": [
@@ -4087,7 +4087,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetSummaryDto": {
+      "TestScenarioSummaryDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -4143,13 +4143,13 @@
         ],
         "additionalProperties": false
       },
-      "SheetPageDto": {
+      "TestScenarioPageDto": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SheetSummaryDto"
+              "$ref": "#/components/schemas/TestScenarioSummaryDto"
             }
           },
           "nextCursor": {
@@ -4163,7 +4163,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetContentDto": {
+      "TestScenarioContentDto": {
         "type": "object",
         "properties": {
           "expectedRevision": {
@@ -4174,7 +4174,7 @@
             "description": "All system fields once; custom columns have valueType text.",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SheetColumnDto"
+              "$ref": "#/components/schemas/TestScenarioColumnDto"
             }
           },
           "cases": {
@@ -4191,7 +4191,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetViewDto": {
+      "TestScenarioViewDto": {
         "type": "object",
         "properties": {
           "expectedRevision": {
@@ -4199,7 +4199,7 @@
             "minimum": 1
           },
           "columns": {
-            "description": "Array order is display order. IDs must exactly match the sheet columns.",
+            "description": "Array order is display order. IDs must exactly match the testScenario columns.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ColumnViewDto"
@@ -4212,7 +4212,7 @@
         ],
         "additionalProperties": false
       },
-      "SheetExportQueryDto": {
+      "TestScenarioExportQueryDto": {
         "type": "object",
         "properties": {
           "contentRevision": {
@@ -4226,7 +4226,7 @@
         },
         "additionalProperties": false
       },
-      "CandidateDto": {
+      "GenerationResultItemDto": {
         "type": "object",
         "properties": {
           "kind": {
@@ -4284,7 +4284,7 @@
             "type": "string",
             "format": "uuid"
           },
-          "sheetId": {
+          "testScenarioId": {
             "type": "string",
             "format": "uuid"
           },
@@ -4316,10 +4316,10 @@
           "caseCount": {
             "type": "integer"
           },
-          "candidates": {
+          "results": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CandidateDto"
+              "$ref": "#/components/schemas/GenerationResultItemDto"
             }
           },
           "createdAt": {
@@ -4329,14 +4329,14 @@
         },
         "required": [
           "id",
-          "sheetId",
+          "testScenarioId",
           "provider",
           "model",
           "status",
           "error",
           "revision",
           "caseCount",
-          "candidates",
+          "results",
           "createdAt"
         ],
         "additionalProperties": false
@@ -4404,7 +4404,7 @@
             "type": "string",
             "maxLength": 10000
           },
-          "exampleSheetId": {
+          "exampleTestScenarioId": {
             "type": "string",
             "format": "uuid"
           }
@@ -4423,11 +4423,11 @@
             "type": "integer",
             "minimum": 1
           },
-          "sheetRevision": {
+          "testScenarioRevision": {
             "type": "integer",
             "minimum": 1
           },
-          "candidateIds": {
+          "resultIds": {
             "type": "array",
             "items": {
               "type": "string",
@@ -4437,12 +4437,12 @@
         },
         "required": [
           "expectedRevision",
-          "sheetRevision",
-          "candidateIds"
+          "testScenarioRevision",
+          "resultIds"
         ],
         "additionalProperties": false
       },
-      "ReviewCandidateDto": {
+      "ReviewGenerationResultDto": {
         "type": "object",
         "properties": {
           "expectedRevision": {

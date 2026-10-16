@@ -13,14 +13,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   SaveError,
-  type SheetSession,
   type Snapshot,
+  type TestScenarioSession,
 } from "@/entities/test-case";
 import { SourceImage } from "@/pages/project-uploads/source-viewer";
 import type {
-  CandidateDto,
   GenerationDto,
-  ReviewCandidateDto,
+  GenerationResultItemDto,
+  ReviewGenerationResultDto,
   StartGenerationDto,
 } from "@/shared/api/generated";
 
@@ -32,16 +32,16 @@ import {
   generationList,
   generationProviders,
   updateCandidate,
-} from "./sheets-api";
+} from "./test-scenarios-api";
 
 type Props = {
   seed?: { requirementIds: string[]; description: string };
   onResults?: () => void;
   snapshot: Snapshot;
-  session: SheetSession;
+  session: TestScenarioSession;
   uploads: { id: string; name: string }[];
   onLock: (locked: boolean) => void;
-  panel: "generate" | "candidates" | null;
+  panel: "generate" | "results" | null;
   onClose: () => void;
 };
 export function GenerationPanel({
@@ -113,7 +113,7 @@ export function GenerationPanel({
       ) ?? [];
     if (!completed.length || refreshing.current) return;
     void client.invalidateQueries({
-      queryKey: ["evidence", snapshot.projectId],
+      queryKey: ["analysis", snapshot.projectId],
     });
     for (const job of completed) seen.current.add(job.id);
     refreshing.current = true;
@@ -132,7 +132,7 @@ export function GenerationPanel({
     error instanceof Error
       ? error.message
       : "요청 결과를 확인하지 못했습니다. 다시 확인해주세요.";
-  async function refreshSheet() {
+  async function refreshTestScenario() {
     try {
       setNeedsRefresh(!(await session.refreshSaved()));
     } catch (error) {
@@ -148,7 +148,7 @@ export function GenerationPanel({
       if (!request) {
         if (!(await session.settle()))
           throw new Error(
-            "시트 저장을 마친 뒤 생성할 수 있습니다. 저장 상태를 확인해주세요.",
+            "시나리오 저장을 마친 뒤 생성할 수 있습니다. 저장 상태를 확인해주세요.",
           );
         request = {
           clientRequestId: crypto.randomUUID(),
@@ -198,16 +198,16 @@ export function GenerationPanel({
   }
   async function review(
     job: GenerationDto,
-    candidate: CandidateDto,
-    action: ReviewCandidateDto["action"],
-    content?: CandidateDto["content"],
+    candidate: GenerationResultItemDto,
+    action: ReviewGenerationResultDto["action"],
+    content?: GenerationResultItemDto["content"],
     expectedRevision = job.revision,
   ) {
     setBusy(true);
     setMessage(undefined);
     try {
       if (action === "add" && !(await session.settle()))
-        throw new Error("시트 저장을 마친 뒤 후보를 추가해주세요.");
+        throw new Error("시나리오 저장을 마친 뒤 검토 후보를 추가해주세요.");
       const updated = await updateCandidate(
         snapshot.projectId,
         snapshot.id,
@@ -223,7 +223,7 @@ export function GenerationPanel({
           ),
         }),
       );
-      if (action === "add") await refreshSheet();
+      if (action === "add") await refreshTestScenario();
     } catch (error) {
       setMessage(errorText(error));
       void jobs.refetch();
@@ -237,15 +237,15 @@ export function GenerationPanel({
     setMessage(undefined);
     try {
       if (!(await session.settle()))
-        throw new Error("시트 저장을 완료해주세요.");
+        throw new Error("시나리오 저장을 완료해주세요.");
       const updated = await addGenerationSelection(
         snapshot.projectId,
         snapshot.id,
         job.id,
         {
           expectedRevision: job.revision,
-          sheetRevision: session.store.getState().base.contentRevision,
-          candidateIds: ids,
+          testScenarioRevision: session.store.getState().base.contentRevision,
+          resultIds: ids,
         },
       );
       client.setQueryData(
@@ -256,9 +256,9 @@ export function GenerationPanel({
           ),
         }),
       );
-      await refreshSheet();
+      await refreshTestScenario();
       void client.invalidateQueries({
-        queryKey: ["evidence", snapshot.projectId],
+        queryKey: ["analysis", snapshot.projectId],
       });
     } catch (error) {
       setMessage(errorText(error));
@@ -269,12 +269,15 @@ export function GenerationPanel({
     }
   }
   return (
-    <section className="workspace-generation" aria-label="테스트 생성 상태">
+    <section
+      className="workspace-generation"
+      aria-label="테스트 케이스 생성 상태"
+    >
       {jobs.isPending && <p role="status">생성 상태를 확인하는 중입니다.</p>}
       {running && (
         <div className="workspace-generation-progress" role="status">
           <span className="workspace-spinner" />
-          <span>테스트 생성 중</span>
+          <span>테스트 케이스 생성 중</span>
         </div>
       )}
       {latest?.status === "succeeded" && onResults && (
@@ -293,9 +296,9 @@ export function GenerationPanel({
       )}
       {needsRefresh && (
         <p role="alert">
-          시트의 최신 결과를 불러와주세요. 미저장 입력이 있으면 저장하거나 최신
-          내용과 비교한 뒤 다시 확인해주세요.{" "}
-          <Button variant="link" onClick={() => void refreshSheet()}>
+          시나리오의 최신 결과를 불러와주세요. 미저장 입력이 있으면 저장하거나
+          최신 내용과 비교한 뒤 다시 확인해주세요.{" "}
+          <Button variant="link" onClick={() => void refreshTestScenario()}>
             결과 불러오기
           </Button>
         </p>
@@ -314,14 +317,14 @@ export function GenerationPanel({
       >
         <DialogContent
           className={
-            panel === "candidates"
-              ? "workspace-candidates-dialog is-results"
+            panel === "results"
+              ? "workspace-generation-results-dialog is-results"
               : "generation-dialog"
           }
           aria-describedby={undefined}
         >
           <DialogTitle>
-            {panel === "candidates" ? "생성 결과 검토" : "테스트 생성"}
+            {panel === "results" ? "생성 결과 검토" : "테스트 케이스 생성"}
           </DialogTitle>
           {panel === "generate" && (
             <form
@@ -334,7 +337,7 @@ export function GenerationPanel({
               <Label htmlFor="ai-provider">AI 모델</Label>
               <select
                 id="ai-provider"
-                className="sheet-select"
+                className="test-scenario-select"
                 value={provider}
                 onChange={(event) =>
                   setProvider(event.target.value as typeof provider)
@@ -374,7 +377,7 @@ export function GenerationPanel({
               <Label htmlFor="ai-upload">업로드 묶음</Label>
               <select
                 id="ai-upload"
-                className="sheet-select"
+                className="test-scenario-select"
                 value={uploadId}
                 onChange={(event) => setUploadId(event.target.value)}
                 disabled={locked}
@@ -451,11 +454,11 @@ export function GenerationPanel({
                       !selectedFrames.length))
                 }
               >
-                케이스 생성
+                테스트 케이스 생성
               </Button>
             </form>
           )}
-          {panel === "candidates" &&
+          {panel === "results" &&
           jobs.data?.items.some((j) => j.mode === "review") ? (
             <GenerationResults
               jobs={jobs.data.items}
@@ -465,7 +468,7 @@ export function GenerationPanel({
               onAdd={add}
             />
           ) : (
-            panel === "candidates" && (
+            panel === "results" && (
               <div className="mt-4 flex flex-col gap-3">
                 <Label>
                   <input
@@ -473,10 +476,10 @@ export function GenerationPanel({
                     checked={showExcluded}
                     onChange={(event) => setShowExcluded(event.target.checked)}
                   />{" "}
-                  제외한 후보 보기
+                  제외한 검토 후보 보기
                 </Label>
                 {jobs.data?.items.flatMap((job) =>
-                  job.candidates
+                  job.results
                     .filter(
                       (candidate) =>
                         showExcluded || candidate.status !== "excluded",
@@ -494,11 +497,11 @@ export function GenerationPanel({
                 )}
                 {jobs.data &&
                   !jobs.data.items.some((job) =>
-                    job.candidates.some(
+                    job.results.some(
                       (candidate) =>
                         showExcluded || candidate.status !== "excluded",
                     ),
-                  ) && <p>검토할 후보가 없습니다.</p>}
+                  ) && <p>검토 후보가 없습니다.</p>}
               </div>
             )
           )}
@@ -514,20 +517,20 @@ function CandidateCard({
   disabled,
   review,
 }: {
-  candidate: CandidateDto;
+  candidate: GenerationResultItemDto;
   job: GenerationDto;
   snapshot: Snapshot;
   disabled: boolean;
   review: (
     job: GenerationDto,
-    candidate: CandidateDto,
-    action: ReviewCandidateDto["action"],
-    content?: CandidateDto["content"],
+    candidate: GenerationResultItemDto,
+    action: ReviewGenerationResultDto["action"],
+    content?: GenerationResultItemDto["content"],
     revision?: number,
   ) => Promise<void>;
 }) {
   const [editing, setEditing] = useState<{
-    content: CandidateDto["content"];
+    content: GenerationResultItemDto["content"];
     revision: number;
   }>();
   const fields = [
@@ -536,7 +539,7 @@ function CandidateCard({
     ["steps", "수행 절차"],
     ["expectedResult", "예상 결과"],
   ] as const;
-  const act = (action: ReviewCandidateDto["action"]) => {
+  const act = (action: ReviewGenerationResultDto["action"]) => {
     void review(job, candidate, action).catch(() => {});
   };
   return (
@@ -601,7 +604,7 @@ function CandidateCard({
             <Label htmlFor={`${candidate.id}-priority`}>우선순위</Label>
             <select
               id={`${candidate.id}-priority`}
-              className="sheet-select"
+              className="test-scenario-select"
               value={editing.content.priority ?? ""}
               disabled={disabled}
               onChange={(event) =>
@@ -610,7 +613,7 @@ function CandidateCard({
                   content: {
                     ...editing.content,
                     priority: (event.target.value ||
-                      null) as CandidateDto["content"]["priority"],
+                      null) as GenerationResultItemDto["content"]["priority"],
                   },
                 })
               }
@@ -648,7 +651,7 @@ function CandidateCard({
               ))}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={disabled}>
-                후보 저장
+                검토 후보 저장
               </Button>
               <Button
                 type="button"
@@ -678,7 +681,7 @@ function CandidateCard({
             {candidate.status !== "added" && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button disabled={disabled} onClick={() => act("add")}>
-                  시트에 추가
+                  시나리오에 추가
                 </Button>
                 <Button
                   variant="outline"
@@ -690,7 +693,7 @@ function CandidateCard({
                     })
                   }
                 >
-                  후보 편집
+                  검토 후보 편집
                 </Button>
                 <Button
                   variant="ghost"
@@ -701,7 +704,7 @@ function CandidateCard({
                 >
                   {candidate.status === "excluded"
                     ? "검토 대기로 복원"
-                    : "후보 제외"}
+                    : "검토 후보 제외"}
                 </Button>
               </div>
             )}

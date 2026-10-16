@@ -18,30 +18,33 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { env } from "@/shared/config/env";
 import { LoadingSkeleton } from "@/shared/ui/workspace";
-import { SheetEditor } from "./editor";
+import { TestScenarioEditor } from "./editor";
 import {
-  createEmptySheet,
+  createEmptyTestScenario,
   createProjectNamed,
-  downloadSheet,
+  downloadTestScenario,
   framesForUpload,
   projectPage,
-  readSheet,
+  readTestScenario,
   referenceOptions,
   saveTransport,
-  sheetPage,
-} from "./sheets-api";
+  testScenarioPage,
+} from "./test-scenarios-api";
 
 export type TestCaseEditorPageProps = {
   projectId?: string;
-  sheetId?: string;
-  onOpenSheet?: (target: { projectId: string; sheetId: string }) => void;
+  testScenarioId?: string;
+  onOpenTestScenario?: (target: {
+    projectId: string;
+    testScenarioId: string;
+  }) => void;
   onBack?: () => void;
   onOpenProject?: (projectId: string) => void;
 };
 export function TestCaseEditorPage({
   projectId,
-  sheetId,
-  onOpenSheet,
+  testScenarioId,
+  onOpenTestScenario,
   onBack,
   onOpenProject,
 }: TestCaseEditorPageProps = {}) {
@@ -49,10 +52,12 @@ export function TestCaseEditorPage({
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
-  const [localSheet, setLocalSheet] = useState<string>();
+  const [localTestScenario, setLocalTestScenario] = useState<string>();
   const [listMode, setListMode] = useState(false);
   const activeProject = projectId ?? selectedProject;
-  const activeSheet = listMode ? undefined : (sheetId ?? localSheet);
+  const activeTestScenario = listMode
+    ? undefined
+    : (testScenarioId ?? localTestScenario);
   const [creating, setCreating] = useState(false),
     [name, setName] = useState(""),
     [kind, setKind] = useState<"unit" | "integration">("unit");
@@ -62,51 +67,58 @@ export function TestCaseEditorPage({
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
-  const sheets = useInfiniteQuery({
-    queryKey: ["sheets", activeProject],
-    queryFn: ({ pageParam }) => sheetPage(activeProject, pageParam),
+  const testScenarios = useInfiniteQuery({
+    queryKey: ["test_scenarios", activeProject],
+    queryFn: ({ pageParam }) => testScenarioPage(activeProject, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: !!activeProject,
   });
   const snapshot = useQuery({
-    queryKey: ["sheet", activeProject, activeSheet],
-    queryFn: () => readSheet(activeProject, activeSheet as string),
-    enabled: !!activeProject && !!activeSheet,
+    queryKey: ["testScenario", activeProject, activeTestScenario],
+    queryFn: () =>
+      readTestScenario(activeProject, activeTestScenario as string),
+    enabled: !!activeProject && !!activeTestScenario,
     retry: false,
   });
   const references = useQuery({
-    queryKey: ["sheet-reference-options", activeProject],
+    queryKey: ["test-scenario-reference-options", activeProject],
     queryFn: () => referenceOptions(activeProject),
-    enabled: !!activeProject && !!activeSheet,
+    enabled: !!activeProject && !!activeTestScenario,
     retry: false,
   });
-  function openSheet(target: { projectId: string; sheetId: string }) {
+  function openTestScenario(target: {
+    projectId: string;
+    testScenarioId: string;
+  }) {
     setListMode(false);
-    if (onOpenSheet) onOpenSheet(target);
+    if (onOpenTestScenario) onOpenTestScenario(target);
     else {
       setSelectedProject(target.projectId);
-      setLocalSheet(target.sheetId);
+      setLocalTestScenario(target.testScenarioId);
     }
   }
   const create = useMutation({
-    mutationFn: () => createEmptySheet(activeProject, name.trim(), kind),
+    mutationFn: () => createEmptyTestScenario(activeProject, name.trim(), kind),
     retry: false,
     onSuccess: (snapshot) => {
       queryClient.setQueryData(
-        ["sheet", snapshot.projectId, snapshot.id],
+        ["testScenario", snapshot.projectId, snapshot.id],
         snapshot,
       );
       void queryClient.invalidateQueries({
-        queryKey: ["sheets", activeProject],
+        queryKey: ["test_scenarios", activeProject],
       });
       setCreating(false);
       setName("");
-      openSheet({ projectId: snapshot.projectId, sheetId: snapshot.id });
+      openTestScenario({
+        projectId: snapshot.projectId,
+        testScenarioId: snapshot.id,
+      });
     },
     onError: () => {
       void queryClient.invalidateQueries({
-        queryKey: ["sheets", activeProject],
+        queryKey: ["test_scenarios", activeProject],
       });
     },
   });
@@ -125,17 +137,23 @@ export function TestCaseEditorPage({
     },
   });
   const transport = useMemo(
-    () => (activeSheet ? saveTransport(activeProject, activeSheet) : undefined),
-    [activeProject, activeSheet],
+    () =>
+      activeTestScenario
+        ? saveTransport(activeProject, activeTestScenario)
+        : undefined,
+    [activeProject, activeTestScenario],
   );
   const loadFrames = useCallback(
     (id: string) => framesForUpload(activeProject, id),
     [activeProject],
   );
-  if (sheetId && !projectId)
-    return <p role="alert">프로젝트와 시트를 목록에서 다시 선택해주세요.</p>;
-  if (activeSheet && snapshot.isPending) return <LoadingSkeleton table />;
-  if (activeSheet && snapshot.isError && !snapshot.data)
+  if (testScenarioId && !projectId)
+    return (
+      <p role="alert">프로젝트와 시나리오를 목록에서 다시 선택해주세요.</p>
+    );
+  if (activeTestScenario && snapshot.isPending)
+    return <LoadingSkeleton table />;
+  if (activeTestScenario && snapshot.isError && !snapshot.data)
     return (
       <div>
         <p role="alert">{snapshot.error.message}</p>
@@ -146,37 +164,37 @@ export function TestCaseEditorPage({
             if (onBack) onBack();
             else {
               setListMode(true);
-              setLocalSheet(undefined);
+              setLocalTestScenario(undefined);
             }
           }}
         >
-          시트 목록
+          시나리오 목록
         </Button>
       </div>
     );
-  if (activeSheet && snapshot.data && transport)
+  if (activeTestScenario && snapshot.data && transport)
     return (
       <>
-        <SheetEditor
-          key={`${activeProject}/${activeSheet}`}
+        <TestScenarioEditor
+          key={`${activeProject}/${activeTestScenario}`}
           snapshot={snapshot.data}
           transport={transport}
           origin={env.apiBaseUrl}
           uploads={references.data?.uploads ?? []}
           iaItems={references.data?.iaItems ?? snapshot.data.references.iaItems}
           loadFrames={loadFrames}
-          onDownload={downloadSheet}
+          onDownload={downloadTestScenario}
           onBack={() => {
             if (onBack) onBack();
             else {
               setListMode(true);
-              setLocalSheet(undefined);
+              setLocalTestScenario(undefined);
             }
           }}
         />
         {snapshot.isError && (
           <p role="alert">
-            시트의 최신 저장 내용을 확인하지 못했습니다. 편집 중인 입력은
+            시나리오의 최신 저장 내용을 확인하지 못했습니다. 편집 중인 입력은
             유지됩니다.{" "}
             <Button
               variant="link"
@@ -198,13 +216,13 @@ export function TestCaseEditorPage({
       </>
     );
   return (
-    <section className="flex flex-col gap-5" aria-label="시트 목록">
+    <section className="flex flex-col gap-5" aria-label="시나리오 목록">
       <div className="workspace-page-heading">
-        <h1>{activeProject ? "테스트 시트" : "프로젝트"}</h1>
+        <h1>{activeProject ? "테스트 시나리오" : "프로젝트"}</h1>
         <Button
           size="icon"
           variant={activeProject ? "default" : "ghost"}
-          aria-label={activeProject ? "새 시트" : "새 프로젝트"}
+          aria-label={activeProject ? "새 시나리오" : "새 프로젝트"}
           onClick={() => {
             if (activeProject) {
               create.reset();
@@ -326,29 +344,32 @@ export function TestCaseEditorPage({
       )}
       {activeProject && (
         <div>
-          {sheets.isPending ? (
+          {testScenarios.isPending ? (
             <LoadingSkeleton />
-          ) : sheets.isError ? (
+          ) : testScenarios.isError ? (
             <p role="alert">
-              시트 목록을 불러오지 못했습니다.{" "}
-              <Button variant="link" onClick={() => void sheets.refetch()}>
+              시나리오 목록을 불러오지 못했습니다.{" "}
+              <Button
+                variant="link"
+                onClick={() => void testScenarios.refetch()}
+              >
                 다시 불러오기
               </Button>
             </p>
           ) : (
             <>
               <ul className="workspace-collection">
-                {sheets.data?.pages
+                {testScenarios.data?.pages
                   .flatMap((page) => page.items)
-                  .map((sheet) => (
-                    <li key={sheet.id}>
+                  .map((testScenario) => (
+                    <li key={testScenario.id}>
                       <Button
                         variant="ghost"
                         className="workspace-document-row"
                         onClick={() =>
-                          openSheet({
+                          openTestScenario({
                             projectId: activeProject,
-                            sheetId: sheet.id,
+                            testScenarioId: testScenario.id,
                           })
                         }
                       >
@@ -356,11 +377,11 @@ export function TestCaseEditorPage({
                           <WorkspaceIcon name="file" />
                         </span>
                         <span>
-                          <strong>{sheet.name}</strong>
+                          <strong>{testScenario.name}</strong>
                           <small>
-                            {sheet.kind === "unit"
-                              ? "화면·기능 테스트"
-                              : "사용자 흐름 테스트"}
+                            {testScenario.kind === "unit"
+                              ? "단위 테스트"
+                              : "통합 테스트"}
                           </small>
                         </span>
                         <WorkspaceIcon name="arrow" />
@@ -368,20 +389,24 @@ export function TestCaseEditorPage({
                     </li>
                   ))}
               </ul>
-              {sheets.data?.pages.every((page) => page.items.length === 0) && (
+              {testScenarios.data?.pages.every(
+                (page) => page.items.length === 0,
+              ) && (
                 <div className="workspace-empty">
                   <WorkspaceIcon name="file" />
-                  <p>시트가 없습니다</p>
-                  <Button onClick={() => setCreating(true)}>시트 만들기</Button>
+                  <p>시나리오가 없습니다</p>
+                  <Button onClick={() => setCreating(true)}>
+                    시나리오 만들기
+                  </Button>
                 </div>
               )}
-              {sheets.hasNextPage && (
+              {testScenarios.hasNextPage && (
                 <Button
                   variant="link"
-                  disabled={sheets.isFetchingNextPage}
-                  onClick={() => void sheets.fetchNextPage()}
+                  disabled={testScenarios.isFetchingNextPage}
+                  onClick={() => void testScenarios.fetchNextPage()}
                 >
-                  시트 더 불러오기
+                  시나리오 더 불러오기
                 </Button>
               )}
             </>
@@ -395,9 +420,9 @@ export function TestCaseEditorPage({
         }}
       >
         <DialogContent>
-          <DialogTitle>새 시트</DialogTitle>
+          <DialogTitle>새 시나리오</DialogTitle>
           <DialogDescription>
-            프로젝트 기본 양식으로 빈 시트를 만듭니다.
+            프로젝트 기본 양식으로 빈 시나리오를 만듭니다.
           </DialogDescription>
           <form
             onSubmit={(event) => {
@@ -405,29 +430,29 @@ export function TestCaseEditorPage({
               if (name.trim() && !create.isPending) create.mutate();
             }}
           >
-            <Label htmlFor="new-sheet-name">시트 이름</Label>
+            <Label htmlFor="new-test-scenario-name">시나리오 이름</Label>
             <Input
-              id="new-sheet-name"
+              id="new-test-scenario-name"
               value={name}
               onValueChange={setName}
               maxLength={100}
               required
               disabled={create.isPending}
             />
-            <Label htmlFor="new-sheet-kind" className="mt-4">
+            <Label htmlFor="new-test-scenario-kind" className="mt-4">
               테스트 범위
             </Label>
             <select
-              id="new-sheet-kind"
-              className="sheet-select"
+              id="new-test-scenario-kind"
+              className="test-scenario-select"
               value={kind}
               disabled={create.isPending}
               onChange={(e) =>
                 setKind(e.target.value as "unit" | "integration")
               }
             >
-              <option value="unit">화면·기능</option>
-              <option value="integration">사용자 흐름</option>
+              <option value="unit">단위 테스트</option>
+              <option value="integration">통합 테스트</option>
             </select>
             {create.isError && (
               <p className="mt-3 text-danger" role="alert">
@@ -445,7 +470,7 @@ export function TestCaseEditorPage({
                 취소
               </Button>
               <Button type="submit" disabled={!name.trim() || create.isPending}>
-                {create.isPending ? "만드는 중" : "시트 만들기"}
+                {create.isPending ? "만드는 중" : "시나리오 만들기"}
               </Button>
             </DialogFooter>
           </form>

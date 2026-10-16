@@ -382,11 +382,11 @@
   right: var(--spacing-6);
   color: var(--color-muted);
 }
-:where(.sheet-list) {
+:where(.test-scenario-list) {
   display: flex;
   flex-direction: column;
 }
-:where(.sheet-row) {
+:where(.test-scenario-row) {
   display: flex;
   align-items: center;
   gap: var(--spacing-6);
@@ -398,10 +398,10 @@
   background: transparent;
   border-radius: var(--radius-small);
 }
-:where(.sheet-row:hover) {
+:where(.test-scenario-row:hover) {
   background: var(--color-surface-selected);
 }
-:where(.sheet-symbol) {
+:where(.test-scenario-symbol) {
   display: grid;
   place-items: center;
   width: var(--spacing-12);
@@ -410,15 +410,15 @@
   background: var(--color-primary-subtle);
   color: var(--color-primary);
 }
-:where(.sheet-row h2) {
+:where(.test-scenario-row h2) {
   font-size: var(--text-brand);
   margin-bottom: var(--spacing-2);
 }
-:where(.sheet-row p) {
+:where(.test-scenario-row p) {
   font-size: var(--text-label);
   color: var(--color-muted);
 }
-:where(.sheet-row > .icon) {
+:where(.test-scenario-row > .icon) {
   margin-left: auto;
   color: var(--color-muted);
 }
@@ -997,7 +997,7 @@
   padding: var(--spacing-6);
   animation: panel-enter var(--duration-enter) var(--ease-standard);
 }
-:where(.side-sheet) {
+:where(.side-testScenario) {
   margin: 0 0 0 auto;
   height: 100dvh;
   max-height: 100dvh;
@@ -1006,12 +1006,12 @@
   border-right: 0;
   border-top: 0;
   border-bottom: 0;
-  animation: sheet-enter var(--duration-enter) var(--ease-enter);
+  animation: test-scenario-enter var(--duration-enter) var(--ease-enter);
 }
 :where(.wide-dialog) {
   width: min(calc(100vw - var(--spacing-8)), 660px);
 }
-:where(.side-sheet.wide-dialog) {
+:where(.side-testScenario.wide-dialog) {
   width: min(100vw, 560px);
 }
 :where(.field-stack) {
@@ -1765,7 +1765,7 @@
     transform: translateX(0);
   }
 }
-@keyframes sheet-enter {
+@keyframes test-scenario-enter {
   from {
     opacity: 0;
     transform: translateX(var(--spacing-8));
@@ -1908,7 +1908,7 @@
   :where(.dialog-header, .dialog-content) {
     padding: var(--spacing-5);
   }
-  :where(.side-sheet) {
+  :where(.side-testScenario) {
     width: 100vw;
   }
   :where(.ia-row) {
@@ -1938,7 +1938,7 @@
   }
 }
 
-/* Database views keep the collection visible; details live in the side sheet. */
+/* Database views keep the collection visible; details live in the side testScenario. */
 :where(.app-header) {
   height: var(--spacing-16);
   padding-inline: var(--spacing-6);
@@ -2378,7 +2378,7 @@
   :where(.template-fields) {
     grid-template-columns: 1fr;
   }
-  :where(.template-row .sheet-symbol) {
+  :where(.template-row .test-scenario-symbol) {
     display: none;
   }
 }

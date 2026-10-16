@@ -2,7 +2,7 @@ import type {
   IaItemDto,
   ProjectDto,
   ProjectTemplateDto,
-  SheetColumnDto,
+  TestScenarioColumnDto,
 } from "@/shared/api/generated";
 
 export const MAX_COLUMN_WIDTH = 2147483647;
@@ -16,7 +16,7 @@ export type IaForm = {
   position: string;
 };
 export type TemplateForm = {
-  columns: SheetColumnDto[];
+  columns: TestScenarioColumnDto[];
   view: { columnId: string; width: string }[];
 };
 export type SettingsDraft =
@@ -142,11 +142,11 @@ export function saveIssue(error: unknown): SaveIssue {
       kind: "reference",
       message:
         refs.includes("children") && refs.includes("cases")
-          ? "하위 IA 항목과 테스트 케이스에서 사용 중입니다. 상위 항목과 케이스 연결을 해제한 뒤 삭제해주세요."
+          ? "하위 IA 항목과 테스트 케이스에서 사용 중입니다. 상위 항목과 테스트 케이스 연결을 해제한 뒤 삭제해주세요."
           : refs.includes("children")
             ? "하위 IA 항목이 있습니다. 상위 항목 연결을 해제한 뒤 삭제해주세요."
             : refs.includes("cases")
-              ? "테스트 케이스에서 사용 중입니다. 케이스의 IA 연결을 해제한 뒤 삭제해주세요."
+              ? "테스트 케이스에서 사용 중입니다. 테스트 케이스의 IA 연결을 해제한 뒤 삭제해주세요."
               : "연결된 항목이 있습니다. 연결을 해제한 뒤 삭제해주세요.",
     };
   }

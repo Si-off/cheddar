@@ -10,14 +10,14 @@ import { appModule } from "../src/app.module";
 import { configureApp } from "../src/common/application";
 import type {
   CaseContentDto,
-  SheetSnapshotDto,
-} from "../src/contracts/sheets.dto";
+  TestScenarioSnapshotDto,
+} from "../src/contracts/test-scenarios.dto";
 import {
   files,
   iaItems,
   projectTemplates,
-  sheets,
   testCases,
+  testScenarios,
   uploadFrames,
   uploads,
 } from "../src/database/schema";
@@ -38,7 +38,7 @@ function draft(extra: Partial<CaseContentDto> = {}): CaseContentDto {
     ...extra,
   };
 }
-test("sheet HTTP persistence, conflict, template copy and exports", async (t) => {
+test("testScenario HTTP persistence, conflict, template copy and exports", async (t) => {
   const lease = await openTestDatabase();
   let app: INestApplication | undefined;
   try {
@@ -68,29 +68,29 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
     }
     const projectId = await project();
     const otherProject = await project();
-    const prefix = `/projects/${projectId}/sheets`;
-    async function create(uploadId?: string): Promise<SheetSnapshotDto> {
+    const prefix = `/projects/${projectId}/test-scenarios`;
+    async function create(uploadId?: string): Promise<TestScenarioSnapshotDto> {
       const response = await request(prefix, "POST", {
         name: "빈 시트",
         kind: "unit",
         uploadId,
       });
       assert.equal(response.status, 201, await response.clone().text());
-      return response.json() as Promise<SheetSnapshotDto>;
+      return response.json() as Promise<TestScenarioSnapshotDto>;
     }
     async function save(
-      sheet: SheetSnapshotDto,
+      testScenario: TestScenarioSnapshotDto,
       cases: CaseContentDto[],
-      columns = sheet.columns,
+      columns = testScenario.columns,
     ) {
-      return request(`${prefix}/${sheet.id}/content`, "PUT", {
-        expectedRevision: sheet.contentRevision,
+      return request(`${prefix}/${testScenario.id}/content`, "PUT", {
+        expectedRevision: testScenario.contentRevision,
         columns,
         cases,
       });
     }
     await t.test(
-      "new sheets copy the template with fresh IDs and existing sheets remain independent",
+      "new testScenarios copy the template with fresh IDs and existing testScenarios remain independent",
       async () => {
         const first = await create();
         assert.equal(first.columns.length, 10);
@@ -120,26 +120,29 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
         assert.ok(second.columns.every((c) => c.name.endsWith(" 수정")));
         const reread = (await (
           await request(`${prefix}/${first.id}`)
-        ).json()) as SheetSnapshotDto;
+        ).json()) as TestScenarioSnapshotDto;
         assert.deepEqual(reread, first);
         assert.equal(
-          (await request(`/projects/${otherProject}/sheets/${first.id}`))
-            .status,
+          (
+            await request(
+              `/projects/${otherProject}/test-scenarios/${first.id}`,
+            )
+          ).status,
           404,
         );
       },
     );
     await t.test(
-      "invalid legacy template widths reject sheet creation atomically",
+      "invalid legacy template widths reject testScenario creation atomically",
       async () => {
         const [template] = await lease.database.db
           .select()
           .from(projectTemplates)
           .where(eq(projectTemplates.projectId, projectId));
         const before = await lease.database.db
-          .select({ id: sheets.id })
-          .from(sheets)
-          .where(eq(sheets.projectId, projectId));
+          .select({ id: testScenarios.id })
+          .from(testScenarios)
+          .where(eq(testScenarios.projectId, projectId));
         try {
           for (const width of [2147483648, 0, -1, 1.5]) {
             await lease.database.db
@@ -157,9 +160,9 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
             assert.equal(response.status, 400, await response.clone().text());
             assert.deepEqual(
               await lease.database.db
-                .select({ id: sheets.id })
-                .from(sheets)
-                .where(eq(sheets.projectId, projectId)),
+                .select({ id: testScenarios.id })
+                .from(testScenarios)
+                .where(eq(testScenarios.projectId, projectId)),
               before,
             );
           }
@@ -184,16 +187,16 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
     await t.test(
       "concurrent content revisions preserve drafts, UUIDs and atomic numbering/order swaps",
       async () => {
-        const sheet = await create();
+        const testScenario = await create();
         const cases = [draft({ title: "첫 행" }), draft({ title: "둘째 행" })];
         const responses = await Promise.all([
-          save(sheet, cases),
-          save(sheet, [draft({ title: "다른 입력" })]),
+          save(testScenario, cases),
+          save(testScenario, [draft({ title: "다른 입력" })]),
         ]);
         assert.deepEqual(responses.map((r) => r.status).sort(), [200, 409]);
         const winner = (await responses
           .find((r) => r.status === 200)
-          ?.json()) as SheetSnapshotDto;
+          ?.json()) as TestScenarioSnapshotDto;
         const loser = (await responses
           .find((r) => r.status === 409)
           ?.json()) as {
@@ -206,7 +209,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
             draft({ title: "번호 교환 1" }),
             draft({ title: "번호 교환 2" }),
           ])
-        ).json()) as SheetSnapshotDto;
+        ).json()) as TestScenarioSnapshotDto;
         const numbered = normalized.cases;
         assert.ok(numbered.every((c) => /^TC-\d{3,}$/.test(c.caseCode)));
         const reordered = [
@@ -215,7 +218,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
         ];
         const response = await save(normalized, reordered);
         assert.equal(response.status, 200, await response.clone().text());
-        const result = (await response.json()) as SheetSnapshotDto;
+        const result = (await response.json()) as TestScenarioSnapshotDto;
         assert.deepEqual(
           result.cases.map((c) => c.id),
           reordered.map((c) => c.id),
@@ -224,13 +227,13 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           result.cases.map((c) => c.caseCode),
           reordered.map((c) => c.caseCode),
         );
-        const before = await request(`${prefix}/${sheet.id}`);
+        const before = await request(`${prefix}/${testScenario.id}`);
         const invalid = await save(result, [
           { ...result.cases[0], screenIds: [randomUUID()] },
         ]);
         assert.equal(invalid.status, 400);
         assert.deepEqual(
-          await (await request(`${prefix}/${sheet.id}`)).json(),
+          await (await request(`${prefix}/${testScenario.id}`)).json(),
           await before.json(),
         );
       },
@@ -238,35 +241,39 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
     await t.test(
       "custom column deletion removes values and invalidates stale view saves atomically",
       async () => {
-        let sheet = await create();
+        let testScenario = await create();
         const custom = {
           id: randomUUID(),
           name: "메모",
           kind: "custom" as const,
           valueType: "text" as const,
         };
-        sheet = (await (
+        testScenario = (await (
           await save(
-            sheet,
+            testScenario,
             [draft({ customValues: { [custom.id]: "입력 유지" } })],
-            [...sheet.columns, custom],
+            [...testScenario.columns, custom],
           )
-        ).json()) as SheetSnapshotDto;
-        assert.equal(sheet.viewRevision, 2);
-        assert.equal(sheet.view.at(-1)?.columnId, custom.id);
+        ).json()) as TestScenarioSnapshotDto;
+        assert.equal(testScenario.viewRevision, 2);
+        assert.equal(testScenario.view.at(-1)?.columnId, custom.id);
         const removed = await save(
-          sheet,
-          sheet.cases.map((c) => ({ ...c, customValues: {} })),
-          sheet.columns.filter((c) => c.id !== custom.id),
+          testScenario,
+          testScenario.cases.map((c) => ({ ...c, customValues: {} })),
+          testScenario.columns.filter((c) => c.id !== custom.id),
         );
         assert.equal(removed.status, 200);
-        const result = (await removed.json()) as SheetSnapshotDto;
+        const result = (await removed.json()) as TestScenarioSnapshotDto;
         assert.equal(result.viewRevision, 3);
         assert.deepEqual(result.cases[0].customValues, {});
-        const stale = await request(`${prefix}/${sheet.id}/view`, "PUT", {
-          expectedRevision: 2,
-          columns: sheet.view,
-        });
+        const stale = await request(
+          `${prefix}/${testScenario.id}/view`,
+          "PUT",
+          {
+            expectedRevision: 2,
+            columns: testScenario.view,
+          },
+        );
         assert.equal(stale.status, 409);
         assert.equal(
           ((await stale.json()) as { error: { details: { resource: string } } })
@@ -287,12 +294,12 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           ).status,
           400,
         );
-        const otherSheet = await create();
+        const otherTestScenario = await create();
         assert.equal(
           (
             await save(result, result.cases, [
               ...result.columns,
-              { ...custom, id: otherSheet.columns[0].id },
+              { ...custom, id: otherTestScenario.columns[0].id },
             ])
           ).status,
           400,
@@ -300,7 +307,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
       },
     );
     await t.test(
-      "upload filtering, references and entire-sheet text export use one saved revision",
+      "upload filtering, references and entire-testScenario text export use one saved revision",
       async () => {
         const uploadId = randomUUID();
         const frameId = randomUUID();
@@ -356,13 +363,13 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           name: "주문",
           position: 0,
         });
-        let sheet = await create(uploadId);
+        let testScenario = await create(uploadId);
         const filtered = (await (
           await request(`${prefix}?uploadId=${uploadId}`)
         ).json()) as { items: { id: string }[] };
         assert.deepEqual(
           filtered.items.map((s: { id: string }) => s.id),
-          [sheet.id],
+          [testScenario.id],
         );
         assert.equal(
           (await request(`${prefix}?uploadId=${randomUUID()}`)).status,
@@ -371,7 +378,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
         assert.equal(
           (
             await request(
-              `/projects/${otherProject}/sheets?uploadId=${uploadId}`,
+              `/projects/${otherProject}/test-scenarios?uploadId=${uploadId}`,
             )
           ).status,
           404,
@@ -386,8 +393,8 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           ).status,
           404,
         );
-        sheet = (await (
-          await save(sheet, [
+        testScenario = (await (
+          await save(testScenario, [
             draft({
               title: "=SUM(1,2)\n한글 😀",
               relatedFrameIds: [frameId],
@@ -395,14 +402,14 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
             }),
             draft({ title: "검색 밖 행" }),
           ])
-        ).json()) as SheetSnapshotDto;
-        assert.equal(sheet.references.frames[0].id, frameId);
-        assert.equal(sheet.references.iaItems[0].screenId, "ORD-01");
-        const path = `${prefix}/${sheet.id}/export.xlsx`;
+        ).json()) as TestScenarioSnapshotDto;
+        assert.equal(testScenario.references.frames[0].id, frameId);
+        assert.equal(testScenario.references.iaItems[0].screenId, "ORD-01");
+        const path = `${prefix}/${testScenario.id}/export.xlsx`;
         assert.equal((await request(`${path}?contentRevision=1`)).status, 409);
         assert.equal((await request(`${path}?search=검색`)).status, 400);
         const response = await request(
-          `${path}?contentRevision=${sheet.contentRevision}&viewRevision=${sheet.viewRevision}`,
+          `${path}?contentRevision=${testScenario.contentRevision}&viewRevision=${testScenario.viewRevision}`,
         );
         assert.equal(response.status, 200);
         assert.match(
@@ -425,8 +432,8 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           .set({ screenId: "ORDER-NEW" })
           .where(eq(iaItems.id, screenId));
         const afterRename = (await (
-          await request(`${prefix}/${sheet.id}`)
-        ).json()) as SheetSnapshotDto;
+          await request(`${prefix}/${testScenario.id}`)
+        ).json()) as TestScenarioSnapshotDto;
         assert.deepEqual(afterRename.cases[0].screenIds, [screenId]);
         assert.equal(afterRename.references.iaItems[0].screenId, "ORDER-NEW");
       },
@@ -434,7 +441,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
     await t.test(
       "500 cases persist and export without a case-count cap",
       async () => {
-        let sheet = await create();
+        let testScenario = await create();
         const custom = Array.from({ length: 5 }, (_, i) => ({
           id: randomUUID(),
           kind: "custom" as const,
@@ -451,30 +458,38 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           }),
         );
         const start = performance.now();
-        const response = await save(sheet, cases, [
-          ...sheet.columns,
+        const response = await save(testScenario, cases, [
+          ...testScenario.columns,
           ...custom,
         ]);
         assert.equal(response.status, 200, await response.clone().text());
-        sheet = (await response.json()) as SheetSnapshotDto;
-        assert.equal(sheet.cases.length, 500);
-        assert.equal(new Set(sheet.cases.map((c) => c.caseCode)).size, 500);
-        const bytes = Buffer.byteLength(JSON.stringify(sheet));
+        testScenario = (await response.json()) as TestScenarioSnapshotDto;
+        assert.equal(testScenario.cases.length, 500);
+        assert.equal(
+          new Set(testScenario.cases.map((c) => c.caseCode)).size,
+          500,
+        );
+        const bytes = Buffer.byteLength(JSON.stringify(testScenario));
         const savedMs = performance.now() - start;
         const startExport = performance.now();
-        const exported = await request(`${prefix}/${sheet.id}/export.xlsx`);
+        const exported = await request(
+          `${prefix}/${testScenario.id}/export.xlsx`,
+        );
         assert.equal(exported.status, 200);
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(await exported.arrayBuffer());
         assert.equal(workbook.worksheets[0].rowCount, 501);
-        assert.equal(workbook.worksheets[0].columnCount, sheet.columns.length);
+        assert.equal(
+          workbook.worksheets[0].columnCount,
+          testScenario.columns.length,
+        );
         t.diagnostic(
           `500 cases: save=${Math.round(savedMs)}ms payload=${bytes} bytes export+read=${Math.round(performance.now() - startExport)}ms`,
         );
         const persisted = await lease.database.db
           .select({ id: testCases.id })
           .from(testCases)
-          .where(eq(testCases.sheetId, sheet.id));
+          .where(eq(testCases.testScenarioId, testScenario.id));
         assert.equal(persisted.length, 500);
       },
     );

@@ -1,4 +1,4 @@
-import { cellValue, type IAItem, type Sheet } from "./model";
+import { cellValue, type IAItem, type TestScenario } from "./model";
 export function parseDelimited(text: string, separator = ","): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -44,17 +44,20 @@ export async function readRows(file: File): Promise<string[][]> {
   });
   return rows;
 }
-export async function downloadSheet(sheet: Sheet, ia: IAItem[]) {
+export async function downloadTestScenario(
+  testScenario: TestScenario,
+  ia: IAItem[],
+) {
   const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
-  const page = workbook.addWorksheet("테스트 시트");
-  const columns = sheet.columns;
+  const page = workbook.addWorksheet("테스트 시나리오");
+  const columns = testScenario.columns;
   page.columns = columns.map((c) => ({
     header: c.name,
     key: c.id,
     width: Math.min(60, Math.round(c.width / 8)),
   }));
-  for (const item of sheet.cases)
+  for (const item of testScenario.cases)
     page.addRow(columns.map((c) => cellValue(item, c, ia)));
   page.getRow(1).font = { bold: true };
   page.views = [{ state: "frozen", ySplit: 1 }];
@@ -69,7 +72,7 @@ export async function downloadSheet(sheet: Sheet, ia: IAItem[]) {
   );
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${sheet.name.replace(/[\\/:*?"<>|]/g, "-") || "테스트"}.xlsx`;
+  a.download = `${testScenario.name.replace(/[\\/:*?"<>|]/g, "-") || "테스트"}.xlsx`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

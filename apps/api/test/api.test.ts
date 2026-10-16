@@ -19,9 +19,9 @@ import type {
 } from "../src/contracts/ia.dto";
 import type { ProjectDto, ProjectPageDto } from "../src/contracts/projects.dto";
 import type {
-  SheetPageDto,
-  SheetSnapshotDto,
-} from "../src/contracts/sheets.dto";
+  TestScenarioPageDto,
+  TestScenarioSnapshotDto,
+} from "../src/contracts/test-scenarios.dto";
 import { DatabaseService } from "../src/database/database.service";
 import { MAX_FILE_BYTES } from "../src/files/file-validation";
 import { FilesRepository } from "../src/files/files.repository";
@@ -93,7 +93,7 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
         const exported = await (await request("/openapi.json")).json();
         assert.deepEqual(exported, document);
         assert.ok(
-          Object.keys(document.paths).some((p) => p.includes("sheets")),
+          Object.keys(document.paths).some((p) => p.includes("test-scenarios")),
         );
         assert.ok(
           Object.keys(document.paths).some((p) => p.includes("uploads")),
@@ -563,22 +563,22 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
             throwOnError: true,
           });
           assert.equal(deleted.response.status, 204);
-          const newSheet = await sdk.createSheet({
+          const newTestScenario = await sdk.createTestScenario({
             baseUrl: base,
             path: { projectId: value.id },
             body: { name: "SDK 시트", kind: "unit" },
             throwOnError: true,
           });
-          assert.equal(newSheet.response.status, 201);
-          const sheet = newSheet.data as SheetSnapshotDto;
-          matches("SheetSnapshotDto", sheet);
-          assert.equal(sheet.sourceTemplateRevision, 2);
-          const savedSheet = await sdk.updateSheetContent({
+          assert.equal(newTestScenario.response.status, 201);
+          const testScenario = newTestScenario.data as TestScenarioSnapshotDto;
+          matches("TestScenarioSnapshotDto", testScenario);
+          assert.equal(testScenario.sourceTemplateRevision, 2);
+          const savedTestScenario = await sdk.updateTestScenarioContent({
             baseUrl: base,
-            path: { projectId: value.id, sheetId: sheet.id },
+            path: { projectId: value.id, testScenarioId: testScenario.id },
             body: {
               expectedRevision: 1,
-              columns: sheet.columns,
+              columns: testScenario.columns,
               cases: [
                 {
                   id: randomUUID(),
@@ -596,32 +596,35 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
             },
             throwOnError: true,
           });
-          const saved = savedSheet.data as SheetSnapshotDto;
+          const saved = savedTestScenario.data as TestScenarioSnapshotDto;
           assert.equal(saved.contentRevision, 2);
           assert.equal(saved.cases[0].caseCode, "TC-001");
-          const viewed = await sdk.updateSheetView({
+          const viewed = await sdk.updateTestScenarioView({
             baseUrl: base,
-            path: { projectId: value.id, sheetId: sheet.id },
+            path: { projectId: value.id, testScenarioId: testScenario.id },
             body: { expectedRevision: 1, columns: [...saved.view].reverse() },
             throwOnError: true,
           });
-          const finalSheet = viewed.data as SheetSnapshotDto;
-          assert.equal(finalSheet.viewRevision, 2);
-          const readSheet = await sdk.getSheet({
+          const finalTestScenario = viewed.data as TestScenarioSnapshotDto;
+          assert.equal(finalTestScenario.viewRevision, 2);
+          const readTestScenario = await sdk.getTestScenario({
             baseUrl: base,
-            path: { projectId: value.id, sheetId: sheet.id },
+            path: { projectId: value.id, testScenarioId: testScenario.id },
             throwOnError: true,
           });
-          assert.deepEqual(readSheet.data, finalSheet);
-          const sheetList = await sdk.listSheets({
+          assert.deepEqual(readTestScenario.data, finalTestScenario);
+          const testScenarioList = await sdk.listTestScenarios({
             baseUrl: base,
             path: { projectId: value.id },
             throwOnError: true,
           });
-          assert.equal((sheetList.data as SheetPageDto).items[0].id, sheet.id);
-          const xlsx = await sdk.exportSheetXlsx({
+          assert.equal(
+            (testScenarioList.data as TestScenarioPageDto).items[0].id,
+            testScenario.id,
+          );
+          const xlsx = await sdk.exportTestScenarioXlsx({
             baseUrl: base,
-            path: { projectId: value.id, sheetId: sheet.id },
+            path: { projectId: value.id, testScenarioId: testScenario.id },
             query: { contentRevision: 2, viewRevision: 2 },
             parseAs: "blob",
             throwOnError: true,

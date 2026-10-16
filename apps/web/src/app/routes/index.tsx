@@ -19,14 +19,18 @@ import { ProjectSettingsPage } from "@/pages/project-settings";
 import {
   ProjectUploadDetailPage,
   ProjectUploadsPage,
-  type UploadSheetGateway,
+  type UploadTestScenarioGateway,
 } from "@/pages/project-uploads";
 import { SharedTestCasesPage } from "@/pages/shared-test-cases";
 import { TestCaseEditorPage } from "@/pages/test-case-editor";
-import { createSheet, getProject, listSheets } from "@/shared/api/generated";
+import {
+  createTestScenario,
+  getProject,
+  listTestScenarios,
+} from "@/shared/api/generated";
 
 function RootLayout() {
-  const { projectId, sheetId, shareId } = useParams({ strict: false });
+  const { projectId, testScenarioId, shareId } = useParams({ strict: false });
   const [menuOpen, setMenuOpen] = useState(false);
   const project = useQuery({
     queryKey: ["project", projectId],
@@ -49,7 +53,7 @@ function RootLayout() {
           <>
             <WorkspaceIcon name="chevron" />
             <Link
-              to="/projects/$projectId/sheets"
+              to="/projects/$projectId/test-scenarios"
               params={{ projectId }}
               onClick={() => setMenuOpen(false)}
             >
@@ -57,13 +61,13 @@ function RootLayout() {
             </Link>
           </>
         )}
-        {sheetId && (
+        {testScenarioId && (
           <>
             <WorkspaceIcon name="chevron" />
-            <span className="workspace-crumb">테스트 시트</span>
+            <span className="workspace-crumb">테스트 시나리오</span>
           </>
         )}
-        {shareId && <span className="workspace-crumb">공유 시트</span>}
+        {shareId && <span className="workspace-crumb">공유 시나리오</span>}
         {projectId && (
           <Popover open={menuOpen} onOpenChange={setMenuOpen}>
             <PopoverTrigger
@@ -81,12 +85,12 @@ function RootLayout() {
             <PopoverContent aria-label="프로젝트 메뉴">
               <nav className="workspace-nav">
                 <Link
-                  to="/projects/$projectId/sheets"
+                  to="/projects/$projectId/test-scenarios"
                   params={{ projectId }}
                   onClick={() => setMenuOpen(false)}
                 >
                   <WorkspaceIcon name="file" />
-                  테스트 시트
+                  테스트 시나리오
                 </Link>
                 <Link
                   to="/projects/$projectId/uploads"
@@ -105,7 +109,11 @@ function RootLayout() {
           </Popover>
         )}
       </header>
-      <main className={sheetId ? "workspace-main is-editor" : "workspace-main"}>
+      <main
+        className={
+          testScenarioId ? "workspace-main is-editor" : "workspace-main"
+        }
+      >
         <Outlet />
       </main>
     </div>
@@ -122,12 +130,15 @@ const editorRoute = createRoute({
       <TestCaseEditorPage
         onOpenProject={(projectId) =>
           void navigate({
-            to: "/projects/$projectId/sheets",
+            to: "/projects/$projectId/test-scenarios",
             params: { projectId },
           })
         }
-        onOpenSheet={(params) =>
-          void navigate({ to: "/projects/$projectId/sheets/$sheetId", params })
+        onOpenTestScenario={(params) =>
+          void navigate({
+            to: "/projects/$projectId/test-scenarios/$testScenarioId",
+            params,
+          })
         }
       />
     );
@@ -158,11 +169,11 @@ const uploadDetailRoute = createRoute({
   component: function UploadDetailRoute() {
     const { projectId, uploadId } = uploadDetailRoute.useParams();
     const navigate = uploadDetailRoute.useNavigate();
-    const sheetGateway = useMemo<UploadSheetGateway>(
+    const testScenarioGateway = useMemo<UploadTestScenarioGateway>(
       () => ({
         list: async (cursor) =>
           (
-            await listSheets({
+            await listTestScenarios({
               path: { projectId },
               query: { uploadId, cursor, limit: 50 },
               signal: AbortSignal.timeout(30000),
@@ -171,7 +182,7 @@ const uploadDetailRoute = createRoute({
           ).data,
         create: async (input) =>
           (
-            await createSheet({
+            await createTestScenario({
               path: { projectId },
               body: { ...input, uploadId },
               signal: AbortSignal.timeout(30000),
@@ -192,51 +203,57 @@ const uploadDetailRoute = createRoute({
             params: { projectId },
           })
         }
-        sheetGateway={sheetGateway}
-        onOpenSheet={(sheetId) =>
+        testScenarioGateway={testScenarioGateway}
+        onOpenTestScenario={(testScenarioId) =>
           void navigate({
-            to: "/projects/$projectId/sheets/$sheetId",
-            params: { projectId, sheetId },
+            to: "/projects/$projectId/test-scenarios/$testScenarioId",
+            params: { projectId, testScenarioId },
           })
         }
       />
     );
   },
 });
-const sheetsRoute = createRoute({
+const testScenariosRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/projects/$projectId/sheets",
-  component: function SheetsRoute() {
-    const { projectId } = sheetsRoute.useParams();
-    const navigate = sheetsRoute.useNavigate();
+  path: "/projects/$projectId/test-scenarios",
+  component: function TestScenariosRoute() {
+    const { projectId } = testScenariosRoute.useParams();
+    const navigate = testScenariosRoute.useNavigate();
     return (
       <TestCaseEditorPage
         key={projectId}
         projectId={projectId}
-        onOpenSheet={(params) =>
-          void navigate({ to: "/projects/$projectId/sheets/$sheetId", params })
+        onOpenTestScenario={(params) =>
+          void navigate({
+            to: "/projects/$projectId/test-scenarios/$testScenarioId",
+            params,
+          })
         }
       />
     );
   },
 });
-const sheetRoute = createRoute({
+const testScenarioRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/projects/$projectId/sheets/$sheetId",
-  component: function SheetRoute() {
-    const { projectId, sheetId } = sheetRoute.useParams();
-    const navigate = sheetRoute.useNavigate();
+  path: "/projects/$projectId/test-scenarios/$testScenarioId",
+  component: function TestScenarioRoute() {
+    const { projectId, testScenarioId } = testScenarioRoute.useParams();
+    const navigate = testScenarioRoute.useNavigate();
     return (
       <TestCaseEditorPage
-        key={`${projectId}/${sheetId}`}
+        key={`${projectId}/${testScenarioId}`}
         projectId={projectId}
-        sheetId={sheetId}
-        onOpenSheet={(params) =>
-          void navigate({ to: "/projects/$projectId/sheets/$sheetId", params })
+        testScenarioId={testScenarioId}
+        onOpenTestScenario={(params) =>
+          void navigate({
+            to: "/projects/$projectId/test-scenarios/$testScenarioId",
+            params,
+          })
         }
         onBack={() =>
           void navigate({
-            to: "/projects/$projectId/sheets",
+            to: "/projects/$projectId/test-scenarios",
             params: { projectId },
           })
         }
@@ -264,8 +281,8 @@ export const router = createRouter({
     uploadsRoute,
     uploadDetailRoute,
     settingsRoute,
-    sheetsRoute,
-    sheetRoute,
+    testScenariosRoute,
+    testScenarioRoute,
     sharedRoute,
   ]),
 });

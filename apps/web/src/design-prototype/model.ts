@@ -52,7 +52,7 @@ export type FlowNode = {
   iaId: string;
 };
 export type FlowEdge = { id: string; from: string; to: string; label: string };
-export type Sheet = {
+export type TestScenario = {
   id: string;
   name: string;
   layout: "qa" | "table";
@@ -76,11 +76,11 @@ export type Project = {
   name: string;
   description: string;
   frameIds: string[];
-  sheets: Sheet[];
+  testScenarios: TestScenario[];
   templateId: string;
   ia: IAItem[];
 };
-export type Scenario =
+export type DemoState =
   | "normal"
   | "empty"
   | "generation-error"
@@ -327,10 +327,10 @@ export function blankCase(number: number): TestCase {
     note: "",
   };
 }
-export function newSheet(
+export function newTestScenario(
   name: string,
   columns: Column[] = defaultColumns(),
-): Sheet {
+): TestScenario {
   return {
     id: uid(),
     name,
@@ -355,16 +355,16 @@ export function newProject(name: string): Project {
     name,
     description: "",
     frameIds: [],
-    sheets: [],
+    testScenarios: [],
     templateId: "template-default",
     ia: [],
   };
 }
-export function initialProjects(scenario: Scenario): Project[] {
+export function initialProjects(scenario: DemoState): Project[] {
   if (scenario === "empty") return [];
-  const sheet = newSheet("주문·결제 테스트");
-  Object.assign(sheet, {
-    id: "sheet-order",
+  const testScenario = newTestScenario("주문·결제 테스트");
+  Object.assign(testScenario, {
+    id: "test-scenario-order",
     templateId: "template-default",
     templateVersion: 1,
     layout: "table",
@@ -380,7 +380,7 @@ export function initialProjects(scenario: Scenario): Project[] {
       name: "커머스 웹",
       description: "상품 탐색, 장바구니, 주문·결제",
       frameIds: frames.map((f) => f.id),
-      sheets: [sheet],
+      testScenarios: [testScenario],
       templateId: "template-default",
       ia: frames.map((f) => ({
         id: `ia-${f.id}`,
@@ -393,13 +393,13 @@ export function initialProjects(scenario: Scenario): Project[] {
   ];
 }
 export function generate(
-  sheet: Sheet,
-  scenario: Scenario,
-): Pick<Sheet, "cases" | "candidates"> {
-  const selected = new Set(sheet.selectedFrames);
+  testScenario: TestScenario,
+  scenario: DemoState,
+): Pick<TestScenario, "cases" | "candidates"> {
+  const selected = new Set(testScenario.selectedFrames);
   const filter = <T extends TestCase>(items: T[]) =>
     items
-      .filter((c) => sheet.scope === "flow" || c.frameIds.length === 1)
+      .filter((c) => testScenario.scope === "flow" || c.frameIds.length === 1)
       .filter((c) => !selected.size || c.frameIds.some((f) => selected.has(f)))
       .map((c) => ({
         ...c,
@@ -466,14 +466,14 @@ export function mockFlow(ia: IAItem[]): {
   };
 }
 
-export type SheetTemplate = {
+export type TestScenarioTemplate = {
   id: string;
   name: string;
   description: string;
   version: number;
   columns: Column[];
 };
-export function initialTemplates(): SheetTemplate[] {
+export function initialTemplates(): TestScenarioTemplate[] {
   return [
     {
       id: "template-default",

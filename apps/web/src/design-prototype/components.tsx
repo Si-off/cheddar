@@ -87,7 +87,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      className={`dialog ${popover ? "dropdown" : side ? "side-sheet" : ""} ${wide && !popover ? "wide-dialog" : ""}`}
+      className={`dialog ${popover ? "dropdown" : side ? "side-testScenario" : ""} ${wide && !popover ? "wide-dialog" : ""}`}
       style={
         popover
           ? { top, left, maxHeight: window.innerHeight - top - 16 }

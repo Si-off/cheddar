@@ -2,9 +2,9 @@ import { Button, Checkbox, Input, Label, Textarea } from "@cheddar/ui";
 import { useEffect, useState } from "react";
 import type { Snapshot } from "@/entities/test-case";
 import type {
-  CandidateDto,
   GenerationDto,
-  ReviewCandidateDto,
+  GenerationResultItemDto,
+  ReviewGenerationResultDto,
 } from "@/shared/api/generated";
 
 const fields = [
@@ -46,9 +46,9 @@ export function GenerationResults({
   disabled: boolean;
   onReview: (
     job: GenerationDto,
-    c: CandidateDto,
-    action: ReviewCandidateDto["action"],
-    content?: CandidateDto["content"],
+    c: GenerationResultItemDto,
+    action: ReviewGenerationResultDto["action"],
+    content?: GenerationResultItemDto["content"],
     revision?: number,
   ) => Promise<void>;
   onAdd: (job: GenerationDto, ids: string[]) => Promise<void>;
@@ -58,33 +58,36 @@ export function GenerationResults({
   const [id, setId] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<
-    Record<string, { content: CandidateDto["content"]; revision: number }>
+    Record<
+      string,
+      { content: GenerationResultItemDto["content"]; revision: number }
+    >
   >({});
   const [compareId, setCompareId] = useState("");
   const [excluded, setExcluded] = useState(false);
   const job =
     jobs.find((j) => j.id === jobId) ??
     jobs.find((j) => j.status === "succeeded");
-  const hasGenerated = job?.candidates.some((c) => c.kind === "case") ?? false;
+  const hasGenerated = job?.results.some((c) => c.kind === "case") ?? false;
   useEffect(() => {
     setTab(hasGenerated ? "case" : "candidate");
   }, [hasGenerated]);
-  const candidates =
-    job?.candidates.filter(
+  const results =
+    job?.results.filter(
       (c) =>
         (c.kind ?? "candidate") === tab &&
         (excluded || c.status !== "excluded"),
     ) ?? [];
-  const item = candidates.find((c) => c.id === id) ?? candidates[0];
+  const item = results.find((c) => c.id === id) ?? results[0];
   const draft = item ? drafts[item.id] : undefined;
   const content = draft?.content ?? item?.content;
   const similar = content ? similarCases(content.title, snapshot) : [];
   const comparison = similar.find((c) => c.id === compareId) ?? similar[0];
   const selection =
-    job?.candidates
+    job?.results
       .filter((c) => chosen.has(c.id) && c.status === "pending")
       .map((c) => c.id) ?? [];
-  const edit = (patch: Partial<CandidateDto["content"]>) => {
+  const edit = (patch: Partial<GenerationResultItemDto["content"]>) => {
     if (!item || !job) return;
     setDrafts((old) => ({
       ...old,
@@ -113,7 +116,7 @@ export function GenerationResults({
         <Label htmlFor="result-job">생성 기록</Label>
         <select
           id="result-job"
-          className="sheet-select"
+          className="test-scenario-select"
           value={job?.id ?? ""}
           onChange={(e) => {
             setJobId(e.target.value);
@@ -129,10 +132,10 @@ export function GenerationResults({
             ))}
         </select>
         <Button variant="outline" onClick={() => setTab("case")}>
-          생성 케이스
+          생성된 테스트 케이스
         </Button>
         <Button variant="outline" onClick={() => setTab("candidate")}>
-          후보 검토
+          검토 후보
         </Button>
         <Label>
           <Checkbox checked={excluded} onCheckedChange={setExcluded} />
@@ -141,7 +144,7 @@ export function GenerationResults({
       </div>
       <div className="result-workbench">
         <section className="result-list">
-          {candidates.map((c) => (
+          {results.map((c) => (
             <div
               key={c.id}
               className={
@@ -176,15 +179,15 @@ export function GenerationResults({
                   : c.status === "excluded"
                     ? "제외됨"
                     : similarCases(c.content.title, snapshot).length
-                      ? "유사 케이스 있음"
+                      ? "유사 테스트 케이스 있음"
                       : ""}
               </small>
             </div>
           ))}
-          {!candidates.length && (
+          {!results.length && (
             <p>
               {tab === "case"
-                ? "생성 케이스가 없습니다."
+                ? "생성된 테스트 케이스가 없습니다."
                 : "검토 후보가 없습니다."}
             </p>
           )}
@@ -195,11 +198,11 @@ export function GenerationResults({
               <p className="workspace-candidate-reason">{item.reason}</p>
             )}
             <div className="source-toolbar">
-              <h3>유사 케이스 비교</h3>
+              <h3>유사 테스트 케이스 비교</h3>
               {similar.length > 0 && (
                 <select
-                  aria-label="비교 케이스"
-                  className="sheet-select"
+                  aria-label="비교 테스트 케이스"
+                  className="test-scenario-select"
                   value={comparison?.id ?? ""}
                   onChange={(e) => setCompareId(e.target.value)}
                 >
@@ -213,7 +216,7 @@ export function GenerationResults({
             </div>
             <div className="result-comparison">
               <section>
-                <h4>기존 케이스</h4>
+                <h4>기존 테스트 케이스</h4>
                 {comparison ? (
                   <>
                     <strong>{comparison.title}</strong>
@@ -227,11 +230,11 @@ export function GenerationResults({
                     ))}
                   </>
                 ) : (
-                  <p>유사 케이스가 없습니다.</p>
+                  <p>유사 테스트 케이스가 없습니다.</p>
                 )}
               </section>
               <section>
-                <h4>새 케이스</h4>
+                <h4>새 테스트 케이스</h4>
                 <Label htmlFor="result-title">테스트 항목</Label>
                 <Input
                   id="result-title"
@@ -262,13 +265,13 @@ export function GenerationResults({
             <Label htmlFor="result-priority">우선순위</Label>
             <select
               id="result-priority"
-              className="sheet-select"
+              className="test-scenario-select"
               disabled={disabled || item.status === "added"}
               value={content.priority ?? ""}
               onChange={(e) =>
                 edit({
                   priority: (e.target.value ||
-                    null) as CandidateDto["content"]["priority"],
+                    null) as GenerationResultItemDto["content"]["priority"],
                 })
               }
             >
@@ -338,7 +341,9 @@ export function GenerationResults({
                 .catch(() => {});
           }}
         >
-          {selection.length ? `${selection.length}개 추가` : "선택 추가"}
+          {selection.length
+            ? `${selection.length}개 시나리오에 추가`
+            : "시나리오에 추가"}
         </Button>
       </footer>
     </div>

@@ -9,14 +9,14 @@ import {
   UpdateTemplateDto,
 } from "../contracts/ia.dto";
 import {
-  CreateSheetDto,
-  SheetContentDto,
-  SheetExportQueryDto,
-  SheetPageDto,
-  SheetPageQueryDto,
-  SheetSnapshotDto,
-  SheetViewDto,
-} from "../contracts/sheets.dto";
+  CreateTestScenarioDto,
+  TestScenarioContentDto,
+  TestScenarioExportQueryDto,
+  TestScenarioPageDto,
+  TestScenarioPageQueryDto,
+  TestScenarioSnapshotDto,
+  TestScenarioViewDto,
+} from "../contracts/test-scenarios.dto";
 import {
   CreateUploadDto,
   UploadDto,
@@ -28,7 +28,7 @@ export function createDocument(app: INestApplication) {
     .setTitle("Cheddar API")
     .setVersion("1.0.0")
     .setDescription(
-      "Local project, file, upload, IA, template, sheet and XLSX export API.",
+      "Local project, file, upload, IA, template, testScenario and XLSX export API.",
     )
     .build();
   const document = SwaggerModule.createDocument(app, config, {
@@ -36,17 +36,17 @@ export function createDocument(app: INestApplication) {
       CreateUploadDto,
       UploadDto,
       UploadPageDto,
-      CreateSheetDto,
-      SheetContentDto,
-      SheetViewDto,
+      CreateTestScenarioDto,
+      TestScenarioContentDto,
+      TestScenarioViewDto,
       CreateIaItemDto,
       DeleteIaQueryDto,
       IaPageDto,
       ProjectTemplateDto,
-      SheetPageDto,
-      SheetPageQueryDto,
-      SheetSnapshotDto,
-      SheetExportQueryDto,
+      TestScenarioPageDto,
+      TestScenarioPageQueryDto,
+      TestScenarioSnapshotDto,
+      TestScenarioExportQueryDto,
       UpdateIaItemDto,
       UpdateTemplateDto,
     ],

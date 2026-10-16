@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { ProjectsRepository } from "../src/projects/projects.repository";
 import { openTestDatabase } from "./database";
 
-test("shared sheet and IA storage preserves project boundaries and template identity", async (t) => {
+test("shared testScenario and IA storage preserves project boundaries and template identity", async (t) => {
   const lease = await openTestDatabase();
   const { lock, database, projects, folder } = lease;
   try {
@@ -94,17 +94,17 @@ test("shared sheet and IA storage preserves project boundaries and template iden
           const p = randomUUID(),
             q = randomUUID(),
             s = randomUUID(),
-            otherSheet = randomUUID(),
-            sameProjectSheet = randomUUID();
+            otherTestScenario = randomUUID(),
+            sameProjectTestScenario = randomUUID();
           await lock.query(
             "INSERT INTO projects(id,name) VALUES ($1,'A'),($2,'B')",
             [p, q],
           );
-          const insertSheet =
-            "INSERT INTO sheets(id,project_id,name,kind,source_template_revision) VALUES ($1,$2,'시트','unit',1)";
-          await lock.query(insertSheet, [s, p]);
-          await lock.query(insertSheet, [otherSheet, q]);
-          await lock.query(insertSheet, [sameProjectSheet, p]);
+          const insertTestScenario =
+            "INSERT INTO test_scenarios(id,project_id,name,kind,source_template_revision) VALUES ($1,$2,'시나리오','unit',1)";
+          await lock.query(insertTestScenario, [s, p]);
+          await lock.query(insertTestScenario, [otherTestScenario, q]);
+          await lock.query(insertTestScenario, [sameProjectTestScenario, p]);
           const failures = async (
             query: string,
             values: unknown[],
@@ -136,13 +136,13 @@ test("shared sheet and IA storage preserves project boundaries and template iden
             foreignColumn = randomUUID(),
             otherColumn = randomUUID();
           const colSql =
-            "INSERT INTO sheet_columns(id,project_id,sheet_id,kind,field,value_type,name) VALUES ($1,$2,$3,$4,$5,$6,'열')";
+            "INSERT INTO test_scenario_columns(id,project_id,test_scenario_id,kind,field,value_type,name) VALUES ($1,$2,$3,$4,$5,$6,'열')";
           await lock.query(colSql, [custom, p, s, "custom", null, "text"]);
           await lock.query(colSql, [system, p, s, "system", "title", null]);
           await lock.query(colSql, [
             foreignColumn,
             q,
-            otherSheet,
+            otherTestScenario,
             "custom",
             null,
             "text",
@@ -150,14 +150,14 @@ test("shared sheet and IA storage preserves project boundaries and template iden
           await lock.query(colSql, [
             otherColumn,
             p,
-            sameProjectSheet,
+            sameProjectTestScenario,
             "custom",
             null,
             "text",
           ]);
           await failures(
             colSql,
-            [randomUUID(), p, otherSheet, "custom", null, "text"],
+            [randomUUID(), p, otherTestScenario, "custom", null, "text"],
             "23503",
           );
           await failures(
@@ -168,18 +168,18 @@ test("shared sheet and IA storage preserves project boundaries and template iden
           const a = randomUUID(),
             b = randomUUID();
           const caseSql =
-            "INSERT INTO test_cases(id,project_id,sheet_id,position,case_code,title,preconditions,steps,expected_result) VALUES ($1,$2,$3,$4,$5,'','','','')";
+            "INSERT INTO test_cases(id,project_id,test_scenario_id,position,case_code,title,preconditions,steps,expected_result) VALUES ($1,$2,$3,$4,$5,'','','','')";
           await lock.query(caseSql, [a, p, s, 0, "TC-001"]);
           await lock.query(caseSql, [b, p, s, 1, "TC-002"]);
           await failures(
             caseSql,
-            [randomUUID(), p, otherSheet, 0, ""],
+            [randomUUID(), p, otherTestScenario, 0, ""],
             "23503",
           );
           await failures(caseSql, [randomUUID(), p, s, 2, "TC-001"], "23505");
           await failures(caseSql, [randomUUID(), p, s, 1, "TC-003"], "23505");
           await lock.query(
-            "UPDATE test_cases SET case_code='',position=position+100 WHERE sheet_id=$1",
+            "UPDATE test_cases SET case_code='',position=position+100 WHERE test_scenario_id=$1",
             [s],
           );
           await lock.query(
@@ -193,14 +193,14 @@ test("shared sheet and IA storage preserves project boundaries and template iden
           assert.deepEqual(
             (
               await lock.query(
-                "SELECT id FROM test_cases WHERE sheet_id=$1 ORDER BY position",
+                "SELECT id FROM test_cases WHERE test_scenario_id=$1 ORDER BY position",
                 [s],
               )
             ).rows.map((r) => r.id),
             [b, a],
           );
           const valueSql =
-            "INSERT INTO test_case_values(sheet_id,case_id,column_id,value) VALUES ($1,$2,$3,'메모')";
+            "INSERT INTO test_case_values(test_scenario_id,case_id,column_id,value) VALUES ($1,$2,$3,'메모')";
           await lock.query(valueSql, [s, a, custom]);
           for (const column of [system, foreignColumn, otherColumn])
             await failures(valueSql, [s, b, column], "23503");
@@ -223,7 +223,7 @@ test("shared sheet and IA storage preserves project boundaries and template iden
             ia,
           );
           await failures(
-            "DELETE FROM sheet_columns WHERE id=$1",
+            "DELETE FROM test_scenario_columns WHERE id=$1",
             [custom],
             "23503",
           );

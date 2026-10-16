@@ -9,13 +9,13 @@ import { appModule } from "../src/app.module";
 import { configureApp } from "../src/common/application";
 import { ApiError } from "../src/common/errors";
 import type { GenerationDto } from "../src/contracts/generation.dto";
-import type { SheetSnapshotDto } from "../src/contracts/sheets.dto";
+import type { TestScenarioSnapshotDto } from "../src/contracts/test-scenarios.dto";
 import { generate, type PreparedInput } from "../src/generation/provider";
 import { createResultSchema, parseResult } from "../src/generation/result";
 import { createDefaultTemplate } from "../src/projects/default-template";
 import { openTestDatabase } from "./database";
 
-function snapshot(): SheetSnapshotDto {
+function snapshot(): TestScenarioSnapshotDto {
   // These tests exercise the no-custom-column schema. Project defaults also
   // contain editable text columns, covered by the custom-value schema test.
   const template = createDefaultTemplate();
@@ -23,7 +23,7 @@ function snapshot(): SheetSnapshotDto {
   return {
     id: randomUUID(),
     projectId: randomUUID(),
-    name: "Sheet",
+    name: "TestScenario",
     kind: "unit",
     uploadId: null,
     contentRevision: 1,
@@ -86,7 +86,7 @@ test("generation schema permits nullable priorities and restricts references to 
   );
 });
 test("AI result parsing normalizes repeated UUID references but still rejects invented references and blank cases", () => {
-  const sheet = snapshot(),
+  const testScenario = snapshot(),
     frameId = randomUUID();
   const result = parseResult(
     JSON.stringify({
@@ -100,7 +100,7 @@ test("AI result parsing normalizes repeated UUID references but still rejects in
         },
       ],
     }),
-    sheet,
+    testScenario,
     [frameId],
     [],
   );
@@ -122,7 +122,7 @@ test("AI result parsing normalizes repeated UUID references but still rejects in
             ],
             candidates: [],
           }),
-          sheet,
+          testScenario,
           [frameId],
           [],
         ),
@@ -214,7 +214,7 @@ test("both provider payloads use the selected reference schema and provider erro
   }
 });
 
-test("generation HTTP lifecycle preserves sheets on failure and serializes writes and candidate review", async () => {
+test("generation HTTP lifecycle preserves testScenarios on failure and serializes writes and candidate review", async () => {
   const lease = await openTestDatabase();
   const originalFetch = global.fetch;
   let app: INestApplication | undefined;
@@ -286,23 +286,23 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
     assert.equal(projectResponse.status, 201);
     const project = (await projectResponse.json()) as { id: string };
     lease.projects.push(project.id);
-    const prefix = `/projects/${project.id}/sheets`;
+    const prefix = `/projects/${project.id}/test-scenarios`;
     async function create() {
       const response = await request(prefix, "POST", {
-        name: "Test sheet",
+        name: "Test testScenario",
         kind: "unit",
       });
       assert.equal(response.status, 201);
-      return response.json() as Promise<SheetSnapshotDto>;
+      return response.json() as Promise<TestScenarioSnapshotDto>;
     }
-    const sheet = await create();
+    const testScenario = await create();
     const other = await create();
-    const path = `${prefix}/${sheet.id}`;
+    const path = `${prefix}/${testScenario.id}`;
     const jobsPath = `${path}/generations`;
     const start = {
       clientRequestId: randomUUID(),
       provider: "anthropic",
-      expectedRevision: sheet.contentRevision,
+      expectedRevision: testScenario.contentRevision,
       description: "Synthetic login flow",
     };
     const response = await request(jobsPath, "POST", start);
@@ -326,8 +326,8 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
       409,
     );
     const saveBody = {
-      expectedRevision: sheet.contentRevision,
-      columns: sheet.columns,
+      expectedRevision: testScenario.contentRevision,
+      columns: testScenario.columns,
       cases: [],
     };
     assert.equal(
@@ -337,8 +337,8 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
     assert.equal(
       (
         await request(`${path}/view`, "PUT", {
-          expectedRevision: sheet.viewRevision,
-          columns: sheet.view,
+          expectedRevision: testScenario.viewRevision,
+          columns: testScenario.view,
         })
       ).status,
       409,
@@ -367,10 +367,12 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
     let completed = await finished(job.id);
     assert.equal(completed.status, "succeeded", completed.error ?? "");
     assert.equal(calls, 1, "Repeated request must not call the provider again");
-    const generated = (await (await request(path)).json()) as SheetSnapshotDto;
+    const generated = (await (
+      await request(path)
+    ).json()) as TestScenarioSnapshotDto;
     assert.equal(generated.cases.length, 1);
     assert.equal(generated.cases[0].title, content().title);
-    const candidatePath = `${jobsPath}/${job.id}/candidates/${completed.candidates[0].id}`;
+    const candidatePath = `${jobsPath}/${job.id}/results/${completed.results[0].id}`;
     for (const action of ["exclude", "restore", "edit", "add"] as const) {
       const before = completed.revision;
       const review = await request(candidatePath, "PUT", {
@@ -379,7 +381,7 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
         ...(action === "edit"
           ? {
               content: {
-                ...completed.candidates[0].content,
+                ...completed.results[0].content,
                 title: "Reviewed",
               },
             }
@@ -389,7 +391,7 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
       completed = (await review.json()) as GenerationDto;
       assert.equal(completed.revision, before + 1);
       assert.equal(
-        completed.candidates[0].status,
+        completed.results[0].status,
         action === "exclude"
           ? "excluded"
           : action === "add"
@@ -406,7 +408,9 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
       ).status,
       409,
     );
-    const reviewed = (await (await request(path)).json()) as SheetSnapshotDto;
+    const reviewed = (await (
+      await request(path)
+    ).json()) as TestScenarioSnapshotDto;
     assert.equal(reviewed.cases.length, 2);
     assert.equal(reviewed.cases[1].title, "Reviewed");
     invalid = true;
@@ -418,7 +422,9 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
     assert.equal(failedResponse.status, 202);
     const failedJob = (await failedResponse.json()) as GenerationDto;
     assert.equal((await finished(failedJob.id)).status, "failed");
-    const preserved = (await (await request(path)).json()) as SheetSnapshotDto;
+    const preserved = (await (
+      await request(path)
+    ).json()) as TestScenarioSnapshotDto;
     assert.deepEqual(preserved.cases, reviewed.cases);
     assert.equal(preserved.contentRevision, reviewed.contentRevision);
     assert.equal(
@@ -430,7 +436,7 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
         })
       ).status,
       200,
-      "Failed generation must release the sheet lock",
+      "Failed generation must release the testScenario lock",
     );
   } finally {
     release?.();

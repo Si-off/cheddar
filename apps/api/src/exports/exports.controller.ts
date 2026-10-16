@@ -17,18 +17,18 @@ import {
 } from "@nestjs/swagger";
 import type { Response } from "express";
 import { ErrorResponseDto } from "../contracts/common.dto";
-import { SheetExportQueryDto } from "../contracts/sheets.dto";
+import { TestScenarioExportQueryDto } from "../contracts/test-scenarios.dto";
 import { ExportsService } from "./exports.service";
 
-@ApiExtraModels(SheetExportQueryDto)
-@ApiTags("sheets")
-@Controller("api/v1/projects/:projectId/sheets/:sheetId")
+@ApiExtraModels(TestScenarioExportQueryDto)
+@ApiTags("test_scenarios")
+@Controller("api/v1/projects/:projectId/test-scenarios/:testScenarioId")
 export class ExportsController {
   constructor(
     @Inject(ExportsService) private readonly service: ExportsService,
   ) {}
   @Get("export.xlsx")
-  @ApiOperation({ operationId: "exportSheetXlsx" })
+  @ApiOperation({ operationId: "exportTestScenarioXlsx" })
   @ApiProduces(
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   )
@@ -40,11 +40,11 @@ export class ExportsController {
   @ApiResponse({ status: 500, type: ErrorResponseDto })
   async export(
     @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("sheetId", new ParseUUIDPipe()) sheetId: string,
-    @Query() query: SheetExportQueryDto,
+    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
+    @Query() query: TestScenarioExportQueryDto,
     @Res() response: Response,
   ) {
-    const result = await this.service.export(projectId, sheetId, query);
+    const result = await this.service.export(projectId, testScenarioId, query);
     response.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

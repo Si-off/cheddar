@@ -14,7 +14,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from "class-validator";
-import { CaseContentDto } from "./sheets.dto";
+import { CaseContentDto } from "./test-scenarios.dto";
 
 export class StartGenerationDto {
   @ApiPropertyOptional({ enum: ["replace", "review"] })
@@ -63,9 +63,9 @@ export class StartGenerationDto {
   @ApiPropertyOptional({ format: "uuid" })
   @ValidateIf((_o, v) => v !== undefined)
   @IsUUID()
-  exampleSheetId?: string;
+  exampleTestScenarioId?: string;
 }
-export class CandidateDto {
+export class GenerationResultItemDto {
   @ApiPropertyOptional({ enum: ["case", "candidate"] }) kind?:
     | "case"
     | "candidate";
@@ -87,7 +87,7 @@ export class GenerationDto {
     | "replace"
     | "review";
   @ApiProperty({ format: "uuid" }) id!: string;
-  @ApiProperty({ format: "uuid" }) sheetId!: string;
+  @ApiProperty({ format: "uuid" }) testScenarioId!: string;
   @ApiProperty({ enum: ["anthropic", "openai"] }) provider!:
     | "anthropic"
     | "openai";
@@ -99,13 +99,14 @@ export class GenerationDto {
   @ApiProperty({ type: String, nullable: true }) error!: string | null;
   @ApiProperty({ type: "integer" }) revision!: number;
   @ApiProperty({ type: "integer" }) caseCount!: number;
-  @ApiProperty({ type: [CandidateDto] }) candidates!: CandidateDto[];
+  @ApiProperty({ type: [GenerationResultItemDto] })
+  results!: GenerationResultItemDto[];
   @ApiProperty({ format: "date-time" }) createdAt!: string;
 }
 export class GenerationListDto {
   @ApiProperty({ type: [GenerationDto] }) items!: GenerationDto[];
 }
-export class ReviewCandidateDto {
+export class ReviewGenerationResultDto {
   @ApiProperty({ type: "integer", minimum: 1 })
   @IsInt()
   @Min(1)
@@ -137,12 +138,12 @@ export class AddGeneratedCasesDto {
   @ApiProperty({ type: "integer", minimum: 1 })
   @IsInt()
   @Min(1)
-  sheetRevision!: number;
+  testScenarioRevision!: number;
   @ApiProperty({ type: "array", items: { type: "string", format: "uuid" } })
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(1000)
   @ArrayUnique()
   @IsUUID(undefined, { each: true })
-  candidateIds!: string[];
+  resultIds!: string[];
 }

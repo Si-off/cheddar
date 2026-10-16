@@ -1,42 +1,50 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { invalid } from "../common/errors";
 import type {
-  CreateSheetDto,
-  SheetContentDto,
-  SheetPageQueryDto,
-  SheetViewDto,
-} from "../contracts/sheets.dto";
+  CreateTestScenarioDto,
+  TestScenarioContentDto,
+  TestScenarioPageQueryDto,
+  TestScenarioViewDto,
+} from "../contracts/test-scenarios.dto";
 import { TemplatesRepository } from "../templates/templates.repository";
-import { SheetsRepository } from "./sheets.repository";
+import { TestScenariosRepository } from "./test-scenarios.repository";
 
 function unique(ids: string[], field: string) {
   if (new Set(ids).size !== ids.length)
     throw invalid([{ field, code: "duplicateIdentifier" }]);
 }
 @Injectable()
-export class SheetsService {
+export class TestScenariosService {
   constructor(
-    @Inject(SheetsRepository) private readonly repository: SheetsRepository,
+    @Inject(TestScenariosRepository)
+    private readonly repository: TestScenariosRepository,
     @Inject(TemplatesRepository)
     private readonly templates: TemplatesRepository,
   ) {}
-  create(projectId: string, input: CreateSheetDto) {
+  create(projectId: string, input: CreateTestScenarioDto) {
     return this.repository.create(
       projectId.toLowerCase(),
       { ...input, uploadId: input.uploadId?.toLowerCase() ?? null },
       (tx, id) => this.templates.readSnapshot(tx, id),
     );
   }
-  list(projectId: string, query: SheetPageQueryDto) {
+  list(projectId: string, query: TestScenarioPageQueryDto) {
     return this.repository.list(projectId.toLowerCase(), {
       ...query,
       uploadId: query.uploadId?.toLowerCase(),
     });
   }
-  get(projectId: string, sheetId: string) {
-    return this.repository.get(projectId.toLowerCase(), sheetId.toLowerCase());
+  get(projectId: string, testScenarioId: string) {
+    return this.repository.get(
+      projectId.toLowerCase(),
+      testScenarioId.toLowerCase(),
+    );
   }
-  updateContent(projectId: string, sheetId: string, input: SheetContentDto) {
+  updateContent(
+    projectId: string,
+    testScenarioId: string,
+    input: TestScenarioContentDto,
+  ) {
     const columns = input.columns.map((c) => ({
       ...c,
       id: c.id.toLowerCase(),
@@ -70,11 +78,15 @@ export class SheetsService {
     );
     return this.repository.updateContent(
       projectId.toLowerCase(),
-      sheetId.toLowerCase(),
+      testScenarioId.toLowerCase(),
       { ...input, columns, cases },
     );
   }
-  updateView(projectId: string, sheetId: string, input: SheetViewDto) {
+  updateView(
+    projectId: string,
+    testScenarioId: string,
+    input: TestScenarioViewDto,
+  ) {
     const columns = input.columns.map((c) => ({
       ...c,
       columnId: c.columnId.toLowerCase(),
@@ -85,7 +97,7 @@ export class SheetsService {
     );
     return this.repository.updateView(
       projectId.toLowerCase(),
-      sheetId.toLowerCase(),
+      testScenarioId.toLowerCase(),
       { ...input, columns },
     );
   }

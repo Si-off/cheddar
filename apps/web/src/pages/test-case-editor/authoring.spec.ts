@@ -1,13 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
 import type {
-  EvidenceDto,
+  AnalysisDto,
   GenerationDto,
-  SheetSnapshotDto,
   StartGenerationDto,
+  TestScenarioSnapshotDto,
 } from "@/shared/api/generated";
 
 const projectId = "10000000-0000-4000-8000-000000000001",
-  sheetId = "20000000-0000-4000-8000-000000000001",
+  testScenarioId = "20000000-0000-4000-8000-000000000001",
   uploadId = "60000000-0000-4000-8000-000000000001";
 const fields = [
   "caseCode",
@@ -30,7 +30,7 @@ const frames = [0, 1].map((n) => ({
   dataFileId: `90000000-0000-4000-8000-00000000000${n + 1}`,
   uploadId,
 }));
-function fixture(): SheetSnapshotDto {
+function fixture(): TestScenarioSnapshotDto {
   const columns = fields.map((field, index) => ({
     id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
     kind: "system" as const,
@@ -47,7 +47,7 @@ function fixture(): SheetSnapshotDto {
     ][index],
   }));
   return {
-    id: sheetId,
+    id: testScenarioId,
     projectId,
     name: "주문 테스트",
     kind: "unit",
@@ -83,7 +83,7 @@ async function setup(page: Page) {
     snapshot: fixture(),
     jobs: [] as GenerationDto[],
     starts: [] as StartGenerationDto[],
-    evidence: {
+    analysis: {
       revision: 1,
       items: [
         {
@@ -105,7 +105,7 @@ async function setup(page: Page) {
         },
       ],
       links: [],
-    } as EvidenceDto,
+    } as AnalysisDto,
   };
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request(),
@@ -124,14 +124,14 @@ async function setup(page: Page) {
           { id: "openai", model: "synthetic", configured: true },
         ],
       });
-    if (path.endsWith("/evidence")) {
+    if (path.endsWith("/analysis")) {
       if (method === "PUT") {
-        state.evidence = {
+        state.analysis = {
           ...request.postDataJSON(),
-          revision: state.evidence.revision + 1,
+          revision: state.analysis.revision + 1,
         };
       }
-      return json(state.evidence);
+      return json(state.analysis);
     }
     if (path.includes("/files/"))
       return route.fulfill({
@@ -156,7 +156,7 @@ async function setup(page: Page) {
       state.starts.push(request.postDataJSON());
       const job: GenerationDto = {
         id: crypto.randomUUID(),
-        sheetId,
+        testScenarioId,
         mode: "review",
         provider: "anthropic",
         model: "synthetic",
@@ -165,7 +165,7 @@ async function setup(page: Page) {
         revision: 1,
         caseCount: 1,
         createdAt: new Date().toISOString(),
-        candidates: [
+        results: [
           {
             id: "50000000-0000-4000-8000-000000000001",
             kind: "case",
@@ -188,21 +188,25 @@ async function setup(page: Page) {
     if (path.endsWith("/add")) {
       const body = request.postDataJSON();
       const job = state.jobs[0];
-      for (const c of job.candidates.filter((c) =>
-        body.candidateIds.includes(c.id),
+      for (const c of job.results.filter((c) =>
+        body.resultIds.includes(c.id),
       )) {
         state.snapshot.cases.push({ ...c.content, caseCode: "TC-002" });
         c.status = "added";
-        state.evidence.links.push({ requirementId, sheetId, caseId: c.id });
+        state.analysis.links.push({
+          requirementId,
+          testScenarioId,
+          caseId: c.id,
+        });
       }
       state.snapshot.contentRevision++;
       job.revision++;
       return json(job, 201);
     }
-    if (path.includes("/candidates/")) {
+    if (path.includes("/results/")) {
       const body = request.postDataJSON(),
         job = state.jobs[0],
-        candidate = job.candidates.find((c) => path.endsWith(c.id));
+        candidate = job.results.find((c) => path.endsWith(c.id));
       if (candidate && body.action === "edit") candidate.content = body.content;
       job.revision++;
       return json(job);
@@ -216,8 +220,9 @@ async function setup(page: Page) {
       };
       return json(state.snapshot);
     }
-    if (path.endsWith(`/sheets/${sheetId}`)) return json(state.snapshot);
-    if (path.endsWith("/sheets"))
+    if (path.endsWith(`/test-scenarios/${testScenarioId}`))
+      return json(state.snapshot);
+    if (path.endsWith("/test-scenarios"))
       return json({ items: [state.snapshot], nextCursor: null });
     if (path.endsWith(`/projects/${projectId}`))
       return json({ id: projectId, name: "쇼핑몰" });
@@ -228,23 +233,29 @@ async function setup(page: Page) {
       });
     return json({ items: [], nextCursor: null });
   });
-  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await page.goto(`/projects/${projectId}/test-scenarios/${testScenarioId}`);
   await expect(
     page.getByRole("heading", { name: "주문 테스트", exact: true }),
   ).toBeVisible();
   return state;
 }
-test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 케이스와 근거를 보존한다", async ({
+test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 테스트 케이스와 근거를 보존한다", async ({
   page,
 }, testInfo) => {
   const state = await setup(page);
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
-  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
   await page
     .getByRole("checkbox", { name: "결제 완료 생성 선택", exact: true })
     .uncheck();
   await page.getByLabel("테스트 내용", { exact: true }).fill("쿠폰 적용");
-  await page.getByRole("button", { name: "케이스 생성", exact: true }).click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "결과 검토", exact: true }),
   ).toBeVisible();
@@ -255,7 +266,7 @@ test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 케
     page.getByRole("heading", { name: "생성 결과 검토", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("유사 케이스 비교", { exact: true }),
+    page.getByText("유사 테스트 케이스 비교", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("checkbox", { name: "쿠폰 적용 선택", exact: true })
@@ -264,7 +275,9 @@ test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 케
     .getByLabel("예상 결과", { exact: true })
     .fill("사용자가 수정한 예상 결과");
   await page.getByRole("button", { name: "수정 저장", exact: true }).click();
-  await page.getByRole("button", { name: "1개 추가", exact: true }).click();
+  await page
+    .getByRole("button", { name: "1개 시나리오에 추가", exact: true })
+    .click();
   await expect.poll(() => state.snapshot.cases.length).toBe(2);
   expect(state.snapshot.cases[0].expectedResult).toBe("기존 예상 결과");
   expect(state.snapshot.cases[1].expectedResult).toBe(
@@ -275,10 +288,12 @@ test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 케
     .getByRole("button", { name: "닫기", exact: true })
     .click();
   await page.getByRole("checkbox", { name: "2행 선택", exact: true }).check();
-  await page.getByRole("button", { name: "원본 대조", exact: true }).click();
+  await page
+    .getByRole("button", { name: "관련 자료 보기", exact: true })
+    .click();
   await expect(
     page
-      .getByRole("complementary", { name: "원본 대조" })
+      .getByRole("complementary", { name: "관련 자료 보기" })
       .getByText("쿠폰은 상품 금액에서 차감한다.", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
@@ -287,7 +302,9 @@ test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 케
   });
   await page.getByRole("button", { name: "원본 닫기", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "원본 대조", exact: true }).click();
+  await page
+    .getByRole("button", { name: "관련 자료 보기", exact: true })
+    .click();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -297,31 +314,35 @@ test("화면 선택 생성 결과를 비교하고 선택 추가하며 기존 케
     path: testInfo.outputPath("source-review-mobile.png"),
   });
 });
-test("근거 수정에서 정책 답변과 케이스 연결을 저장하고 같은 화면에서 보완한다", async ({
+test("분석 결과 편집에서 정책 답변과 테스트 케이스 연결을 저장하고 같은 화면에서 보완한다", async ({
   page,
 }, testInfo) => {
   const state = await setup(page);
   const url = page.url();
-  await page.getByRole("button", { name: "근거 수정", exact: true }).click();
+  await page
+    .getByRole("button", { name: "분석 결과 편집", exact: true })
+    .click();
   await page.getByRole("button", { name: "정책 확인", exact: true }).click();
   await page
     .getByLabel("정책 답변", { exact: true })
     .fill("결제 실패 시 쿠폰을 다시 사용할 수 있다.");
   await page.getByRole("button", { name: "저장", exact: true }).click();
-  expect(state.evidence.items[1].answer).toContain("다시 사용할");
-  expect(state.evidence.items[1].useAsRule).toBe(false);
+  expect(state.analysis.items[1].answer).toContain("다시 사용할");
+  expect(state.analysis.items[1].useAsRule).toBe(false);
   await page
     .getByRole("button", { name: "요구사항 검토", exact: true })
     .click();
   await page.getByRole("button", { name: "쿠폰 할인", exact: true }).click();
   await page.getByRole("checkbox", { name: "쿠폰 적용", exact: true }).check();
   await page.getByRole("button", { name: "저장", exact: true }).click();
-  expect(state.evidence.links).toHaveLength(1);
+  expect(state.analysis.links).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath("requirement-links.png") });
   await page.getByRole("button", { name: "정책 확인", exact: true }).click();
-  await page.getByRole("button", { name: "후보 보완", exact: true }).click();
+  await page
+    .getByRole("button", { name: "검토 후보 보완", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "테스트 생성", exact: true }),
+    page.getByRole("heading", { name: "테스트 케이스 생성", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("테스트 내용", { exact: true })).toHaveValue(
     /쿠폰을 다시 사용할/,

@@ -11,8 +11,8 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FrameReference, Snapshot } from "@/entities/test-case";
-import type { EvidenceDto, EvidenceItemDto } from "@/shared/api/generated";
-import { readEvidence, writeEvidence } from "./evidence-api";
+import type { AnalysisDto, AnalysisItemDto } from "@/shared/api/generated";
+import { readAnalysis, writeAnalysis } from "./analysis-api";
 import { SourceImage } from "./source-viewer";
 
 type Tab = "sources" | "policies" | "requirements";
@@ -23,7 +23,7 @@ const kinds = {
   question: "정책",
   relation: "관계",
 };
-export function EvidencePanel({
+export function AnalysisPanel({
   open,
   onClose,
   snapshot,
@@ -39,11 +39,11 @@ export function EvidencePanel({
   const projectId = snapshot.projectId;
   const client = useQueryClient();
   const query = useQuery({
-    queryKey: ["evidence", projectId],
-    queryFn: () => readEvidence(projectId),
+    queryKey: ["analysis", projectId],
+    queryFn: () => readAnalysis(projectId),
     enabled: open,
   });
-  const [draft, setDraft] = useState<EvidenceDto>();
+  const [draft, setDraft] = useState<AnalysisDto>();
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -71,13 +71,13 @@ export function EvidencePanel({
           !draft.links.some(
             (l) =>
               l.requirementId === i.id &&
-              l.sheetId === snapshot.id &&
+              l.testScenarioId === snapshot.id &&
               snapshot.cases.some((c) => c.id === l.caseId),
           )),
     ) ?? [];
   const item = list.find((i) => i.id === id) ?? list[0];
   const frame = frames.find((f) => f.id === item?.frameId);
-  function edit(patch: Partial<EvidenceItemDto>) {
+  function edit(patch: Partial<AnalysisItemDto>) {
     if (!draft || !item) return;
     setDraft({
       ...draft,
@@ -92,10 +92,10 @@ export function EvidencePanel({
     setBusy(true);
     setError(undefined);
     try {
-      const next = await writeEvidence(projectId, draft);
+      const next = await writeAnalysis(projectId, draft);
       setDraft(next);
       setDirty(false);
-      client.setQueryData(["evidence", projectId], next);
+      client.setQueryData(["analysis", projectId], next);
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
@@ -115,13 +115,13 @@ export function EvidencePanel({
       links: checked
         ? [
             ...draft.links,
-            { requirementId: item.id, sheetId: snapshot.id, caseId },
+            { requirementId: item.id, testScenarioId: snapshot.id, caseId },
           ]
         : draft.links.filter(
             (l) =>
               !(
                 l.requirementId === item.id &&
-                l.sheetId === snapshot.id &&
+                l.testScenarioId === snapshot.id &&
                 l.caseId === caseId
               ),
           ),
@@ -134,7 +134,7 @@ export function EvidencePanel({
     onGenerate(
       [item.id],
       item.kind === "question"
-        ? `다음 정책 답변으로 관련 후보를 보완한다.\n질문: ${item.text}\n답변: ${item.answer ?? ""}`
+        ? `다음 정책 답변으로 관련 검토 후보를 보완한다.\n질문: ${item.text}\n답변: ${item.answer ?? ""}`
         : item.text,
     );
   }
@@ -145,9 +145,9 @@ export function EvidencePanel({
         if (!next) void close();
       }}
     >
-      <DialogContent className="evidence-dialog" aria-describedby={undefined}>
-        <DialogTitle>근거 수정</DialogTitle>
-        <nav className="evidence-tabs" aria-label="근거 보기">
+      <DialogContent className="analysis-dialog" aria-describedby={undefined}>
+        <DialogTitle>분석 결과 편집</DialogTitle>
+        <nav className="analysis-tabs" aria-label="분석 결과 보기">
           {(
             [
               ["sources", "자료"],
@@ -171,27 +171,27 @@ export function EvidencePanel({
             저장
           </Button>
         </nav>
-        {query.isPending && <p role="status">근거 불러오는 중</p>}
+        {query.isPending && <p role="status">분석 결과 불러오는 중</p>}
         {query.isError && (
           <p role="alert">
-            근거를 불러오지 못했습니다.
+            분석 결과를 불러오지 못했습니다.
             <Button variant="link" onClick={() => void query.refetch()}>
               다시 불러오기
             </Button>
           </p>
         )}
         {error && <p role="alert">{error}</p>}
-        <div className="evidence-workbench">
-          <section className="evidence-list">
+        <div className="analysis-workbench">
+          <section className="analysis-list">
             <Input
-              aria-label="근거 검색"
+              aria-label="분석 결과 검색"
               value={search}
               onValueChange={setSearch}
             />
             {tab === "requirements" && (
               <Label>
                 <Checkbox checked={missing} onCheckedChange={setMissing} />
-                케이스 연결 없음
+                테스트 케이스 연결 없음
               </Label>
             )}
             {list.map((i) => (
@@ -203,11 +203,11 @@ export function EvidencePanel({
                 {i.title}
               </Button>
             ))}
-            {draft && !list.length && <p>근거가 없습니다.</p>}
+            {draft && !list.length && <p>분석 결과가 없습니다.</p>}
           </section>
           {item && (
             <>
-              <section className="evidence-source">
+              <section className="analysis-source">
                 <h3>{item.title}</h3>
                 {frame && (
                   <SourceImage
@@ -240,24 +240,24 @@ export function EvidencePanel({
                   </a>
                 )}
               </section>
-              <section className="evidence-inspector">
-                <Label htmlFor="evidence-title">이름</Label>
+              <section className="analysis-inspector">
+                <Label htmlFor="analysis-title">이름</Label>
                 <Input
-                  id="evidence-title"
+                  id="analysis-title"
                   value={item.title}
                   onValueChange={(title) => edit({ title })}
                   maxLength={255}
                 />
                 {tab === "sources" && (
                   <>
-                    <Label htmlFor="evidence-kind">유형</Label>
+                    <Label htmlFor="analysis-kind">유형</Label>
                     <select
-                      className="sheet-select"
-                      id="evidence-kind"
+                      className="test-scenario-select"
+                      id="analysis-kind"
                       value={item.kind}
                       onChange={(e) =>
                         edit({
-                          kind: e.target.value as EvidenceItemDto["kind"],
+                          kind: e.target.value as AnalysisItemDto["kind"],
                         })
                       }
                     >
@@ -267,10 +267,10 @@ export function EvidencePanel({
                         </option>
                       ))}
                     </select>
-                    <Label htmlFor="evidence-parent">화면 연결</Label>
+                    <Label htmlFor="analysis-parent">화면 연결</Label>
                     <select
-                      id="evidence-parent"
-                      className="sheet-select"
+                      id="analysis-parent"
+                      className="test-scenario-select"
                       value={item.parentId ?? ""}
                       onChange={(e) =>
                         edit({ parentId: e.target.value || undefined })
@@ -330,15 +330,15 @@ export function EvidencePanel({
                     )}
                     {item.kind === "relation" && (
                       <>
-                        <Label htmlFor="evidence-relation">관계 유형</Label>
+                        <Label htmlFor="analysis-relation">관계 유형</Label>
                         <select
-                          id="evidence-relation"
-                          className="sheet-select"
+                          id="analysis-relation"
+                          className="test-scenario-select"
                           value={item.relation ?? "annotation"}
                           onChange={(e) =>
                             edit({
                               relation: e.target
-                                .value as EvidenceItemDto["relation"],
+                                .value as AnalysisItemDto["relation"],
                             })
                           }
                         >
@@ -350,7 +350,7 @@ export function EvidencePanel({
                           <Label key={field}>
                             {index ? "도착" : "출발"}
                             <select
-                              className="sheet-select"
+                              className="test-scenario-select"
                               value={item[field] ?? ""}
                               onChange={(e) =>
                                 edit({ [field]: e.target.value || undefined })
@@ -393,7 +393,7 @@ export function EvidencePanel({
                 )}
                 {(item.kind === "requirement" || item.kind === "question") && (
                   <>
-                    <h3>케이스 연결</h3>
+                    <h3>테스트 케이스 연결</h3>
                     {snapshot.cases.map((c) => (
                       <Label key={c.id}>
                         <Checkbox
@@ -401,7 +401,7 @@ export function EvidencePanel({
                             draft?.links.some(
                               (l) =>
                                 l.requirementId === item.id &&
-                                l.sheetId === snapshot.id &&
+                                l.testScenarioId === snapshot.id &&
                                 l.caseId === c.id,
                             ) ?? false
                           }
@@ -417,7 +417,9 @@ export function EvidencePanel({
                       }
                       onClick={() => void generate()}
                     >
-                      {item.kind === "question" ? "후보 보완" : "케이스 생성"}
+                      {item.kind === "question"
+                        ? "검토 후보 보완"
+                        : "테스트 케이스 생성"}
                     </Button>
                   </>
                 )}

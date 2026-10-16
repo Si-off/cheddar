@@ -1,19 +1,19 @@
-.sheet-editor {
+.test-scenario-editor {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
 }
-.sheet-editor-body {
+.test-scenario-editor-body {
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-4);
   flex-wrap: wrap;
 }
-.sheet-editor-table {
+.test-scenario-editor-table {
   flex: 1;
   min-width: 0;
 }
-.sheet-detail {
+.test-scenario-detail {
   flex: 1 1 var(--size-dialog-max);
   max-width: var(--size-dialog-max);
   max-height: calc(100dvh - var(--spacing-control-lg) * 4);
@@ -23,7 +23,7 @@
   border: var(--border-width-default) solid var(--color-border);
   border-radius: var(--radius-panel);
 }
-.sheet-select {
+.test-scenario-select {
   display: block;
   width: 100%;
   min-height: var(--spacing-control-md);
@@ -35,63 +35,63 @@
   border-radius: var(--radius-control);
   font: inherit;
 }
-.sheet-select:focus {
+.test-scenario-select:focus {
   outline: none;
   border-color: var(--color-focus-border);
 }
-.sheet-select:disabled {
+.test-scenario-select:disabled {
   color: var(--color-disabled-foreground);
   background: var(--color-disabled);
 }
-.sheet-column-settings {
+.test-scenario-column-settings {
   padding: var(--spacing-panel);
   border: var(--border-width-default) solid var(--color-border);
   border-radius: var(--radius-panel);
   background: var(--color-surface);
 }
-.sheet-column-row {
+.test-scenario-column-row {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: var(--spacing-3);
   margin-top: var(--spacing-3);
 }
-.sheet-column-name {
+.test-scenario-column-name {
   flex: 1;
 }
-.sheet-width {
+.test-scenario-width {
   width: var(--spacing-16);
 }
-.sheet-status {
+.test-scenario-status {
   font-size: var(--text-label);
   color: var(--color-muted);
 }
-.sheet-notice {
+.test-scenario-notice {
   border: var(--border-width-default) solid var(--color-border);
   padding: var(--spacing-3);
   border-radius: var(--radius-control);
   background: var(--color-warning-subtle);
   color: var(--color-foreground);
 }
-.sheet-comparison {
+.test-scenario-comparison {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-3);
 }
-.sheet-comparison > div {
+.test-scenario-comparison > div {
   flex: 1;
   min-width: var(--size-textarea-min);
 }
-.sheet-editor {
+.test-scenario-editor {
   gap: var(--spacing-3);
 }
-.sheet-detail {
+.test-scenario-detail {
   border: 0;
   border-radius: 0;
   padding: var(--spacing-6) 0;
   max-height: none;
   max-width: none;
 }
-.sheet-editor-body {
+.test-scenario-editor-body {
   display: block;
 }

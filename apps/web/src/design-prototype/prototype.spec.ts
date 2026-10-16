@@ -13,7 +13,9 @@ async function layout(page: Page, name: "표" | "QA 진행") {
   await page.getByRole("button", { name, exact: true }).click();
 }
 async function menu(page: Page, name: string) {
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
   await page.getByRole("button", { name, exact: true }).click();
 }
 async function capture(page: Page, name: string) {
@@ -128,7 +130,7 @@ test("여러 셀 붙여넣기, 삭제 복원, 사용자 정의 열", async ({ pa
     page.getByRole("textbox", { name: "테스트 항목 1", exact: true }),
   ).toHaveValue("붙여넣은 테스트");
   await page.getByRole("checkbox", { name: "TC-1 선택", exact: true }).check();
-  await page.getByRole("button", { name: "선택한 테스트 삭제" }).click();
+  await page.getByRole("button", { name: "선택한 테스트 케이스 삭제" }).click();
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "테스트 항목 1", exact: true }),
@@ -198,27 +200,33 @@ test("테이블 경계선 드래그로 열 너비와 행 높이를 조절한다"
 
 test("후보 수정·추가·제외·복원과 추가된 행으로 이동", async ({ page }) => {
   await order(page);
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
-  await page.getByRole("button", { name: /후보 검토/ }).click();
+  await page
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
+  await page.getByRole("button", { name: /검토 후보/ }).click();
   await page.locator("summary").first().click();
-  await page.getByRole("button", { name: "후보 편집", exact: true }).click();
+  await page
+    .getByRole("button", { name: "검토 후보 편집", exact: true })
+    .click();
   await page
     .getByRole("textbox", { name: "테스트 항목", exact: true })
     .fill("네트워크 복구 후 주문 확인");
   await page.getByRole("button", { name: "닫기", exact: true }).click();
-  await page.getByRole("button", { name: "시트에 추가", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시나리오에 추가", exact: true })
+    .click();
   await page.locator("summary").first().click();
   await page.getByRole("button", { name: "제외", exact: true }).click();
-  await page.getByLabel("후보 상태").selectOption("excluded");
+  await page.getByLabel("검토 후보 상태").selectOption("excluded");
   await page.locator("summary").first().click();
   await page.getByRole("button", { name: "다시 검토", exact: true }).click();
-  await page.getByLabel("후보 상태").selectOption("added");
+  await page.getByLabel("검토 후보 상태").selectOption("added");
   await page.locator("summary").first().click();
   await expect(
-    page.getByRole("button", { name: "시트에 추가", exact: true }),
+    page.getByRole("button", { name: "시나리오에 추가", exact: true }),
   ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "추가된 테스트 보기", exact: true })
+    .getByRole("button", { name: "추가된 테스트 케이스 보기", exact: true })
     .click();
   await expect(
     page.getByRole("textbox", { name: "테스트 항목 13", exact: true }),
@@ -232,33 +240,39 @@ test("생성 실패와 취소는 기존 데이터를 보존하며 재시도할 �
   await page
     .getByRole("textbox", { name: "테스트 항목 1", exact: true })
     .fill("보존할 수정 내용");
-  await menu(page, "테스트 생성");
-  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
+  await menu(page, "테스트 케이스 생성");
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
   await page.getByRole("button", { name: "다시 생성", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(
-    "테스트를 생성하지 못했습니다",
+    "테스트 케이스를 생성하지 못했습니다",
   );
   await expect(
     page.getByRole("textbox", { name: "테스트 항목 1", exact: true }),
   ).toHaveValue("보존할 수정 내용");
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
-  await expect(page.getByRole("button", { name: /후보 검토/ })).toBeDisabled();
+  await page
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
+  await expect(page.getByRole("button", { name: /검토 후보/ })).toBeDisabled();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "취소", exact: true }).click();
   await page.waitForTimeout(3800);
   await expect(
     page.getByRole("textbox", { name: "테스트 항목 1", exact: true }),
   ).toHaveValue("보존할 수정 내용");
-  await menu(page, "테스트 생성");
-  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
+  await menu(page, "테스트 케이스 생성");
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
   await page.getByRole("button", { name: "다시 생성", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "테스트 항목 1", exact: true }),
   ).toHaveValue("상품 옵션을 선택하고 장바구니에 담기");
 });
 
-test("공용 양식 변경은 새 시트에 반영되고 기존 시트를 보존한다", async ({
+test("공용 양식 변경은 새 시나리오에 반영되고 기존 시나리오를 보존한다", async ({
   page,
 }) => {
   await order(page);
@@ -291,16 +305,20 @@ test("공용 양식 변경은 새 시트에 반영되고 기존 시트를 보존
     page.getByRole("columnheader", { name: /기능 구분/ }),
   ).toBeVisible();
   await page.getByRole("button", { name: "이전 화면", exact: true }).click();
-  await page.getByRole("button", { name: "시트 추가", exact: true }).click();
   await page
-    .getByRole("button", { name: "빈 시트 만들기", exact: true })
+    .getByRole("button", { name: "시나리오 추가", exact: true })
     .click();
-  await expect(page.getByRole("dialog", { name: "새 시트" })).toContainText(
+  await page
+    .getByRole("button", { name: "빈 시나리오 만들기", exact: true })
+    .click();
+  await expect(page.getByRole("dialog", { name: "새 시나리오" })).toContainText(
     "업무 구분",
   );
-  await page.getByRole("button", { name: "시트 만들기", exact: true }).click();
   await page
-    .getByRole("button", { name: "테스트 추가", exact: true })
+    .getByRole("button", { name: "시나리오 만들기", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 추가", exact: true })
     .last()
     .click();
   await expect(
@@ -331,15 +349,21 @@ test("빈 프로젝트에서 설명만으로 생성하며 외부 API를 호출�
     .getByRole("textbox", { name: "프로젝트 이름" })
     .fill("신규 프로젝트");
   await page.getByRole("button", { name: "만들기", exact: true }).click();
-  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
-  await page.getByRole("button", { name: "시트 만들기", exact: true }).click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "시나리오 만들기", exact: true })
+    .click();
   await page.getByRole("button", { name: "설명만으로 시작" }).click();
   await page
     .getByRole("textbox", { name: "확인할 내용" })
     .fill("주문 결제를 확인합니다.");
-  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "테스트 작성 중" }),
+    page.getByRole("heading", { name: "테스트 케이스 생성 중" }),
   ).toBeVisible();
   await expect(
     page.getByRole("textbox", { name: "테스트 항목 1", exact: true }),
@@ -405,14 +429,16 @@ test("흐름 초안 검토·노드 편집·실행 취소", async ({ page }) => {
   await capture(page, "flow.png");
 });
 
-test("전체 시트 XLSX는 양식 이름과 데이터를 보존하며 공유는 읽기 전용이다", async ({
+test("전체 시나리오 XLSX는 양식 이름과 데이터를 보존하며 공유는 읽기 전용이다", async ({
   page,
 }) => {
   await order(page);
   await page.getByRole("button", { name: "검색", exact: true }).click();
   await page.getByRole("textbox", { name: "검색어" }).fill("옵션");
   await menu(page, "XLSX 내보내기");
-  await expect(page.getByRole("dialog")).toContainText("전체 테스트 12개");
+  await expect(page.getByRole("dialog")).toContainText(
+    "전체 테스트 케이스 12개",
+  );
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "XLSX 다운로드" }).click();
   const path = test.info().outputPath("cases.xlsx");
@@ -425,7 +451,7 @@ test("전체 시트 XLSX는 양식 이름과 데이터를 보존하며 공유는
   expect(workbook.worksheets[0].getCell("C2").text).toContain("상품 옵션");
   expect(workbook.worksheets[0].getCell("F1").text).toBe("테스트 데이터");
   await menu(page, "공유");
-  await page.getByRole("button", { name: "공유 시트 미리보기" }).click();
+  await page.getByRole("button", { name: "공유 시나리오 미리보기" }).click();
   await expect(page.getByText("읽기 전용", { exact: true })).toBeVisible();
   await expect(page.getByRole("table").getByRole("row")).toHaveCount(13);
   await page
@@ -434,7 +460,7 @@ test("전체 시트 XLSX는 양식 이름과 데이터를 보존하며 공유는
   await expect(page.getByRole("dialog")).toContainText("테스트 데이터");
   await expect(page.getByRole("dialog").locator("img, canvas")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /관련 화면/ })).toHaveCount(0);
-  await capture(page, "shared-sheet-detail.png");
+  await capture(page, "shared-test-scenario-detail.png");
   await page.getByRole("button", { name: "닫기", exact: true }).click();
   await layout(page, "QA 진행");
   await page.getByRole("button", { name: /TC-001 상품 옵션/ }).click();
@@ -442,7 +468,7 @@ test("전체 시트 XLSX는 양식 이름과 데이터를 보존하며 공유는
   await layout(page, "표");
   await expect(page.getByRole("table").getByRole("textbox")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "테스트 추가", exact: true }),
+    page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -501,8 +527,10 @@ test("플러그인에서 선택한 화면과 웹의 양식 선택이 연결된�
   ).toBeVisible();
   await expect(page.getByRole("checkbox").nth(2)).not.toBeChecked();
   await page.getByRole("button", { name: "테스트 준비", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "새 시트" })).toBeVisible();
-  await page.getByRole("button", { name: "시트 만들기", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "새 시나리오" })).toBeVisible();
+  await page
+    .getByRole("button", { name: "시나리오 만들기", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "테스트 범위", exact: true }),
   ).toBeVisible();

@@ -2,8 +2,8 @@ import { Button, Label, WorkspaceIcon } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FrameReference } from "@/entities/test-case";
-import type { EvidenceRegionDto } from "@/shared/api/generated";
-import { readEvidence } from "./evidence-api";
+import type { AnalysisRegionDto } from "@/shared/api/generated";
+import { readAnalysis } from "./analysis-api";
 import { frameFile } from "./uploads-api";
 
 export function SourceImage({
@@ -14,7 +14,7 @@ export function SourceImage({
 }: {
   projectId: string;
   frame: Pick<FrameReference, "id" | "imageFileId" | "name">;
-  region?: EvidenceRegionDto;
+  region?: AnalysisRegionDto;
   zoom?: number;
 }) {
   const image = useQuery({
@@ -82,22 +82,22 @@ export function SourceViewer({
 }) {
   const [selected, setSelected] = useState("");
   const [zoom, setZoom] = useState(1);
-  const [region, setRegion] = useState<EvidenceRegionDto>();
-  const evidence = useQuery({
-    queryKey: ["evidence", projectId],
-    queryFn: () => readEvidence(projectId),
+  const [region, setRegion] = useState<AnalysisRegionDto>();
+  const analysis = useQuery({
+    queryKey: ["analysis", projectId],
+    queryFn: () => readAnalysis(projectId),
   });
   const current = frames.find((f) => f.id === selected) ?? frames[0];
   const ids =
-    evidence.data?.links
+    analysis.data?.links
       .filter((l) => l.caseId === caseId)
       .map((l) => l.requirementId) ?? [];
   const requirements =
-    evidence.data?.items.filter(
+    analysis.data?.items.filter(
       (i) => ids.includes(i.id) && (!i.frameId || i.frameId === current?.id),
     ) ?? [];
   return (
-    <aside className="source-panel" aria-label="원본 대조">
+    <aside className="source-panel" aria-label="관련 자료 보기">
       <header>
         <h2>관련 자료</h2>
         <Button
@@ -114,7 +114,7 @@ export function SourceViewer({
           <Label htmlFor="source-frame">화면</Label>
           <select
             id="source-frame"
-            className="sheet-select"
+            className="test-scenario-select"
             value={current?.id ?? ""}
             onChange={(e) => {
               setSelected(e.target.value);
@@ -173,7 +173,7 @@ export function SourceViewer({
               </div>
             </>
           )}
-          <h3>근거 설명</h3>
+          <h3>연결된 요구사항</h3>
           {requirements.map((i) => (
             <article key={i.id}>
               <Button
@@ -188,15 +188,15 @@ export function SourceViewer({
               <p className="whitespace-pre-wrap">{i.answer || i.text}</p>
             </article>
           ))}
-          {!requirements.length && <p>연결 근거가 없습니다.</p>}
+          {!requirements.length && <p>연결된 요구사항이 없습니다.</p>}
         </>
       ) : (
         <p>화면 연결이 없습니다.</p>
       )}
-      {evidence.isError && (
+      {analysis.isError && (
         <p role="alert">
-          근거를 불러오지 못했습니다.
-          <Button variant="link" onClick={() => void evidence.refetch()}>
+          분석 결과를 불러오지 못했습니다.
+          <Button variant="link" onClick={() => void analysis.refetch()}>
             다시 불러오기
           </Button>
         </p>

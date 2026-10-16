@@ -9,9 +9,9 @@ import { configureApp } from "../src/common/application";
 import type { IaItemDto, IaPageDto } from "../src/contracts/ia.dto";
 import {
   projects as projectTable,
-  sheets,
   testCaseIaLinks,
   testCases,
+  testScenarios,
 } from "../src/database/schema";
 import { ProjectsRepository } from "../src/projects/projects.repository";
 import { openTestDatabase } from "./database";
@@ -244,8 +244,8 @@ test("IA HTTP preserves identity, hierarchy and references under concurrent chan
         assert.equal(blocked.status, 409);
         assert.equal((await errorValue(blocked)).code, "REFERENCE_IN_USE");
         const linked = await create("LINKED");
-        const [sheet] = await lease.database.db
-          .insert(sheets)
+        const [testScenario] = await lease.database.db
+          .insert(testScenarios)
           .values({
             projectId,
             name: "참조 검증",
@@ -257,7 +257,7 @@ test("IA HTTP preserves identity, hierarchy and references under concurrent chan
         await lease.database.db.insert(testCases).values({
           id: caseId,
           projectId,
-          sheetId: sheet.id,
+          testScenarioId: testScenario.id,
           position: 0,
           caseCode: "",
           title: "",
@@ -314,8 +314,8 @@ test("IA HTTP preserves identity, hierarchy and references under concurrent chan
       "project locking serializes reference writers with deletion",
       async () => {
         const target = await create("LOCKED");
-        const [sheet] = await lease.database.db
-          .insert(sheets)
+        const [testScenario] = await lease.database.db
+          .insert(testScenarios)
           .values({
             projectId,
             name: "경합 검증",
@@ -327,7 +327,7 @@ test("IA HTTP preserves identity, hierarchy and references under concurrent chan
         await lease.database.db.insert(testCases).values({
           id: caseId,
           projectId,
-          sheetId: sheet.id,
+          testScenarioId: testScenario.id,
           position: 0,
           caseCode: "",
           title: "",

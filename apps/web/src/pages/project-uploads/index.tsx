@@ -25,9 +25,9 @@ import {
   listUploads,
 } from "@/shared/api/generated/sdk.gen";
 import type {
-  CreateSheetDto,
-  SheetPageDto,
-  SheetSnapshotDto,
+  CreateTestScenarioDto,
+  TestScenarioPageDto,
+  TestScenarioSnapshotDto,
 } from "@/shared/api/generated/types.gen";
 import { LoadingSkeleton } from "@/shared/ui/workspace";
 import { FrameDataDownload, FramePreview } from "./frame-preview";
@@ -37,16 +37,16 @@ export type ProjectUploadsPageProps = {
   projectId: string;
   onOpenUpload: (uploadId: string) => void;
 };
-export type UploadSheetGateway = {
-  list: (cursor?: string) => Promise<SheetPageDto>;
-  create: (input: CreateSheetDto) => Promise<SheetSnapshotDto>;
+export type UploadTestScenarioGateway = {
+  list: (cursor?: string) => Promise<TestScenarioPageDto>;
+  create: (input: CreateTestScenarioDto) => Promise<TestScenarioSnapshotDto>;
 };
 export type ProjectUploadDetailPageProps = {
   projectId: string;
   uploadId: string;
   onBack: () => void;
-  onOpenSheet: (sheetId: string) => void;
-  sheetGateway?: UploadSheetGateway;
+  onOpenTestScenario: (testScenarioId: string) => void;
+  testScenarioGateway?: UploadTestScenarioGateway;
 };
 
 function useProject(projectId: string) {
@@ -158,21 +158,21 @@ export function ProjectUploadsPage({
   );
 }
 
-function UploadSheets({
+function UploadTestScenarios({
   projectId,
   uploadId,
   uploadName,
-  onOpenSheet,
+  onOpenTestScenario,
   gateway,
 }: {
   projectId: string;
   uploadId: string;
   uploadName: string;
-  onOpenSheet: (sheetId: string) => void;
-  gateway: UploadSheetGateway;
+  onOpenTestScenario: (testScenarioId: string) => void;
+  gateway: UploadTestScenarioGateway;
 }) {
   const queryClient = useQueryClient();
-  const [newSheetOpen, setNewSheetOpen] = useState(false);
+  const [newTestScenarioOpen, setNewTestScenarioOpen] = useState(false);
   const [name, setName] = useState(uploadName.slice(0, 100));
   const [kind, setKind] = useState<"unit" | "integration">("unit");
   const [creating, setCreating] = useState(false);
@@ -186,8 +186,8 @@ function UploadSheets({
   }, []);
   const [error, setError] = useState("");
   const [uncertain, setUncertain] = useState(false);
-  const sheets = useInfiniteQuery({
-    queryKey: ["upload-sheets", projectId, uploadId],
+  const testScenarios = useInfiniteQuery({
+    queryKey: ["upload-testScenarios", projectId, uploadId],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => gateway.list(pageParam),
     getNextPageParam: (page) => page.nextCursor ?? undefined,
@@ -197,20 +197,20 @@ function UploadSheets({
     creatingRef.current = true;
     setCreating(true);
     setError("");
-    let sheetId: string | undefined;
+    let testScenarioId: string | undefined;
     try {
       const result = await gateway.create({
         name: name.trim(),
         kind,
         uploadId,
       });
-      sheetId = result.id;
+      testScenarioId = result.id;
     } catch (caught) {
       const safeError = uploadError(
         caught,
-        "시트 생성 결과를 확인하지 못했습니다.",
+        "시나리오 생성 결과를 확인하지 못했습니다.",
       );
-      if (safeError === "시트 생성 결과를 확인하지 못했습니다.") {
+      if (safeError === "시나리오 생성 결과를 확인하지 못했습니다.") {
         setUncertain(true);
         setError(safeError);
       } else setError(safeError);
@@ -218,76 +218,83 @@ function UploadSheets({
       setCreating(false);
       creatingRef.current = false;
     }
-    if (sheetId) {
+    if (testScenarioId) {
       void queryClient.invalidateQueries({
-        queryKey: ["upload-sheets", projectId, uploadId],
+        queryKey: ["upload-testScenarios", projectId, uploadId],
       });
-      if (mounted.current) onOpenSheet(sheetId);
+      if (mounted.current) onOpenTestScenario(testScenarioId);
     }
   }
-  const items = sheets.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = testScenarios.data?.pages.flatMap((page) => page.items) ?? [];
   async function refresh() {
-    const result = await sheets.refetch();
+    const result = await testScenarios.refetch();
     if (result.isSuccess) {
       setUncertain(false);
       setError("");
     }
   }
   return (
-    <section aria-labelledby="upload-sheets" className="space-y-4">
+    <section aria-labelledby="upload-testScenarios" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 id="upload-sheets" className="text-heading font-heading">
-          테스트 시트
+        <h2 id="upload-testScenarios" className="text-heading font-heading">
+          테스트 시나리오
         </h2>
         <Button
           variant="outline"
-          disabled={sheets.isFetching || creating}
+          disabled={testScenarios.isFetching || creating}
           onClick={() => void refresh()}
         >
-          시트 새로고침
+          시나리오 새로고침
         </Button>
       </div>
-      {sheets.isPending && (
+      {testScenarios.isPending && (
         <p role="status" className="text-muted">
-          시트 불러오는 중
+          시나리오 불러오는 중
         </p>
       )}
-      {sheets.isError && (
+      {testScenarios.isError && (
         <p role="alert" className="text-danger">
           {uploadError(
-            sheets.error,
-            "시트를 불러오지 못했습니다. 다시 불러와주세요.",
+            testScenarios.error,
+            "시나리오를 불러오지 못했습니다. 다시 불러와주세요.",
           )}
         </p>
       )}
-      {sheets.isSuccess && items.length === 0 && (
-        <p className="text-label text-muted">연결된 시트가 없습니다.</p>
+      {testScenarios.isSuccess && items.length === 0 && (
+        <p className="text-label text-muted">연결된 시나리오가 없습니다.</p>
       )}
       <ul className="flex flex-wrap gap-2">
-        {items.map((sheet) => (
-          <li key={sheet.id}>
-            <Button variant="outline" onClick={() => onOpenSheet(sheet.id)}>
-              {sheet.name} · {sheet.kind === "unit" ? "단위" : "통합"}
+        {items.map((testScenario) => (
+          <li key={testScenario.id}>
+            <Button
+              variant="outline"
+              className="h-auto flex-col items-start"
+              onClick={() => onOpenTestScenario(testScenario.id)}
+            >
+              <span>{testScenario.name}</span>
+              <span className="text-muted">
+                {testScenario.kind === "unit" ? "단위 테스트" : "통합 테스트"}
+              </span>
             </Button>
           </li>
         ))}
       </ul>
-      {sheets.hasNextPage && (
+      {testScenarios.hasNextPage && (
         <Button
           variant="ghost"
-          disabled={sheets.isFetchingNextPage || creating}
-          onClick={() => void sheets.fetchNextPage()}
+          disabled={testScenarios.isFetchingNextPage || creating}
+          onClick={() => void testScenarios.fetchNextPage()}
         >
-          시트 더 보기
+          시나리오 더 보기
         </Button>
       )}
-      <Button onClick={() => setNewSheetOpen(true)}>
+      <Button onClick={() => setNewTestScenarioOpen(true)}>
         <WorkspaceIcon name="plus" />
-        시트 만들기
+        시나리오 만들기
       </Button>
-      <Dialog open={newSheetOpen} onOpenChange={setNewSheetOpen}>
+      <Dialog open={newTestScenarioOpen} onOpenChange={setNewTestScenarioOpen}>
         <DialogContent aria-describedby={undefined}>
-          <DialogTitle>새 시트</DialogTitle>
+          <DialogTitle>새 시나리오</DialogTitle>
           <form
             className="space-y-4"
             onSubmit={(event) => {
@@ -297,9 +304,9 @@ function UploadSheets({
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="new-sheet-name">시트 이름</Label>
+                <Label htmlFor="new-test-scenario-name">시나리오 이름</Label>
                 <Input
-                  id="new-sheet-name"
+                  id="new-test-scenario-name"
                   value={name}
                   onValueChange={setName}
                   maxLength={100}
@@ -308,7 +315,7 @@ function UploadSheets({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-sheet-kind">시트 종류</Label>
+                <Label htmlFor="new-test-scenario-kind">시나리오 종류</Label>
                 <Select
                   items={[
                     { value: "unit", label: "단위 테스트" },
@@ -321,7 +328,7 @@ function UploadSheets({
                   }}
                   disabled={creating || uncertain}
                 >
-                  <SelectTrigger id="new-sheet-kind" className="w-full">
+                  <SelectTrigger id="new-test-scenario-kind" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -338,17 +345,20 @@ function UploadSheets({
             )}
             {uncertain && (
               <p className="text-label text-muted">
-                시트 목록을 새로고침해 생성된 시트를 확인해주세요. 목록에 없다면
-                다시 만들어주세요.
+                시나리오 목록을 새로고침해 생성된 시나리오를 확인해주세요.
+                목록에 없다면 다시 만들어주세요.
               </p>
             )}
             <Button
               type="submit"
               disabled={
-                !name.trim() || creating || uncertain || !sheets.isSuccess
+                !name.trim() ||
+                creating ||
+                uncertain ||
+                !testScenarios.isSuccess
               }
             >
-              {creating ? "시트 만드는 중" : "시트 만들기"}
+              {creating ? "시나리오 만드는 중" : "시나리오 만들기"}
             </Button>
           </form>
         </DialogContent>
@@ -361,8 +371,8 @@ export function ProjectUploadDetailPage({
   projectId,
   uploadId,
   onBack,
-  onOpenSheet,
-  sheetGateway,
+  onOpenTestScenario,
+  testScenarioGateway,
 }: ProjectUploadDetailPageProps) {
   const project = useProject(projectId);
   const upload = useQuery({
@@ -407,14 +417,14 @@ export function ProjectUploadDetailPage({
               {date(upload.data.createdAt)}
             </p>
           </header>
-          {sheetGateway && (
-            <UploadSheets
+          {testScenarioGateway && (
+            <UploadTestScenarios
               key={`${projectId}/${uploadId}`}
               projectId={projectId}
               uploadId={uploadId}
               uploadName={upload.data.name}
-              onOpenSheet={onOpenSheet}
-              gateway={sheetGateway}
+              onOpenTestScenario={onOpenTestScenario}
+              gateway={testScenarioGateway}
             />
           )}
           <section aria-labelledby="upload-frames" className="space-y-4">

@@ -4,11 +4,11 @@ import { ApiError } from "../common/errors";
 import { API_ENV, type ApiEnv } from "../config/env";
 import type {
   AddGeneratedCasesDto,
-  ReviewCandidateDto,
+  ReviewGenerationResultDto,
   StartGenerationDto,
 } from "../contracts/generation.dto";
 import { FilesService } from "../files/files.service";
-import { extractEvidence } from "../uploads/extract-evidence";
+import { extractAnalysis } from "../uploads/extract-analysis";
 import {
   GenerationRepository,
   type Job,
@@ -56,7 +56,11 @@ export class GenerationService implements OnModuleDestroy {
       ],
     };
   }
-  async start(projectId: string, sheetId: string, request: StartGenerationDto) {
+  async start(
+    projectId: string,
+    testScenarioId: string,
+    request: StartGenerationDto,
+  ) {
     const provider = this.providers().items.find(
       (p) => p.id === request.provider,
     );
@@ -72,7 +76,7 @@ export class GenerationService implements OnModuleDestroy {
       );
     const { job, created } = await this.repository.start(
       projectId.toLowerCase(),
-      sheetId.toLowerCase(),
+      testScenarioId.toLowerCase(),
       {
         ...request,
         clientRequestId: request.clientRequestId.toLowerCase(),
@@ -80,7 +84,7 @@ export class GenerationService implements OnModuleDestroy {
           request.uploadId === null ? null : request.uploadId?.toLowerCase(),
         frameIds: request.frameIds?.map((id) => id.toLowerCase()),
         requirementIds: request.requirementIds?.map((id) => id.toLowerCase()),
-        exampleSheetId: request.exampleSheetId?.toLowerCase(),
+        exampleTestScenarioId: request.exampleTestScenarioId?.toLowerCase(),
       },
       provider.model,
     );
@@ -93,34 +97,37 @@ export class GenerationService implements OnModuleDestroy {
     }
     return present(job);
   }
-  list(projectId: string, sheetId: string) {
-    return this.repository.list(projectId.toLowerCase(), sheetId.toLowerCase());
+  list(projectId: string, testScenarioId: string) {
+    return this.repository.list(
+      projectId.toLowerCase(),
+      testScenarioId.toLowerCase(),
+    );
   }
   add(
     projectId: string,
-    sheetId: string,
+    testScenarioId: string,
     jobId: string,
     input: AddGeneratedCasesDto,
   ) {
     return this.repository.add(
       projectId.toLowerCase(),
-      sheetId.toLowerCase(),
+      testScenarioId.toLowerCase(),
       jobId.toLowerCase(),
       input,
     );
   }
   review(
     projectId: string,
-    sheetId: string,
+    testScenarioId: string,
     jobId: string,
-    candidateId: string,
-    input: ReviewCandidateDto,
+    resultId: string,
+    input: ReviewGenerationResultDto,
   ) {
     return this.repository.review(
       projectId.toLowerCase(),
-      sheetId.toLowerCase(),
+      testScenarioId.toLowerCase(),
       jobId.toLowerCase(),
-      candidateId.toLowerCase(),
+      resultId.toLowerCase(),
       input,
     );
   }
@@ -129,7 +136,7 @@ export class GenerationService implements OnModuleDestroy {
     const images: PreparedInput["images"] = [];
     const frames: unknown[] = [];
     let totalBytes = 0;
-    const sourceCandidates: import("../contracts/evidence.dto").EvidenceItemDto[] =
+    const sourceCandidates: import("../contracts/analysis.dto").AnalysisItemDto[] =
       [];
     for (const frame of context.frames) {
       const buffers: Buffer[] = [];
@@ -151,9 +158,9 @@ export class GenerationService implements OnModuleDestroy {
       const raw = JSON.parse(buffers[0].toString("utf8"));
       if (
         job.request.mode === "review" &&
-        !context.evidence?.items.some((i) => i.frameId === frame.id)
+        !context.analysis?.items.some((i) => i.frameId === frame.id)
       )
-        sourceCandidates.push(...extractEvidence(raw, frame.id));
+        sourceCandidates.push(...extractAnalysis(raw, frame.id));
       frames.push({
         id: frame.id,
         name: frame.name,
@@ -173,14 +180,14 @@ export class GenerationService implements OnModuleDestroy {
       throw new ApiError(
         413,
         "AI_INPUT_TOO_LARGE",
-        "프레임 데이터와 예시가 너무 큽니다. 업로드 범위나 예시 케이스를 줄여주세요.",
+        "프레임 데이터와 예시가 너무 큽니다. 업로드 범위나 예시 테스트 케이스를 줄여주세요.",
       );
     return {
       text,
       images,
       sourceCandidates,
-      sourceItems: context.evidence?.items ?? [],
-      sourceRevision: context.evidence?.revision ?? 0,
+      sourceItems: context.analysis?.items ?? [],
+      sourceRevision: context.analysis?.revision ?? 0,
       frameIds: context.frames.map((f) => f.id),
       screenIds: context.ia.map((i) => i.id),
       customColumnIds: job.snapshot.columns
@@ -310,7 +317,7 @@ export class GenerationService implements OnModuleDestroy {
       const message =
         error instanceof ApiError
           ? error.message
-          : "생성을 완료하지 못했습니다. 기존 시트는 유지됩니다. 입력과 서버 연결을 확인한 뒤 다시 생성해주세요.";
+          : "생성을 완료하지 못했습니다. 기존 시나리오는 유지됩니다. 입력과 서버 연결을 확인한 뒤 다시 생성해주세요.";
       await this.repository.fail(job, message).catch(() => {
         process.stderr.write(
           "Generation failure status could not be saved; lease will expire.\n",

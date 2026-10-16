@@ -1,4 +1,4 @@
-.sheet-table-scroll {
+.test-scenario-table-scroll {
   max-width: 100%;
   overflow: auto;
   max-height: calc(100dvh - var(--spacing-control-lg) * 5);
@@ -6,7 +6,7 @@
   border-radius: var(--radius-panel);
   background: var(--color-surface);
 }
-.sheet-table {
+.test-scenario-table {
   min-width: 100%;
   table-layout: fixed;
   border-collapse: separate;
@@ -14,14 +14,14 @@
   font-size: var(--text-label);
   line-height: var(--text-label--line-height);
 }
-.sheet-table thead {
+.test-scenario-table thead {
   position: sticky;
   top: 0;
   z-index: var(--layer-sticky);
   background: var(--color-surface-hover);
 }
-.sheet-table th,
-.sheet-table td {
+.test-scenario-table th,
+.test-scenario-table td {
   box-sizing: border-box;
   border-right: var(--border-width-default) solid var(--color-border);
   border-bottom: var(--border-width-default) solid var(--color-border);
@@ -29,26 +29,26 @@
   text-align: left;
   vertical-align: top;
 }
-.sheet-table th {
+.test-scenario-table th {
   font-weight: var(--font-weight-label);
 }
-.sheet-table td[data-column] {
+.test-scenario-table td[data-column] {
   cursor: text;
   border-color: var(--color-border);
   outline: none;
 }
-.sheet-table [aria-selected="true"] {
+.test-scenario-table [aria-selected="true"] {
   background: var(--color-surface-selected);
 }
-.sheet-table td[data-column]:focus {
+.test-scenario-table td[data-column]:focus {
   border-color: var(--color-focus-border);
 }
-.sheet-cell-content {
+.test-scenario-cell-content {
   position: relative;
   min-width: 0;
 }
-.sheet-cell-text,
-.sheet-cell-content .cd-textarea {
+.test-scenario-cell-text,
+.test-scenario-cell-content .cd-textarea {
   box-sizing: border-box;
   padding: 0;
   border-width: var(--border-width-default);
@@ -58,15 +58,15 @@
   overflow-wrap: anywhere;
   min-height: var(--spacing-control-lg);
 }
-.sheet-cell-text {
+.test-scenario-cell-text {
   display: block;
   border-color: transparent;
 }
-.sheet-cell-content[data-editing="true"] .sheet-cell-text {
+.test-scenario-cell-content[data-editing="true"] .test-scenario-cell-text {
   visibility: hidden;
 }
 /* The text mirror keeps row height stable when entering and leaving editing. */
-.sheet-cell-content :is(.cd-textarea, select) {
+.test-scenario-cell-content :is(.cd-textarea, select) {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
@@ -76,17 +76,17 @@
   resize: none;
   overflow: hidden;
 }
-.sheet-column-header {
+.test-scenario-column-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-2);
 }
-.sheet-column-header > span {
+.test-scenario-column-header > span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.sheet-resize {
+.test-scenario-resize {
   flex: none;
   width: var(--spacing-3);
   align-self: stretch;
@@ -96,30 +96,30 @@
   border: var(--border-width-default) solid var(--color-border-control);
   border-radius: var(--radius-small);
 }
-.sheet-resize:focus-visible {
+.test-scenario-resize:focus-visible {
   outline: none;
   border-color: var(--color-focus-border);
 }
 
-.sheet-table-scroll {
+.test-scenario-table-scroll {
   border: 0;
   border-radius: 0;
   max-height: calc(100dvh - 300px);
 }
-.sheet-table {
+.test-scenario-table {
   border-top: var(--border-width-default) solid var(--color-border);
 }
-.sheet-table thead {
+.test-scenario-table thead {
   background: var(--color-surface);
   color: var(--color-muted);
 }
-.sheet-table th {
+.test-scenario-table th {
   position: relative;
 }
-.sheet-column-header {
+.test-scenario-column-header {
   min-height: var(--spacing-8);
 }
-.sheet-resize {
+.test-scenario-resize {
   position: absolute;
   right: -3px;
   top: 0;
@@ -131,14 +131,14 @@
   z-index: 2;
   touch-action: none;
 }
-.sheet-resize:hover,
-.sheet-resize:focus-visible {
+.test-scenario-resize:hover,
+.test-scenario-resize:focus-visible {
   background: var(--color-primary);
 }
-.sheet-table tbody tr {
+.test-scenario-table tbody tr {
   position: relative;
 }
-.sheet-row-resize {
+.test-scenario-row-resize {
   position: absolute;
   left: 0;
   bottom: -3px;
@@ -151,36 +151,36 @@
   z-index: 2;
   touch-action: none;
 }
-.sheet-row-resize:hover,
-.sheet-row-resize:focus-visible {
+.test-scenario-row-resize:hover,
+.test-scenario-row-resize:focus-visible {
   background: var(--color-primary);
   outline: 0;
 }
-.sheet-table td[data-column] {
+.test-scenario-table td[data-column] {
   position: relative;
 }
-.sheet-open-detail {
+.test-scenario-open-detail {
   position: absolute;
   right: var(--spacing-1);
   top: var(--spacing-1);
   z-index: 1;
   opacity: 0;
 }
-.sheet-table td:hover > .sheet-open-detail,
-.sheet-open-detail:focus-visible {
+.test-scenario-table td:hover > .test-scenario-open-detail,
+.test-scenario-open-detail:focus-visible {
   opacity: 1;
   background: var(--color-surface);
 }
 @media (max-width: 700px) {
-  .sheet-table-scroll {
+  .test-scenario-table-scroll {
     max-height: calc(100dvh - 260px);
   }
-  .sheet-open-detail {
+  .test-scenario-open-detail {
     opacity: 1;
   }
 }
 
-.sheet-cell-content[style] :is(.cd-textarea, select) {
+.test-scenario-cell-content[style] :is(.cd-textarea, select) {
   min-height: 0;
   overflow: auto;
 }

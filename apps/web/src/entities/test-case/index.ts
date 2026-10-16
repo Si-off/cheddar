@@ -2,7 +2,7 @@ export {
   type EditorState,
   SaveError,
   type SaveTransport,
-  SheetSession,
+  TestScenarioSession,
 } from "./autosave";
 export { clearDraft, listDrafts, type StoredDraft } from "./draft-storage";
 export {

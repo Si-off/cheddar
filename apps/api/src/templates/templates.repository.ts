@@ -17,7 +17,7 @@ export class TemplatesRepository {
     @Inject(DatabaseService) private readonly database: DatabaseService,
   ) {}
 
-  /** Caller holds the project row lock when copying a template into a sheet. Never initializes on read. */
+  /** Caller holds the project row lock when copying a template into a testScenario. Never initializes on read. */
   async readSnapshot(
     tx: DatabaseTransaction,
     projectId: string,

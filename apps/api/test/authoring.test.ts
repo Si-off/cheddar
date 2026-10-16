@@ -5,12 +5,12 @@ import { test } from "node:test";
 import { Test } from "@nestjs/testing";
 import { appModule } from "../src/app.module";
 import { configureApp } from "../src/common/application";
-import type { EvidenceDto } from "../src/contracts/evidence.dto";
+import type { AnalysisDto } from "../src/contracts/analysis.dto";
 import type { GenerationDto } from "../src/contracts/generation.dto";
-import type { SheetSnapshotDto } from "../src/contracts/sheets.dto";
+import type { TestScenarioSnapshotDto } from "../src/contracts/test-scenarios.dto";
 import type { UploadDto } from "../src/contracts/uploads.dto";
 import { LocalStorage } from "../src/storage/local-storage";
-import { extractEvidence } from "../src/uploads/extract-evidence";
+import { extractAnalysis } from "../src/uploads/extract-analysis";
 import { openTestDatabase } from "./database";
 
 const sourceDocument = {
@@ -33,7 +33,7 @@ const sourceDocument = {
   },
 };
 test("source extraction preserves exact text and relative original location", () => {
-  const items = extractEvidence(sourceDocument, randomUUID());
+  const items = extractAnalysis(sourceDocument, randomUUID());
   const text = items.find((i) => i.kind === "requirement");
   assert.equal(text?.text, "쿠폰은 상품 금액에서 차감한다.");
   assert.equal(text?.nodeId, "1:2");
@@ -45,7 +45,7 @@ test("source extraction preserves exact text and relative original location", ()
   });
   assert.equal(text?.parentId, items[0].id);
   assert.throws(() =>
-    extractEvidence({ arbitrary: "unsupported" }, randomUUID()),
+    extractAnalysis({ arbitrary: "unsupported" }, randomUUID()),
   );
 });
 test("authoring HTTP flow preserves existing cases, scopes AI sources, stores answers and adds reviewed cases atomically", async () => {
@@ -205,13 +205,13 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
     });
     assert.equal(uploadResponse.status, 201);
     const upload = (await uploadResponse.json()) as UploadDto;
-    const sheet = (await (
-      await req(`${prefix}/sheets`, "POST", {
+    const testScenario = (await (
+      await req(`${prefix}/test-scenarios`, "POST", {
         name: "QA",
         kind: "unit",
         uploadId: upload.id,
       })
-    ).json()) as SheetSnapshotDto;
+    ).json()) as TestScenarioSnapshotDto;
     const manual = {
       id: randomUUID(),
       caseCode: "MANUAL-1",
@@ -225,14 +225,14 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
       customValues: {},
     };
     let saved = (await (
-      await req(`${prefix}/sheets/${sheet.id}/content`, "PUT", {
-        expectedRevision: sheet.contentRevision,
-        columns: sheet.columns,
+      await req(`${prefix}/test-scenarios/${testScenario.id}/content`, "PUT", {
+        expectedRevision: testScenario.contentRevision,
+        columns: testScenario.columns,
         cases: [manual],
       })
-    ).json()) as SheetSnapshotDto;
+    ).json()) as TestScenarioSnapshotDto;
     const wrongFrame = await req(
-      `${prefix}/sheets/${sheet.id}/generations`,
+      `${prefix}/test-scenarios/${testScenario.id}/generations`,
       "POST",
       {
         mode: "review",
@@ -253,7 +253,7 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
       frameIds: [upload.frames[0].id],
     };
     const started = await req(
-      `${prefix}/sheets/${sheet.id}/generations`,
+      `${prefix}/test-scenarios/${testScenario.id}/generations`,
       "POST",
       start,
     );
@@ -262,7 +262,7 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
     async function finished(id: string) {
       for (let n = 0; n < 100; n++) {
         const list = (await (
-          await req(`${prefix}/sheets/${sheet.id}/generations`)
+          await req(`${prefix}/test-scenarios/${testScenario.id}/generations`)
         ).json()) as { items: GenerationDto[] };
         const current = list.items.find((j) => j.id === id);
         if (current?.status !== "running") return current;
@@ -280,31 +280,31 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
       true,
     );
     saved = (await (
-      await req(`${prefix}/sheets/${sheet.id}`)
-    ).json()) as SheetSnapshotDto;
+      await req(`${prefix}/test-scenarios/${testScenario.id}`)
+    ).json()) as TestScenarioSnapshotDto;
     assert.deepEqual(
       saved.cases.map((c) => c.id),
       [manual.id],
     );
-    const generated = result.candidates.find((c) => c.kind === "case");
+    const generated = result.results.find((c) => c.kind === "case");
     assert.ok(generated);
-    let evidence = (await (
-      await req(`${prefix}/evidence`)
-    ).json()) as EvidenceDto;
+    let analysis = (await (
+      await req(`${prefix}/analysis`)
+    ).json()) as AnalysisDto;
     assert.equal(
-      evidence.items.some((i) => i.kind === "question"),
+      analysis.items.some((i) => i.kind === "question"),
       true,
     );
     assert.equal(
-      evidence.items
+      analysis.items
         .filter((i) => i.frameId)
         .every((i) => i.frameId === upload.frames[0].id),
       true,
     );
     assert.equal(
       (
-        await req(`/projects/${otherProject}/evidence`, "PUT", {
-          ...evidence,
+        await req(`/projects/${otherProject}/analysis`, "PUT", {
+          ...analysis,
           revision: 0,
         })
       ).status,
@@ -312,44 +312,48 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
       "source frames cannot cross projects",
     );
     const cyclic = {
-      ...evidence,
-      items: evidence.items.map((i, index) =>
+      ...analysis,
+      items: analysis.items.map((i, index) =>
         index === 0 ? { ...i, parentId: i.id } : i,
       ),
     };
-    assert.equal((await req(`${prefix}/evidence`, "PUT", cyclic)).status, 400);
+    assert.equal((await req(`${prefix}/analysis`, "PUT", cyclic)).status, 400);
     assert.equal(
-      (await req(`${prefix}/evidence`, "PUT", { ...evidence, revision: 0 }))
+      (await req(`${prefix}/analysis`, "PUT", { ...analysis, revision: 0 }))
         .status,
       409,
     );
     const addition = {
       expectedRevision: result.revision,
-      sheetRevision: saved.contentRevision,
-      candidateIds: [generated.id],
+      testScenarioRevision: saved.contentRevision,
+      resultIds: [generated.id],
     };
-    const changed = await req(`${prefix}/sheets/${sheet.id}/content`, "PUT", {
-      expectedRevision: saved.contentRevision,
-      columns: saved.columns,
-      cases: [{ ...manual, title: "수정 보존" }],
-    });
+    const changed = await req(
+      `${prefix}/test-scenarios/${testScenario.id}/content`,
+      "PUT",
+      {
+        expectedRevision: saved.contentRevision,
+        columns: saved.columns,
+        cases: [{ ...manual, title: "수정 보존" }],
+      },
+    );
     assert.equal(changed.status, 200);
-    saved = (await changed.json()) as SheetSnapshotDto;
-    const addPath = `${prefix}/sheets/${sheet.id}/generations/${job.id}/add`;
+    saved = (await changed.json()) as TestScenarioSnapshotDto;
+    const addPath = `${prefix}/test-scenarios/${testScenario.id}/generations/${job.id}/add`;
     assert.equal(
       (await req(addPath, "POST", addition)).status,
       409,
-      "stale sheet revision must preserve current edits",
+      "stale testScenario revision must preserve current edits",
     );
     const added = await req(addPath, "POST", {
       ...addition,
-      sheetRevision: saved.contentRevision,
+      testScenarioRevision: saved.contentRevision,
     });
     assert.equal(added.status, 201, await added.clone().text());
     result = (await added.json()) as GenerationDto;
     saved = (await (
-      await req(`${prefix}/sheets/${sheet.id}`)
-    ).json()) as SheetSnapshotDto;
+      await req(`${prefix}/test-scenarios/${testScenario.id}`)
+    ).json()) as TestScenarioSnapshotDto;
     assert.equal(saved.cases.length, 2);
     assert.equal(saved.cases[0].title, "수정 보존");
     assert.equal(
@@ -357,25 +361,25 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
         await req(addPath, "POST", {
           ...addition,
           expectedRevision: result.revision,
-          sheetRevision: saved.contentRevision,
+          testScenarioRevision: saved.contentRevision,
         })
       ).status,
       400,
       "added result cannot be added twice",
     );
-    evidence = (await (await req(`${prefix}/evidence`)).json()) as EvidenceDto;
+    analysis = (await (await req(`${prefix}/analysis`)).json()) as AnalysisDto;
     assert.equal(
-      evidence.links.some((l) => l.caseId === generated.id),
+      analysis.links.some((l) => l.caseId === generated.id),
       true,
     );
-    const question = evidence.items.find((i) => i.kind === "question");
+    const question = analysis.items.find((i) => i.kind === "question");
     assert.ok(question);
     question.answer = "결제 실패 시 쿠폰을 다시 사용할 수 있다.";
     question.useAsRule = false;
-    const answer = await req(`${prefix}/evidence`, "PUT", evidence);
+    const answer = await req(`${prefix}/analysis`, "PUT", analysis);
     assert.equal(answer.status, 200);
     const refine = await req(
-      `${prefix}/sheets/${sheet.id}/generations`,
+      `${prefix}/test-scenarios/${testScenario.id}/generations`,
       "POST",
       {
         mode: "review",

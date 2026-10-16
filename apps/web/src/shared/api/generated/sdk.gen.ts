@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddGeneratedCasesData, AddGeneratedCasesErrors, AddGeneratedCasesResponses, CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateSheetData, CreateSheetErrors, CreateSheetResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportSheetXlsxData, ExportSheetXlsxErrors, ExportSheetXlsxResponses, ExtractEvidenceData, ExtractEvidenceErrors, ExtractEvidenceResponses, GetEvidenceData, GetEvidenceErrors, GetEvidenceResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSheetData, GetSheetErrors, GetSheetResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListSheetsData, ListSheetsErrors, ListSheetsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReviewCandidateData, ReviewCandidateErrors, ReviewCandidateResponses, SaveEvidenceData, SaveEvidenceErrors, SaveEvidenceResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateSheetContentData, UpdateSheetContentErrors, UpdateSheetContentResponses, UpdateSheetViewData, UpdateSheetViewErrors, UpdateSheetViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
+import type { AddGeneratedCasesData, AddGeneratedCasesErrors, AddGeneratedCasesResponses, CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateTestScenarioData, CreateTestScenarioErrors, CreateTestScenarioResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportTestScenarioXlsxData, ExportTestScenarioXlsxErrors, ExportTestScenarioXlsxResponses, ExtractAnalysisData, ExtractAnalysisErrors, ExtractAnalysisResponses, GetAnalysisData, GetAnalysisErrors, GetAnalysisResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetTestScenarioData, GetTestScenarioErrors, GetTestScenarioResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListTestScenariosData, ListTestScenariosErrors, ListTestScenariosResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReviewGenerationResultData, ReviewGenerationResultErrors, ReviewGenerationResultResponses, SaveAnalysisData, SaveAnalysisErrors, SaveAnalysisResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateTestScenarioContentData, UpdateTestScenarioContentErrors, UpdateTestScenarioContentResponses, UpdateTestScenarioViewData, UpdateTestScenarioViewErrors, UpdateTestScenarioViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -73,10 +73,10 @@ export const createUpload = <ThrowOnError extends boolean = false>(options: Opti
 
 export const getUpload = <ThrowOnError extends boolean = false>(options: Options<GetUploadData, ThrowOnError>): RequestResult<GetUploadResponses, GetUploadErrors, ThrowOnError> => (options.client ?? client).get<GetUploadResponses, GetUploadErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/uploads/{uploadId}', ...options });
 
-export const getEvidence = <ThrowOnError extends boolean = false>(options: Options<GetEvidenceData, ThrowOnError>): RequestResult<GetEvidenceResponses, GetEvidenceErrors, ThrowOnError> => (options.client ?? client).get<GetEvidenceResponses, GetEvidenceErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/evidence', ...options });
+export const getAnalysis = <ThrowOnError extends boolean = false>(options: Options<GetAnalysisData, ThrowOnError>): RequestResult<GetAnalysisResponses, GetAnalysisErrors, ThrowOnError> => (options.client ?? client).get<GetAnalysisResponses, GetAnalysisErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/analysis', ...options });
 
-export const saveEvidence = <ThrowOnError extends boolean = false>(options: Options<SaveEvidenceData, ThrowOnError>): RequestResult<SaveEvidenceResponses, SaveEvidenceErrors, ThrowOnError> => (options.client ?? client).put<SaveEvidenceResponses, SaveEvidenceErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/evidence',
+export const saveAnalysis = <ThrowOnError extends boolean = false>(options: Options<SaveAnalysisData, ThrowOnError>): RequestResult<SaveAnalysisResponses, SaveAnalysisErrors, ThrowOnError> => (options.client ?? client).put<SaveAnalysisResponses, SaveAnalysisErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/analysis',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -84,8 +84,8 @@ export const saveEvidence = <ThrowOnError extends boolean = false>(options: Opti
     }
 });
 
-export const extractEvidence = <ThrowOnError extends boolean = false>(options: Options<ExtractEvidenceData, ThrowOnError>): RequestResult<ExtractEvidenceResponses, ExtractEvidenceErrors, ThrowOnError> => (options.client ?? client).post<ExtractEvidenceResponses, ExtractEvidenceErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/evidence/extract',
+export const extractAnalysis = <ThrowOnError extends boolean = false>(options: Options<ExtractAnalysisData, ThrowOnError>): RequestResult<ExtractAnalysisResponses, ExtractAnalysisErrors, ThrowOnError> => (options.client ?? client).post<ExtractAnalysisResponses, ExtractAnalysisErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/analysis/extract',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -126,10 +126,10 @@ export const updateProjectTemplate = <ThrowOnError extends boolean = false>(opti
     }
 });
 
-export const listSheets = <ThrowOnError extends boolean = false>(options: Options<ListSheetsData, ThrowOnError>): RequestResult<ListSheetsResponses, ListSheetsErrors, ThrowOnError> => (options.client ?? client).get<ListSheetsResponses, ListSheetsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/sheets', ...options });
+export const listTestScenarios = <ThrowOnError extends boolean = false>(options: Options<ListTestScenariosData, ThrowOnError>): RequestResult<ListTestScenariosResponses, ListTestScenariosErrors, ThrowOnError> => (options.client ?? client).get<ListTestScenariosResponses, ListTestScenariosErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/test-scenarios', ...options });
 
-export const createSheet = <ThrowOnError extends boolean = false>(options: Options<CreateSheetData, ThrowOnError>): RequestResult<CreateSheetResponses, CreateSheetErrors, ThrowOnError> => (options.client ?? client).post<CreateSheetResponses, CreateSheetErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/sheets',
+export const createTestScenario = <ThrowOnError extends boolean = false>(options: Options<CreateTestScenarioData, ThrowOnError>): RequestResult<CreateTestScenarioResponses, CreateTestScenarioErrors, ThrowOnError> => (options.client ?? client).post<CreateTestScenarioResponses, CreateTestScenarioErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -137,10 +137,10 @@ export const createSheet = <ThrowOnError extends boolean = false>(options: Optio
     }
 });
 
-export const getSheet = <ThrowOnError extends boolean = false>(options: Options<GetSheetData, ThrowOnError>): RequestResult<GetSheetResponses, GetSheetErrors, ThrowOnError> => (options.client ?? client).get<GetSheetResponses, GetSheetErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/sheets/{sheetId}', ...options });
+export const getTestScenario = <ThrowOnError extends boolean = false>(options: Options<GetTestScenarioData, ThrowOnError>): RequestResult<GetTestScenarioResponses, GetTestScenarioErrors, ThrowOnError> => (options.client ?? client).get<GetTestScenarioResponses, GetTestScenarioErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}', ...options });
 
-export const updateSheetContent = <ThrowOnError extends boolean = false>(options: Options<UpdateSheetContentData, ThrowOnError>): RequestResult<UpdateSheetContentResponses, UpdateSheetContentErrors, ThrowOnError> => (options.client ?? client).put<UpdateSheetContentResponses, UpdateSheetContentErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/content',
+export const updateTestScenarioContent = <ThrowOnError extends boolean = false>(options: Options<UpdateTestScenarioContentData, ThrowOnError>): RequestResult<UpdateTestScenarioContentResponses, UpdateTestScenarioContentErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestScenarioContentResponses, UpdateTestScenarioContentErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/content',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -148,8 +148,8 @@ export const updateSheetContent = <ThrowOnError extends boolean = false>(options
     }
 });
 
-export const updateSheetView = <ThrowOnError extends boolean = false>(options: Options<UpdateSheetViewData, ThrowOnError>): RequestResult<UpdateSheetViewResponses, UpdateSheetViewErrors, ThrowOnError> => (options.client ?? client).put<UpdateSheetViewResponses, UpdateSheetViewErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/view',
+export const updateTestScenarioView = <ThrowOnError extends boolean = false>(options: Options<UpdateTestScenarioViewData, ThrowOnError>): RequestResult<UpdateTestScenarioViewResponses, UpdateTestScenarioViewErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestScenarioViewResponses, UpdateTestScenarioViewErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/view',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -157,12 +157,12 @@ export const updateSheetView = <ThrowOnError extends boolean = false>(options: O
     }
 });
 
-export const exportSheetXlsx = <ThrowOnError extends boolean = false>(options: Options<ExportSheetXlsxData, ThrowOnError>): RequestResult<ExportSheetXlsxResponses, ExportSheetXlsxErrors, ThrowOnError> => (options.client ?? client).get<ExportSheetXlsxResponses, ExportSheetXlsxErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/sheets/{sheetId}/export.xlsx', ...options });
+export const exportTestScenarioXlsx = <ThrowOnError extends boolean = false>(options: Options<ExportTestScenarioXlsxData, ThrowOnError>): RequestResult<ExportTestScenarioXlsxResponses, ExportTestScenarioXlsxErrors, ThrowOnError> => (options.client ?? client).get<ExportTestScenarioXlsxResponses, ExportTestScenarioXlsxErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/export.xlsx', ...options });
 
-export const listGenerations = <ThrowOnError extends boolean = false>(options: Options<ListGenerationsData, ThrowOnError>): RequestResult<ListGenerationsResponses, ListGenerationsErrors, ThrowOnError> => (options.client ?? client).get<ListGenerationsResponses, ListGenerationsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations', ...options });
+export const listGenerations = <ThrowOnError extends boolean = false>(options: Options<ListGenerationsData, ThrowOnError>): RequestResult<ListGenerationsResponses, ListGenerationsErrors, ThrowOnError> => (options.client ?? client).get<ListGenerationsResponses, ListGenerationsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations', ...options });
 
 export const startGeneration = <ThrowOnError extends boolean = false>(options: Options<StartGenerationData, ThrowOnError>): RequestResult<StartGenerationResponses, StartGenerationErrors, ThrowOnError> => (options.client ?? client).post<StartGenerationResponses, StartGenerationErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations',
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ export const startGeneration = <ThrowOnError extends boolean = false>(options: O
 });
 
 export const addGeneratedCases = <ThrowOnError extends boolean = false>(options: Options<AddGeneratedCasesData, ThrowOnError>): RequestResult<AddGeneratedCasesResponses, AddGeneratedCasesErrors, ThrowOnError> => (options.client ?? client).post<AddGeneratedCasesResponses, AddGeneratedCasesErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/add',
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations/{jobId}/add',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -179,8 +179,8 @@ export const addGeneratedCases = <ThrowOnError extends boolean = false>(options:
     }
 });
 
-export const reviewCandidate = <ThrowOnError extends boolean = false>(options: Options<ReviewCandidateData, ThrowOnError>): RequestResult<ReviewCandidateResponses, ReviewCandidateErrors, ThrowOnError> => (options.client ?? client).put<ReviewCandidateResponses, ReviewCandidateErrors, ThrowOnError>({
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/candidates/{candidateId}',
+export const reviewGenerationResult = <ThrowOnError extends boolean = false>(options: Options<ReviewGenerationResultData, ThrowOnError>): RequestResult<ReviewGenerationResultResponses, ReviewGenerationResultErrors, ThrowOnError> => (options.client ?? client).put<ReviewGenerationResultResponses, ReviewGenerationResultErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations/{jobId}/results/{resultId}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

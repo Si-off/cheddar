@@ -4,7 +4,7 @@ export type StoredDraft = {
   key: string;
   origin: string;
   projectId: string;
-  sheetId: string;
+  testScenarioId: string;
   sessionId: string;
   base: Snapshot;
   draft: Snapshot;
@@ -14,7 +14,7 @@ export type StoredDraft = {
 let database: Promise<IDBDatabase> | undefined;
 function open() {
   database ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("cheddar-sheet-drafts", 1);
+    const request = indexedDB.open("cheddar-test-scenario-drafts", 1);
     request.onupgradeneeded = () =>
       request.result.createObjectStore("drafts", { keyPath: "key" });
     request.onsuccess = () => resolve(request.result);
@@ -55,7 +55,7 @@ export async function clearDraft(key: string, upTo = Number.POSITIVE_INFINITY) {
 export async function listDrafts(
   origin: string,
   projectId: string,
-  sheetId: string,
+  testScenarioId: string,
 ) {
   const db = await open();
   return new Promise<StoredDraft[]>((resolve, reject) => {
@@ -68,7 +68,7 @@ export async function listDrafts(
             (r) =>
               r.origin === origin &&
               r.projectId === projectId &&
-              r.sheetId === sheetId,
+              r.testScenarioId === testScenarioId,
           )
           .sort((a, b) => b.updatedAt - a.updatedAt),
       );

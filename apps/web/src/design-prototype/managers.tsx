@@ -12,8 +12,8 @@ import {
   type IAItem,
   mockFlow,
   type Project,
-  type Sheet,
-  type SheetTemplate,
+  type TestScenario,
+  type TestScenarioTemplate,
   uid,
 } from "./model";
 export function ColumnsEditor({
@@ -183,14 +183,14 @@ export function IAManager({
         project.ia.some((y) => y.code === x.code.trim() && y.id !== x.id),
     );
   const references = editing
-    ? project.sheets
+    ? project.testScenarios
         .flatMap((s) =>
           [...s.cases, ...s.candidates]
             .filter((c) => c.iaIds.includes(editing.id))
             .map((c) => `${s.name} · ${c.title}`),
         )
         .concat(
-          project.sheets.flatMap((s) =>
+          project.testScenarios.flatMap((s) =>
             s.nodes
               .filter((n) => n.iaId === editing.id)
               .map((n) => `${s.name} · ${n.label}`),
@@ -366,7 +366,7 @@ export function IAManager({
                   className="secondary"
                   onClick={() =>
                     onChange({
-                      sheets: project.sheets.map((s) => ({
+                      testScenarios: project.testScenarios.map((s) => ({
                         ...s,
                         cases: s.cases.map((c) => ({
                           ...c,
@@ -444,7 +444,7 @@ export function IAManager({
               행은 제목으로 제외합니다.
             </p>
             <p className="field-hint">
-              XLSX 또는 CSV · 최대 10 MB. XLSX는 첫 번째 시트만 가져옵니다.
+              XLSX 또는 CSV · 최대 10 MB. XLSX는 첫 번째 시나리오만 가져옵니다.
             </p>
             {error && (
               <p className="error" role="alert">
@@ -543,13 +543,13 @@ function isDescendant(id: string, parent: string, items: IAItem[]): boolean {
   return false;
 }
 export function FlowEditor({
-  sheet,
+  testScenario,
   ia,
   onChange,
 }: {
-  sheet: Sheet;
+  testScenario: TestScenario;
   ia: IAItem[];
-  onChange: (p: Partial<Sheet>) => void;
+  onChange: (p: Partial<TestScenario>) => void;
 }) {
   const [panel, setPanel] = useState<"node" | "edge" | "import" | null>(null);
   const [node, setNode] = useState<FlowNode | null>(null);
@@ -562,10 +562,10 @@ export function FlowEditor({
   >([]);
   const [future, setFuture] = useState<typeof history>([]);
   const file = useRef<HTMLInputElement>(null);
-  const commit = (patch: Pick<Sheet, "nodes" | "edges">) => {
+  const commit = (patch: Pick<TestScenario, "nodes" | "edges">) => {
     setHistory((h) => [
       ...h.slice(-29),
-      clone({ nodes: sheet.nodes, edges: sheet.edges }),
+      clone({ nodes: testScenario.nodes, edges: testScenario.edges }),
     ]);
     setFuture([]);
     onChange(patch);
@@ -586,8 +586,8 @@ export function FlowEditor({
               id: uid(),
               label: "",
               kind: "화면",
-              x: 120 + (sheet.nodes.length % 3) * 220,
-              y: 120 + Math.floor(sheet.nodes.length / 3) * 160,
+              x: 120 + (testScenario.nodes.length % 3) * 220,
+              y: 120 + Math.floor(testScenario.nodes.length / 3) * 160,
               iaId: "",
             });
             setPanel("node");
@@ -596,12 +596,12 @@ export function FlowEditor({
         <IconButton
           name="link"
           label="연결 추가"
-          disabled={sheet.nodes.length < 2}
+          disabled={testScenario.nodes.length < 2}
           onClick={() => {
             setEdge({
               id: uid(),
-              from: sheet.nodes[0].id,
-              to: sheet.nodes[1].id,
+              from: testScenario.nodes[0].id,
+              to: testScenario.nodes[1].id,
               label: "",
             });
             setPanel("edge");
@@ -624,7 +624,7 @@ export function FlowEditor({
           onClick={() => {
             setFuture((f) => [
               ...f,
-              clone({ nodes: sheet.nodes, edges: sheet.edges }),
+              clone({ nodes: testScenario.nodes, edges: testScenario.edges }),
             ]);
             onChange(history.at(-1) ?? {});
             setHistory((h) => h.slice(0, -1));
@@ -637,7 +637,7 @@ export function FlowEditor({
           onClick={() => {
             setHistory((h) => [
               ...h,
-              clone({ nodes: sheet.nodes, edges: sheet.edges }),
+              clone({ nodes: testScenario.nodes, edges: testScenario.edges }),
             ]);
             onChange(future.at(-1) ?? {});
             setFuture((f) => f.slice(0, -1));
@@ -684,9 +684,9 @@ export function FlowEditor({
                   <path d="M0,0 L8,4 L0,8Z" />
                 </marker>
               </defs>
-              {sheet.edges.map((e) => {
-                const from = sheet.nodes.find((n) => n.id === e.from),
-                  to = sheet.nodes.find((n) => n.id === e.to);
+              {testScenario.edges.map((e) => {
+                const from = testScenario.nodes.find((n) => n.id === e.from),
+                  to = testScenario.nodes.find((n) => n.id === e.to);
                 return from && to ? (
                   <path
                     key={e.id}
@@ -696,9 +696,9 @@ export function FlowEditor({
                 ) : null;
               })}
             </svg>
-            {sheet.edges.map((e) => {
-              const a = sheet.nodes.find((n) => n.id === e.from),
-                b = sheet.nodes.find((n) => n.id === e.to);
+            {testScenario.edges.map((e) => {
+              const a = testScenario.nodes.find((n) => n.id === e.from),
+                b = testScenario.nodes.find((n) => n.id === e.to);
               return a && b ? (
                 <button
                   type="button"
@@ -718,7 +718,7 @@ export function FlowEditor({
                 </button>
               ) : null;
             })}
-            {sheet.nodes.map((n) => (
+            {testScenario.nodes.map((n) => (
               <button
                 type="button"
                 className={`flow-node node-${n.kind}`}
@@ -743,7 +743,7 @@ export function FlowEditor({
                   ) {
                     e.preventDefault();
                     commit({
-                      nodes: sheet.nodes.map((x) =>
+                      nodes: testScenario.nodes.map((x) =>
                         x.id === n.id
                           ? {
                               ...x,
@@ -774,7 +774,7 @@ export function FlowEditor({
                             }
                           : x,
                       ),
-                      edges: sheet.edges,
+                      edges: testScenario.edges,
                     });
                   }
                 }}
@@ -797,7 +797,7 @@ export function FlowEditor({
                     el.removeEventListener("pointercancel", end);
                     if (Math.abs(dx) + Math.abs(dy) > 3)
                       commit({
-                        nodes: sheet.nodes.map((v) =>
+                        nodes: testScenario.nodes.map((v) =>
                           v.id === n.id
                             ? {
                                 ...v,
@@ -806,7 +806,7 @@ export function FlowEditor({
                               }
                             : v,
                         ),
-                        edges: sheet.edges,
+                        edges: testScenario.edges,
                       });
                     else {
                       setNode({ ...n });
@@ -827,7 +827,7 @@ export function FlowEditor({
             ))}
           </div>
         </div>
-        {!sheet.nodes.length && (
+        {!testScenario.nodes.length && (
           <div className="flow-empty">
             <EmptyState title="사용자 흐름을 추가해 주세요">
               <button
@@ -896,14 +896,16 @@ export function FlowEditor({
                 </select>
               </Field>
               <div className="button-row">
-                {sheet.nodes.some((n) => n.id === node.id) && (
+                {testScenario.nodes.some((n) => n.id === node.id) && (
                   <IconButton
                     name="trash"
                     label="노드 삭제"
                     onClick={() => {
                       commit({
-                        nodes: sheet.nodes.filter((n) => n.id !== node.id),
-                        edges: sheet.edges.filter(
+                        nodes: testScenario.nodes.filter(
+                          (n) => n.id !== node.id,
+                        ),
+                        edges: testScenario.edges.filter(
                           (e) => e.from !== node.id && e.to !== node.id,
                         ),
                       });
@@ -917,10 +919,12 @@ export function FlowEditor({
                   disabled={!node.label.trim()}
                   onClick={() => {
                     commit({
-                      nodes: sheet.nodes.some((n) => n.id === node.id)
-                        ? sheet.nodes.map((n) => (n.id === node.id ? node : n))
-                        : [...sheet.nodes, node],
-                      edges: sheet.edges,
+                      nodes: testScenario.nodes.some((n) => n.id === node.id)
+                        ? testScenario.nodes.map((n) =>
+                            n.id === node.id ? node : n,
+                          )
+                        : [...testScenario.nodes, node],
+                      edges: testScenario.edges,
                     });
                     setPanel(null);
                   }}
@@ -940,7 +944,7 @@ export function FlowEditor({
                       setEdge({ ...edge, [key]: e.target.value })
                     }
                   >
-                    {sheet.nodes.map((n) => (
+                    {testScenario.nodes.map((n) => (
                       <option key={n.id} value={n.id}>
                         {n.label}
                       </option>
@@ -955,14 +959,16 @@ export function FlowEditor({
                 />
               </Field>
               <div className="button-row">
-                {sheet.edges.some((e) => e.id === edge.id) && (
+                {testScenario.edges.some((e) => e.id === edge.id) && (
                   <IconButton
                     name="trash"
                     label="연결 삭제"
                     onClick={() => {
                       commit({
-                        nodes: sheet.nodes,
-                        edges: sheet.edges.filter((e) => e.id !== edge.id),
+                        nodes: testScenario.nodes,
+                        edges: testScenario.edges.filter(
+                          (e) => e.id !== edge.id,
+                        ),
                       });
                       setPanel(null);
                     }}
@@ -974,10 +980,12 @@ export function FlowEditor({
                   disabled={edge.from === edge.to}
                   onClick={() => {
                     commit({
-                      nodes: sheet.nodes,
-                      edges: sheet.edges.some((e) => e.id === edge.id)
-                        ? sheet.edges.map((e) => (e.id === edge.id ? edge : e))
-                        : [...sheet.edges, edge],
+                      nodes: testScenario.nodes,
+                      edges: testScenario.edges.some((e) => e.id === edge.id)
+                        ? testScenario.edges.map((e) =>
+                            e.id === edge.id ? edge : e,
+                          )
+                        : [...testScenario.edges, edge],
                     });
                     setPanel(null);
                   }}
@@ -1102,10 +1110,10 @@ export function TemplateLibrary({
   templates,
   onChange,
 }: {
-  templates: SheetTemplate[];
-  onChange: (templates: SheetTemplate[]) => void;
+  templates: TestScenarioTemplate[];
+  onChange: (templates: TestScenarioTemplate[]) => void;
 }) {
-  const [draft, setDraft] = useState<SheetTemplate | null>(null);
+  const [draft, setDraft] = useState<TestScenarioTemplate | null>(null);
   const [confirm, setConfirm] = useState(false);
   const exists = draft && templates.some((t) => t.id === draft.id);
   const invalid =
@@ -1185,7 +1193,7 @@ export function TemplateLibrary({
           <Dialog title="공용 양식 변경" onClose={() => setConfirm(false)}>
             <div className="field-stack">
               <p>
-                변경한 양식은 새 시트부터 적용됩니다. 기존 시트는 바뀌지
+                변경한 양식은 새 시나리오부터 적용됩니다. 기존 시나리오는 바뀌지
                 않습니다.
               </p>
               <button type="button" className="primary" onClick={save}>
@@ -1222,7 +1230,7 @@ export function TemplateLibrary({
             key={t.id}
             onClick={() => setDraft(clone(t))}
           >
-            <span className="sheet-symbol">
+            <span className="test-scenario-symbol">
               <Icon name="table" />
             </span>
             <div>

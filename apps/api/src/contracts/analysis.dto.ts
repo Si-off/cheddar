@@ -18,13 +18,13 @@ import {
   ValidateNested,
 } from "class-validator";
 
-export class EvidenceRegionDto {
+export class AnalysisRegionDto {
   @ApiProperty() @IsNumber() @Min(0) @Max(1) x!: number;
   @ApiProperty() @IsNumber() @Min(0) @Max(1) y!: number;
   @ApiProperty() @IsNumber() @Min(0.000001) @Max(1) width!: number;
   @ApiProperty() @IsNumber() @Min(0.000001) @Max(1) height!: number;
 }
-export class EvidenceItemDto {
+export class AnalysisItemDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
   @ApiProperty({
     enum: ["screen", "state", "requirement", "question", "relation"],
@@ -46,11 +46,11 @@ export class EvidenceItemDto {
   @ValidateIf((_o, v) => v !== undefined)
   @IsUUID()
   parentId?: string;
-  @ApiPropertyOptional({ type: EvidenceRegionDto })
+  @ApiPropertyOptional({ type: AnalysisRegionDto })
   @ValidateIf((_o, v) => v !== undefined)
-  @Type(() => EvidenceRegionDto)
+  @Type(() => AnalysisRegionDto)
   @ValidateNested()
-  region?: EvidenceRegionDto;
+  region?: AnalysisRegionDto;
   @ApiPropertyOptional()
   @ValidateIf((_o, v) => v !== undefined)
   @IsString()
@@ -73,33 +73,34 @@ export class EvidenceItemDto {
   @IsUUID()
   toId?: string;
 }
-export class EvidenceLinkDto {
+export class AnalysisLinkDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() requirementId!: string;
-  @ApiProperty({ format: "uuid" }) @IsUUID() sheetId!: string;
+  @ApiProperty({ format: "uuid" }) @IsUUID() testScenarioId!: string;
   @ApiProperty({ format: "uuid" }) @IsUUID() caseId!: string;
 }
-export class EvidenceDto {
+export class AnalysisDto {
   @ApiProperty({ minimum: 0, type: "integer" })
   @IsInt()
   @Min(0)
   revision!: number;
-  @ApiProperty({ type: [EvidenceItemDto] })
+  @ApiProperty({ type: [AnalysisItemDto] })
   @IsArray()
   @ArrayMaxSize(10000)
-  @ArrayUnique((x: EvidenceItemDto) => x?.id)
-  @Type(() => EvidenceItemDto)
+  @ArrayUnique((x: AnalysisItemDto) => x?.id)
+  @Type(() => AnalysisItemDto)
   @ValidateNested({ each: true })
-  items!: EvidenceItemDto[];
-  @ApiProperty({ type: [EvidenceLinkDto] })
+  items!: AnalysisItemDto[];
+  @ApiProperty({ type: [AnalysisLinkDto] })
   @IsArray()
   @ArrayMaxSize(20000)
   @ArrayUnique(
-    (x: EvidenceLinkDto) => `${x?.requirementId}/${x?.sheetId}/${x?.caseId}`,
+    (x: AnalysisLinkDto) =>
+      `${x?.requirementId}/${x?.testScenarioId}/${x?.caseId}`,
   )
-  @Type(() => EvidenceLinkDto)
+  @Type(() => AnalysisLinkDto)
   @ValidateNested({ each: true })
-  links!: EvidenceLinkDto[];
+  links!: AnalysisLinkDto[];
 }
-export class ExtractEvidenceDto {
+export class ExtractAnalysisDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() uploadId!: string;
 }

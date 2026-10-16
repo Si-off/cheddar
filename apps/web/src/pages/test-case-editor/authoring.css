@@ -7,14 +7,14 @@
 .source-toolbar h3 {
   margin: 0;
 }
-.source-toolbar .sheet-select {
+.source-toolbar .test-scenario-select {
   width: auto;
   max-width: 100%;
 }
 .authoring-actions {
   justify-content: flex-end;
 }
-.sheet-editor-body.has-source {
+.test-scenario-editor-body.has-source {
   display: flex;
   gap: var(--spacing-4);
   align-items: flex-start;
@@ -75,8 +75,8 @@
   padding-top: var(--spacing-3);
 }
 .generation-dialog,
-.workspace-candidates-dialog.is-results,
-.evidence-dialog {
+.workspace-generation-results-dialog.is-results,
+.analysis-dialog {
   width: calc(100vw - var(--spacing-8));
   max-width: var(--container-content);
   max-height: calc(100dvh - var(--spacing-8));
@@ -103,14 +103,14 @@
   max-height: var(--spacing-16);
 }
 .result-workbench,
-.evidence-workbench {
+.analysis-workbench {
   display: flex;
   gap: var(--spacing-4);
   align-items: stretch;
   min-width: 0;
 }
 .result-list,
-.evidence-list {
+.analysis-list {
   flex: 0 0 30%;
   display: flex;
   flex-direction: column;
@@ -134,7 +134,7 @@
   background: var(--color-surface-selected);
 }
 .result-item .cd-button,
-.evidence-list .cd-button {
+.analysis-list .cd-button {
   white-space: normal;
   text-align: left;
   justify-content: flex-start;
@@ -177,40 +177,40 @@
 .generation-results footer {
   justify-content: flex-end;
 }
-.evidence-dialog {
+.analysis-dialog {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
 }
-.evidence-tabs {
+.analysis-tabs {
   display: flex;
   gap: var(--spacing-2);
   flex-wrap: wrap;
 }
-.evidence-workbench {
+.analysis-workbench {
   min-height: 0;
   overflow: auto;
 }
-.evidence-list {
+.analysis-list {
   flex-basis: 22%;
 }
-.evidence-source {
+.analysis-source {
   flex: 1;
   min-width: 0;
 }
-.evidence-inspector {
+.analysis-inspector {
   flex: 0 0 32%;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-3);
 }
-.evidence-inspector fieldset {
+.analysis-inspector fieldset {
   border: var(--border-width-default) solid var(--color-border);
   border-radius: var(--radius-control);
   padding: var(--spacing-3);
 }
-.evidence-inspector .cd-label {
+.analysis-inspector .cd-label {
   white-space: normal;
 }
 @media (max-width: 60rem) {
@@ -223,16 +223,16 @@
     box-shadow: var(--shadow-floating);
   }
   .result-workbench,
-  .evidence-workbench,
+  .analysis-workbench,
   .result-comparison {
     flex-direction: column;
   }
   .result-list,
-  .evidence-list {
+  .analysis-list {
     flex-basis: auto;
     max-height: var(--spacing-16);
   }
-  .evidence-inspector {
+  .analysis-inspector {
     flex-basis: auto;
   }
   .generation-frame-picker {

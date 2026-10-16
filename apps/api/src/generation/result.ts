@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
-import type { CandidateDto } from "../contracts/generation.dto";
+import type { GenerationResultItemDto } from "../contracts/generation.dto";
 import {
   type CaseContentDto,
-  SheetContentDto,
-  type SheetSnapshotDto,
-} from "../contracts/sheets.dto";
+  TestScenarioContentDto,
+  type TestScenarioSnapshotDto,
+} from "../contracts/test-scenarios.dto";
 
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
@@ -67,21 +67,21 @@ export const invalidResult = (reason = "invalid_structure") =>
   new ApiError(
     422,
     "INVALID_AI_RESULT",
-    "생성 결과의 형식이나 연결된 화면 정보를 확인하지 못했습니다. 기존 시트는 유지됩니다. 입력을 확인한 뒤 다시 생성해주세요.",
+    "생성 결과의 형식이나 연결된 화면 정보를 확인하지 못했습니다. 기존 시나리오는 유지됩니다. 입력을 확인한 뒤 다시 생성해주세요.",
     { reason },
   );
 export type GenerationResult = {
   cases: CaseContentDto[];
-  candidates: CandidateDto[];
+  candidates: GenerationResultItemDto[];
   links?: { caseId: string; requirementIds: string[] }[];
-  sources?: import("../contracts/evidence.dto").EvidenceItemDto[];
+  sources?: import("../contracts/analysis.dto").AnalysisItemDto[];
   sourceRevision?: number;
 };
 export function validateContent(
-  snapshot: SheetSnapshotDto,
+  snapshot: TestScenarioSnapshotDto,
   cases: CaseContentDto[],
 ) {
-  const input = plainToInstance(SheetContentDto, {
+  const input = plainToInstance(TestScenarioContentDto, {
     expectedRevision: snapshot.contentRevision,
     columns: snapshot.columns,
     cases,
@@ -93,7 +93,7 @@ export function validateContent(
 }
 export function parseResult(
   raw: string,
-  snapshot: SheetSnapshotDto,
+  snapshot: TestScenarioSnapshotDto,
   frameIds: string[],
   screenIds: string[],
   requirementIds: string[] = [],
@@ -214,7 +214,7 @@ export function parseResult(
     throw new ApiError(
       422,
       "EMPTY_AI_RESULT",
-      "입력에서 테스트 케이스를 만들지 못했습니다. 기존 시트는 유지됩니다. 프레임이나 설명을 보완해주세요.",
+      "입력에서 테스트 케이스를 만들지 못했습니다. 기존 시나리오는 유지됩니다. 프레임이나 설명을 보완해주세요.",
     );
   return { cases, candidates, links: sourceLinks };
 }

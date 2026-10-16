@@ -24,13 +24,13 @@ import {
   listDrafts,
   newCase,
   type SaveTransport,
-  SheetSession,
   type Snapshot,
   type StoredDraft,
+  TestScenarioSession,
 } from "@/entities/test-case";
-import { EvidencePanel } from "@/pages/project-uploads/evidence-panel";
+import { AnalysisPanel } from "@/pages/project-uploads/analysis-panel";
 import { SourceViewer } from "@/pages/project-uploads/source-viewer";
-import { SharedSheetView } from "@/pages/shared-test-cases";
+import { SharedTestScenarioView } from "@/pages/shared-test-cases";
 import { MenuAction } from "@/shared/ui/workspace";
 import { TestCaseTable } from "@/widgets/test-case-table";
 import { ColumnSettings } from "@/widgets/test-case-table/column-settings";
@@ -73,7 +73,7 @@ function draftText(snapshot: Snapshot) {
     .join("\n");
 }
 
-export function SheetEditor({
+export function TestScenarioEditor({
   snapshot,
   transport,
   uploads,
@@ -84,7 +84,7 @@ export function SheetEditor({
   origin,
 }: Props) {
   const [session] = useState(
-    () => new SheetSession(snapshot, transport, origin),
+    () => new TestScenarioSession(snapshot, transport, origin),
   );
   const state = useStore(session.store);
   const [query, setQuery] = useState("");
@@ -106,10 +106,10 @@ export function SheetEditor({
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [generationPanel, setGenerationPanel] = useState<
-    "generate" | "candidates" | null
+    "generate" | "results" | null
   >(null);
   const [sourceOpen, setSourceOpen] = useState(false);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
   const [generationSeed, setGenerationSeed] = useState<{
     requirementIds: string[];
     description: string;
@@ -182,7 +182,7 @@ export function SheetEditor({
     };
   }, [uploadId, detailId, sourceOpen, loadFrames]);
   useEffect(() => {
-    if (!evidenceOpen) return;
+    if (!analysisOpen) return;
     let live = true;
     void Promise.all(uploads.map((upload) => loadFrames(upload.id)))
       .then((groups) => {
@@ -199,7 +199,7 @@ export function SheetEditor({
     return () => {
       live = false;
     };
-  }, [evidenceOpen, uploads, loadFrames]);
+  }, [analysisOpen, uploads, loadFrames]);
   const change = useCallback(
     (next: Snapshot) => session.edit(() => next),
     [session],
@@ -272,8 +272,8 @@ export function SheetEditor({
   function removeRows() {
     const count = state.draft.cases.filter((c) => selected.has(c.id)).length;
     setConfirm({
-      title: "케이스 삭제",
-      description: `선택한 케이스 ${count}개를 삭제할까요?`,
+      title: "테스트 케이스 삭제",
+      description: `선택한 테스트 케이스 ${count}개를 삭제할까요?`,
       action: () => {
         session.edit((current) => ({
           ...current,
@@ -289,7 +289,7 @@ export function SheetEditor({
     const count = state.draft.cases.filter((c) => !!c.customValues[id]).length;
     setConfirm({
       title: "사용자 열 삭제",
-      description: `${column?.name} 열과 케이스 ${count}개에 입력된 값을 삭제할까요?`,
+      description: `${column?.name} 열과 테스트 케이스 ${count}개에 입력된 값을 삭제할까요?`,
       action: () =>
         session.edit((current) => ({
           ...current,
@@ -305,18 +305,18 @@ export function SheetEditor({
     });
   }
   return (
-    <section className="sheet-editor" aria-label="시트 편집">
-      <div className="workspace-sheet-topline">
+    <section className="test-scenario-editor" aria-label="시나리오 편집">
+      <div className="workspace-test-scenario-topline">
         <Button
           variant="ghost"
           size="icon"
-          aria-label="시트 목록"
+          aria-label="시나리오 목록"
           onClick={() => void back()}
           disabled={busy}
         >
           <WorkspaceIcon name="back" />
         </Button>
-        <span className="sheet-status" role="status">
+        <span className="test-scenario-status" role="status">
           {statusLabels[state.status]}
         </span>
         {state.status === "error" && (
@@ -334,14 +334,14 @@ export function SheetEditor({
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="시트 메뉴"
-                className="workspace-sheet-menu"
+                aria-label="시나리오 메뉴"
+                className="workspace-test-scenario-menu"
               />
             }
           >
             <WorkspaceIcon name="more" />
           </PopoverTrigger>
-          <PopoverContent aria-label="시트 메뉴">
+          <PopoverContent aria-label="시나리오 메뉴">
             <MenuAction
               icon="generate"
               disabled={disabled}
@@ -350,17 +350,17 @@ export function SheetEditor({
                 setGenerationPanel("generate");
               }}
             >
-              테스트 생성
+              테스트 케이스 생성
             </MenuAction>
             <MenuAction
               icon="qa"
               disabled={disabled}
               onClick={() => {
                 setMenuOpen(false);
-                setGenerationPanel("candidates");
+                setGenerationPanel("results");
               }}
             >
-              후보 검토
+              생성 결과 검토
             </MenuAction>
             <MenuAction
               icon="download"
@@ -382,12 +382,12 @@ export function SheetEditor({
                 setShareOpen(true);
               }}
             >
-              공유 시트 미리보기
+              공유 시나리오 미리보기
             </MenuAction>
           </PopoverContent>
         </Popover>
       </div>
-      <div className="workspace-sheet-title">
+      <div className="workspace-test-scenario-title">
         <WorkspaceIcon name="file" />
         <h1>{state.draft.name}</h1>
       </div>
@@ -396,13 +396,13 @@ export function SheetEditor({
         session={session}
         uploads={uploads}
         seed={generationSeed}
-        onResults={() => setGenerationPanel("candidates")}
+        onResults={() => setGenerationPanel("results")}
         onLock={setGenerationLocked}
         panel={generationPanel}
         onClose={() => setGenerationPanel(null)}
       />
       {state.message && (
-        <div className="sheet-notice" role="alert">
+        <div className="test-scenario-notice" role="alert">
           {state.message}
           {state.status === "conflict" && (
             <Button
@@ -424,17 +424,17 @@ export function SheetEditor({
         </div>
       )}
       {state.storageError && state.status !== "saved" && (
-        <p className="sheet-notice" role="alert">
+        <p className="test-scenario-notice" role="alert">
           {state.storageError}
         </p>
       )}
       {message && (
-        <p className="sheet-notice" role="alert">
+        <p className="test-scenario-notice" role="alert">
           {message}
         </p>
       )}
       {recovery.length > 0 && (
-        <div className="sheet-notice">
+        <div className="test-scenario-notice">
           <h2 className="text-label font-label">보관한 미저장 입력</h2>
           {recovery.map((record) => (
             <div
@@ -484,14 +484,14 @@ export function SheetEditor({
       <div className="workspace-table-toolbar">
         <span className="workspace-current-view">
           <WorkspaceIcon name={layout === "table" ? "columns" : "qa"} />
-          {layout === "table" ? "표" : "QA 진행"}
+          {layout === "table" ? "표" : "상세 목록"}
         </span>
         <span className="workspace-count">{state.draft.cases.length}개</span>
         <div className="workspace-table-actions">
           {searchOpen && (
             <Input
               id="case-search"
-              aria-label="테스트 검색"
+              aria-label="테스트 케이스 검색"
               value={query}
               onValueChange={setQuery}
               autoFocus
@@ -572,7 +572,7 @@ export function SheetEditor({
                       <WorkspaceIcon
                         name={value === "table" ? "columns" : "qa"}
                       />
-                      <span>{value === "table" ? "표" : "QA 진행"}</span>
+                      <span>{value === "table" ? "표" : "상세 목록"}</span>
                     </button>
                   ))}
                 </div>
@@ -600,7 +600,7 @@ export function SheetEditor({
           </Popover>
           <Button
             size="icon"
-            aria-label="행 추가"
+            aria-label="테스트 케이스 추가"
             disabled={disabled}
             onClick={() =>
               session.edit((current) => {
@@ -655,13 +655,13 @@ export function SheetEditor({
             disabled={disabled}
             onClick={() => setGenerationPanel("generate")}
           >
-            케이스 생성
+            테스트 케이스 생성
           </Button>
         )}
         <Button
           size="icon"
           variant="ghost"
-          aria-label="원본 대조"
+          aria-label="관련 자료 보기"
           onClick={() => setSourceOpen((open) => !open)}
         >
           <WorkspaceIcon name="image" />
@@ -669,15 +669,15 @@ export function SheetEditor({
         <Button
           size="icon"
           variant="ghost"
-          aria-label="근거 수정"
-          onClick={() => setEvidenceOpen(true)}
+          aria-label="분석 결과 편집"
+          onClick={() => setAnalysisOpen(true)}
         >
           <WorkspaceIcon name="settings" />
         </Button>
       </div>
-      <EvidencePanel
-        open={evidenceOpen}
-        onClose={() => setEvidenceOpen(false)}
+      <AnalysisPanel
+        open={analysisOpen}
+        onClose={() => setAnalysisOpen(false)}
         snapshot={state.draft}
         frames={[
           ...new Map(
@@ -685,17 +685,19 @@ export function SheetEditor({
           ).values(),
         ]}
         onGenerate={(requirementIds, description) => {
-          setEvidenceOpen(false);
+          setAnalysisOpen(false);
           setGenerationSeed({ requirementIds, description });
           setGenerationPanel("generate");
         }}
       />
       <div
         className={
-          sourceOpen ? "sheet-editor-body has-source" : "sheet-editor-body"
+          sourceOpen
+            ? "test-scenario-editor-body has-source"
+            : "test-scenario-editor-body"
         }
       >
-        <div className="sheet-editor-table">
+        <div className="test-scenario-editor-table">
           <TestCaseTable
             layout={layout}
             hidden={hidden}
@@ -739,10 +741,10 @@ export function SheetEditor({
           }}
         >
           <DialogContent
-            className="workspace-sheet-dialog"
+            className="workspace-detail-dialog"
             aria-describedby={undefined}
           >
-            <DialogTitle>테스트 편집</DialogTitle>
+            <DialogTitle>테스트 케이스 편집</DialogTitle>
             {item && (
               <DetailPanel
                 snapshot={state.draft}
@@ -794,8 +796,8 @@ export function SheetEditor({
           className="workspace-share-dialog"
           aria-describedby={undefined}
         >
-          <DialogTitle>공유 시트 미리보기</DialogTitle>
-          <SharedSheetView snapshot={state.draft} hidden={hidden} />
+          <DialogTitle>공유 시나리오 미리보기</DialogTitle>
+          <SharedTestScenarioView snapshot={state.draft} hidden={hidden} />
         </DialogContent>
       </Dialog>
       <Dialog
@@ -810,7 +812,7 @@ export function SheetEditor({
             {retained === undefined
               ? "입력을 보관하는 중입니다."
               : retained
-                ? "입력을 이 브라우저에 보관했습니다. 이동한 뒤 시트를 열어 초안을 복원할 수 있습니다."
+                ? "입력을 이 브라우저에 보관했습니다. 이동한 뒤 시나리오를 열어 초안을 복원할 수 있습니다."
                 : "입력을 이 브라우저에 보관하지 못했습니다. 이 화면에서 저장을 마친 뒤 이동해주세요."}
           </DialogDescription>
           <DialogFooter>
@@ -869,7 +871,7 @@ export function SheetEditor({
             내 입력을 복사해 최신 내용에 다시 반영할 수 있습니다. 최신 내용으로
             편집을 시작해도 이전 입력은 초안으로 보관됩니다.
           </DialogDescription>
-          <div className="sheet-comparison">
+          <div className="test-scenario-comparison">
             <div>
               <Label htmlFor="my-draft">내 입력</Label>
               <Textarea id="my-draft" readOnly value={draftText(state.draft)} />

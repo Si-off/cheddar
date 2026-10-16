@@ -1,31 +1,31 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray } from "drizzle-orm";
 import { ApiError, invalid, notFound } from "../common/errors";
-import type { EvidenceDto, EvidenceLinkDto } from "../contracts/evidence.dto";
+import type { AnalysisDto, AnalysisLinkDto } from "../contracts/analysis.dto";
 import {
   DatabaseService,
   type DatabaseTransaction,
 } from "../database/database.service";
 import {
-  projectEvidence,
+  projectAnalysis,
   projects,
   testCases,
   uploadFrames,
 } from "../database/schema";
 import { FilesService } from "../files/files.service";
-import { extractEvidence } from "./extract-evidence";
+import { extractAnalysis } from "./extract-analysis";
 import { UploadsService } from "./uploads.service";
 
-export async function appendEvidenceLinks(
+export async function appendAnalysisLinks(
   tx: DatabaseTransaction,
   projectId: string,
-  links: EvidenceLinkDto[],
-  replaceSheet?: string,
+  links: AnalysisLinkDto[],
+  replaceTestScenario?: string,
 ) {
   const [doc] = await tx
     .select()
-    .from(projectEvidence)
-    .where(eq(projectEvidence.projectId, projectId));
+    .from(projectAnalysis)
+    .where(eq(projectAnalysis.projectId, projectId));
   if (!doc) return;
   const allowed = new Set(
     doc.items
@@ -35,27 +35,30 @@ export async function appendEvidenceLinks(
   if (links.some((l) => !allowed.has(l.requirementId)))
     throw invalid([{ field: "requirementIds", code: "unknownRequirement" }]);
   const combined = [
-    ...doc.links.filter((l) => l.sheetId !== replaceSheet),
+    ...doc.links.filter((l) => l.testScenarioId !== replaceTestScenario),
     ...links,
   ];
   const unique = [
     ...new Map(
-      combined.map((l) => [`${l.requirementId}/${l.sheetId}/${l.caseId}`, l]),
+      combined.map((l) => [
+        `${l.requirementId}/${l.testScenarioId}/${l.caseId}`,
+        l,
+      ]),
     ).values(),
   ];
   await tx
-    .update(projectEvidence)
+    .update(projectAnalysis)
     .set({ links: unique, revision: doc.revision + 1 })
-    .where(eq(projectEvidence.projectId, projectId));
+    .where(eq(projectAnalysis.projectId, projectId));
 }
 @Injectable()
-export class EvidenceService {
+export class AnalysisService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(FilesService) private readonly files: FilesService,
     @Inject(UploadsService) private readonly uploads: UploadsService,
   ) {}
-  async get(projectId: string): Promise<EvidenceDto> {
+  async get(projectId: string): Promise<AnalysisDto> {
     const [project] = await this.database.db
       .select({ id: projects.id })
       .from(projects)
@@ -63,22 +66,24 @@ export class EvidenceService {
     if (!project) throw notFound();
     const [doc] = await this.database.db
       .select()
-      .from(projectEvidence)
-      .where(eq(projectEvidence.projectId, projectId));
+      .from(projectAnalysis)
+      .where(eq(projectAnalysis.projectId, projectId));
     if (!doc) return { revision: 0, items: [], links: [] };
     const cases = await this.database.db
-      .select({ id: testCases.id, sheetId: testCases.sheetId })
+      .select({ id: testCases.id, testScenarioId: testCases.testScenarioId })
       .from(testCases)
       .where(eq(testCases.projectId, projectId));
     return {
       revision: doc.revision,
       items: doc.items,
       links: doc.links.filter((l) =>
-        cases.some((c) => c.id === l.caseId && c.sheetId === l.sheetId),
+        cases.some(
+          (c) => c.id === l.caseId && c.testScenarioId === l.testScenarioId,
+        ),
       ),
     };
   }
-  async save(projectId: string, input: EvidenceDto): Promise<EvidenceDto> {
+  async save(projectId: string, input: AnalysisDto): Promise<AnalysisDto> {
     return this.database.db.transaction(async (tx) => {
       const [project] = await tx
         .select()
@@ -88,12 +93,12 @@ export class EvidenceService {
       if (!project) throw notFound();
       const [doc] = await tx
         .select()
-        .from(projectEvidence)
-        .where(eq(projectEvidence.projectId, projectId));
+        .from(projectAnalysis)
+        .where(eq(projectAnalysis.projectId, projectId));
       if ((doc?.revision ?? 0) !== input.revision)
         throw new ApiError(
           409,
-          "EVIDENCE_CONFLICT",
+          "ANALYSIS_CONFLICT",
           "다른 곳에서 자료를 변경했습니다. 입력을 복사한 뒤 최신 자료를 불러와주세요.",
         );
       const ids = new Set(input.items.map((i) => i.id));
@@ -143,7 +148,10 @@ export class EvidenceService {
       }
       const cases = input.links.length
         ? await tx
-            .select({ id: testCases.id, sheetId: testCases.sheetId })
+            .select({
+              id: testCases.id,
+              testScenarioId: testCases.testScenarioId,
+            })
             .from(testCases)
             .where(eq(testCases.projectId, projectId))
         : [];
@@ -155,7 +163,9 @@ export class EvidenceService {
                 i.id === l.requirementId &&
                 (i.kind === "requirement" || i.kind === "question"),
             ) ||
-            !cases.some((c) => c.id === l.caseId && c.sheetId === l.sheetId),
+            !cases.some(
+              (c) => c.id === l.caseId && c.testScenarioId === l.testScenarioId,
+            ),
         )
       )
         throw invalid([{ field: "links", code: "unknownReference" }]);
@@ -165,15 +175,15 @@ export class EvidenceService {
         links: input.links,
       };
       await tx
-        .insert(projectEvidence)
+        .insert(projectAnalysis)
         .values({ projectId, ...next })
-        .onConflictDoUpdate({ target: projectEvidence.projectId, set: next });
+        .onConflictDoUpdate({ target: projectAnalysis.projectId, set: next });
       return next;
     });
   }
   async extract(projectId: string, uploadId: string) {
     const upload = await this.uploads.get(projectId, uploadId);
-    const items: EvidenceDto["items"] = [];
+    const items: AnalysisDto["items"] = [];
     let bytes = 0;
     for (const frame of upload.frames) {
       const file = await this.files.download(projectId, frame.dataFileId);
@@ -190,7 +200,7 @@ export class EvidenceService {
       }
       try {
         items.push(
-          ...extractEvidence(
+          ...extractAnalysis(
             JSON.parse(Buffer.concat(parts).toString("utf8")),
             frame.id,
           ),

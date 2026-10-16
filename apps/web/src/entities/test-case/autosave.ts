@@ -113,7 +113,7 @@ function mergeAcknowledgement(
     },
   };
 }
-export class SheetSession {
+export class TestScenarioSession {
   readonly store;
   private timer?: ReturnType<typeof setTimeout>;
   private running?: Promise<void>;
@@ -158,7 +158,7 @@ export class SheetSession {
       key: this.key,
       origin: this.origin,
       projectId: state.draft.projectId,
-      sheetId: state.draft.id,
+      testScenarioId: state.draft.id,
       sessionId: this.sessionId,
       base: state.base,
       draft: state.draft,
@@ -453,7 +453,7 @@ export class SheetSession {
       status: conflict ? "conflict" : "dirty",
       latest: conflict && !inFlight ? current : undefined,
       message: conflict
-        ? "보관한 입력 이후 시트가 변경되었습니다. 최신 내용과 비교해주세요."
+        ? "보관한 입력 이후 시나리오가 변경되었습니다. 최신 내용과 비교해주세요."
         : undefined,
     });
     if (!conflict) this.schedule();

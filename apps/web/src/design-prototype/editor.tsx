@@ -9,8 +9,8 @@ import {
   frames,
   type IAItem,
   type Result,
-  type Sheet,
   type TestCase,
+  type TestScenario,
 } from "./model";
 export function CaseFields({
   item,
@@ -153,8 +153,8 @@ function Cell({
     />
   );
 }
-export function SheetContent({
-  sheet,
+export function TestScenarioContent({
+  testScenario,
   ia,
   query,
   priority,
@@ -167,12 +167,12 @@ export function SheetContent({
   onDelete,
   onAdd,
 }: {
-  sheet: Sheet;
+  testScenario: TestScenario;
   ia: IAItem[];
   query: string;
   priority: string;
   readOnly?: boolean;
-  onPatch: (p: Partial<Sheet>) => void;
+  onPatch: (p: Partial<TestScenario>) => void;
   onCase: (id: string, p: Partial<TestCase>) => void;
   onDetail: (id: string) => void;
   onSource: (ids: string[]) => void;
@@ -182,10 +182,10 @@ export function SheetContent({
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const table = useRef<HTMLDivElement>(null);
-  const items = sheet.cases.filter(
+  const items = testScenario.cases.filter(
     (c) =>
       (priority === "all" || c.priority === priority) &&
-      sheet.columns.some(
+      testScenario.columns.some(
         (col) =>
           col.visible &&
           cellValue(c, col, ia).toLowerCase().includes(query.toLowerCase()),
@@ -193,9 +193,9 @@ export function SheetContent({
   );
   const [expanded, setExpanded] = useState<string[]>([]);
   const columnName = (id: string, fallback: string) =>
-    sheet.columns.find((c) => c.id === id)?.name ?? fallback;
-  const cols = sheet.columns.filter((c) => c.visible);
-  const locked = readOnly || sheet.generation === "running";
+    testScenario.columns.find((c) => c.id === id)?.name ?? fallback;
+  const cols = testScenario.columns.filter((c) => c.visible);
+  const locked = readOnly || testScenario.generation === "running";
   const setCell = (item: TestCase, col: Column, value: string) => {
     if (col.custom)
       onCase(item.id, { extra: { ...item.extra, [col.id]: value } });
@@ -203,7 +203,7 @@ export function SheetContent({
   };
   const resize = (id: string, width: number) =>
     onPatch({
-      columns: sheet.columns.map((c) =>
+      columns: testScenario.columns.map((c) =>
         c.id === id ? { ...c, width: Math.max(72, Math.min(640, width)) } : c,
       ),
     });
@@ -213,17 +213,17 @@ export function SheetContent({
         title={
           query || priority !== "all"
             ? "검색 결과가 없습니다"
-            : "테스트가 없습니다"
+            : "테스트 케이스가 없습니다"
         }
       >
         {!locked && !query && priority === "all" && (
           <button type="button" className="primary" onClick={onAdd}>
-            테스트 추가
+            테스트 케이스 추가
           </button>
         )}
       </EmptyState>
     );
-  if (sheet.layout === "qa") {
+  if (testScenario.layout === "qa") {
     return (
       <div className="qa-list">
         <div className="qa-list-heading">
@@ -256,7 +256,7 @@ export function SheetContent({
                     TC-{String(item.number).padStart(3, "0")}
                   </span>
                   <span className="qa-row-name">
-                    {item.title || "제목 없는 테스트"}
+                    {item.title || "제목 없는 테스트 케이스"}
                   </span>
                 </button>
                 {!readOnly && (
@@ -361,7 +361,7 @@ export function SheetContent({
               <span>{selected.length}개 선택</span>
               <IconButton
                 name="trash"
-                label="선택한 테스트 삭제"
+                label="선택한 테스트 케이스 삭제"
                 disabled={locked}
                 onClick={() => {
                   onDelete(selected);
@@ -385,7 +385,7 @@ export function SheetContent({
                 <th className="selection-cell">
                   <input
                     type="checkbox"
-                    aria-label="테스트 전체 선택"
+                    aria-label="테스트 케이스 전체 선택"
                     checked={
                       items.length > 0 &&
                       items.every((c) => selected.includes(c.id))
@@ -537,7 +537,7 @@ export function SheetContent({
                       if (locked || !text.includes("\t")) return;
                       e.preventDefault();
                       const pasted = parseDelimited(text, "\t");
-                      const updated = sheet.cases.map((c) => ({
+                      const updated = testScenario.cases.map((c) => ({
                         ...c,
                         extra: { ...c.extra },
                       }));
@@ -640,9 +640,10 @@ export function SheetContent({
           type="button"
           className="table-add"
           onClick={onAdd}
-          aria-label="테스트 추가"
+          aria-label="테스트 케이스 추가"
         >
-          <Icon name="plus" />새 테스트
+          <Icon name="plus" />
+          테스트 케이스 추가
         </button>
       )}
       <div className="table-count">{items.length}개</div>
@@ -650,27 +651,27 @@ export function SheetContent({
   );
 }
 export function CandidateReview({
-  sheet,
+  testScenario,
   onChange,
   onEdit,
   onSource,
   onAdded,
   onOpenAdded,
 }: {
-  sheet: Sheet;
-  onChange: (p: Partial<Sheet>) => void;
+  testScenario: TestScenario;
+  onChange: (p: Partial<TestScenario>) => void;
   onEdit: (id: string) => void;
   onSource: (ids: string[]) => void;
   onAdded: (id: string) => void;
   onOpenAdded: (id: string) => void;
 }) {
   const [filter, setFilter] = useState<Candidate["status"]>("pending");
-  const list = sheet.candidates.filter((c) => c.status === filter);
+  const list = testScenario.candidates.filter((c) => c.status === filter);
   return (
     <div className="candidate-view">
       <div className="candidate-filter">
         <select
-          aria-label="후보 상태"
+          aria-label="검토 후보 상태"
           value={filter}
           onChange={(e) => {
             setFilter(e.target.value as Candidate["status"]);
@@ -686,8 +687,8 @@ export function CandidateReview({
         <EmptyState
           title={
             filter === "pending"
-              ? "검토할 후보가 없습니다"
-              : "해당하는 후보가 없습니다"
+              ? "검토 후보가 없습니다"
+              : "해당하는 검토 후보가 없습니다"
           }
         />
       ) : (
@@ -727,7 +728,7 @@ export function CandidateReview({
                   <>
                     <IconButton
                       name="edit"
-                      label="후보 편집"
+                      label="검토 후보 편집"
                       onClick={() => onEdit(item.id)}
                     />
                     <button
@@ -735,7 +736,7 @@ export function CandidateReview({
                       className="secondary"
                       onClick={() =>
                         onChange({
-                          candidates: sheet.candidates.map((c) =>
+                          candidates: testScenario.candidates.map((c) =>
                             c.id === item.id ? { ...c, status: "excluded" } : c,
                           ),
                         })
@@ -747,27 +748,28 @@ export function CandidateReview({
                       type="button"
                       className="primary"
                       onClick={() => {
-                        if (sheet.cases.some((c) => c.id === item.id)) return;
+                        if (testScenario.cases.some((c) => c.id === item.id))
+                          return;
                         onChange({
                           cases: [
-                            ...sheet.cases,
+                            ...testScenario.cases,
                             {
                               ...item,
                               number:
                                 Math.max(
                                   0,
-                                  ...sheet.cases.map((c) => c.number),
+                                  ...testScenario.cases.map((c) => c.number),
                                 ) + 1,
                             },
                           ],
-                          candidates: sheet.candidates.map((c) =>
+                          candidates: testScenario.candidates.map((c) =>
                             c.id === item.id ? { ...c, status: "added" } : c,
                           ),
                         });
                         onAdded(item.id);
                       }}
                     >
-                      시트에 추가
+                      시나리오에 추가
                       <Icon name="plus" />
                     </button>
                   </>
@@ -777,7 +779,7 @@ export function CandidateReview({
                     className="secondary"
                     onClick={() =>
                       onChange({
-                        candidates: sheet.candidates.map((c) =>
+                        candidates: testScenario.candidates.map((c) =>
                           c.id === item.id ? { ...c, status: "pending" } : c,
                         ),
                       })
@@ -791,7 +793,7 @@ export function CandidateReview({
                     className="primary"
                     onClick={() => onOpenAdded(item.id)}
                   >
-                    추가된 테스트 보기
+                    추가된 테스트 케이스 보기
                     <Icon name="arrow" />
                   </button>
                 )}

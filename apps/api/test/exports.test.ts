@@ -4,10 +4,10 @@ import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import ExcelJS from "exceljs";
 import { ApiError } from "../src/common/errors";
-import type { SheetSnapshotDto } from "../src/contracts/sheets.dto";
+import type { TestScenarioSnapshotDto } from "../src/contracts/test-scenarios.dto";
 import { createXlsx, downloadName } from "../src/exports/xlsx";
 
-function fixture(): SheetSnapshotDto {
+function fixture(): TestScenarioSnapshotDto {
   const column = {
     id: randomUUID(),
     kind: "custom" as const,
@@ -49,14 +49,14 @@ test("XLSX exports saved order and literal multiline text without formulas or UU
   });
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(Uint8Array.from(await createXlsx(snapshot)).buffer);
-  const sheet = workbook.worksheets[0];
-  assert.equal(sheet.rowCount, 2);
-  assert.equal(sheet.columnCount, 1);
-  assert.equal(sheet.getCell("A1").value, "메모");
-  assert.equal(sheet.getCell("A2").value, text);
-  assert.equal(sheet.getCell("A2").type, ExcelJS.ValueType.String);
-  assert.equal(sheet.getCell("A2").formula, undefined);
-  assert.equal(sheet.views[0].state, "frozen");
+  const testScenario = workbook.worksheets[0];
+  assert.equal(testScenario.rowCount, 2);
+  assert.equal(testScenario.columnCount, 1);
+  assert.equal(testScenario.getCell("A1").value, "메모");
+  assert.equal(testScenario.getCell("A2").value, text);
+  assert.equal(testScenario.getCell("A2").type, ExcelJS.ValueType.String);
+  assert.equal(testScenario.getCell("A2").formula, undefined);
+  assert.equal(testScenario.views[0].state, "frozen");
   snapshot.columns[0].name = "새 열 이름";
   snapshot.cases = [];
   await workbook.xlsx.load(Uint8Array.from(await createXlsx(snapshot)).buffer);

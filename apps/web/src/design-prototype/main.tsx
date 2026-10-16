@@ -15,8 +15,8 @@ import {
   MenuItem,
   Skeleton,
 } from "./components";
-import { CandidateReview, CaseFields, SheetContent } from "./editor";
-import { downloadSheet } from "./io";
+import { CandidateReview, CaseFields, TestScenarioContent } from "./editor";
+import { downloadTestScenario } from "./io";
 import {
   ColumnsEditor,
   FlowEditor,
@@ -27,16 +27,16 @@ import {
   blankCase,
   cellValue,
   clone,
+  type DemoState,
   frames,
   generate,
   initialProjects,
   initialTemplates,
   newProject,
-  newSheet,
+  newTestScenario,
   type Project,
-  type Scenario,
-  type Sheet,
   type TestCase,
+  type TestScenario,
 } from "./model";
 import "./prototype.css";
 
@@ -47,7 +47,7 @@ type Route = {
     | "incoming"
     | "sources"
     | "prepare"
-    | "sheet"
+    | "testScenario"
     | "candidates"
     | "ia"
     | "templates"
@@ -56,7 +56,7 @@ type Route = {
   pid?: string;
   sid?: string;
   stage?: number;
-  returnTo?: "prepare" | "sheet" | "project";
+  returnTo?: "prepare" | "testScenario" | "project";
 };
 const params = new URLSearchParams(location.search);
 const motionDuration =
@@ -65,7 +65,7 @@ const motionDuration =
       "--duration-state",
     ),
   ) / 1000 || 0.18;
-const allowedScenarios: Scenario[] = [
+const allowedScenarios: DemoState[] = [
   "normal",
   "empty",
   "generation-error",
@@ -73,36 +73,36 @@ const allowedScenarios: Scenario[] = [
   "candidates-only",
   "partial-import",
 ];
-const scenario: Scenario =
+const scenario: DemoState =
   allowedScenarios.find((s) => s === params.get("scenario")) ?? "normal";
 const titles: Record<string, string> = {
   projectMenu: "프로젝트",
-  sheetMenu: "시트",
+  testScenarioMenu: "시나리오",
   settings: "보기 설정",
   layout: "레이아웃",
   columns: "열",
   filter: "필터",
   newProject: "프로젝트 만들기",
   projectInfo: "프로젝트 정보",
-  rename: "시트 이름",
-  add: "새 시트",
+  rename: "시나리오 이름",
+  add: "새 시나리오",
   generationSettings: "생성 설정",
   source: "관련 화면",
-  detail: "테스트 편집",
-  candidateDetail: "후보 편집",
-  list: "테스트 목록",
+  detail: "테스트 케이스 편집",
+  candidateDetail: "검토 후보 편집",
+  list: "테스트 케이스 목록",
   note: "메모",
   export: "XLSX 내보내기",
-  share: "시트 공유",
-  replace: "테스트 다시 생성",
-  delete: "테스트 삭제",
-  shareDetail: "테스트 상세",
-  sheetTemplate: "새 시트",
+  share: "시나리오 공유",
+  replace: "테스트 케이스 다시 생성",
+  delete: "테스트 케이스 삭제",
+  shareDetail: "테스트 케이스 상세",
+  testScenarioTemplate: "새 시나리오",
   projectTemplate: "프로젝트 기본 양식",
 };
 function App() {
   const [templates, setTemplates] = useState(initialTemplates);
-  const [pendingSheet, setPendingSheet] = useState<{
+  const [pendingTestScenario, setPendingTestScenario] = useState<{
     pid: string;
     manual: boolean;
     selected: string[];
@@ -146,7 +146,8 @@ function App() {
     label?: string;
   } | null>(null);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
-  const [shareSheet, setShareSheet] = useState<Sheet | null>(null);
+  const [shareTestScenario, setShareTestScenario] =
+    useState<TestScenario | null>(null);
   const [generationFailedOnce, setGenerationFailedOnce] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const anchor = useRef<{ left: number; bottom: number }>({
@@ -157,7 +158,7 @@ function App() {
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>[]>());
   const scroll = useRef(new Map<string, number>());
   const project = projects.find((p) => p.id === route.pid);
-  const sheet = project?.sheets.find((s) => s.id === route.sid);
+  const testScenario = project?.testScenarios.find((s) => s.id === route.sid);
   const reduced = useReducedMotion();
   const routeKey = (r: Route) =>
     `${r.page}:${r.pid ?? ""}:${r.sid ?? ""}:${r.stage ?? ""}`;
@@ -224,18 +225,27 @@ function App() {
   const updateProject = (id: string, patch: Partial<Project>) => {
     setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
-  const mutateSheet = (pid: string, sid: string, fn: (s: Sheet) => Sheet) => {
+  const mutateTestScenario = (
+    pid: string,
+    sid: string,
+    fn: (s: TestScenario) => TestScenario,
+  ) => {
     setProjects((ps) =>
       ps.map((p) =>
         p.id === pid
-          ? { ...p, sheets: p.sheets.map((s) => (s.id === sid ? fn(s) : s)) }
+          ? {
+              ...p,
+              testScenarios: p.testScenarios.map((s) =>
+                s.id === sid ? fn(s) : s,
+              ),
+            }
           : p,
       ),
     );
   };
-  const patchSheet = (patch: Partial<Sheet>) => {
-    if (project && sheet)
-      mutateSheet(project.id, sheet.id, (s) => {
+  const patchTestScenario = (patch: Partial<TestScenario>) => {
+    if (project && testScenario)
+      mutateTestScenario(project.id, testScenario.id, (s) => {
         if (s.generation !== "running") return { ...s, ...patch };
         return {
           ...s,
@@ -245,8 +255,9 @@ function App() {
       });
   };
   const patchCase = (id: string, patch: Partial<TestCase>) => {
-    if (!sheet || !project || sheet.generation === "running") return;
-    const old = sheet.cases.find((c) => c.id === id);
+    if (!testScenario || !project || testScenario.generation === "running")
+      return;
+    const old = testScenario.cases.find((c) => c.id === id);
     const contentChanged = [
       "title",
       "precondition",
@@ -260,7 +271,7 @@ function App() {
     );
     if (contentChanged && old?.result !== "미진행")
       notify("내용이 변경되어 테스트 결과를 미진행으로 바꿨습니다.");
-    mutateSheet(project.id, sheet.id, (s) => ({
+    mutateTestScenario(project.id, testScenario.id, (s) => ({
       ...s,
       cases: s.cases.map((c) =>
         c.id === id
@@ -278,47 +289,50 @@ function App() {
     setSourceIndex(0);
     open("source");
   };
-  const createSheet = (manual: boolean, selected: string[] = []) => {
+  const createTestScenario = (manual: boolean, selected: string[] = []) => {
     if (!project) return;
-    setPendingSheet({ pid: project.id, manual, selected });
+    setPendingTestScenario({ pid: project.id, manual, selected });
     setTemplateChoice(project.templateId);
-    setDraftName(manual ? "새 시트" : "새 테스트");
-    open("sheetTemplate");
+    setDraftName("새 시나리오");
+    open("testScenarioTemplate");
   };
-  const confirmSheet = () => {
-    if (!pendingSheet) return;
+  const confirmTestScenario = () => {
+    if (!pendingTestScenario) return;
     const template = templates.find((t) => t.id === templateChoice);
-    const p = projects.find((p) => p.id === pendingSheet.pid);
+    const p = projects.find((p) => p.id === pendingTestScenario.pid);
     if (!template || !p || !draftName.trim()) return;
-    const s = newSheet(draftName.trim(), template.columns);
+    const s = newTestScenario(draftName.trim(), template.columns);
     s.templateId = template.id;
     s.templateVersion = template.version;
-    s.selectedFrames = pendingSheet.selected;
-    updateProject(p.id, { sheets: [...p.sheets, s] });
+    s.selectedFrames = pendingTestScenario.selected;
+    updateProject(p.id, { testScenarios: [...p.testScenarios, s] });
     navigate({
-      page: pendingSheet.manual ? "sheet" : "prepare",
+      page: pendingTestScenario.manual ? "testScenario" : "prepare",
       pid: p.id,
       sid: s.id,
-      stage: pendingSheet.selected.length ? 1 : 0,
+      stage: pendingTestScenario.selected.length ? 1 : 0,
     });
-    setPendingSheet(null);
+    setPendingTestScenario(null);
   };
   const addCase = () => {
-    if (!sheet) return;
+    if (!testScenario) return;
     const item = blankCase(
-      Math.max(0, ...sheet.cases.map((c) => c.number)) + 1,
+      Math.max(0, ...testScenario.cases.map((c) => c.number)) + 1,
     );
-    patchSheet({ cases: [...sheet.cases, item], activeId: item.id });
+    patchTestScenario({
+      cases: [...testScenario.cases, item],
+      activeId: item.id,
+    });
     setTarget(item.id);
     open("detail");
   };
   const deleteCases = () => {
-    if (!sheet || !project) return;
-    const sid = sheet.id,
+    if (!testScenario || !project) return;
+    const sid = testScenario.id,
       pid = project.id;
-    const removed = sheet.cases.filter((c) => deleteIds.includes(c.id));
-    const positions = removed.map((c) => sheet.cases.indexOf(c));
-    mutateSheet(pid, sid, (s) => ({
+    const removed = testScenario.cases.filter((c) => deleteIds.includes(c.id));
+    const positions = removed.map((c) => testScenario.cases.indexOf(c));
+    mutateTestScenario(pid, sid, (s) => ({
       ...s,
       cases: s.cases.filter((c) => !deleteIds.includes(c.id)),
       candidates: s.candidates.map((c) =>
@@ -327,9 +341,9 @@ function App() {
     }));
     close();
     notify(
-      `${removed.length}개 테스트를 삭제했습니다.`,
+      `${removed.length}개 테스트 케이스를 삭제했습니다.`,
       () => {
-        mutateSheet(pid, sid, (s) => {
+        mutateTestScenario(pid, sid, (s) => {
           const cases = [...s.cases];
           removed.forEach((c, i) => {
             if (!cases.some((x) => x.id === c.id))
@@ -353,22 +367,30 @@ function App() {
   const cancelGeneration = (pid: string, sid: string) => {
     timers.current.get(sid)?.forEach(clearTimeout);
     timers.current.delete(sid);
-    mutateSheet(pid, sid, (s) => ({ ...s, generation: "idle", step: 0 }));
+    mutateTestScenario(pid, sid, (s) => ({
+      ...s,
+      generation: "idle",
+      step: 0,
+    }));
     notify("생성을 취소했습니다.");
   };
   const runGeneration = () => {
-    if (!project || !sheet) return;
+    if (!project || !testScenario) return;
     const pid = project.id,
-      sid = sheet.id,
-      input = clone(sheet);
+      sid = testScenario.id,
+      input = clone(testScenario);
     const fail = scenario === "generation-error" && !generationFailedOnce;
     setGenerationFailedOnce(true);
     timers.current.get(sid)?.forEach(clearTimeout);
-    mutateSheet(pid, sid, (s) => ({ ...s, generation: "running", step: 0 }));
-    navigate({ page: "sheet", pid, sid });
+    mutateTestScenario(pid, sid, (s) => ({
+      ...s,
+      generation: "running",
+      step: 0,
+    }));
+    navigate({ page: "testScenario", pid, sid });
     const list = [1, 2].map((step) =>
       setTimeout(
-        () => mutateSheet(pid, sid, (s) => ({ ...s, step })),
+        () => mutateTestScenario(pid, sid, (s) => ({ ...s, step })),
         step * 1100,
       ),
     );
@@ -376,11 +398,11 @@ function App() {
       setTimeout(() => {
         timers.current.delete(sid);
         if (fail) {
-          mutateSheet(pid, sid, (s) => ({ ...s, generation: "failed" }));
+          mutateTestScenario(pid, sid, (s) => ({ ...s, generation: "failed" }));
           return;
         }
         const result = generate(input, scenario);
-        mutateSheet(pid, sid, (s) => ({
+        mutateTestScenario(pid, sid, (s) => ({
           ...s,
           ...result,
           layout: s.layout,
@@ -388,7 +410,7 @@ function App() {
           generation: "idle",
           step: 0,
         }));
-        notify(`${result.cases.length}개 테스트를 생성했습니다.`);
+        notify(`${result.cases.length}개 테스트 케이스를 생성했습니다.`);
       }, 3500),
     );
     timers.current.set(sid, list);
@@ -401,10 +423,10 @@ function App() {
     )
       navigate({ page: "projects" });
     else if (["candidates", "prepare", "share"].includes(route.page))
-      navigate({ page: "sheet", pid: route.pid, sid: route.sid });
+      navigate({ page: "testScenario", pid: route.pid, sid: route.sid });
     else if (route.page === "flow")
       navigate({
-        page: route.returnTo === "prepare" ? "prepare" : "sheet",
+        page: route.returnTo === "prepare" ? "prepare" : "testScenario",
         pid: route.pid,
         sid: route.sid,
         stage: 1,
@@ -429,15 +451,17 @@ function App() {
                   : route.page === "flow"
                     ? "사용자 흐름"
                     : route.page === "candidates"
-                      ? "후보 검토"
+                      ? "검토 후보"
                       : route.page === "share"
-                        ? shareSheet?.name
-                        : sheet?.name;
-  const sharedCase = shareSheet?.cases.find((c) => c.id === target);
-  const currentCase = sheet?.cases.find((c) => c.id === target);
-  const currentCandidate = sheet?.candidates.find((c) => c.id === target);
+                        ? shareTestScenario?.name
+                        : testScenario?.name;
+  const sharedCase = shareTestScenario?.cases.find((c) => c.id === target);
+  const currentCase = testScenario?.cases.find((c) => c.id === target);
+  const currentCandidate = testScenario?.candidates.find(
+    (c) => c.id === target,
+  );
   const selectedSource = frames.find((f) => f.id === sourceIds[sourceIndex]);
-  const locked = sheet?.generation === "running";
+  const locked = testScenario?.generation === "running";
   const frameGrid = (
     ids: string[],
     selected: string[],
@@ -547,7 +571,7 @@ function App() {
               <>
                 <IconButton
                   name="plus"
-                  label="시트 추가"
+                  label="시나리오 추가"
                   onClick={() => open("add")}
                 />
                 <IconButton
@@ -557,36 +581,38 @@ function App() {
                 />
               </>
             )}
-            {route.page === "sheet" && (
+            {route.page === "testScenario" && (
               <IconButton
                 name="more"
-                label="시트 메뉴"
-                onClick={() => open("sheetMenu")}
+                label="시나리오 메뉴"
+                onClick={() => open("testScenarioMenu")}
               />
             )}
           </div>
         </header>
         <main ref={mainRef} tabIndex={-1} className={`main page-${route.page}`}>
-          {searchOpen && route.page !== "sheet" && route.page !== "share" && (
-            <div className="search-strip">
-              <Icon name="search" />
-              <input
-                ref={searchRef}
-                aria-label="검색어"
-                placeholder="검색"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              <IconButton
-                name="close"
-                label="검색 지우기"
-                onClick={() => {
-                  setQuery("");
-                  setSearchOpen(false);
-                }}
-              />
-            </div>
-          )}
+          {searchOpen &&
+            route.page !== "testScenario" &&
+            route.page !== "share" && (
+              <div className="search-strip">
+                <Icon name="search" />
+                <input
+                  ref={searchRef}
+                  aria-label="검색어"
+                  placeholder="검색"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <IconButton
+                  name="close"
+                  label="검색 지우기"
+                  onClick={() => {
+                    setQuery("");
+                    setSearchOpen(false);
+                  }}
+                />
+              </div>
+            )}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={routeKey(route)}
@@ -596,77 +622,82 @@ function App() {
               exit={{ opacity: 0 }}
               transition={{ duration: reduced ? 0 : motionDuration }}
             >
-              {(route.page === "sheet" || route.page === "share") && sheet && (
-                <div className="database-heading">
-                  <div className="database-title">
-                    <Icon name="file" />
-                    <h1>{sheet.name}</h1>
-                  </div>
-                  <div className="database-toolbar">
-                    <span className="database-view">
-                      <Icon
-                        name={
-                          (route.page === "share" ? shareSheet : sheet)
-                            ?.layout === "table"
-                            ? "table"
-                            : "qa"
-                        }
-                      />
-                      {(route.page === "share" ? shareSheet : sheet)?.layout ===
-                      "table"
-                        ? "표"
-                        : "QA 진행"}
-                    </span>
-                    <span className="database-count">
-                      {sheet.cases.length}개
-                    </span>
-                    <div className="database-actions">
-                      {searchOpen && (
-                        <input
-                          ref={searchRef}
-                          className="database-search"
-                          aria-label="검색어"
-                          placeholder="검색"
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              setQuery("");
-                              setSearchOpen(false);
-                            }
-                          }}
+              {(route.page === "testScenario" || route.page === "share") &&
+                testScenario && (
+                  <div className="database-heading">
+                    <div className="database-title">
+                      <Icon name="file" />
+                      <h1>{testScenario.name}</h1>
+                    </div>
+                    <div className="database-toolbar">
+                      <span className="database-view">
+                        <Icon
+                          name={
+                            (route.page === "share"
+                              ? shareTestScenario
+                              : testScenario
+                            )?.layout === "table"
+                              ? "table"
+                              : "qa"
+                          }
                         />
-                      )}
-                      {route.page !== "share" && (
-                        <IconButton
-                          name="search"
-                          label="검색"
-                          active={searchOpen}
-                          onClick={() => {
-                            setSearchOpen((v) => !v);
-                            setQuery("");
-                          }}
-                        />
-                      )}
-                      <IconButton
-                        name="settings"
-                        label="보기 설정"
-                        onClick={() => open("settings")}
-                      />
-                      {route.page !== "share" && (
-                        <span className="database-add">
-                          <IconButton
-                            name="plus"
-                            label="테스트 추가"
-                            disabled={locked}
-                            onClick={addCase}
+                        {(route.page === "share"
+                          ? shareTestScenario
+                          : testScenario
+                        )?.layout === "table"
+                          ? "표"
+                          : "QA 진행"}
+                      </span>
+                      <span className="database-count">
+                        {testScenario.cases.length}개
+                      </span>
+                      <div className="database-actions">
+                        {searchOpen && (
+                          <input
+                            ref={searchRef}
+                            className="database-search"
+                            aria-label="검색어"
+                            placeholder="검색"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setQuery("");
+                                setSearchOpen(false);
+                              }
+                            }}
                           />
-                        </span>
-                      )}
+                        )}
+                        {route.page !== "share" && (
+                          <IconButton
+                            name="search"
+                            label="검색"
+                            active={searchOpen}
+                            onClick={() => {
+                              setSearchOpen((v) => !v);
+                              setQuery("");
+                            }}
+                          />
+                        )}
+                        <IconButton
+                          name="settings"
+                          label="보기 설정"
+                          onClick={() => open("settings")}
+                        />
+                        {route.page !== "share" && (
+                          <span className="database-add">
+                            <IconButton
+                              name="plus"
+                              label="테스트 케이스 추가"
+                              disabled={locked}
+                              onClick={addCase}
+                            />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
               {route.page === "projects" && (
                 <div className="collection-page">
                   <div className="page-title">
@@ -712,7 +743,7 @@ function App() {
                             <div className="project-card-content">
                               <h2>{p.name}</h2>
                               <p>
-                                시트 {p.sheets.length} · 화면{" "}
+                                시나리오 {p.testScenarios.length} · 화면{" "}
                                 {p.frameIds.length}
                               </p>
                             </div>
@@ -726,47 +757,47 @@ function App() {
               {route.page === "project" && project && (
                 <div className="collection-page">
                   <div className="page-title">
-                    <h1>테스트 시트</h1>
-                    <span>{project.sheets.length}</span>
+                    <h1>테스트 시나리오</h1>
+                    <span>{project.testScenarios.length}</span>
                   </div>
-                  {!project.sheets.length ? (
-                    <EmptyState title="테스트 시트가 없습니다">
+                  {!project.testScenarios.length ? (
+                    <EmptyState title="테스트 시나리오가 없습니다">
                       <button
                         type="button"
                         className="primary"
-                        onClick={() => createSheet(false)}
+                        onClick={() => createTestScenario(false)}
                       >
-                        테스트 생성
+                        테스트 케이스 생성
                         <Icon name="arrow" />
                       </button>
                       <button
                         type="button"
                         className="text-action"
-                        onClick={() => createSheet(true)}
+                        onClick={() => createTestScenario(true)}
                       >
-                        빈 시트 만들기
+                        빈 시나리오 만들기
                       </button>
                     </EmptyState>
                   ) : (
-                    <div className="sheet-list">
-                      {project.sheets
+                    <div className="test-scenario-list">
+                      {project.testScenarios
                         .filter((s) =>
                           s.name.toLowerCase().includes(query.toLowerCase()),
                         )
                         .map((s) => (
                           <button
                             type="button"
-                            className="sheet-row"
+                            className="test-scenario-row"
                             key={s.id}
                             onClick={() =>
                               navigate({
-                                page: "sheet",
+                                page: "testScenario",
                                 pid: project.id,
                                 sid: s.id,
                               })
                             }
                           >
-                            <span className="sheet-symbol">
+                            <span className="test-scenario-symbol">
                               <Icon name={s.layout === "qa" ? "qa" : "table"} />
                             </span>
                             <div>
@@ -774,11 +805,11 @@ function App() {
                               <p>
                                 {s.generation === "running"
                                   ? "생성 중"
-                                  : `${s.cases.length}개 테스트`}
+                                  : `${s.cases.length}개 테스트 케이스`}
                                 {s.candidates.some(
                                   (c) => c.status === "pending",
                                 ) &&
-                                  ` · 후보 ${s.candidates.filter((c) => c.status === "pending").length}개`}
+                                  ` · 검토 후보 ${s.candidates.filter((c) => c.status === "pending").length}개`}
                               </p>
                             </div>
                             <Icon name="arrow" />
@@ -878,14 +909,14 @@ function App() {
                             ? ps.map((x) => (x.id === p.id ? updated : x))
                             : [...ps, updated],
                         );
-                        setPendingSheet({
+                        setPendingTestScenario({
                           pid: p.id,
                           manual: false,
                           selected: [...intake],
                         });
                         setTemplateChoice(p.templateId);
-                        setDraftName("새 테스트");
-                        open("sheetTemplate");
+                        setDraftName("새 시나리오");
+                        open("testScenarioTemplate");
                       }}
                     >
                       테스트 준비
@@ -932,7 +963,7 @@ function App() {
                       <button
                         type="button"
                         className="primary"
-                        onClick={() => createSheet(false, picked)}
+                        onClick={() => createTestScenario(false, picked)}
                       >
                         테스트 준비
                         <Icon name="arrow" />
@@ -946,7 +977,7 @@ function App() {
                   )}
                 </div>
               )}
-              {route.page === "prepare" && project && sheet && (
+              {route.page === "prepare" && project && testScenario && (
                 <div
                   className={`prepare-page ${route.stage === 1 ? "prepare-write" : ""}`}
                 >
@@ -963,15 +994,18 @@ function App() {
                     <>
                       <div className="page-title">
                         <h1>테스트할 화면 선택</h1>
-                        <span>{sheet.selectedFrames.length}</span>
+                        <span>{testScenario.selectedFrames.length}</span>
                       </div>
                       {project.frameIds.length ? (
                         frameGrid(
                           project.frameIds,
-                          sheet.selectedFrames,
+                          testScenario.selectedFrames,
                           (id) =>
-                            patchSheet({
-                              selectedFrames: toggle(sheet.selectedFrames, id),
+                            patchTestScenario({
+                              selectedFrames: toggle(
+                                testScenario.selectedFrames,
+                                id,
+                              ),
                             }),
                         )
                       ) : (
@@ -988,7 +1022,7 @@ function App() {
                         <button
                           type="button"
                           className="primary"
-                          disabled={!sheet.selectedFrames.length}
+                          disabled={!testScenario.selectedFrames.length}
                           onClick={() => navigate({ ...route, stage: 1 })}
                         >
                           다음
@@ -1012,13 +1046,13 @@ function App() {
                         onClick={() => navigate({ ...route, stage: 0 })}
                       >
                         <span className="mini-sources">
-                          {sheet.selectedFrames.slice(0, 3).map((id) => (
+                          {testScenario.selectedFrames.slice(0, 3).map((id) => (
                             <span key={id}>
                               <Icon name="image" />
                             </span>
                           ))}
                         </span>
-                        <span>화면 {sheet.selectedFrames.length}개</span>
+                        <span>화면 {testScenario.selectedFrames.length}개</span>
                         <Icon name="chevron" />
                       </button>
                       <fieldset className="scope-options">
@@ -1026,16 +1060,16 @@ function App() {
                         {(["screen", "flow"] as const).map((s, i) => (
                           <label
                             key={s}
-                            className={sheet.scope === s ? "chosen" : ""}
+                            className={testScenario.scope === s ? "chosen" : ""}
                           >
                             <input
                               type="radio"
                               name="scope"
-                              checked={sheet.scope === s}
-                              onChange={() => patchSheet({ scope: s })}
+                              checked={testScenario.scope === s}
+                              onChange={() => patchTestScenario({ scope: s })}
                             />
                             <Icon name={s === "screen" ? "image" : "flow"} />
-                            {i ? "사용자 흐름" : "화면별"}
+                            {i ? "통합 테스트" : "단위 테스트"}
                           </label>
                         ))}
                       </fieldset>
@@ -1043,11 +1077,13 @@ function App() {
                         <textarea
                           className="goal-input"
                           placeholder="예: 옵션 선택부터 결제 완료까지 확인하고 싶어요."
-                          value={sheet.goal}
-                          onChange={(e) => patchSheet({ goal: e.target.value })}
+                          value={testScenario.goal}
+                          onChange={(e) =>
+                            patchTestScenario({ goal: e.target.value })
+                          }
                         />
                       </Field>
-                      {sheet.scope === "flow" && (
+                      {testScenario.scope === "flow" && (
                         <button
                           type="button"
                           className="flow-entry"
@@ -1055,7 +1091,7 @@ function App() {
                             navigate({
                               page: "flow",
                               pid: project.id,
-                              sid: sheet.id,
+                              sid: testScenario.id,
                               returnTo: "prepare",
                             })
                           }
@@ -1063,8 +1099,8 @@ function App() {
                           <Icon name="flow" />
                           <span>사용자 흐름</span>
                           <small>
-                            {sheet.nodes.length
-                              ? `${sheet.nodes.length}개 단계`
+                            {testScenario.nodes.length
+                              ? `${testScenario.nodes.length}개 단계`
                               : "선택"}
                           </small>
                           <Icon name="chevron" />
@@ -1075,15 +1111,16 @@ function App() {
                           type="button"
                           className="primary"
                           disabled={
-                            !sheet.goal.trim() && !sheet.selectedFrames.length
+                            !testScenario.goal.trim() &&
+                            !testScenario.selectedFrames.length
                           }
                           onClick={() =>
-                            sheet.cases.length
+                            testScenario.cases.length
                               ? open("replace")
                               : runGeneration()
                           }
                         >
-                          테스트 생성
+                          테스트 케이스 생성
                           <Icon name="arrow" />
                         </button>
                       </div>
@@ -1091,29 +1128,31 @@ function App() {
                   )}
                 </div>
               )}
-              {route.page === "sheet" && sheet && project && (
+              {route.page === "testScenario" && testScenario && project && (
                 <>
-                  {sheet.generation === "running" ? (
+                  {testScenario.generation === "running" ? (
                     <div
-                      className={`generation ${sheet.cases.length ? "generation-compact" : ""}`}
+                      className={`generation ${testScenario.cases.length ? "generation-compact" : ""}`}
                       role="status"
                     >
                       <div className="generation-orbit">
                         <Icon name="spark" />
                       </div>
                       <div>
-                        <p className="eyebrow">테스트 생성</p>
+                        <p className="eyebrow">테스트 케이스 생성</p>
                         <h1>
                           {
-                            ["자료 확인 중", "테스트 작성 중", "결과 정리 중"][
-                              sheet.step
-                            ]
+                            [
+                              "자료 확인 중",
+                              "테스트 케이스 생성 중",
+                              "결과 정리 중",
+                            ][testScenario.step]
                           }
                         </h1>
                         <div className="generation-steps">
                           {[0, 1, 2].map((i) => (
                             <span
-                              className={i <= sheet.step ? "done" : ""}
+                              className={i <= testScenario.step ? "done" : ""}
                               key={i}
                             />
                           ))}
@@ -1122,17 +1161,19 @@ function App() {
                       <button
                         type="button"
                         className="text-action"
-                        onClick={() => cancelGeneration(project.id, sheet.id)}
+                        onClick={() =>
+                          cancelGeneration(project.id, testScenario.id)
+                        }
                       >
                         취소
                       </button>
-                      {!sheet.cases.length && <Skeleton />}
+                      {!testScenario.cases.length && <Skeleton />}
                     </div>
-                  ) : sheet.generation === "failed" ? (
+                  ) : testScenario.generation === "failed" ? (
                     <div className="generation-error" role="alert">
                       <Icon name="alert" />
                       <div>
-                        <strong>테스트를 생성하지 못했습니다.</strong>
+                        <strong>테스트 케이스를 생성하지 못했습니다.</strong>
                         <p>입력한 내용은 유지되었습니다.</p>
                       </div>
                       <button
@@ -1142,7 +1183,7 @@ function App() {
                           navigate({
                             page: "prepare",
                             pid: project.id,
-                            sid: sheet.id,
+                            sid: testScenario.id,
                             stage: 1,
                           })
                         }
@@ -1168,14 +1209,14 @@ function App() {
                       />
                     </div>
                   )}
-                  {(sheet.generation !== "running" ||
-                    sheet.cases.length > 0) && (
-                    <SheetContent
-                      sheet={sheet}
+                  {(testScenario.generation !== "running" ||
+                    testScenario.cases.length > 0) && (
+                    <TestScenarioContent
+                      testScenario={testScenario}
                       ia={project.ia}
                       query={query}
                       priority={priority}
-                      onPatch={patchSheet}
+                      onPatch={patchTestScenario}
                       onCase={patchCase}
                       onDetail={(id) => {
                         setTarget(id);
@@ -1195,32 +1236,36 @@ function App() {
                   )}
                 </>
               )}
-              {route.page === "candidates" && sheet && project && (
+              {route.page === "candidates" && testScenario && project && (
                 <CandidateReview
-                  sheet={sheet}
-                  onChange={patchSheet}
+                  testScenario={testScenario}
+                  onChange={patchTestScenario}
                   onEdit={(id) => {
                     setTarget(id);
                     open("candidateDetail");
                   }}
                   onSource={source}
                   onOpenAdded={(id) => {
-                    patchSheet({ activeId: id });
-                    navigate({ page: "sheet", pid: project.id, sid: sheet.id });
+                    patchTestScenario({ activeId: id });
+                    navigate({
+                      page: "testScenario",
+                      pid: project.id,
+                      sid: testScenario.id,
+                    });
                   }}
                   onAdded={(id) =>
                     notify(
-                      "시트에 추가되었습니다.",
+                      "시나리오에 추가되었습니다.",
                       () => {
-                        patchSheet({ activeId: id });
+                        patchTestScenario({ activeId: id });
                         navigate({
-                          page: "sheet",
+                          page: "testScenario",
                           pid: project.id,
-                          sid: sheet.id,
+                          sid: testScenario.id,
                         });
                         setToast(null);
                       },
-                      "테스트 보기",
+                      "테스트 케이스 보기",
                     )
                   }
                 />
@@ -1237,22 +1282,22 @@ function App() {
                   onChange={setTemplates}
                 />
               )}
-              {route.page === "flow" && sheet && project && (
+              {route.page === "flow" && testScenario && project && (
                 <FlowEditor
-                  sheet={sheet}
+                  testScenario={testScenario}
                   ia={project.ia}
-                  onChange={patchSheet}
+                  onChange={patchTestScenario}
                 />
               )}
-              {route.page === "share" && shareSheet && project && (
-                <SheetContent
-                  sheet={shareSheet}
+              {route.page === "share" && shareTestScenario && project && (
+                <TestScenarioContent
+                  testScenario={shareTestScenario}
                   ia={project.ia}
                   query=""
                   priority="all"
                   readOnly
                   onPatch={(patch) =>
-                    setShareSheet((s) => (s ? { ...s, ...patch } : s))
+                    setShareTestScenario((s) => (s ? { ...s, ...patch } : s))
                   }
                   onCase={() => {}}
                   onDetail={(id) => {
@@ -1276,7 +1321,7 @@ function App() {
               "layout",
               "columns",
               "filter",
-              "sheetMenu",
+              "testScenarioMenu",
               "projectMenu",
               "add",
               "generationSettings",
@@ -1343,18 +1388,22 @@ function App() {
             )}
             {panel === "add" && (
               <>
-                <MenuItem icon="spark" onClick={() => createSheet(false)}>
-                  테스트 생성
+                <MenuItem
+                  icon="spark"
+                  onClick={() => createTestScenario(false)}
+                >
+                  테스트 케이스 생성
                 </MenuItem>
-                <MenuItem icon="table" onClick={() => createSheet(true)}>
-                  빈 시트 만들기
+                <MenuItem icon="table" onClick={() => createTestScenario(true)}>
+                  빈 시나리오 만들기
                 </MenuItem>
               </>
             )}
-            {(panel === "sheetTemplate" || panel === "projectTemplate") && (
+            {(panel === "testScenarioTemplate" ||
+              panel === "projectTemplate") && (
               <div className="field-stack">
-                {panel === "sheetTemplate" && (
-                  <Field label="시트 이름">
+                {panel === "testScenarioTemplate" && (
+                  <Field label="시나리오 이름">
                     <input
                       value={draftName}
                       onChange={(e) => setDraftName(e.target.value)}
@@ -1384,22 +1433,26 @@ function App() {
                 </div>
                 {panel === "projectTemplate" && (
                   <p className="field-hint">
-                    이 프로젝트에서 새 시트를 만들 때 기본으로 선택됩니다.
+                    이 프로젝트에서 새 시나리오를 만들 때 기본으로 선택됩니다.
                   </p>
                 )}
                 <button
                   type="button"
                   className="primary"
-                  disabled={panel === "sheetTemplate" && !draftName.trim()}
+                  disabled={
+                    panel === "testScenarioTemplate" && !draftName.trim()
+                  }
                   onClick={() => {
-                    if (panel === "sheetTemplate") confirmSheet();
+                    if (panel === "testScenarioTemplate") confirmTestScenario();
                     else if (project) {
                       updateProject(project.id, { templateId: templateChoice });
                       close();
                     }
                   }}
                 >
-                  {panel === "sheetTemplate" ? "시트 만들기" : "적용"}
+                  {panel === "testScenarioTemplate"
+                    ? "시나리오 만들기"
+                    : "적용"}
                 </button>
                 <button
                   type="button"
@@ -1411,12 +1464,12 @@ function App() {
                 </button>
               </div>
             )}
-            {panel === "sheetMenu" && sheet && project && (
+            {panel === "testScenarioMenu" && testScenario && project && (
               <>
                 <MenuItem
                   icon="edit"
                   onClick={() => {
-                    setDraftName(sheet.name);
+                    setDraftName(testScenario.name);
                     enter("rename");
                   }}
                 >
@@ -1425,16 +1478,16 @@ function App() {
                 <MenuItem
                   icon="file"
                   disabled={locked}
-                  detail={`${sheet.candidates.filter((c) => c.status === "pending").length}`}
+                  detail={`${testScenario.candidates.filter((c) => c.status === "pending").length}`}
                   onClick={() =>
                     navigate({
                       page: "candidates",
                       pid: project.id,
-                      sid: sheet.id,
+                      sid: testScenario.id,
                     })
                   }
                 >
-                  후보 검토
+                  검토 후보
                 </MenuItem>
                 <MenuItem
                   icon="flow"
@@ -1443,8 +1496,8 @@ function App() {
                     navigate({
                       page: "flow",
                       pid: project.id,
-                      sid: sheet.id,
-                      returnTo: "sheet",
+                      sid: testScenario.id,
+                      returnTo: "testScenario",
                     })
                   }
                 >
@@ -1456,7 +1509,7 @@ function App() {
                   onClick={() => {
                     if (locked) {
                       notify(
-                        "현재 시트의 생성이 끝난 뒤 다시 실행할 수 있습니다.",
+                        "현재 시나리오의 생성이 끝난 뒤 다시 실행할 수 있습니다.",
                       );
                       close();
                       return;
@@ -1464,12 +1517,12 @@ function App() {
                     navigate({
                       page: "prepare",
                       pid: project.id,
-                      sid: sheet.id,
+                      sid: testScenario.id,
                       stage: 1,
                     });
                   }}
                 >
-                  테스트 생성
+                  테스트 케이스 생성
                 </MenuItem>
                 <hr />
                 <MenuItem icon="download" onClick={() => enter("export")}>
@@ -1485,8 +1538,8 @@ function App() {
                 <MenuItem
                   icon="grid"
                   detail={
-                    (route.page === "share" ? shareSheet : sheet)?.layout ===
-                    "table"
+                    (route.page === "share" ? shareTestScenario : testScenario)
+                      ?.layout === "table"
                       ? "표"
                       : "QA 진행"
                   }
@@ -1516,20 +1569,24 @@ function App() {
                   <button
                     type="button"
                     className={
-                      (route.page === "share" ? shareSheet : sheet)?.layout ===
-                      layout
+                      (route.page === "share"
+                        ? shareTestScenario
+                        : testScenario
+                      )?.layout === layout
                         ? "selected"
                         : ""
                     }
                     aria-pressed={
-                      (route.page === "share" ? shareSheet : sheet)?.layout ===
-                      layout
+                      (route.page === "share"
+                        ? shareTestScenario
+                        : testScenario
+                      )?.layout === layout
                     }
                     key={layout}
                     onClick={() => {
                       if (route.page === "share")
-                        setShareSheet((s) => (s ? { ...s, layout } : s));
-                      else patchSheet({ layout });
+                        setShareTestScenario((s) => (s ? { ...s, layout } : s));
+                      else patchTestScenario({ layout });
                       close();
                     }}
                   >
@@ -1547,14 +1604,14 @@ function App() {
                 ))}
               </div>
             )}
-            {panel === "columns" && sheet && (
+            {panel === "columns" && testScenario && (
               <ColumnsEditor
-                columns={sheet.columns}
-                onChange={(cols) => patchSheet({ columns: cols })}
+                columns={testScenario.columns}
+                onChange={(cols) => patchTestScenario({ columns: cols })}
                 onDelete={(id) =>
-                  patchSheet({
-                    columns: sheet.columns.filter((c) => c.id !== id),
-                    cases: sheet.cases.map((c) => {
+                  patchTestScenario({
+                    columns: testScenario.columns.filter((c) => c.id !== id),
+                    cases: testScenario.cases.map((c) => {
                       const extra = { ...c.extra };
                       delete extra[id];
                       return { ...c, extra };
@@ -1593,13 +1650,13 @@ function App() {
                     updateProject(project.id, { name });
                     close();
                   } else {
-                    patchSheet({ name });
+                    patchTestScenario({ name });
                     close();
                   }
                 }}
               >
                 <Field
-                  label={panel === "rename" ? "시트 이름" : "프로젝트 이름"}
+                  label={panel === "rename" ? "시나리오 이름" : "프로젝트 이름"}
                 >
                   <input
                     value={draftName}
@@ -1629,19 +1686,21 @@ function App() {
                 </button>
               </form>
             )}
-            {panel === "generationSettings" && sheet && project && (
+            {panel === "generationSettings" && testScenario && project && (
               <div className="field-stack">
                 <Field label="AI 서비스">
                   <select
-                    value={sheet.provider}
-                    onChange={(e) => patchSheet({ provider: e.target.value })}
+                    value={testScenario.provider}
+                    onChange={(e) =>
+                      patchTestScenario({ provider: e.target.value })
+                    }
                   >
                     <option>Claude</option>
                     <option>OpenAI</option>
                   </select>
                 </Field>
                 <MenuItem icon="table" onClick={() => enter("columns")}>
-                  시트 양식
+                  시나리오 양식
                 </MenuItem>
                 <p className="field-hint">
                   화면 목록 {project.ia.length}개가 함께 사용됩니다.
@@ -1673,7 +1732,7 @@ function App() {
             {panel === "detail" && currentCase && project && (
               <CaseFields
                 item={currentCase}
-                columns={sheet?.columns}
+                columns={testScenario?.columns}
                 ia={project.ia}
                 onChange={(patch) => patchCase(currentCase.id, patch)}
               />
@@ -1681,7 +1740,7 @@ function App() {
             {panel === "shareDetail" && sharedCase && (
               <div className="field-stack">
                 <h2>{sharedCase.title}</h2>
-                {shareSheet?.columns
+                {shareTestScenario?.columns
                   .filter((col) => col.visible)
                   .map((col) => (
                     <section key={col.id}>
@@ -1695,15 +1754,15 @@ function App() {
             )}
             {panel === "candidateDetail" &&
               currentCandidate &&
-              sheet &&
+              testScenario &&
               project && (
                 <CaseFields
                   item={currentCandidate}
-                  columns={sheet.columns}
+                  columns={testScenario.columns}
                   ia={project.ia}
                   onChange={(patch) =>
-                    patchSheet({
-                      candidates: sheet.candidates.map((c) =>
+                    patchTestScenario({
+                      candidates: testScenario.candidates.map((c) =>
                         c.id === currentCandidate.id ? { ...c, ...patch } : c,
                       ),
                     })
@@ -1712,28 +1771,29 @@ function App() {
               )}
             {panel === "list" && (
               <div className="scenario-list">
-                {(route.page === "share" ? shareSheet : sheet)?.cases.map(
-                  (c) => (
-                    <button
-                      type="button"
-                      key={c.id}
-                      onClick={() => {
-                        if (route.page === "share")
-                          setShareSheet((s) =>
-                            s ? { ...s, activeId: c.id } : s,
-                          );
-                        else patchSheet({ activeId: c.id });
-                        close();
-                      }}
-                    >
-                      <small>TC-{String(c.number).padStart(3, "0")}</small>
-                      <span>{c.title || "제목 없는 테스트"}</span>
-                      <span className={`result-text result-${c.result}`}>
-                        {c.result}
-                      </span>
-                    </button>
-                  ),
-                )}
+                {(route.page === "share"
+                  ? shareTestScenario
+                  : testScenario
+                )?.cases.map((c) => (
+                  <button
+                    type="button"
+                    key={c.id}
+                    onClick={() => {
+                      if (route.page === "share")
+                        setShareTestScenario((s) =>
+                          s ? { ...s, activeId: c.id } : s,
+                        );
+                      else patchTestScenario({ activeId: c.id });
+                      close();
+                    }}
+                  >
+                    <small>TC-{String(c.number).padStart(3, "0")}</small>
+                    <span>{c.title || "제목 없는 테스트 케이스"}</span>
+                    <span className={`result-text result-${c.result}`}>
+                      {c.result}
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
             {panel === "note" && currentCase && (
@@ -1750,8 +1810,8 @@ function App() {
             {panel === "replace" && (
               <div className="field-stack">
                 <p>
-                  새 결과가 준비되면 현재 테스트와 후보를 교체합니다. 기존
-                  테스트 결과와 메모도 함께 교체됩니다.
+                  새 결과가 준비되면 현재 테스트 케이스와 검토 후보를
+                  교체합니다. 기존 테스트 결과와 메모도 함께 교체됩니다.
                 </p>
                 <div className="button-row">
                   <button type="button" className="secondary" onClick={close}>
@@ -1769,7 +1829,7 @@ function App() {
             )}
             {panel === "delete" && (
               <div className="field-stack">
-                <p>선택한 테스트 {deleteIds.length}개를 삭제할까요?</p>
+                <p>선택한 테스트 케이스 {deleteIds.length}개를 삭제할까요?</p>
                 <div className="button-row">
                   <button type="button" className="secondary" onClick={close}>
                     취소
@@ -1784,24 +1844,27 @@ function App() {
                 </div>
               </div>
             )}
-            {panel === "export" && sheet && project && (
+            {panel === "export" && testScenario && project && (
               <div className="field-stack">
                 <div className="export-summary">
                   <Icon name="file" />
                   <div>
-                    <strong>{sheet.name}.xlsx</strong>
-                    <p>전체 테스트 {sheet.cases.length}개 · 후보 제외</p>
+                    <strong>{testScenario.name}.xlsx</strong>
+                    <p>
+                      전체 테스트 케이스 {testScenario.cases.length}개 · 검토
+                      후보 제외
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   className="primary"
-                  disabled={busy || !sheet.cases.length}
+                  disabled={busy || !testScenario.cases.length}
                   onClick={async () => {
                     setBusy(true);
                     setError("");
                     try {
-                      await downloadSheet(sheet, project.ia);
+                      await downloadTestScenario(testScenario, project.ia);
                       notify("XLSX 파일을 내려받았습니다.");
                       close();
                     } catch {
@@ -1825,35 +1888,35 @@ function App() {
                 </button>
               </div>
             )}
-            {panel === "share" && sheet && project && (
+            {panel === "share" && testScenario && project && (
               <div className="field-stack">
                 <div className="share-document">
                   <Icon name="file" />
                   <div>
-                    <strong>{sheet.name}</strong>
-                    <span>테스트 {sheet.cases.length}개</span>
+                    <strong>{testScenario.name}</strong>
+                    <span>테스트 케이스 {testScenario.cases.length}개</span>
                   </div>
                   <span className="status-chip">읽기 전용</span>
                 </div>
                 <p className="muted">
-                  후보와 테스트 결과·메모는 포함하지 않습니다.
+                  검토 후보와 테스트 결과·메모는 포함하지 않습니다.
                 </p>
                 <button
                   type="button"
                   className="primary"
                   onClick={() => {
-                    setShareSheet({
-                      ...clone(sheet),
+                    setShareTestScenario({
+                      ...clone(testScenario),
                       layout: "table",
                       selectedFrames: [],
                       nodes: [],
                       edges: [],
-                      columns: sheet.columns
+                      columns: testScenario.columns
                         .filter(
                           (c) => !["result", "note", "frameIds"].includes(c.id),
                         )
                         .map((c) => ({ ...c })),
-                      cases: sheet.cases.map((c) => ({
+                      cases: testScenario.cases.map((c) => ({
                         ...clone(c),
                         note: "",
                         frameIds: [],
@@ -1861,10 +1924,14 @@ function App() {
                       })),
                       candidates: [],
                     });
-                    navigate({ page: "share", pid: project.id, sid: sheet.id });
+                    navigate({
+                      page: "share",
+                      pid: project.id,
+                      sid: testScenario.id,
+                    });
                   }}
                 >
-                  공유 시트 미리보기
+                  공유 시나리오 미리보기
                   <Icon name="arrow" />
                 </button>
               </div>

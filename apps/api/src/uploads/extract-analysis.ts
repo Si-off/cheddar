@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type {
-  EvidenceItemDto,
-  EvidenceRegionDto,
-} from "../contracts/evidence.dto";
+  AnalysisItemDto,
+  AnalysisRegionDto,
+} from "../contracts/analysis.dto";
 
 type Node = {
   id?: string;
@@ -13,16 +13,16 @@ type Node = {
   absoluteBoundingBox?: { x: number; y: number; width: number; height: number };
   children?: Node[];
 };
-export function extractEvidence(
+export function extractAnalysis(
   raw: unknown,
   frameId: string,
-): EvidenceItemDto[] {
+): AnalysisItemDto[] {
   const envelope = raw as { document?: { document?: Node } & Node } & Node;
   const root = envelope?.document?.document ?? envelope?.document ?? envelope;
   if (!root || typeof root.id !== "string" || typeof root.type !== "string")
     throw new Error("Unsupported frame document");
   const bounds = root.absoluteBoundingBox;
-  function region(node: Node): EvidenceRegionDto | undefined {
+  function region(node: Node): AnalysisRegionDto | undefined {
     const box = node.absoluteBoundingBox;
     if (
       !bounds ||
@@ -48,7 +48,7 @@ export function extractEvidence(
     if (right <= x || bottom <= y) return;
     return { x, y, width: right - x, height: bottom - y };
   }
-  const items: EvidenceItemDto[] = [];
+  const items: AnalysisItemDto[] = [];
   const source = {
     id: randomUUID(),
     kind: "screen" as const,
@@ -81,7 +81,7 @@ export function extractEvidence(
       box.width / box.height >= 0.3 &&
       box.width / box.height <= 3
     ) {
-      const item: EvidenceItemDto = {
+      const item: AnalysisItemDto = {
         id: randomUUID(),
         kind: "screen",
         title: node.name || "화면",

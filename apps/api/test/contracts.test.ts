@@ -13,13 +13,13 @@ import {
   UpdateTemplateDto,
 } from "../src/contracts/ia.dto";
 import {
-  CreateSheetDto,
-  SheetContentDto,
-  SheetExportQueryDto,
-  SheetPageQueryDto,
-  SheetViewDto,
+  CreateTestScenarioDto,
   SYSTEM_FIELDS,
-} from "../src/contracts/sheets.dto";
+  TestScenarioContentDto,
+  TestScenarioExportQueryDto,
+  TestScenarioPageQueryDto,
+  TestScenarioViewDto,
+} from "../src/contracts/test-scenarios.dto";
 import { CreateUploadDto } from "../src/contracts/uploads.dto";
 import { inspectFile, MAX_JSON_BYTES } from "../src/files/file-validation";
 
@@ -53,14 +53,14 @@ const options = {
   forbidUnknownValues: true,
 };
 
-test("sheet contracts preserve blank drafts, system fields and stable custom keys", async () => {
+test("testScenario contracts preserve blank drafts, system fields and stable custom keys", async () => {
   const valid = {
     expectedRevision: 1,
     columns: [...columns, custom],
     cases: [caseValue],
   };
   assert.deepEqual(
-    await validate(plainToInstance(SheetContentDto, valid), options),
+    await validate(plainToInstance(TestScenarioContentDto, valid), options),
     [],
   );
   for (const content of [
@@ -80,8 +80,12 @@ test("sheet contracts preserve blank drafts, system fields and stable custom key
     { ...valid, unexpected: true },
   ])
     assert.ok(
-      (await validate(plainToInstance(SheetContentDto, content), options))
-        .length > 0,
+      (
+        await validate(
+          plainToInstance(TestScenarioContentDto, content),
+          options,
+        )
+      ).length > 0,
     );
 });
 test("view and template contracts validate unique IDs and matching columns", async () => {
@@ -112,7 +116,7 @@ test("view and template contracts validate unique IDs and matching columns", asy
   assert.ok(
     (
       await validate(
-        plainToInstance(SheetViewDto, {
+        plainToInstance(TestScenarioViewDto, {
           expectedRevision: 1,
           columns: [view[0], view[0]],
         }),
@@ -122,7 +126,7 @@ test("view and template contracts validate unique IDs and matching columns", asy
   );
   assert.deepEqual(
     await validate(
-      plainToInstance(CreateSheetDto, {
+      plainToInstance(CreateTestScenarioDto, {
         name: "생성 전 초안",
         kind: "unit",
         uploadId: null,
@@ -136,7 +140,10 @@ test("column widths fit PostgreSQL integer storage in both view and template con
   for (const width of [2147483647, 2147483648]) {
     const view = columns.map((column) => ({ columnId: column.id, width }));
     for (const dto of [
-      plainToInstance(SheetViewDto, { expectedRevision: 1, columns: view }),
+      plainToInstance(TestScenarioViewDto, {
+        expectedRevision: 1,
+        columns: view,
+      }),
       plainToInstance(UpdateTemplateDto, {
         expectedRevision: 1,
         columns,
@@ -324,10 +331,10 @@ test("IA partial updates distinguish omitted fields from nullable clears", async
       ).length,
     );
 });
-test("sheet filters and export versions reject invalid identifiers and revisions", async () => {
+test("testScenario filters and export versions reject invalid identifiers and revisions", async () => {
   assert.deepEqual(
     await validate(
-      plainToInstance(SheetPageQueryDto, {
+      plainToInstance(TestScenarioPageQueryDto, {
         uploadId: randomUUID(),
         limit: "50",
       }),
@@ -339,14 +346,14 @@ test("sheet filters and export versions reject invalid identifiers and revisions
     assert.ok(
       (
         await validate(
-          plainToInstance(SheetPageQueryDto, { uploadId }),
+          plainToInstance(TestScenarioPageQueryDto, { uploadId }),
           options,
         )
       ).length,
     );
   assert.deepEqual(
     await validate(
-      plainToInstance(SheetExportQueryDto, {
+      plainToInstance(TestScenarioExportQueryDto, {
         contentRevision: "1",
         viewRevision: "2",
       }),
@@ -357,7 +364,7 @@ test("sheet filters and export versions reject invalid identifiers and revisions
   assert.ok(
     (
       await validate(
-        plainToInstance(SheetExportQueryDto, { contentRevision: 0 }),
+        plainToInstance(TestScenarioExportQueryDto, { contentRevision: 0 }),
         options,
       )
     ).length,
