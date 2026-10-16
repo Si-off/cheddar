@@ -179,3 +179,8 @@
     opacity: 1;
   }
 }
+
+.sheet-cell-content[style] :is(.cd-textarea, select) {
+  min-height: 0;
+  overflow: auto;
+}

@@ -523,7 +523,18 @@ export function TestCaseTable({
                         <WorkspaceIcon name="file" />
                       </Button>
                     )}
-                    <div className="sheet-cell-content" data-editing={edit}>
+                    <div
+                      className="sheet-cell-content"
+                      data-editing={edit}
+                      style={
+                        rowHeights[row.id]
+                          ? {
+                              maxHeight: Math.max(24, rowHeights[row.id] - 16),
+                              overflowY: "auto",
+                            }
+                          : undefined
+                      }
+                    >
                       <span
                         className="sheet-cell-text"
                         aria-hidden={edit || undefined}

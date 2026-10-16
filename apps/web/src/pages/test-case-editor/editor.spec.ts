@@ -421,6 +421,18 @@ test("long cell text remains readable and editing retains its expanded row", asy
   await editor.press("Control+Enter");
   await expect.poll(() => control.saved.cases[0].steps).toBe(expanded);
   await expect(cell).toContainText("새로운 수행 단계");
+  const heightHandle = page.getByRole("button", {
+    name: "1행 높이 조절",
+    exact: true,
+  });
+  const expandedHeight = (await cell.boundingBox())?.height ?? 0;
+  await heightHandle.press("ArrowUp");
+  await heightHandle.press("ArrowUp");
+  expect((await cell.boundingBox())?.height).toBeLessThan(expandedHeight);
+  await heightHandle.dblclick();
+  expect((await cell.boundingBox())?.height).toBeGreaterThanOrEqual(
+    expandedHeight - 1,
+  );
   await page.setViewportSize({ width: 480, height: 800 });
   const horizontal = await cell.evaluate((element) => {
     const container = element.closest("table")?.parentElement;
@@ -1388,6 +1400,7 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
   await expect(shared.getByRole("table").getByRole("row")).toHaveCount(13);
   await expect(shared.getByRole("textbox")).toHaveCount(0);
   await expect(shared.getByRole("img")).toHaveCount(0);
+  await expect(shared.getByText("읽기 전용", { exact: true })).toBeInViewport();
   await page.screenshot({
     path: testInfo.outputPath("redesign-shared-sheet.png"),
     animations: "disabled",

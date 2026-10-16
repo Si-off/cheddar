@@ -540,3 +540,11 @@
   padding-block: var(--spacing-5);
   color: var(--color-foreground);
 }
+.workspace-shared-sheet {
+  min-width: 0;
+  max-width: 100%;
+}
+.workspace-shared-sheet .sheet-table-scroll {
+  width: 100%;
+  min-width: 0;
+}
