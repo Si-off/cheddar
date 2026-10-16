@@ -170,6 +170,14 @@ async function mockApi(page: Page) {
       control.saved.contentRevision++;
       return json(control.generation, 201);
     }
+    if (path.endsWith("/canvas"))
+      return json({
+        flowRevision: 1,
+        layoutRevision: 1,
+        flow: { steps: [], edges: [] },
+        layout: { groupBy: null, positions: [], collapsed: [] },
+        previous: null,
+      });
     if (path.endsWith("/analysis"))
       return json({ revision: 0, items: [], links: [] });
     if (path.includes("/results/") && control.generation) {

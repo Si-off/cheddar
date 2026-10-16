@@ -14,7 +14,14 @@ import {
   WorkspaceIcon,
 } from "@cheddar/ui";
 import { useBlocker } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useStore } from "zustand";
 import {
   clearDraft,
@@ -34,8 +41,16 @@ import { SharedTestScenarioView } from "@/pages/shared-test-cases";
 import { MenuAction } from "@/shared/ui/workspace";
 import { TestCaseTable } from "@/widgets/test-case-table";
 import { ColumnSettings } from "@/widgets/test-case-table/column-settings";
+import { type CanvasGuard, canvasReferenceCount } from "./canvas-session";
 import { DetailPanel } from "./detail-panel";
 import { GenerationPanel } from "./generation-panel";
+
+const ScenarioCanvas = lazy(() =>
+  import("./scenario-canvas").then((module) => ({
+    default: module.ScenarioCanvas,
+  })),
+);
+
 import "./editor.css";
 import "./authoring.css";
 
@@ -91,7 +106,21 @@ export function TestScenarioEditor({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [detailId, setDetailId] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [layout, setLayout] = useState<"table" | "qa">("table");
+  const [layout, setLayout] = useState<"table" | "qa" | "canvas">("table");
+  const [canvasOpened, setCanvasOpened] = useState(false);
+  const canvasGuard = useRef<CanvasGuard | null>(null);
+  const setCanvasGuard = useCallback((guard: CanvasGuard | null) => {
+    canvasGuard.current = guard;
+  }, []);
+  const edit = useCallback(
+    (update: (current: Snapshot) => Snapshot) => {
+      const before = session.store.getState().draft;
+      const after = update(before);
+      canvasGuard.current?.recordCases(before.cases, after.cases);
+      session.edit(() => after);
+    },
+    [session],
+  );
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [menuOpen, setMenuOpen] = useState(false);
   const [generationPanel, setGenerationPanel] = useState<
@@ -128,10 +157,16 @@ export function TestScenarioEditor({
         allowLeave.current = false;
         return false;
       }
-      return confirmationUnsafe || !(await session.settle());
+      return (
+        confirmationUnsafe ||
+        !(await session.settle()) ||
+        (canvasGuard.current ? !(await canvasGuard.current.settle()) : false)
+      );
     },
     enableBeforeUnload: () =>
-      confirmationUnsafe || session.store.getState().status !== "saved",
+      confirmationUnsafe ||
+      session.store.getState().status !== "saved" ||
+      !!canvasGuard.current?.dirty(),
     withResolver: true,
   });
   const [recovery, setRecovery] = useState<StoredDraft[]>([]);
@@ -201,10 +236,7 @@ export function TestScenarioEditor({
       live = false;
     };
   }, [analysisOpen, uploads, loadFrames]);
-  const change = useCallback(
-    (next: Snapshot) => session.edit(() => next),
-    [session],
-  );
+  const change = useCallback((next: Snapshot) => edit(() => next), [edit]);
   const item = state.draft.cases.find((c) => c.id === detailId);
   const disabled = busy || generationLocked;
   function details(id: string) {
@@ -219,7 +251,12 @@ export function TestScenarioEditor({
   }
   async function back() {
     const saved = await session.settle();
-    if (saved && !confirmationUnsafe) onBack();
+    if (
+      saved &&
+      !confirmationUnsafe &&
+      (!canvasGuard.current || (await canvasGuard.current.settle()))
+    )
+      onBack();
     else setPendingLeave(() => onBack);
   }
   function cancelLeave() {
@@ -240,8 +277,11 @@ export function TestScenarioEditor({
     if (!leaving) return;
     let live = true;
     setRetained(undefined);
-    void session.retain().then((ok) => {
-      if (live) setRetained(ok && !confirmationUnsafe);
+    void Promise.all([
+      session.retain(),
+      canvasGuard.current?.retain() ?? Promise.resolve(true),
+    ]).then(([ok, canvasOk]) => {
+      if (live) setRetained(ok && canvasOk && !confirmationUnsafe);
     });
     return () => {
       live = false;
@@ -266,13 +306,25 @@ export function TestScenarioEditor({
       setBusy(false);
     }
   }
-  function removeRows() {
+  async function removeRows() {
+    let connections: { saved: number; additional: number };
+    try {
+      connections = await canvasReferenceCount(
+        snapshot.projectId,
+        snapshot.id,
+        selected,
+        canvasGuard.current,
+      );
+    } catch {
+      setMessage("연결된 흐름을 확인하지 못했습니다. 다시 삭제해주세요.");
+      return;
+    }
     const count = state.draft.cases.filter((c) => selected.has(c.id)).length;
     setConfirm({
       title: "테스트 케이스 삭제",
-      description: `테스트 케이스 ${count}개를 삭제할까요?`,
+      description: `테스트 케이스 ${count}개를 삭제할까요?${connections.saved ? ` 저장된 흐름의 단계 ${connections.saved}곳에서 연결이 해제됩니다.` : ""}${connections.additional ? ` 미저장 흐름의 단계 ${connections.additional}곳에서도 선택한 케이스의 연결이 해제됩니다.` : ""}`,
       action: () => {
-        session.edit((current) => ({
+        edit((current) => ({
           ...current,
           cases: current.cases.filter((c) => !selected.has(c.id)),
         }));
@@ -290,7 +342,7 @@ export function TestScenarioEditor({
       title: "사용자 열 삭제",
       description: `${column?.name} 열과 테스트 케이스 ${count}개의 값을 삭제할까요?`,
       action: () =>
-        session.edit((current) => ({
+        edit((current) => ({
           ...current,
           columns: current.columns.filter((c) => c.id !== id),
           view: current.view.filter((c) => c.columnId !== id),
@@ -378,7 +430,7 @@ export function TestScenarioEditor({
               onComposition={(active) => session.composition(active)}
               onClose={closeDetails}
               onChange={(next) =>
-                session.edit((current) => ({
+                edit((current) => ({
                   ...current,
                   cases: current.cases.map((c) =>
                     c.id === next.id ? next : c,
@@ -610,15 +662,22 @@ export function TestScenarioEditor({
           />
         </div>
         <fieldset className="workspace-view-switch" aria-label="보기 방식">
-          {(["table", "qa"] as const).map((value) => (
+          {(["table", "qa", "canvas"] as const).map((value) => (
             <Button
               key={value}
               variant="ghost"
               aria-pressed={layout === value}
-              onClick={() => setLayout(value)}
+              onClick={() => {
+                setLayout(value);
+                if (value === "canvas") setCanvasOpened(true);
+              }}
             >
               <WorkspaceIcon name={value === "table" ? "columns" : "qa"} />
-              {value === "table" ? "표" : "상세 보기"}
+              {value === "table"
+                ? "표"
+                : value === "qa"
+                  ? "상세 보기"
+                  : "캔버스"}
             </Button>
           ))}
         </fieldset>
@@ -649,7 +708,7 @@ export function TestScenarioEditor({
                   })
                 }
                 onChange={(columns, view) =>
-                  session.edit((s) => ({ ...s, columns, view }))
+                  edit((s) => ({ ...s, columns, view }))
                 }
                 onClearValues={(id) => {
                   setSettingsOpen(false);
@@ -661,7 +720,7 @@ export function TestScenarioEditor({
                     title: "열 값 비우기",
                     description: `${column?.name} 열의 테스트 케이스 ${count}개 값을 비울까요?`,
                     action: () =>
-                      session.edit((current) => ({
+                      edit((current) => ({
                         ...current,
                         cases: current.cases.map((item) => ({
                           ...item,
@@ -683,7 +742,7 @@ export function TestScenarioEditor({
             aria-label="테스트 케이스 추가"
             disabled={disabled}
             onClick={() =>
-              session.edit((current) => ({
+              edit((current) => ({
                 ...current,
                 cases: [...current.cases, newCase()],
               }))
@@ -771,20 +830,44 @@ export function TestScenarioEditor({
         className={`test-scenario-editor-body${item || sourceOpen ? " has-inspector" : ""}`}
       >
         <div className="test-scenario-editor-table">
-          <TestCaseTable
-            layout={layout}
-            hidden={hidden}
-            key={snapshot.id}
-            snapshot={state.draft}
-            query={query}
-            disabled={disabled}
-            selected={selected}
-            onSelected={setSelected}
-            onChange={change}
-            onComposition={(active) => session.composition(active)}
-            onDetails={details}
-            onError={setMessage}
-          />
+          {layout !== "canvas" && (
+            <TestCaseTable
+              layout={layout}
+              hidden={hidden}
+              key={snapshot.id}
+              snapshot={state.draft}
+              query={query}
+              disabled={disabled}
+              selected={selected}
+              onSelected={setSelected}
+              onChange={change}
+              onComposition={(active) => session.composition(active)}
+              onDetails={details}
+              onError={setMessage}
+            />
+          )}
+          {canvasOpened && (
+            <Suspense fallback={<p role="status">캔버스 불러오는 중</p>}>
+              <ScenarioCanvas
+                active={layout === "canvas"}
+                snapshot={state.draft}
+                disabled={disabled}
+                query={query}
+                origin={origin}
+                onEdit={details}
+                onSources={(id) => {
+                  setDetailId(id);
+                  setSourceOpen(true);
+                }}
+                getSaved={() => session.store.getState().base}
+                settleCases={() => session.settle()}
+                onCases={(cases) =>
+                  session.edit((current) => ({ ...current, cases }))
+                }
+                onGuard={setCanvasGuard}
+              />
+            </Suspense>
+          )}
         </div>
         {!narrow && (item || sourceOpen) && (
           <aside

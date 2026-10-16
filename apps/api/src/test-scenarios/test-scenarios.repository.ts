@@ -32,6 +32,7 @@ import {
   uploads,
 } from "../database/schema";
 import { DEFAULT_COLUMN_WIDTH } from "../projects/default-template";
+import { reconcileCanvas } from "./canvas-state";
 
 type TestScenarioRow = typeof testScenarios.$inferSelect;
 type TemplateReader = (
@@ -676,6 +677,7 @@ export class TestScenariosRepository {
         updatedAt: new Date(),
       })
       .where(eq(testScenarios.id, testScenarioId));
+    await reconcileCanvas(tx, testScenarioId, nextIds, nextColumnIds);
     return this.readSnapshot(tx, projectId, testScenarioId);
   }
 }

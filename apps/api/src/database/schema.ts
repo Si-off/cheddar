@@ -540,3 +540,60 @@ export const projectAnalysis = pgTable(
   },
   (t) => [check("project_analysis_revision_check", sql`${t.revision} > 0`)],
 );
+// Canvas state refers to canonical cases without copying case content.
+export const scenarioCanvases = pgTable("scenario_canvases", {
+  testScenarioId: uuid("test_scenario_id")
+    .primaryKey()
+    .references(() => testScenarios.id, { onDelete: "cascade" }),
+  flowRevision: integer("flow_revision").notNull().default(1),
+  layoutRevision: integer("layout_revision").notNull().default(1),
+  flow: jsonb("flow")
+    .$type<import("../contracts/canvas.dto").FlowDocumentDto>()
+    .notNull()
+    .default({ steps: [], edges: [] }),
+  layout: jsonb("layout")
+    .$type<import("../contracts/canvas.dto").CanvasLayoutDto>()
+    .notNull()
+    .default({ groupBy: null, positions: [], collapsed: [] }),
+  previous:
+    jsonb("previous").$type<
+      import("../contracts/canvas.dto").CanvasBackupDto
+    >(),
+});
+
+export const scenarioFlowJobs = pgTable(
+  "scenario_flow_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    testScenarioId: uuid("test_scenario_id").notNull(),
+    clientRequestId: uuid("client_request_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    sourceHash: text("source_hash").notNull().default(""),
+    provider: text("provider").$type<"anthropic" | "openai">().notNull(),
+    model: text("model").notNull(),
+    status: text("status")
+      .$type<"running" | "succeeded" | "failed">()
+      .notNull()
+      .default("running"),
+    contentRevision: integer("content_revision").notNull(),
+    flowRevision: integer("flow_revision").notNull(),
+    layoutRevision: integer("layout_revision").notNull(),
+    result:
+      jsonb("result").$type<
+        import("../contracts/canvas.dto").FlowDocumentDto
+      >(),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.projectId, t.testScenarioId],
+      foreignColumns: [testScenarios.projectId, testScenarios.id],
+    }).onDelete("cascade"),
+    unique("flow_generation_request_unique").on(t.projectId, t.clientRequestId),
+    index("flow_generation_scenario_idx").on(t.testScenarioId, t.createdAt),
+  ],
+);

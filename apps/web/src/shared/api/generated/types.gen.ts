@@ -339,6 +339,104 @@ export type TestScenarioViewDto = {
     columns: Array<ColumnViewDto>;
 };
 
+export type FlowStepDto = {
+    id: string;
+    title: string;
+    kind: 'start' | 'screen' | 'action' | 'condition' | 'end';
+    description: string;
+    caseIds: Array<string>;
+};
+
+export type FlowEdgeDto = {
+    id: string;
+    from: string;
+    to: string;
+    condition: string;
+};
+
+export type FlowDocumentDto = {
+    steps: Array<FlowStepDto>;
+    edges: Array<FlowEdgeDto>;
+};
+
+export type CanvasPositionDto = {
+    id: string;
+    x: number;
+    y: number;
+};
+
+export type CanvasLayoutDto = {
+    groupBy: string | null;
+    positions: Array<CanvasPositionDto>;
+    collapsed: Array<string>;
+};
+
+export type CanvasBackupDto = {
+    id: string;
+    flow: FlowDocumentDto;
+    layout: CanvasLayoutDto;
+    caseLabels: {
+        [key: string]: string;
+    };
+};
+
+export type CanvasSnapshotDto = {
+    flowRevision: number;
+    layoutRevision: number;
+    flow: FlowDocumentDto;
+    layout: CanvasLayoutDto;
+    previous: CanvasBackupDto | null;
+};
+
+export type SaveFlowDto = {
+    expectedRevision: number;
+    contentRevision: number;
+    flow: FlowDocumentDto;
+};
+
+export type SaveCanvasLayoutDto = {
+    expectedRevision: number;
+    layout: CanvasLayoutDto;
+};
+
+export type ReplaceFlowDto = {
+    flowRevision: number;
+    layoutRevision: number;
+    contentRevision: number;
+    flow: FlowDocumentDto;
+    layout: CanvasLayoutDto;
+    jobId?: string;
+};
+
+export type RestoreFlowDto = {
+    backupId: string;
+    flowRevision: number;
+    layoutRevision: number;
+    contentRevision: number;
+};
+
+export type StartFlowGenerationDto = {
+    clientRequestId: string;
+    provider: 'anthropic' | 'openai';
+    contentRevision: number;
+    description: string;
+};
+
+export type FlowGenerationDto = {
+    id: string;
+    status: 'running' | 'succeeded' | 'failed';
+    provider: 'anthropic' | 'openai';
+    contentRevision: number;
+    flowRevision: number;
+    layoutRevision: number;
+    result: FlowDocumentDto | null;
+    error: string | null;
+};
+
+export type FlowGenerationListDto = {
+    items: Array<FlowGenerationDto>;
+};
+
 export type TestScenarioExportQueryDto = {
     contentRevision?: number;
     viewRevision?: number;
@@ -1132,6 +1230,201 @@ export type UpdateTestScenarioViewResponses = {
 };
 
 export type UpdateTestScenarioViewResponse = UpdateTestScenarioViewResponses[keyof UpdateTestScenarioViewResponses];
+
+export type GetScenarioCanvasData = {
+    body?: never;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/canvas';
+};
+
+export type GetScenarioCanvasErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type GetScenarioCanvasError = GetScenarioCanvasErrors[keyof GetScenarioCanvasErrors];
+
+export type GetScenarioCanvasResponses = {
+    200: CanvasSnapshotDto;
+};
+
+export type GetScenarioCanvasResponse = GetScenarioCanvasResponses[keyof GetScenarioCanvasResponses];
+
+export type SaveScenarioFlowData = {
+    body: SaveFlowDto;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow';
+};
+
+export type SaveScenarioFlowErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type SaveScenarioFlowError = SaveScenarioFlowErrors[keyof SaveScenarioFlowErrors];
+
+export type SaveScenarioFlowResponses = {
+    200: CanvasSnapshotDto;
+};
+
+export type SaveScenarioFlowResponse = SaveScenarioFlowResponses[keyof SaveScenarioFlowResponses];
+
+export type SaveScenarioCanvasLayoutData = {
+    body: SaveCanvasLayoutDto;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/canvas-layout';
+};
+
+export type SaveScenarioCanvasLayoutErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type SaveScenarioCanvasLayoutError = SaveScenarioCanvasLayoutErrors[keyof SaveScenarioCanvasLayoutErrors];
+
+export type SaveScenarioCanvasLayoutResponses = {
+    200: CanvasSnapshotDto;
+};
+
+export type SaveScenarioCanvasLayoutResponse = SaveScenarioCanvasLayoutResponses[keyof SaveScenarioCanvasLayoutResponses];
+
+export type ReplaceScenarioFlowData = {
+    body: ReplaceFlowDto;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow/replace';
+};
+
+export type ReplaceScenarioFlowErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ReplaceScenarioFlowError = ReplaceScenarioFlowErrors[keyof ReplaceScenarioFlowErrors];
+
+export type ReplaceScenarioFlowResponses = {
+    201: CanvasSnapshotDto;
+};
+
+export type ReplaceScenarioFlowResponse = ReplaceScenarioFlowResponses[keyof ReplaceScenarioFlowResponses];
+
+export type RestoreScenarioFlowData = {
+    body: RestoreFlowDto;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow/restore';
+};
+
+export type RestoreScenarioFlowErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type RestoreScenarioFlowError = RestoreScenarioFlowErrors[keyof RestoreScenarioFlowErrors];
+
+export type RestoreScenarioFlowResponses = {
+    201: CanvasSnapshotDto;
+};
+
+export type RestoreScenarioFlowResponse = RestoreScenarioFlowResponses[keyof RestoreScenarioFlowResponses];
+
+export type ListScenarioFlowGenerationsData = {
+    body?: never;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow-generations';
+};
+
+export type ListScenarioFlowGenerationsErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ListScenarioFlowGenerationsError = ListScenarioFlowGenerationsErrors[keyof ListScenarioFlowGenerationsErrors];
+
+export type ListScenarioFlowGenerationsResponses = {
+    200: FlowGenerationListDto;
+};
+
+export type ListScenarioFlowGenerationsResponse = ListScenarioFlowGenerationsResponses[keyof ListScenarioFlowGenerationsResponses];
+
+export type StartScenarioFlowGenerationData = {
+    body: StartFlowGenerationDto;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow-generations';
+};
+
+export type StartScenarioFlowGenerationErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type StartScenarioFlowGenerationError = StartScenarioFlowGenerationErrors[keyof StartScenarioFlowGenerationErrors];
+
+export type StartScenarioFlowGenerationResponses = {
+    201: FlowGenerationDto;
+};
+
+export type StartScenarioFlowGenerationResponse = StartScenarioFlowGenerationResponses[keyof StartScenarioFlowGenerationResponses];
 
 export type ExportTestScenarioXlsxData = {
     body?: never;
