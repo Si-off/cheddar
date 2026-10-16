@@ -16,6 +16,10 @@ import { createDefaultTemplate } from "../src/projects/default-template";
 import { openTestDatabase } from "./database";
 
 function snapshot(): SheetSnapshotDto {
+  // These tests exercise the no-custom-column schema. Project defaults also
+  // contain editable text columns, covered by the custom-value schema test.
+  const template = createDefaultTemplate();
+  const columns = template.columns.filter((column) => column.kind === "system");
   return {
     id: randomUUID(),
     projectId: randomUUID(),
@@ -27,7 +31,10 @@ function snapshot(): SheetSnapshotDto {
     sourceTemplateRevision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    ...createDefaultTemplate(),
+    columns,
+    view: template.view.filter((entry) =>
+      columns.some((column) => column.id === entry.columnId),
+    ),
     cases: [],
     references: { frames: [], iaItems: [] },
   };
@@ -222,6 +229,14 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
       if (!String(url).startsWith("https://api.anthropic.com/"))
         return originalFetch(url, options);
       calls++;
+      const body = JSON.parse(String(options?.body));
+      const customIds: string[] =
+        body.output_config.format.schema.properties.cases.items.properties
+          .customValues?.items.properties.columnId.enum ?? [];
+      const row = {
+        ...content(),
+        customValues: customIds.map((columnId) => ({ columnId, value: "" })),
+      };
       await gate;
       return new Response(
         JSON.stringify({
@@ -231,13 +246,9 @@ test("generation HTTP lifecycle preserves sheets on failure and serializes write
               type: "text",
               text: JSON.stringify({
                 cases: [
-                  invalid
-                    ? { ...content(), relatedFrameIds: [randomUUID()] }
-                    : content(),
+                  invalid ? { ...row, relatedFrameIds: [randomUUID()] } : row,
                 ],
-                candidates: [
-                  { reason: "Confirm behavior", content: content() },
-                ],
+                candidates: [{ reason: "Confirm behavior", content: row }],
               }),
             },
           ],

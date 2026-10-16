@@ -7,7 +7,11 @@ import {
   DialogTitle,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Textarea,
+  WorkspaceIcon,
 } from "@cheddar/ui";
 import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,7 +28,10 @@ import {
   type Snapshot,
   type StoredDraft,
 } from "@/entities/test-case";
+import { SharedSheetView } from "@/pages/shared-test-cases";
+import { MenuAction } from "@/shared/ui/workspace";
 import { TestCaseTable } from "@/widgets/test-case-table";
+import { ColumnSettings } from "@/widgets/test-case-table/column-settings";
 import { DetailPanel } from "./detail-panel";
 import { GenerationPanel } from "./generation-panel";
 import "./editor.css";
@@ -80,7 +87,25 @@ export function SheetEditor({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [detailId, setDetailId] = useState<string>();
-  const [columnSettings, setColumnSettings] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsDepth, setSettingsDepth] = useState<
+    "root" | "layout" | "columns"
+  >("root");
+  const [layout, setLayout] = useState<"table" | "qa">("table");
+  const [hidden, setHidden] = useState<Set<string>>(
+    () =>
+      new Set(
+        snapshot.columns
+          .filter((c) => c.field === "priority" || c.field === "relatedFrames")
+          .map((c) => c.id),
+      ),
+  );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [generationPanel, setGenerationPanel] = useState<
+    "generate" | "candidates" | null
+  >(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [message, setMessage] = useState<string>();
   const [generationLocked, setGenerationLocked] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -227,6 +252,7 @@ export function SheetEditor({
     });
   }
   function removeColumn(id: string) {
+    setSettingsOpen(false);
     const column = state.draft.columns.find((c) => c.id === id);
     const count = state.draft.cases.filter((c) => !!c.customValues[id]).length;
     setConfirm({
@@ -248,44 +274,98 @@ export function SheetEditor({
   }
   return (
     <section className="sheet-editor" aria-label="시트 편집">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Button variant="ghost" onClick={() => void back()} disabled={busy}>
-            시트 목록
-          </Button>
-          <h1 className="text-title font-heading">{state.draft.name}</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="sheet-status" role="status">
-            {statusLabels[state.status]}
-          </span>
-          {state.status === "error" && (
-            <Button
-              variant="outline"
-              disabled={disabled}
-              onClick={() => void session.retry()}
-            >
-              저장 다시 시도
-            </Button>
-          )}
+      <div className="workspace-sheet-topline">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="시트 목록"
+          onClick={() => void back()}
+          disabled={busy}
+        >
+          <WorkspaceIcon name="back" />
+        </Button>
+        <span className="sheet-status" role="status">
+          {statusLabels[state.status]}
+        </span>
+        {state.status === "error" && (
           <Button
-            disabled={
-              disabled ||
-              state.status === "conflict" ||
-              state.status === "error" ||
-              state.status === "invalid"
-            }
-            onClick={() => void download()}
+            variant="link"
+            disabled={disabled}
+            onClick={() => void session.retry()}
           >
-            전체 시트 XLSX 내보내기
+            저장 다시 시도
           </Button>
-        </div>
+        )}
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="시트 메뉴"
+                className="workspace-sheet-menu"
+              />
+            }
+          >
+            <WorkspaceIcon name="more" />
+          </PopoverTrigger>
+          <PopoverContent aria-label="시트 메뉴">
+            <MenuAction
+              icon="generate"
+              disabled={disabled}
+              onClick={() => {
+                setMenuOpen(false);
+                setGenerationPanel("generate");
+              }}
+            >
+              테스트 생성
+            </MenuAction>
+            <MenuAction
+              icon="qa"
+              disabled={disabled}
+              onClick={() => {
+                setMenuOpen(false);
+                setGenerationPanel("candidates");
+              }}
+            >
+              후보 검토
+            </MenuAction>
+            <MenuAction
+              icon="download"
+              disabled={
+                disabled ||
+                ["conflict", "error", "invalid"].includes(state.status)
+              }
+              onClick={() => {
+                setMenuOpen(false);
+                void download();
+              }}
+            >
+              XLSX 내보내기
+            </MenuAction>
+            <MenuAction
+              icon="share"
+              onClick={() => {
+                setMenuOpen(false);
+                setShareOpen(true);
+              }}
+            >
+              공유 시트 미리보기
+            </MenuAction>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="workspace-sheet-title">
+        <WorkspaceIcon name="file" />
+        <h1>{state.draft.name}</h1>
       </div>
       <GenerationPanel
         snapshot={state.draft}
         session={session}
         uploads={uploads}
         onLock={setGenerationLocked}
+        panel={generationPanel}
+        onClose={() => setGenerationPanel(null)}
       />
       {state.message && (
         <div className="sheet-notice" role="alert">
@@ -367,51 +447,179 @@ export function SheetEditor({
           ))}
         </div>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex-1">
-          <Label htmlFor="case-search">케이스 검색</Label>
-          <Input id="case-search" value={query} onValueChange={setQuery} />
+      <div className="workspace-table-toolbar">
+        <span className="workspace-current-view">
+          <WorkspaceIcon name={layout === "table" ? "columns" : "qa"} />
+          {layout === "table" ? "표" : "QA 진행"}
+        </span>
+        <span className="workspace-count">{state.draft.cases.length}개</span>
+        <div className="workspace-table-actions">
+          {searchOpen && (
+            <Input
+              id="case-search"
+              aria-label="테스트 검색"
+              value={query}
+              onValueChange={setQuery}
+              autoFocus
+            />
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="검색"
+            onClick={() => {
+              setSearchOpen(!searchOpen);
+              setQuery("");
+            }}
+          >
+            <WorkspaceIcon name="search" />
+          </Button>
+          <Popover
+            open={settingsOpen}
+            onOpenChange={(open) => {
+              setSettingsOpen(open);
+              if (open) setSettingsDepth("root");
+            }}
+          >
+            <PopoverTrigger
+              render={
+                <Button variant="ghost" size="icon" aria-label="보기 설정" />
+              }
+            >
+              <WorkspaceIcon name="settings" />
+            </PopoverTrigger>
+            <PopoverContent aria-label="보기 설정">
+              <div className="workspace-popover-heading">
+                {settingsDepth !== "root" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="이전 설정"
+                    onClick={() => setSettingsDepth("root")}
+                  >
+                    <WorkspaceIcon name="back" />
+                  </Button>
+                )}
+                <strong>
+                  {settingsDepth === "root"
+                    ? "보기 설정"
+                    : settingsDepth === "layout"
+                      ? "레이아웃"
+                      : "열"}
+                </strong>
+              </div>
+              {settingsDepth === "root" ? (
+                <>
+                  <MenuAction
+                    icon="columns"
+                    onClick={() => setSettingsDepth("layout")}
+                  >
+                    레이아웃
+                  </MenuAction>
+                  <MenuAction
+                    icon="settings"
+                    onClick={() => setSettingsDepth("columns")}
+                  >
+                    열
+                  </MenuAction>
+                </>
+              ) : settingsDepth === "layout" ? (
+                <div className="workspace-layout-options">
+                  {(["table", "qa"] as const).map((value) => (
+                    <button
+                      type="button"
+                      key={value}
+                      aria-pressed={layout === value}
+                      onClick={() => {
+                        setLayout(value);
+                        setSettingsOpen(false);
+                      }}
+                    >
+                      <WorkspaceIcon
+                        name={value === "table" ? "columns" : "qa"}
+                      />
+                      <span>{value === "table" ? "표" : "QA 진행"}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <ColumnSettings
+                  columns={state.draft.columns}
+                  view={state.draft.view}
+                  disabled={disabled}
+                  hidden={hidden}
+                  onVisibility={(id) =>
+                    setHidden((old) => {
+                      const next = new Set(old);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      return next;
+                    })
+                  }
+                  onChange={(columns, view) =>
+                    session.edit((s) => ({ ...s, columns, view }))
+                  }
+                  onRemove={removeColumn}
+                />
+              )}
+            </PopoverContent>
+          </Popover>
+          <Button
+            size="icon"
+            aria-label="행 추가"
+            disabled={disabled}
+            onClick={() =>
+              session.edit((current) => {
+                const added = newCase();
+                return { ...current, cases: [...current.cases, added] };
+              })
+            }
+          >
+            <WorkspaceIcon name="plus" />
+          </Button>
         </div>
-        <Button
-          variant="secondary"
-          disabled={disabled}
-          onClick={() =>
-            session.edit((current) => {
-              const item = newCase();
-              return { ...current, cases: [...current.cases, item] };
-            })
-          }
-        >
-          행 추가
-        </Button>
-        <Button
-          variant="outline"
-          disabled={disabled || !selected.size}
-          onClick={removeRows}
-        >
-          선택 행 삭제
-        </Button>
-        <Button
-          variant="outline"
-          disabled={disabled || selected.size !== 1}
-          onClick={() => {
-            const [id] = selected;
-            if (id) details(id);
-          }}
-        >
-          상세 편집
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => setColumnSettings(!columnSettings)}
-          aria-expanded={columnSettings}
-        >
-          열 설정
-        </Button>
       </div>
+      {selected.size > 0 && (
+        <div className="workspace-selection">
+          <span>{selected.size}개 선택</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="선택 행 삭제"
+            disabled={disabled}
+            onClick={removeRows}
+          >
+            <WorkspaceIcon name="trash" />
+          </Button>
+          {selected.size === 1 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="상세 편집"
+              disabled={disabled}
+              onClick={() => {
+                const [id] = selected;
+                if (id) details(id);
+              }}
+            >
+              <WorkspaceIcon name="file" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="선택 해제"
+            onClick={() => setSelected(new Set())}
+          >
+            <WorkspaceIcon name="close" />
+          </Button>
+        </div>
+      )}
       <div className="sheet-editor-body">
         <div className="sheet-editor-table">
           <TestCaseTable
+            layout={layout}
+            hidden={hidden}
             key={snapshot.id}
             snapshot={state.draft}
             query={query}
@@ -424,151 +632,72 @@ export function SheetEditor({
             onError={setMessage}
           />
         </div>
-        {item && (
-          <DetailPanel
-            snapshot={state.draft}
-            item={item}
-            disabled={disabled}
-            frames={frames.filter(
-              (f) =>
-                f.uploadId === uploadId || item.relatedFrameIds.includes(f.id),
-            )}
-            iaItems={iaItems}
-            uploads={uploads}
-            uploadId={uploadId}
-            onUpload={setUploadId}
-            onComposition={(active) => session.composition(active)}
-            onClose={closeDetails}
-            onChange={(next) =>
-              session.edit((current) => ({
-                ...current,
-                cases: current.cases.map((c) => (c.id === next.id ? next : c)),
-                references: {
-                  frames: [
-                    ...new Map(
-                      [...current.references.frames, ...frames].map((f) => [
-                        f.id,
-                        f,
-                      ]),
-                    ).values(),
-                  ],
-                  iaItems: [
-                    ...new Map(
-                      [...current.references.iaItems, ...iaItems].map((i) => [
-                        i.id,
-                        i,
-                      ]),
-                    ).values(),
-                  ],
-                },
-              }))
-            }
-          />
-        )}
-      </div>
-      {columnSettings && (
-        <section className="sheet-column-settings" aria-label="열 설정">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-heading font-heading">열 설정</h2>
-            <Button
-              variant="secondary"
-              disabled={disabled}
-              onClick={() =>
-                session.edit((current) => {
-                  const id = crypto.randomUUID();
-                  return {
-                    ...current,
-                    columns: [
-                      ...current.columns,
-                      { id, kind: "custom", name: "새 열", valueType: "text" },
-                    ],
-                    view: [...current.view, { columnId: id, width: 180 }],
-                  };
-                })
-              }
-            >
-              텍스트 열 추가
-            </Button>
-          </div>
-          {state.draft.view.map((v, index) => {
-            const column = state.draft.columns.find((c) => c.id === v.columnId);
-            if (!column) return null;
-            return (
-              <div className="sheet-column-row" key={v.columnId}>
-                <div className="sheet-column-name">
-                  <Label htmlFor={`name-${column.id}`}>열 이름</Label>
-                  <Input
-                    id={`name-${column.id}`}
-                    value={column.name}
-                    disabled={disabled}
-                    onValueChange={(name) =>
-                      session.edit((s) => ({
-                        ...s,
-                        columns: s.columns.map((c) =>
-                          c.id === column.id ? { ...c, name } : c,
-                        ),
-                      }))
-                    }
-                  />
-                </div>
-                <div className="sheet-width">
-                  <Label htmlFor={`width-${column.id}`}>너비</Label>
-                  <Input
-                    id={`width-${column.id}`}
-                    type="number"
-                    min={1}
-                    value={v.width}
-                    disabled={disabled}
-                    onValueChange={(value) => {
-                      const width = Number(value);
-                      if (Number.isInteger(width) && width > 0)
-                        session.edit((s) => ({
-                          ...s,
-                          view: s.view.map((c) =>
-                            c.columnId === column.id ? { ...c, width } : c,
-                          ),
-                        }));
-                    }}
-                  />
-                </div>
-                {([-1, 1] as const).map((direction) => (
-                  <Button
-                    key={direction}
-                    variant="outline"
-                    disabled={
-                      disabled ||
-                      index + direction < 0 ||
-                      index + direction >= state.draft.view.length
-                    }
-                    aria-label={`${column.name} 열 ${direction < 0 ? "앞으로" : "뒤로"} 이동`}
-                    onClick={() =>
-                      session.edit((s) => {
-                        const view = [...s.view];
-                        [view[index], view[index + direction]] = [
-                          view[index + direction],
-                          view[index],
-                        ];
-                        return { ...s, view };
-                      })
-                    }
-                  >
-                    {direction < 0 ? "앞으로" : "뒤로"}
-                  </Button>
-                ))}
-                {column.kind === "custom" && (
-                  <Button
-                    variant="ghost"
-                    disabled={disabled}
-                    onClick={() => removeColumn(column.id)}
-                  >
-                    열 삭제
-                  </Button>
+        <Dialog
+          open={!!item}
+          onOpenChange={(open) => {
+            if (!open) closeDetails();
+          }}
+        >
+          <DialogContent
+            className="workspace-sheet-dialog"
+            aria-describedby={undefined}
+          >
+            <DialogTitle>테스트 편집</DialogTitle>
+            {item && (
+              <DetailPanel
+                snapshot={state.draft}
+                item={item}
+                disabled={disabled}
+                frames={frames.filter(
+                  (f) =>
+                    f.uploadId === uploadId ||
+                    item.relatedFrameIds.includes(f.id),
                 )}
-              </div>
-            );
-          })}
-        </section>
-      )}
+                iaItems={iaItems}
+                uploads={uploads}
+                uploadId={uploadId}
+                onUpload={setUploadId}
+                onComposition={(active) => session.composition(active)}
+                onClose={closeDetails}
+                onChange={(next) =>
+                  session.edit((current) => ({
+                    ...current,
+                    cases: current.cases.map((c) =>
+                      c.id === next.id ? next : c,
+                    ),
+                    references: {
+                      frames: [
+                        ...new Map(
+                          [...current.references.frames, ...frames].map((f) => [
+                            f.id,
+                            f,
+                          ]),
+                        ).values(),
+                      ],
+                      iaItems: [
+                        ...new Map(
+                          [...current.references.iaItems, ...iaItems].map(
+                            (i) => [i.id, i],
+                          ),
+                        ).values(),
+                      ],
+                    },
+                  }))
+                }
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent
+          className="workspace-share-dialog"
+          aria-describedby={undefined}
+        >
+          <DialogTitle>공유 시트 미리보기</DialogTitle>
+          <SharedSheetView snapshot={state.draft} hidden={hidden} />
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={leaving}
         onOpenChange={(open) => {

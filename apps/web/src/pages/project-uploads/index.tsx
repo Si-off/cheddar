@@ -1,5 +1,8 @@
 import {
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Input,
   Label,
   Select,
@@ -8,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   Surface,
+  WorkspaceIcon,
 } from "@cheddar/ui";
 import {
   useInfiniteQuery,
@@ -25,6 +29,7 @@ import type {
   SheetPageDto,
   SheetSnapshotDto,
 } from "@/shared/api/generated/types.gen";
+import { LoadingSkeleton } from "@/shared/ui/workspace";
 import { FrameDataDownload, FramePreview } from "./frame-preview";
 import { uploadError } from "./uploads-api";
 
@@ -84,14 +89,16 @@ export function ProjectUploadsPage({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-label text-muted">{project.data?.name}</p>
-          <h1 className="text-title font-heading">업로드</h1>
+          <h1 className="text-display font-heading">화면 자료</h1>
         </div>
         <Button
-          variant="outline"
+          variant="ghost"
+          size="icon"
+          aria-label="자료 새로고침"
           disabled={uploads.isFetching}
           onClick={() => void uploads.refetch()}
         >
-          새로고침
+          <WorkspaceIcon name="settings" />
         </Button>
       </div>
       {project.isError && (
@@ -99,11 +106,7 @@ export function ProjectUploadsPage({
           {uploadError(project.error, "프로젝트를 불러오지 못했습니다.")}
         </p>
       )}
-      {uploads.isPending && (
-        <p role="status" className="text-muted">
-          업로드 불러오는 중
-        </p>
-      )}
+      {uploads.isPending && <LoadingSkeleton />}
       {uploads.isError && (
         <p role="alert" className="text-danger">
           {uploadError(
@@ -120,20 +123,24 @@ export function ProjectUploadsPage({
           </p>
         </Surface>
       )}
-      <ul className="grid gap-4 sm:grid-cols-2">
+      <ul className="workspace-collection">
         {items.map((upload) => (
           <li key={upload.id}>
             <button
               type="button"
               onClick={() => onOpenUpload(upload.id)}
-              className="w-full rounded-panel border border-border bg-surface p-panel text-left outline-none hover:bg-surface-hover focus-visible:border-focus-border"
+              className="workspace-document-row"
             >
-              <span className="block break-words text-heading font-heading">
-                {upload.name}
+              <span className="workspace-document-symbol">
+                <WorkspaceIcon name="image" />
               </span>
-              <span className="mt-3 block text-label text-muted">
-                프레임 {upload.frameCount}개 · {date(upload.createdAt)}
+              <span>
+                <strong>{upload.name}</strong>
+                <small>
+                  화면 {upload.frameCount}개 · {date(upload.createdAt)}
+                </small>
               </span>
+              <WorkspaceIcon name="arrow" />
             </button>
           </li>
         ))}
@@ -165,6 +172,7 @@ function UploadSheets({
   gateway: UploadSheetGateway;
 }) {
   const queryClient = useQueryClient();
+  const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [name, setName] = useState(uploadName.slice(0, 100));
   const [kind, setKind] = useState<"unit" | "integration">("unit");
   const [creating, setCreating] = useState(false);
@@ -273,72 +281,78 @@ function UploadSheets({
           시트 더 보기
         </Button>
       )}
-      <Surface>
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void create();
-          }}
-        >
-          <h3 className="text-label font-heading">새 시트 만들기</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-sheet-name">시트 이름</Label>
-              <Input
-                id="new-sheet-name"
-                value={name}
-                onValueChange={setName}
-                maxLength={100}
-                required
-                disabled={creating || uncertain}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-sheet-kind">시트 종류</Label>
-              <Select
-                items={[
-                  { value: "unit", label: "단위 테스트" },
-                  { value: "integration", label: "통합 테스트" },
-                ]}
-                value={kind}
-                onValueChange={(value) => {
-                  if (value === "unit" || value === "integration")
-                    setKind(value);
-                }}
-                disabled={creating || uncertain}
-              >
-                <SelectTrigger id="new-sheet-kind" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unit">단위 테스트</SelectItem>
-                  <SelectItem value="integration">통합 테스트</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {error && (
-            <p role="alert" className="text-label text-danger">
-              {error}
-            </p>
-          )}
-          {uncertain && (
-            <p className="text-label text-muted">
-              시트 목록을 새로고침해 생성된 시트를 확인해주세요. 목록에 없다면
-              다시 만들어주세요.
-            </p>
-          )}
-          <Button
-            type="submit"
-            disabled={
-              !name.trim() || creating || uncertain || !sheets.isSuccess
-            }
+      <Button onClick={() => setNewSheetOpen(true)}>
+        <WorkspaceIcon name="plus" />
+        시트 만들기
+      </Button>
+      <Dialog open={newSheetOpen} onOpenChange={setNewSheetOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>새 시트</DialogTitle>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void create();
+            }}
           >
-            {creating ? "시트 만드는 중" : "시트 만들기"}
-          </Button>
-        </form>
-      </Surface>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="new-sheet-name">시트 이름</Label>
+                <Input
+                  id="new-sheet-name"
+                  value={name}
+                  onValueChange={setName}
+                  maxLength={100}
+                  required
+                  disabled={creating || uncertain}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-sheet-kind">시트 종류</Label>
+                <Select
+                  items={[
+                    { value: "unit", label: "단위 테스트" },
+                    { value: "integration", label: "통합 테스트" },
+                  ]}
+                  value={kind}
+                  onValueChange={(value) => {
+                    if (value === "unit" || value === "integration")
+                      setKind(value);
+                  }}
+                  disabled={creating || uncertain}
+                >
+                  <SelectTrigger id="new-sheet-kind" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unit">단위 테스트</SelectItem>
+                    <SelectItem value="integration">통합 테스트</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {error && (
+              <p role="alert" className="text-label text-danger">
+                {error}
+              </p>
+            )}
+            {uncertain && (
+              <p className="text-label text-muted">
+                시트 목록을 새로고침해 생성된 시트를 확인해주세요. 목록에 없다면
+                다시 만들어주세요.
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={
+                !name.trim() || creating || uncertain || !sheets.isSuccess
+              }
+            >
+              {creating ? "시트 만드는 중" : "시트 만들기"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -367,11 +381,7 @@ export function ProjectUploadDetailPage({
       <Button variant="ghost" onClick={onBack}>
         업로드 목록
       </Button>
-      {upload.isPending && (
-        <p role="status" className="text-muted">
-          업로드 불러오는 중
-        </p>
-      )}
+      {upload.isPending && <LoadingSkeleton />}
       {upload.isError && (
         <div role="alert" className="space-y-3">
           <p className="text-danger">
@@ -409,12 +419,12 @@ export function ProjectUploadDetailPage({
           )}
           <section aria-labelledby="upload-frames" className="space-y-4">
             <h2 id="upload-frames" className="text-heading font-heading">
-              프레임
+              화면
             </h2>
-            <ol className="grid items-start gap-6 sm:grid-cols-2">
+            <ol className="workspace-frame-gallery">
               {upload.data.frames.map((frame) => (
                 <li key={frame.id}>
-                  <Surface className="space-y-4">
+                  <Surface className="workspace-frame-card">
                     <div>
                       <h3 className="break-words text-heading font-heading">
                         {frame.name}

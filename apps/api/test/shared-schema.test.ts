@@ -30,26 +30,25 @@ test("shared sheet and IA storage preserves project boundaries and template iden
         assert.deepEqual(
           original.columns.map((c: { name: string }) => c.name),
           [
-            "케이스 번호",
-            "제목",
-            "사전조건",
-            "수행 단계",
-            "기대 결과",
+            "테스트 ID",
+            "기능 구분",
+            "테스트 항목",
+            "화면 ID",
+            "사전 조건",
+            "테스트 데이터",
+            "수행 절차",
+            "예상 결과",
             "우선순위",
-            "관련 프레임",
-            "IA 화면",
+            "관련 화면",
           ],
         );
         assert.equal(
           new Set(original.columns.map((c: { id: string }) => c.id)).size,
-          8,
+          10,
         );
         assert.deepEqual(
-          original.view,
-          original.columns.map((c: { id: string }) => ({
-            columnId: c.id,
-            width: 180,
-          })),
+          original.view.map((v: { columnId: string }) => v.columnId),
+          original.columns.map((c: { id: string }) => c.id),
         );
         const migration = await readFile(
           join(folder, "0002_shocking_wiccan.sql"),

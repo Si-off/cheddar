@@ -1,4 +1,4 @@
-import { Checkbox, Textarea } from "@cheddar/ui";
+import { Button, Checkbox, Textarea, WorkspaceIcon } from "@cheddar/ui";
 import {
   type ColumnDef,
   flexRender,
@@ -30,6 +30,8 @@ import "./table.css";
 
 type Props = {
   snapshot: Snapshot;
+  hidden?: Set<string>;
+  layout?: "table" | "qa";
   query: string;
   disabled?: boolean;
   selected: Set<string>;
@@ -42,6 +44,8 @@ type Props = {
 type Editing = CellPosition & { original: string };
 export function TestCaseTable({
   snapshot,
+  hidden,
+  layout = "table",
   query,
   disabled,
   selected,
@@ -56,8 +60,8 @@ export function TestCaseTable({
     () =>
       snapshot.view
         .map((v) => snapshot.columns.find((c) => c.id === v.columnId))
-        .filter((c): c is Column => !!c),
-    [snapshot.columns, snapshot.view],
+        .filter((c): c is Column => !!c && !hidden?.has(c.id)),
+    [snapshot.columns, snapshot.view, hidden],
   );
   const rows = useMemo(
     () =>
@@ -80,6 +84,7 @@ export function TestCaseTable({
       : undefined;
   const [selection, setSelection] = useState<CellRange>();
   const [editing, setEditing] = useState<Editing>();
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
   const range =
     selection && bounds(selection, rowIds, columnIds)
       ? selection
@@ -251,6 +256,45 @@ export function TestCaseTable({
       start(range.focus, event.key);
     }
   }
+  if (layout === "qa")
+    return (
+      <div className="workspace-qa-list">
+        {rows.map((item, index) => (
+          <details key={item.id} className="workspace-qa-item">
+            <summary>
+              <WorkspaceIcon name="chevron" />
+              <span className="workspace-count">
+                {item.caseCode || String(index + 1).padStart(3, "0")}
+              </span>
+              <strong>{item.title || "제목 없는 테스트"}</strong>
+            </summary>
+            <div className="workspace-qa-content">
+              {columns
+                .filter((c) => c.field !== "title" && c.field !== "caseCode")
+                .map((c) => (
+                  <div key={c.id}>
+                    <h3>{c.name}</h3>
+                    <p>{displayValue(snapshot, item, c) || "—"}</p>
+                  </div>
+                ))}
+              <Button
+                variant="ghost"
+                onClick={() => onDetails(item.id)}
+                disabled={disabled}
+              >
+                <WorkspaceIcon name="file" />
+                테스트 편집
+              </Button>
+            </div>
+          </details>
+        ))}
+        {!rows.length && (
+          <p className="workspace-empty">
+            {query ? "검색 결과가 없습니다" : "테스트가 없습니다"}
+          </p>
+        )}
+      </div>
+    );
   return (
     <div className="sheet-table-scroll">
       <table
@@ -352,8 +396,63 @@ export function TestCaseTable({
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row, rowIndex) => (
-            <tr key={row.id} aria-rowindex={rowIndex + 2}>
-              <td>
+            <tr
+              key={row.id}
+              aria-rowindex={rowIndex + 2}
+              style={{ height: rowHeights[row.id] }}
+            >
+              <td className="sheet-row-selection">
+                <button
+                  type="button"
+                  aria-label={`${rowIndex + 1}행 높이 조절`}
+                  className="sheet-row-resize"
+                  disabled={disabled}
+                  onDoubleClick={() =>
+                    setRowHeights((current) => {
+                      const next = { ...current };
+                      delete next[row.id];
+                      return next;
+                    })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+                    e.preventDefault();
+                    const height =
+                      e.currentTarget.closest("tr")?.getBoundingClientRect()
+                        .height ?? 48;
+                    setRowHeights((current) => ({
+                      ...current,
+                      [row.id]: Math.max(
+                        40,
+                        height + (e.key === "ArrowDown" ? 16 : -16),
+                      ),
+                    }));
+                  }}
+                  onPointerDown={(e) => {
+                    const start = e.clientY,
+                      height =
+                        e.currentTarget.closest("tr")?.getBoundingClientRect()
+                          .height ?? 48,
+                      el = e.currentTarget;
+                    el.setPointerCapture(e.pointerId);
+                    const move = (ev: PointerEvent) =>
+                      setRowHeights((current) => ({
+                        ...current,
+                        [row.id]: Math.max(
+                          40,
+                          Math.min(800, height + ev.clientY - start),
+                        ),
+                      }));
+                    const end = () => {
+                      el.removeEventListener("pointermove", move);
+                      el.removeEventListener("pointerup", end);
+                      el.removeEventListener("pointercancel", end);
+                    };
+                    el.addEventListener("pointermove", move);
+                    el.addEventListener("pointerup", end);
+                    el.addEventListener("pointercancel", end);
+                  }}
+                />
                 <Checkbox
                   aria-label={`${rowIndex + 1}행 선택`}
                   checked={selected.has(row.id)}
@@ -410,7 +509,32 @@ export function TestCaseTable({
                     }}
                     onDoubleClick={() => start(position)}
                   >
-                    <div className="sheet-cell-content" data-editing={edit}>
+                    {column.field === "title" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="sheet-open-detail"
+                        aria-label={`${rowIndex + 1}행 상세 편집`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDetails(row.id);
+                        }}
+                      >
+                        <WorkspaceIcon name="file" />
+                      </Button>
+                    )}
+                    <div
+                      className="sheet-cell-content"
+                      data-editing={edit}
+                      style={
+                        rowHeights[row.id]
+                          ? {
+                              maxHeight: Math.max(24, rowHeights[row.id] - 16),
+                              overflowY: "auto",
+                            }
+                          : undefined
+                      }
+                    >
                       <span
                         className="sheet-cell-text"
                         aria-hidden={edit || undefined}

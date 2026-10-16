@@ -1,5 +1,8 @@
 import {
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Input,
   Label,
   Select,
@@ -8,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   Surface,
+  WorkspaceIcon,
 } from "@cheddar/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -112,6 +116,43 @@ export function FrameUploadPage() {
   const { connected, selection } = useFigmaConnection();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [stage, setStage] = useState<"frames" | "destination">("frames");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState<{
+    name: string;
+    url?: string;
+    error?: string;
+  } | null>(null);
+  const previewUrl = useRef<string | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    },
+    [],
+  );
+  async function previewFrame(nodeId: string, frameName: string) {
+    if (busy.current || previewLoading || !selection) return;
+    setPreviewLoading(true);
+    setPreview({ name: frameName });
+    let sessionId: string | undefined;
+    try {
+      const prepared = await prepareFrameUpload(selection.version);
+      sessionId = prepared.sessionId;
+      const exported = await exportSelectedFrame(sessionId, nodeId);
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+      const image = new Uint8Array(exported.image);
+      const url = URL.createObjectURL(
+        new Blob([image.buffer], { type: "image/png" }),
+      );
+      previewUrl.current = url;
+      setPreview({ name: frameName, url });
+    } catch (caught) {
+      setPreview({ name: frameName, error: failure(caught, false) });
+    } finally {
+      if (sessionId) releaseFrameUpload(sessionId);
+      setPreviewLoading(false);
+    }
+  }
   const [status, setStatus] = useState<
     "idle" | "preparing" | "uploading" | "failed" | "success"
   >("idle");
@@ -220,10 +261,12 @@ export function FrameUploadPage() {
     setError("");
     setNeedsNewUpload(false);
     setResult(null);
+    setStage("frames");
   }
 
   const canUpload =
     connected &&
+    !previewLoading &&
     selection?.fileKey &&
     frames.length > 0 &&
     selection.unsupportedCount === 0 &&
@@ -231,9 +274,23 @@ export function FrameUploadPage() {
     projectId &&
     name.trim().length > 0;
   return (
-    <main className="p-page text-body">
-      <Surface className="space-y-5">
-        <h1 className="text-title font-heading">Figma 프레임</h1>
+    <main className="plugin-workspace text-body">
+      <Surface className="plugin-workspace-surface space-y-5">
+        <header className="plugin-header">
+          {stage === "destination" && !locked && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="이전 화면"
+              onClick={() => setStage("frames")}
+            >
+              <WorkspaceIcon name="back" />
+            </Button>
+          )}
+          <h1 className="text-heading font-heading">
+            {stage === "frames" ? "화면 선택" : "업로드할 프로젝트"}
+          </h1>
+        </header>
         {!connected ? (
           <p role="status" className="text-label text-muted">
             Figma에서 플러그인을 열어주세요.
@@ -256,35 +313,58 @@ export function FrameUploadPage() {
               void upload();
             }}
           >
-            <div className="space-y-2">
-              <Label htmlFor="upload-project">프로젝트</Label>
-              <Select
-                items={options}
-                value={projectId}
-                onValueChange={setProjectId}
-                disabled={locked || projects.isPending || rows.length === 0}
-              >
-                <SelectTrigger id="upload-project" className="w-full">
-                  <SelectValue placeholder="프로젝트 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {options.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {projects.isPending && (
-                <p role="status" className="text-label text-muted">
-                  프로젝트 불러오는 중
-                </p>
-              )}
-              {projects.isError && (
-                <div role="alert" className="space-y-2 text-label text-danger">
-                  <p>
-                    프로젝트를 불러오지 못했습니다. 서버 연결을 확인해주세요.
+            <div
+              hidden={stage !== "destination"}
+              className="plugin-destination"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="upload-project">프로젝트</Label>
+                <Select
+                  items={options}
+                  value={projectId}
+                  onValueChange={setProjectId}
+                  disabled={locked || projects.isPending || rows.length === 0}
+                >
+                  <SelectTrigger id="upload-project" className="w-full">
+                    <SelectValue placeholder="프로젝트 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {projects.isPending && (
+                  <p role="status" className="text-label text-muted">
+                    프로젝트 불러오는 중
                   </p>
+                )}
+                {projects.isError && (
+                  <div
+                    role="alert"
+                    className="space-y-2 text-label text-danger"
+                  >
+                    <p>
+                      프로젝트를 불러오지 못했습니다. 서버 연결을 확인해주세요.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void projects.refetch()}
+                    >
+                      다시 불러오기
+                    </Button>
+                  </div>
+                )}
+                {projects.isSuccess && rows.length === 0 && (
+                  <p className="text-label text-muted">
+                    프로젝트가 없습니다. 웹에서 프로젝트를 만든 뒤 다시
+                    불러와주세요.
+                  </p>
+                )}
+                {projects.isSuccess && rows.length === 0 && (
                   <Button
                     type="button"
                     variant="outline"
@@ -292,63 +372,59 @@ export function FrameUploadPage() {
                   >
                     다시 불러오기
                   </Button>
-                </div>
-              )}
-              {projects.isSuccess && rows.length === 0 && (
-                <p className="text-label text-muted">
-                  프로젝트가 없습니다. 웹에서 프로젝트를 만든 뒤 다시
-                  불러와주세요.
-                </p>
-              )}
-              {projects.isSuccess && rows.length === 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void projects.refetch()}
-                >
-                  다시 불러오기
-                </Button>
-              )}
-              {projects.hasNextPage && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={locked || projects.isFetchingNextPage}
-                  onClick={() => void projects.fetchNextPage()}
-                >
-                  프로젝트 더 보기
-                </Button>
-              )}
+                )}
+                {projects.hasNextPage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={locked || projects.isFetchingNextPage}
+                    onClick={() => void projects.fetchNextPage()}
+                  >
+                    프로젝트 더 보기
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="upload-name">업로드 이름</Label>
+                <Input
+                  id="upload-name"
+                  value={name}
+                  onValueChange={setName}
+                  maxLength={100}
+                  required
+                  disabled={locked}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="upload-name">업로드 이름</Label>
-              <Input
-                id="upload-name"
-                value={name}
-                onValueChange={setName}
-                maxLength={100}
-                required
-                disabled={locked}
-              />
-            </div>
-            <section aria-labelledby="selected-frames" className="space-y-2">
+            <section
+              hidden={stage !== "frames"}
+              aria-labelledby="selected-frames"
+              className="space-y-2"
+            >
               <h2 id="selected-frames" className="text-label font-heading">
                 업로드할 프레임 {frames.length}개
               </h2>
-              {!locked && selection && selection.sectionCount > 0 && (
-                <p className="text-label text-muted">
-                  섹션 안의 최상위 Frame을 포함합니다. Frame 내부의 중첩
-                  프레임은 별도 항목으로 추가하지 않습니다.
-                </p>
-              )}
               {frames.length > 0 ? (
-                <ol className="divide-y divide-border rounded-panel border border-border">
+                <ol className="plugin-frame-gallery">
                   {frames.map((frame) => (
-                    <li key={frame.nodeId} className="px-4 py-3">
-                      <p className="break-words text-label">{frame.name}</p>
-                      <p className="text-caption text-muted">
-                        {Math.round(frame.width)} × {Math.round(frame.height)}
-                      </p>
+                    <li key={frame.nodeId}>
+                      <button
+                        type="button"
+                        className="plugin-frame-card"
+                        disabled={locked}
+                        aria-label={`${frame.name} 미리보기`}
+                        onClick={() =>
+                          void previewFrame(frame.nodeId, frame.name)
+                        }
+                      >
+                        <span className="plugin-frame-art">
+                          <WorkspaceIcon name="image" />
+                        </span>
+                        <strong>{frame.name}</strong>
+                        <small>
+                          {Math.round(frame.width)} × {Math.round(frame.height)}
+                        </small>
+                      </button>
                     </li>
                   ))}
                 </ol>
@@ -400,31 +476,79 @@ export function FrameUploadPage() {
                 {error}
               </p>
             )}
-            <div className="flex flex-wrap gap-2">
-              {(!needsNewUpload || status !== "failed") && (
-                <Button
-                  type="submit"
-                  disabled={running || (!run.current && !canUpload)}
-                >
-                  {running
-                    ? "업로드 중"
-                    : status === "failed"
-                      ? run.current?.registrationPending
-                        ? "등록 결과 확인"
-                        : "다시 시도"
-                      : "업로드"}
-                </Button>
-              )}
-              {status === "failed" &&
-                (!run.current?.registrationPending || needsNewUpload) && (
-                  <Button type="button" variant="outline" onClick={reset}>
-                    현재 선택으로 새 업로드
+            <footer className="plugin-footer">
+              {stage === "frames" ? (
+                <>
+                  <span>{frames.length}개 선택</span>
+                  <Button
+                    type="button"
+                    disabled={
+                      previewLoading ||
+                      !frames.length ||
+                      !connected ||
+                      !!selection?.unsupportedCount ||
+                      !!selection?.emptySectionCount
+                    }
+                    onClick={() => {
+                      setStage("destination");
+                      if (!name.trim()) setName(frames[0]?.name ?? "");
+                    }}
+                  >
+                    계속
+                    <WorkspaceIcon name="arrow" />
                   </Button>
-                )}
-            </div>
+                </>
+              ) : (
+                <>
+                  {(!needsNewUpload || status !== "failed") && (
+                    <Button
+                      type="submit"
+                      disabled={running || (!run.current && !canUpload)}
+                    >
+                      {running
+                        ? "업로드 중"
+                        : status === "failed"
+                          ? run.current?.registrationPending
+                            ? "등록 결과 확인"
+                            : "다시 시도"
+                          : "업로드"}
+                    </Button>
+                  )}
+                  {status === "failed" &&
+                    (!run.current?.registrationPending || needsNewUpload) && (
+                      <Button type="button" variant="outline" onClick={reset}>
+                        현재 선택으로 새 업로드
+                      </Button>
+                    )}
+                </>
+              )}
+            </footer>
           </form>
         )}
       </Surface>
+      <Dialog
+        open={!!preview}
+        onOpenChange={(open) => {
+          if (!open) setPreview(null);
+        }}
+      >
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>{preview?.name}</DialogTitle>
+          {preview?.error ? (
+            <p role="alert">{preview.error}</p>
+          ) : preview?.url ? (
+            <img
+              src={preview.url}
+              alt={preview.name}
+              className="plugin-preview-image"
+            />
+          ) : (
+            <div className="plugin-preview-loading" role="status">
+              이미지 불러오는 중
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

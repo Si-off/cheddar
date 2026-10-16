@@ -1,4 +1,11 @@
-import { Button, Checkbox, Input, Label, Textarea } from "@cheddar/ui";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Label,
+  Textarea,
+  WorkspaceIcon,
+} from "@cheddar/ui";
 import {
   type CaseDraft,
   displayValue,
@@ -38,13 +45,18 @@ export function DetailPanel({
     .map((v) => snapshot.columns.find((c) => c.id === v.columnId))
     .filter((c) => !!c);
   return (
-    <aside className="sheet-detail" aria-label="케이스 상세 편집">
+    <aside className="sheet-detail" aria-label="테스트 상세 편집">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-heading font-heading">
-          {item.caseCode || "새 케이스"}
+          {item.caseCode || "새 테스트"}
         </h2>
-        <Button variant="ghost" onClick={onClose}>
-          상세 닫기
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          aria-label="상세 닫기"
+        >
+          <WorkspaceIcon name="close" />
         </Button>
       </div>
       {columns
@@ -99,7 +111,10 @@ export function DetailPanel({
           );
         })}
       <fieldset className="mt-5" disabled={disabled}>
-        <legend className="text-label font-label">관련 프레임</legend>
+        <legend className="text-label font-label">
+          {snapshot.columns.find((c) => c.field === "relatedFrames")?.name ??
+            "관련 화면"}
+        </legend>
         <Label htmlFor="frame-upload">업로드 묶음</Label>
         <select
           className="sheet-select"
@@ -135,7 +150,10 @@ export function DetailPanel({
         </div>
       </fieldset>
       <fieldset className="mt-5" disabled={disabled}>
-        <legend className="text-label font-label">IA 화면</legend>
+        <legend className="text-label font-label">
+          {snapshot.columns.find((c) => c.field === "screens")?.name ??
+            "화면 ID"}
+        </legend>
         <div className="mt-2 flex flex-col gap-2">
           {iaItems.map((i) => (
             <Label key={i.id}>

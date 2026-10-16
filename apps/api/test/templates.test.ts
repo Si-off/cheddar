@@ -44,8 +44,21 @@ test("project template HTTP saves a complete version while preserving column ide
       "GET is a stable read and the transaction snapshot boundary is exported",
       async () => {
         assert.equal(initial.revision, 1);
-        assert.equal(initial.columns.length, 8);
-        assert.ok(initial.view.every((column) => column.width === 180));
+        assert.equal(initial.columns.length, 10);
+        assert.ok(initial.view.every((column) => column.width >= 100));
+        assert.deepEqual(
+          initial.columns.slice(0, 8).map((column) => column.name),
+          [
+            "테스트 ID",
+            "기능 구분",
+            "테스트 항목",
+            "화면 ID",
+            "사전 조건",
+            "테스트 데이터",
+            "수행 절차",
+            "예상 결과",
+          ],
+        );
         assert.deepEqual(await read(), initial);
         const snapshot = await lease.database.db.transaction(async (tx) => {
           await tx

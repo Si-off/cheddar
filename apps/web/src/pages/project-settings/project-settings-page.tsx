@@ -9,8 +9,6 @@ import {
   Surface,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
@@ -548,17 +546,25 @@ function SettingsEditor({ projectId }: { projectId: string }) {
         value={draft.kind}
         onValueChange={(value) => transition(() => selectTab(value as Tab))}
       >
-        <TabsList aria-label="프로젝트 설정">
-          <TabsTrigger value="project" disabled={saving}>
-            기본 정보
-          </TabsTrigger>
-          <TabsTrigger value="ia" disabled={saving}>
-            IA
-          </TabsTrigger>
-          <TabsTrigger value="template" disabled={saving}>
-            기본 양식
-          </TabsTrigger>
-        </TabsList>
+        <div className="workspace-settings-selector">
+          <label htmlFor="settings-section" className="sr-only">
+            설정 항목
+          </label>
+          <select
+            id="settings-section"
+            className="sheet-select"
+            value={draft.kind}
+            disabled={saving}
+            onChange={(event) => {
+              const next = event.target.value as Tab;
+              transition(() => selectTab(next));
+            }}
+          >
+            <option value="project">기본 정보</option>
+            <option value="ia">IA 관리</option>
+            <option value="template">기본 양식</option>
+          </select>
+        </div>
         <form
           ref={form}
           className="mt-6 space-y-5"

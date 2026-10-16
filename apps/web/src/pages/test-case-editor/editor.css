@@ -82,3 +82,16 @@
   flex: 1;
   min-width: var(--size-textarea-min);
 }
+.sheet-editor {
+  gap: var(--spacing-3);
+}
+.sheet-detail {
+  border: 0;
+  border-radius: 0;
+  padding: var(--spacing-6) 0;
+  max-height: none;
+  max-width: none;
+}
+.sheet-editor-body {
+  display: block;
+}
