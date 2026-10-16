@@ -11,7 +11,8 @@
     "build": "vite build --configLoader runner && vite build --configLoader runner --config vite.main.config.ts",
     "preview": "vite preview --configLoader runner",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.main.json",
-    "gen:api": "openapi-ts --no-log-file"
+    "gen:api": "openapi-ts --no-log-file",
+    "build:prototype": "vite build --configLoader runner --mode prototype && vite build --configLoader runner --config vite.main.config.ts --mode prototype"
   },
   "dependencies": {
     "react": "19.3.1",

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --configLoader runner",
+    "dev:prototype": "vite --configLoader runner --port 5178",
     "build": "vite build --configLoader runner",
+    "build:prototype": "vite build --configLoader runner --mode prototype",
     "preview": "vite preview --configLoader runner",
     "typecheck": "tsc -p tsconfig.json",
     "gen:api": "openapi-ts --no-log-file",
@@ -17,6 +19,7 @@
     "@tanstack/react-query": "5.104.2",
     "@tanstack/react-router": "1.170.44",
     "@tanstack/react-table": "8.21.3",
+    "exceljs": "4.4.0",
     "motion": "14.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
