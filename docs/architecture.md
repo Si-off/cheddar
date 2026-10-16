@@ -1,10 +1,10 @@
 # 프로젝트 구조
 
-이 문서는 현재 확정된 저장소 운영과 시스템 구조를 설명한다. 기술이나 연결 방식을 가정해 채우지 않는다.
+이 문서는 합의된 시스템 구조·기술 선택·운영 제약을 설명한다. 개별 브랜치의 구현 진행과 검증 이력은 해당 작업 기록에 남긴다. 현재 체크아웃의 적용 여부는 코드와 설정으로 확인한다. 기술이나 연결 방식을 가정해 채우지 않는다.
 
 ## 설계 범위와 환경
 
-- 설계 범위: 웹·플러그인과 1단계 백엔드 기반. 2026-10-15 사용자가 [1단계 설계안](changes/2026-10-15-stage-1-foundation/design.md)을 승인했다.
+- 설계 범위: 웹·Figma 플러그인·저장 및 AI 생성 백엔드. 기반 선택의 배경은 [1단계 설계안](changes/2026-10-15-stage-1-foundation/design.md), AI 실행 구조는 아래 [MVP AI 생성](#mvp-ai-생성)을 따른다.
 - 저장소 구성: pnpm workspace 기반 모노레포.
 - 개발 도구: Codex.
 - 필요한 구성요소: Figma 플러그인, 웹사이트, 백엔드 서버.
@@ -30,7 +30,7 @@
 | API 코드 생성 | `@hey-api/openapi-ts`로 타입·SDK·TanStack Query 코드 생성 |
 | UI 구조 | 웹과 플러그인 UI 모두 FSD 적용, 필요한 레이어만 구성 |
 
-workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정한다. 라이브러리 버전은 각 `package.json`과 `pnpm-lock.yaml`이 기준이며 실행 명령은 [README](../README.md)에 있다. 업로드·프로젝트 설정·시트 API와 화면은 단계별 통합 중이며 AI·공유는 후속이다.
+Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정한다. 라이브러리 버전은 각 `package.json`과 `pnpm-lock.yaml`이 기준이며 실행 명령은 [README](../README.md)에 있다.
 
 ## 구성요소 경계와 공유
 
@@ -39,8 +39,8 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 - 기본 UI와 디자인 토큰은 공유한다.
 - 화면·업무 기능·상태 저장소는 앱별로 관리한다.
 - 웹은 TanStack Table 기반 표·상세 편집과 별도 초안·저장 모델을 구현한다. 사용자 열은 텍스트이며 표시 문자열 부분 검색을 사용한다. TanStack Query는 서버 데이터, Zustand/화면 상태는 미저장 입력·선택·검색을 담당한다.
-- 공유 링크는 초기 읽기 전용으로 제공하고, 향후 링크별 편집 권한을 지원한다.
-- API는 프로젝트·파일·업로드 묶음·IA·기본 양식·시트를 저장하며, 저장된 전체 시트를 XLSX로 내보낸다. LangGraph 내부 실행 설계는 3B로 남긴다.
+- 실제 공유 링크는 후속 범위이며 초기 읽기 전용, 향후 링크별 편집 권한을 계획한다. 현재 시트 미리보기와 구분한다.
+- API는 프로젝트·파일·업로드 묶음·IA·기본 양식·시트를 저장하며, 저장된 전체 시트를 ExcelJS로 XLSX 내보내기 한다. 사용자 문자열을 수식으로 변환하지 않고 표현 불가능한 데이터는 잘라내지 않고 오류로 알린다. AI 실행은 아래 MVP LangGraph 흐름을 따른다.
 
 ## 백엔드 기반
 
@@ -50,14 +50,14 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 - 파일은 전용 루트의 `.incoming/`에 기록·검증한 뒤 프로젝트/파일 UUID 키로 이동하고 DB에서 ready로 확정한다. DB와 파일시스템의 실패를 분리하며 불완전 파일을 공개하지 않는다. 시작 시 잔여 pending/작업 파일을 보고하고 자동 삭제하지 않는다.
 - 저장 루트는 `FILE_STORAGE_ROOT`로 설정하며 DB에 절대 경로를 넣지 않는다. 프로젝트와 파일은 현재 삭제 API가 없다.
 - 실행 DB는 `cheddar_stage1`, 테스트 DB는 `cheddar_stage1_test`, role은 `cheddar_stage1`. 로컬 기본 저장 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files`다. 다른 환경에서는 설정을 변경한다.
-- API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. 로컬 Figma iframe은 `NODE_ENV=development`와 `ALLOW_FIGMA_NULL_ORIGIN=true`를 함께 설정할 때만 null Origin을 허용한다. AI 키는 후속 단계에서 관리한다.
+- API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. 로컬 Figma iframe은 `NODE_ENV=development`와 `ALLOW_FIGMA_NULL_ORIGIN=true`를 함께 설정할 때만 null Origin을 허용한다. AI 키·모델은 서버 환경변수로만 관리한다.
 - schema에서 생성한 SQL migration을 검토·명시 적용한다. 서버 시작 시 migration/push를 실행하지 않는다. readiness는 DB migration hash와 테이블·저장 접근을 확인한다.
-- 실제 경로만 OpenAPI에 포함하며 업로드·IA·기본 양식·시트·XLSX 경로와 양쪽 SDK를 생성한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
+- 실제 경로만 OpenAPI에 포함하며 프로젝트·파일·업로드·IA·기본 양식·시트·XLSX·AI 생성·후보 경로와 양쪽 SDK를 생성한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
 - 생성 명세와 Drizzle meta는 Biome 포맷 대상에서 제외하고 명세 재생성 비교·계약 테스트·migration 재현으로 검증한다. 기존 소스 검사를 완화하지 않는다.
 - API 테스트는 `node:test`, `@nestjs/testing`, 실제 PostgreSQL·HTTP를 사용한다. 컴파일·SDK 실행 테스트·파일 fixture는 OS 임시 경로를 사용한다. 테스트 데이터는 이 실행이 만든 UUID 행만 정리한다.
-- 프로젝트 생성 시 기본 양식을 같은 트랜잭션에서 저장하고, 기존 프로젝트에는 migration으로 누락분만 보충한다. IA·양식·시트 공통 모델은 [2B·2C 공통 계약](changes/2026-10-15-staged-development/stage-2bc-common.md)을 따른다. IA·양식·시트·XLSX API는 통합됐다. 시트는 생성 시 양식을 독립 UUID로 복사하며 이후 기본 양식 변경의 영향을 받지 않는다. 시트 내용과 보기는 별도 revision으로 저장하고 충돌 시 덮어쓰지 않는다. 업무 화면은 단계별 통합한다.
+- 프로젝트 생성 시 기본 양식을 같은 트랜잭션에서 저장하고, 기존 프로젝트에는 migration으로 누락분만 보충한다. IA·양식·시트 공통 모델의 배경은 [공통 계약 기록](changes/2026-10-15-staged-development/stage-2bc-common.md)에 있다. 시트는 생성 시 양식을 독립 UUID로 복사하며 이후 기본 양식 변경의 영향을 받지 않는다. 시트 내용과 보기는 별도 revision으로 저장하고 충돌 시 덮어쓰지 않는다.
 - 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 uploads 서비스가 검사한다. 신규 등록201, 같은 요청 키·같은 입력200, 같은 키·다른 입력409를 반환한다.
-- 후속 파일 소유권·경로·계약은 [승인 설계 9절](changes/2026-10-15-stage-1-foundation/design.md#9-브랜치-기준과-후속-소유권)을 따른다. 2A·2B·2C 사용자가 승인한 기능 경로는 아래 구조에 반영했다. 추가 하위 폴더는 해당 승인 절차를 따른다.
+- 승인된 기능 경로는 아래 구조를 따른다. 과거 작업의 파일 소유권은 해당 작업에만 적용한다. 추가 하위 폴더는 구조 변경 승인 절차를 따른다.
 
 ## 공통 디자인 기준
 
@@ -93,18 +93,20 @@ workspace·설정·최소 실행 화면은 구성했다. Node는 `.nvmrc`의 24.
 
 앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
 
-현재 workspace·패키지·TypeScript·Biome·Vite·Tailwind 설정과 실행 진입점이 있다. 웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/sheets`·`/projects/$projectId/sheets/$sheetId`, Query·Motion 프로바이더를 구성했다. 프로젝트 경로의 공통 헤더에서 테스트 시트·업로드·설정을 이동한다. 설정 페이지가 미저장 변경·저장 중 이동을 확인한다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업로드 목록·상세, 프로젝트 설정, 프로젝트별 시트 목록·편집 페이지를 라우트에 연결했다. 업로드 상세의 sheetGateway는 실제 생성 SDK로 해당 업로드 시트만 조회·생성하며 POST를 자동 재시도하지 않는다. 설정과 시트 연계는 실제 DB·브라우저 검증을 마쳤다. 시트 페이지는 Router blocker로 저장을 기다리고 실패 시 IndexedDB 초안 보관을 확인한 뒤 명시 이동을 제공한다. 보관도 실패하면 이동을 막고, 전체 페이지 이탈은 beforeunload로 보호한다. AI 생성은 후속이다.
+웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/sheets`·`/projects/$projectId/sheets/$sheetId`, Query·Motion 프로바이더를 구성했다. 프로젝트 경로의 공통 헤더에서 테스트 시트·업로드·설정을 이동한다. 설정 페이지가 미저장 변경·저장 중 이동을 확인한다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업로드 목록·상세, 프로젝트 설정, 프로젝트별 시트 목록·편집 페이지를 라우트에 연결했다. 업로드 상세의 sheetGateway는 실제 생성 SDK로 해당 업로드 시트만 조회·생성하며 POST를 자동 재시도하지 않는다. 시트 페이지는 Router blocker로 저장을 기다리고 실패 시 IndexedDB 초안 보관을 확인한 뒤 명시 이동을 제공한다. 보관도 실패하면 이동을 막고, 전체 페이지 이탈은 beforeunload로 보호한다. AI 생성·후보 상태는 서버 API와 연결한다.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 현재 명세는 `apps/api/openapi.json`이며 두 앱의 생성 타입·SDK·Query 코드를 관리한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 명세 변경 후 재생성하며 생성 코드를 직접 편집하지 않는다.
 
-발급된 Figma ID `1692417282897261384`를 `manifest.json`에 반영했다. 실제 import·실행·프로젝트 조회·선택 프레임 이름/크기는 확인했으며 호환 수정 후 실제 업로드는 재검증이 남아 있다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시키며 실제 Figma의 origin·로컬 접근은 2A에서 확인한다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
+Figma ID는 `1692417282897261384`다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시킨다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
+
+검증 도구는 API·플러그인 로직의 Node 테스트와 UI의 Playwright/Chromium이다. 명령·환경·확인 범위는 [README](../README.md#검증과-api-코드-생성)를 따른다. 실제 실행 이력과 당시 미확인 사항은 [프레임 업로드](changes/2026-10-15-stage-2a-frame-upload/change.md), [시트·설정 통합](changes/2026-10-15-staged-development/stage-2bc-common.md), [AI 생성](changes/2026-10-15-mvp-generation/change.md), [화면 개편](changes/2026-10-16-workspace-redesign/change.md) 기록에 있다.
 
 ## 문서와 검수 에이전트의 역할
 
 - `docs/ux-writing.md`는 사용자 노출 문구의 작성·판단·완료 기준을 관리한다.
-- `.codex/agents/ux-writing-review.toml`은 검수 에이전트의 모델·effort, 검수 입력, 코드 확인 절차, 결과 형식과 재검수 절차를 관리한다. 독립 컨텍스트로 호출하는 방법과 결과 반영은 `docs/workflow.md`에서 관리한다.
+- `.codex/agents/ux-writing-review.toml`은 검수 에이전트의 모델·effort, 입력·코드 확인·결과·재검수 방법을 관리한다. 제품 런타임에는 포함하지 않는다.
+- `docs/workflow.md`는 실행·검증·승인 경계와 독립 검수 호출·결과 반영을 관리한다.
 - 루트 `AGENTS.md`는 각 문서와 검수를 적용할 작업 조건만 연결한다.
-- 검수 에이전트는 문구 정책을 복사하지 않고 기준 문서를 읽어 적용한다. 메인 에이전트는 문구 작성 시 정책을 따르고, 검수 시 상세 절차를 읽을 필요 없이 지정 에이전트를 호출해 결과를 반영한다. 에이전트 정의는 개발 작업용이며 제품 런타임에는 포함하지 않는다.
 
 ## 파일 생성과 폴더 변경
 
@@ -236,22 +238,15 @@ cheddar/
 | 항목 | 상태 |
 | --- | --- |
 | 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
-| 플러그인 업무 메시지·프레임 추출·업로드 계약 | 직접 Frame·Section 내부 최상위 Frame을 중복 제거해 PNG·JSON 추출 및 묶음 업로드. 실제 Figma 업로드 최종 검증 대기 |
 | 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
-| 실제 API 명세 | 1단계 프로젝트·파일 제공. 후속 업무 경로는 단계별 구현 |
-| TanStack Query와 Zustand의 세부 책임 분담 | 서버 응답과 미저장 화면 상태 분리. 화면별 구현은 후속 |
-| 표 편집 | TanStack Table·텍스트 사용자 열·표시 문자열 부분 검색 확정. 표·상세·자동저장·충돌·복붙·키보드·이동보호 구현 및 브라우저 검증 완료 |
-| XLSX 생성 위치와 라이브러리 | API에서 ExcelJS 4.4.0으로 저장된 전체 시트 생성. 사용자 문자열을 수식으로 변환하지 않으며 표현 불가능한 데이터는 잘라내지 않고 오류로 알림 |
-| Figma 발급 플러그인 ID·실제 Figma 실행 검증 | ID 반영·import·실행 확인. 실제 업로드와 회사 읽기 전용 Dev Mode 검증 대기 |
-| 테스트 프레임워크·CI | API node:test와 UI Playwright/Chromium 구성. CI는 미정 |
-| 백엔드 기술 스택·API·DB·AI 실행 구조 | NestJS·Drizzle·PostgreSQL 기반 구성. AI는 아래 MVP LangGraph 흐름 |
-| 초기 로컬 구성요소 연결·공유 링크 접근 방식 | API loopback·명시 Origin. Figma 연결 검증·공유 후속 |
+| CI | 미구성. 도입 방식은 미정 |
+| 공유 링크 접근 방식 | 후속 |
 | 사내 배포·릴리스·관측 방식 | 추후 결정 |
 
 ## 갱신 기준
 
 구조가 결정되면 이 문서에 현재 상태를 반영한다. 여러 대안 중 선택한 이유가 이후 판단에 필요하면 `decisions/`에 별도 기록을 남기고 연결한다. 과거 작업 계획만으로 현재 구조를 판단하지 않는다.
 
-### MVP AI 생성
+## MVP AI 생성
 
-사용자 승인으로 `apps/api/src/generation/`을 추가했다. LangGraph는 입력 준비 → 모델 생성 → 형식·참조 검사 → 저장의 단일 흐름이며 자동 재시도·분할 생성은 초기 범위에서 제외한다. 생성 작업과 후보는 DB에 저장하고, 대상 시트만 편집을 잠근다. 키·모델은 서버 환경변수에서 관리한다. 생성 요청 ID로 중복 실행을 막고, 프로젝트 쓰기 잠금 안에서 시트 교체와 성공 상태를 한 트랜잭션으로 저장한다. 시트 자동 저장과 후보 추가도 같은 잠금 규칙을 따른다. 모델 호출 동안 DB 트랜잭션을 열어두지 않는다.
+`apps/api/src/generation/`의 LangGraph는 입력 준비 → 모델 생성 → 형식·참조 검사 → 저장의 단일 흐름이며 자동 재시도·분할 생성은 초기 범위에서 제외한다. 생성 작업과 후보는 DB에 저장하고, 대상 시트만 편집을 잠근다. 키·모델은 서버 환경변수에서 관리한다. 생성 요청 ID로 중복 실행을 막고, 프로젝트 쓰기 잠금 안에서 시트 교체와 성공 상태를 한 트랜잭션으로 저장한다. 시트 자동 저장과 후보 추가도 같은 잠금 규칙을 따른다. 모델 호출 동안 DB 트랜잭션을 열어두지 않는다.
