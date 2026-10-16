@@ -1,4 +1,4 @@
-import { isAbsolute, resolve, sep } from "node:path";
+import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
 
 export const API_ENV = Symbol("API_ENV");
@@ -32,7 +32,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   if (
     !storageRoot ||
     !isAbsolute(storageRoot) ||
-    resolve(storageRoot) === sep
+    resolve(storageRoot) === parse(resolve(storageRoot)).root
   ) {
     throw new Error(
       "FILE_STORAGE_ROOT must be an absolute, dedicated directory.",

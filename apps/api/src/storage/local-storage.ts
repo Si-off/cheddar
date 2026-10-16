@@ -104,10 +104,12 @@ export class LocalStorage implements FileStorage {
     this.uuid(fileId);
     await this.check();
     await this.directory(join(this.root, projectId));
-    const handle = await open(
-      join(this.root, projectId, fileId),
-      constants.O_RDONLY | constants.O_NOFOLLOW,
-    );
+    const path = join(this.root, projectId, fileId);
+    // O_NOFOLLOW is not enforced on Windows; inspect the directory entry too.
+    const entry = await lstat(path);
+    if (!entry.isFile() || entry.isSymbolicLink())
+      throw new Error("Invalid stored file.");
+    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       if (!(await handle.stat()).isFile())
         throw new Error("Invalid stored file.");

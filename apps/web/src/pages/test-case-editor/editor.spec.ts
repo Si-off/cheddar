@@ -1,8 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 import type {
+  GenerationDto,
   SheetContentDto,
   SheetSnapshotDto,
   SheetViewDto,
+  StartGenerationDto,
 } from "@/shared/api/generated";
 
 const projectId = "10000000-0000-4000-8000-000000000001";
@@ -87,6 +89,10 @@ async function mockApi(page: Page) {
     holdNext: false,
     holdViewNext: false,
     exports: [] as string[],
+    holdGenerations: false,
+    releaseGenerations: undefined as (() => void) | undefined,
+    generation: undefined as GenerationDto | undefined,
+    generationRequests: [] as StartGenerationDto[],
   };
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request(),
@@ -98,10 +104,47 @@ async function mockApi(page: Page) {
         contentType: "application/json",
         body: JSON.stringify(body),
       });
-    if (path.endsWith("/generations")) return json({ items: [] });
-    if (path.endsWith("/generation/providers")) return json({ items: [] });
+
+    if (path === "/api/v1/generation/providers")
+      return json({
+        items: [
+          { id: "anthropic", model: "synthetic-model", configured: true },
+        ],
+      });
+    if (path.endsWith("/generations")) {
+      if (request.method() === "POST") {
+        control.generationRequests.push(request.postDataJSON());
+        control.generation = {
+          id: "50000000-0000-4000-8000-000000000001",
+          sheetId,
+          provider: "anthropic",
+          model: "synthetic-model",
+          status: "running",
+          error: null,
+          revision: 1,
+          caseCount: 0,
+          candidates: [],
+          createdAt: new Date().toISOString(),
+        };
+        return json(control.generation, 202);
+      }
+      if (control.holdGenerations)
+        await new Promise<void>((resolve) => {
+          control.releaseGenerations = resolve;
+        });
+      return json({ items: control.generation ? [control.generation] : [] });
+    }
+    if (path.includes("/candidates/") && control.generation) {
+      const candidate = control.generation.candidates[0];
+      candidate.status = "added";
+      control.generation.revision++;
+      control.saved.cases.push({ ...candidate.content, caseCode: "TC-003" });
+      control.saved.contentRevision++;
+      return json(control.generation);
+    }
     if (path === `/api/v1/projects/${projectId}`)
       return json({ id: projectId, name: "테스트 프로젝트", revision: 1 });
+
     if (path === "/api/v1/projects")
       return json({
         items: [
@@ -321,6 +364,151 @@ async function editTitle(page: Page, title: string) {
     .getByRole("textbox", { name: "제목 편집", exact: true })
     .fill(title);
 }
+
+test("initial generation lookup explains the temporary editing lock", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  control.holdGenerations = true;
+  await open(page);
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "생성 상태를 확인하는 중입니다." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "행 추가", exact: true }),
+  ).toBeDisabled();
+  await expect.poll(() => !!control.releaseGenerations).toBe(true);
+  control.holdGenerations = false;
+  control.releaseGenerations?.();
+  await expect(
+    page.getByText("생성 상태를 확인하는 중입니다.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "행 추가", exact: true }),
+  ).toBeEnabled();
+});
+
+test("long cell text remains readable and editing retains its expanded row", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  const text =
+    "여러 줄의 테스트 수행 내용을 읽고 편집할 수 있어야 합니다. ".repeat(12);
+  control.saved.cases[0].steps = text;
+  await open(page);
+  await expect(
+    page.getByRole("button", { name: "행 추가", exact: true }),
+  ).toBeEnabled();
+  const cell = page.getByRole("gridcell", {
+    name: "1행 수행 단계",
+    exact: true,
+  });
+  await expect(cell).toContainText(text.trim());
+  const before = await cell.boundingBox();
+  expect(before?.height).toBeGreaterThan(100);
+  await cell.dblclick();
+  const editor = page.getByRole("textbox", {
+    name: "수행 단계 편집",
+    exact: true,
+  });
+  await expect(editor).toHaveValue(text);
+  const during = await cell.boundingBox();
+  expect(during?.height).toBeGreaterThanOrEqual((before?.height ?? 0) - 1);
+  const expanded = `${text}\n새로운 수행 단계`;
+  await editor.fill(expanded);
+  await editor.press("Control+Enter");
+  await expect.poll(() => control.saved.cases[0].steps).toBe(expanded);
+  await expect(cell).toContainText("새로운 수행 단계");
+  await page.setViewportSize({ width: 480, height: 800 });
+  const horizontal = await cell.evaluate((element) => {
+    const container = element.closest("table")?.parentElement;
+    return !!container && container.scrollWidth > container.clientWidth;
+  });
+  expect(horizontal).toBe(true);
+});
+
+test("generation confirms replacement, locks editing and loads generated cases and reviewed candidates", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  await open(page);
+  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
+  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
+  await page
+    .getByLabel("테스트할 내용 · 선택 사항", { exact: true })
+    .fill("로그인 흐름");
+  const generate = page.getByRole("button", {
+    name: "케이스 다시 생성",
+    exact: true,
+  });
+  await expect(generate).toBeDisabled();
+  await page
+    .getByRole("checkbox", {
+      name: "기존 케이스 1개를 생성 결과로 교체합니다.",
+    })
+    .check();
+  await generate.click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "테스트 생성 중" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "행 추가", exact: true }),
+  ).toBeDisabled();
+  expect(control.generationRequests).toHaveLength(1);
+  expect(control.generationRequests[0]).toMatchObject({
+    description: "로그인 흐름",
+    expectedRevision: 1,
+  });
+  const generated = {
+    ...control.saved.cases[0],
+    title: "생성된 로그인 케이스",
+  };
+  const candidate = {
+    ...generated,
+    id: "40000000-0000-4000-8000-000000000002",
+    caseCode: "",
+    title: "확인할 후보",
+  };
+  control.saved.cases = [generated];
+  control.saved.contentRevision++;
+  expect(control.generation).toBeDefined();
+  Object.assign(control.generation ?? {}, {
+    status: "succeeded",
+    revision: 2,
+    caseCount: 1,
+    candidates: [
+      {
+        id: candidate.id,
+        status: "pending",
+        reason: "동작 확인 필요",
+        content: candidate,
+      },
+    ],
+  });
+  await expect(
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText(generated.title);
+  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
+  await page.getByRole("button", { name: "후보 검토", exact: true }).click();
+  await expect(
+    page.locator("summary").filter({ hasText: "확인할 후보" }),
+  ).toHaveCount(1);
+  await page.locator("summary").filter({ hasText: "확인할 후보" }).click();
+  await page.getByRole("button", { name: "시트에 추가", exact: true }).click();
+  await expect(
+    page.locator("summary").filter({ hasText: "추가됨" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(
+    page.getByRole("gridcell", { name: "2행 제목", exact: true }),
+  ).toContainText(candidate.title);
+  await expect(
+    page.getByRole("button", { name: "행 추가", exact: true }),
+  ).toBeEnabled();
+  expect(control.generationRequests).toHaveLength(1);
+});
 async function paste(page: Page, target: string, text: string) {
   const cell = page.getByRole("gridcell", { name: target, exact: true });
   await cell.click();

@@ -196,6 +196,7 @@ export function GenerationPanel({
   }
   return (
     <section className="workspace-generation" aria-label="테스트 생성 상태">
+      {jobs.isPending && <p role="status">생성 상태를 확인하는 중입니다.</p>}
       {running && (
         <div className="workspace-generation-progress" role="status">
           <span className="workspace-spinner" />
