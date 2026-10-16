@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { FilesModule } from "../files/files.module";
-import { SheetsModule } from "../sheets/sheets.module";
+import { TestScenariosModule } from "../test-scenarios/test-scenarios.module";
 import {
   GenerationController,
   GenerationProvidersController,
@@ -8,7 +8,7 @@ import {
 import { GenerationRepository } from "./generation.repository";
 import { GenerationService } from "./generation.service";
 @Module({
-  imports: [SheetsModule, FilesModule],
+  imports: [TestScenariosModule, FilesModule],
   controllers: [GenerationController, GenerationProvidersController],
   providers: [GenerationRepository, GenerationService],
 })

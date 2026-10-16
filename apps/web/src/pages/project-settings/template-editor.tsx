@@ -30,7 +30,7 @@ export function TemplateEditor({
   return (
     <div className="workspace-template-editor">
       <p className="text-label text-muted">
-        변경한 양식은 새 시트에만 적용됩니다.
+        변경한 양식은 새 시나리오에만 적용됩니다.
       </p>
       <ColumnSettings
         columns={value.columns}
@@ -44,9 +44,9 @@ export function TemplateEditor({
         }
         onRemove={onRemove}
       />
-      <div className="sheet-table-scroll workspace-template-preview">
+      <div className="test-scenario-table-scroll workspace-template-preview">
         <table
-          className="sheet-table"
+          className="test-scenario-table"
           aria-label="양식 미리보기"
           style={{
             width: value.view.reduce((sum, v) => sum + Number(v.width), 0),
@@ -71,7 +71,7 @@ export function TemplateEditor({
                     <span>{column.name}</span>
                     <button
                       type="button"
-                      className="sheet-resize"
+                      className="test-scenario-resize"
                       aria-label={`${column.name} 기본 너비 조절`}
                       disabled={disabled}
                       onKeyDown={(event) => {

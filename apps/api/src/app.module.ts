@@ -10,9 +10,9 @@ import {
 } from "./health/health.controller";
 import { IaModule } from "./ia/ia.module";
 import { ProjectsModule } from "./projects/projects.module";
-import { SheetsModule } from "./sheets/sheets.module";
 import { StorageModule } from "./storage/storage.module";
 import { TemplatesModule } from "./templates/templates.module";
+import { TestScenariosModule } from "./test-scenarios/test-scenarios.module";
 import { UploadsModule } from "./uploads/uploads.module";
 
 @Module({})
@@ -32,7 +32,7 @@ export function appModule(
       UploadsModule,
       IaModule,
       TemplatesModule,
-      SheetsModule,
+      TestScenariosModule,
       ExportsModule,
       GenerationModule,
     ],

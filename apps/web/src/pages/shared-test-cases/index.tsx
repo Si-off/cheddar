@@ -7,7 +7,7 @@ import {
 } from "@cheddar/ui";
 import { useState } from "react";
 import { type Column, displayValue, type Snapshot } from "@/entities/test-case";
-export function SharedSheetView({
+export function SharedTestScenarioView({
   snapshot,
   hidden = new Set<string>(),
 }: {
@@ -23,7 +23,10 @@ export function SharedSheetView({
     );
   const item = snapshot.cases.find((c) => c.id === detail);
   return (
-    <section className="workspace-shared-sheet" aria-label="공유 시트">
+    <section
+      className="workspace-shared-testScenario"
+      aria-label="공유 시나리오"
+    >
       <div className="workspace-page-heading">
         <h2>{snapshot.name}</h2>
         <span className="workspace-readonly">
@@ -31,8 +34,8 @@ export function SharedSheetView({
           읽기 전용
         </span>
       </div>
-      <div className="sheet-table-scroll">
-        <table className="sheet-table">
+      <div className="test-scenario-table-scroll">
+        <table className="test-scenario-table">
           <thead>
             <tr>
               {columns.map((c) => (
@@ -51,10 +54,11 @@ export function SharedSheetView({
                         className="workspace-shared-title"
                         onClick={() => setDetail(row.id)}
                       >
-                        {displayValue(snapshot, row, c) || "제목 없는 테스트"}
+                        {displayValue(snapshot, row, c) ||
+                          "제목 없는 테스트 케이스"}
                       </button>
                     ) : (
-                      <span className="sheet-cell-text">
+                      <span className="test-scenario-cell-text">
                         {displayValue(snapshot, row, c)}
                       </span>
                     )}
@@ -66,7 +70,7 @@ export function SharedSheetView({
         </table>
       </div>
       {!snapshot.cases.length && (
-        <p className="workspace-empty">테스트가 없습니다</p>
+        <p className="workspace-empty">테스트 케이스가 없습니다</p>
       )}
       <span className="workspace-count">테스트 {snapshot.cases.length}개</span>
       <Dialog
@@ -76,10 +80,10 @@ export function SharedSheetView({
         }}
       >
         <DialogContent
-          className="workspace-sheet-dialog"
+          className="workspace-detail-dialog"
           aria-describedby={undefined}
         >
-          <DialogTitle>테스트 상세</DialogTitle>
+          <DialogTitle>테스트 케이스 상세</DialogTitle>
           {item && (
             <dl className="workspace-readonly-fields">
               {columns.map((c) => (
@@ -99,7 +103,7 @@ export function SharedTestCasesPage() {
   return (
     <div className="workspace-empty">
       <WorkspaceIcon name="file" />
-      <h1>공유 시트를 찾을 수 없습니다</h1>
+      <h1>공유 시나리오를 찾을 수 없습니다</h1>
       <Button variant="outline" onClick={() => location.assign("/")}>
         프로젝트 목록
       </Button>

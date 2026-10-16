@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
-import type { CandidateDto } from "../contracts/generation.dto";
+import type { GenerationResultItemDto } from "../contracts/generation.dto";
 import {
   type CaseContentDto,
-  SheetContentDto,
-  type SheetSnapshotDto,
-} from "../contracts/sheets.dto";
+  TestScenarioContentDto,
+  type TestScenarioSnapshotDto,
+} from "../contracts/test-scenarios.dto";
 
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
@@ -20,6 +20,7 @@ export function createResultSchema(
   frameIds: string[],
   screenIds: string[],
   customColumnIds: string[],
+  requirementIds: string[] = [],
 ) {
   const references = (ids: string[]) => ({
     type: "array",
@@ -27,6 +28,9 @@ export function createResultSchema(
   });
   const nonempty = { type: "string", pattern: "\\S" };
   const caseSchema = object({
+    ...(requirementIds.length
+      ? { requirementIds: references(requirementIds) }
+      : {}),
     title: nonempty,
     preconditions: string,
     steps: nonempty,
@@ -63,18 +67,21 @@ export const invalidResult = (reason = "invalid_structure") =>
   new ApiError(
     422,
     "INVALID_AI_RESULT",
-    "생성 결과의 형식이나 연결된 화면 정보를 확인하지 못했습니다. 기존 시트는 유지됩니다. 입력을 확인한 뒤 다시 생성해주세요.",
+    "생성 결과의 형식이나 연결된 화면 정보를 확인하지 못했습니다. 기존 시나리오는 유지됩니다. 입력을 확인한 뒤 다시 생성해주세요.",
     { reason },
   );
 export type GenerationResult = {
   cases: CaseContentDto[];
-  candidates: CandidateDto[];
+  candidates: GenerationResultItemDto[];
+  links?: { caseId: string; requirementIds: string[] }[];
+  sources?: import("../contracts/analysis.dto").AnalysisItemDto[];
+  sourceRevision?: number;
 };
 export function validateContent(
-  snapshot: SheetSnapshotDto,
+  snapshot: TestScenarioSnapshotDto,
   cases: CaseContentDto[],
 ) {
-  const input = plainToInstance(SheetContentDto, {
+  const input = plainToInstance(TestScenarioContentDto, {
     expectedRevision: snapshot.contentRevision,
     columns: snapshot.columns,
     cases,
@@ -86,9 +93,10 @@ export function validateContent(
 }
 export function parseResult(
   raw: string,
-  snapshot: SheetSnapshotDto,
+  snapshot: TestScenarioSnapshotDto,
   frameIds: string[],
   screenIds: string[],
+  requirementIds: string[] = [],
 ): GenerationResult {
   let parsed: Record<string, unknown> | null;
   try {
@@ -121,6 +129,7 @@ export function parseResult(
     Object.keys(parsed).some((k) => !["cases", "candidates"].includes(k))
   )
     throw invalidResult();
+  const sourceLinks: { caseId: string; requirementIds: string[] }[] = [];
   function convert(value: Record<string, unknown>): CaseContentDto {
     if (!value || typeof value !== "object" || Array.isArray(value))
       throw invalidResult("case_structure");
@@ -143,8 +152,14 @@ export function parseResult(
       )
     )
       throw invalidResult("custom_column_reference");
+    const { requirementIds: rawRequirements, ...fields } = value;
+    const linkedRequirements = references(
+      rawRequirements,
+      requirementIds,
+      "requirement_reference",
+    );
     const content = {
-      ...value,
+      ...fields,
       id: randomUUID(),
       caseCode: "",
       priority:
@@ -168,6 +183,10 @@ export function parseResult(
       !content.expectedResult.trim()
     )
       throw invalidResult("empty_case_text");
+    sourceLinks.push({
+      caseId: content.id,
+      requirementIds: linkedRequirements,
+    });
     return content;
   }
   const cases = parsed.cases.map(convert);
@@ -184,6 +203,9 @@ export function parseResult(
         id: content.id,
         status: "pending" as const,
         reason: candidate.reason,
+        requirementIds:
+          sourceLinks.find((l) => l.caseId === content.id)?.requirementIds ??
+          [],
         content,
       };
     },
@@ -192,7 +214,7 @@ export function parseResult(
     throw new ApiError(
       422,
       "EMPTY_AI_RESULT",
-      "입력에서 테스트 케이스를 만들지 못했습니다. 기존 시트는 유지됩니다. 프레임이나 설명을 보완해주세요.",
+      "입력에서 테스트 케이스를 만들지 못했습니다. 기존 시나리오는 유지됩니다. 프레임이나 설명을 보완해주세요.",
     );
-  return { cases, candidates };
+  return { cases, candidates, links: sourceLinks };
 }

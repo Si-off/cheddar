@@ -83,7 +83,7 @@ export function ColumnSettings({
                   <Label htmlFor={`column-order-${column.id}`}>순서</Label>
                   <select
                     id={`column-order-${column.id}`}
-                    className="sheet-select"
+                    className="test-scenario-select"
                     value={index}
                     disabled={disabled}
                     onChange={(e) => {

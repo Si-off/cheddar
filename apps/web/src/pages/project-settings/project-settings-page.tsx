@@ -552,7 +552,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
           </label>
           <select
             id="settings-section"
-            className="sheet-select"
+            className="test-scenario-select"
             value={draft.kind}
             disabled={saving}
             onChange={(event) => {
@@ -737,7 +737,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
               {confirmation?.kind === "delete"
                 ? "IA 항목을 삭제합니다. 저장하지 않은 편집 내용도 사라집니다."
                 : confirmation?.kind === "column"
-                  ? "기본 양식에서 열을 삭제합니다. 기존 시트에는 영향을 주지 않습니다."
+                  ? "기본 양식에서 열을 삭제합니다. 기존 시나리오에는 영향을 주지 않습니다."
                   : "최신 저장 내용을 불러옵니다. 현재 입력은 사라집니다."}
             </DialogDescription>
           </DialogHeader>

@@ -123,6 +123,45 @@ export type UploadPageDto = {
     nextCursor: string | null;
 };
 
+export type AnalysisRegionDto = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type AnalysisItemDto = {
+    id: string;
+    kind: 'screen' | 'state' | 'requirement' | 'question' | 'relation';
+    title: string;
+    text: string;
+    frameId?: string;
+    nodeId?: string;
+    parentId?: string;
+    region?: AnalysisRegionDto;
+    answer?: string;
+    useAsRule?: boolean;
+    relation?: 'transition' | 'state' | 'annotation';
+    fromId?: string;
+    toId?: string;
+};
+
+export type AnalysisLinkDto = {
+    requirementId: string;
+    testScenarioId: string;
+    caseId: string;
+};
+
+export type AnalysisDto = {
+    revision: number;
+    items: Array<AnalysisItemDto>;
+    links: Array<AnalysisLinkDto>;
+};
+
+export type ExtractAnalysisDto = {
+    uploadId: string;
+};
+
 export type DeleteIaQueryDto = {
     expectedRevision: number;
 };
@@ -167,7 +206,7 @@ export type UpdateIaItemDto = {
     expectedRevision: number;
 };
 
-export type SheetColumnDto = {
+export type TestScenarioColumnDto = {
     id: string;
     kind: 'system' | 'custom';
     name: string;
@@ -182,7 +221,7 @@ export type ColumnViewDto = {
 
 export type ProjectTemplateDto = {
     projectId: string;
-    columns: Array<SheetColumnDto>;
+    columns: Array<TestScenarioColumnDto>;
     view: Array<ColumnViewDto>;
     revision: number;
     createdAt: string;
@@ -191,17 +230,17 @@ export type ProjectTemplateDto = {
 
 export type UpdateTemplateDto = {
     expectedRevision: number;
-    columns: Array<SheetColumnDto>;
+    columns: Array<TestScenarioColumnDto>;
     view: Array<ColumnViewDto>;
 };
 
-export type SheetPageQueryDto = {
+export type TestScenarioPageQueryDto = {
     limit?: number;
     cursor?: string;
     uploadId?: string;
 };
 
-export type CreateSheetDto = {
+export type CreateTestScenarioDto = {
     name: string;
     kind: 'unit' | 'integration';
     uploadId?: string | null;
@@ -241,12 +280,12 @@ export type IaReferenceDto = {
     name: string;
 };
 
-export type SheetReferencesDto = {
+export type TestScenarioReferencesDto = {
     frames: Array<FrameReferenceDto>;
     iaItems: Array<IaReferenceDto>;
 };
 
-export type SheetSnapshotDto = {
+export type TestScenarioSnapshotDto = {
     id: string;
     projectId: string;
     name: string;
@@ -257,13 +296,13 @@ export type SheetSnapshotDto = {
     createdAt: string;
     updatedAt: string;
     sourceTemplateRevision: number;
-    columns: Array<SheetColumnDto>;
+    columns: Array<TestScenarioColumnDto>;
     cases: Array<CaseContentDto>;
     view: Array<ColumnViewDto>;
-    references: SheetReferencesDto;
+    references: TestScenarioReferencesDto;
 };
 
-export type SheetSummaryDto = {
+export type TestScenarioSummaryDto = {
     id: string;
     projectId: string;
     name: string;
@@ -275,34 +314,36 @@ export type SheetSummaryDto = {
     updatedAt: string;
 };
 
-export type SheetPageDto = {
-    items: Array<SheetSummaryDto>;
+export type TestScenarioPageDto = {
+    items: Array<TestScenarioSummaryDto>;
     nextCursor: string | null;
 };
 
-export type SheetContentDto = {
+export type TestScenarioContentDto = {
     expectedRevision: number;
     /**
      * All system fields once; custom columns have valueType text.
      */
-    columns: Array<SheetColumnDto>;
+    columns: Array<TestScenarioColumnDto>;
     cases: Array<CaseContentDto>;
 };
 
-export type SheetViewDto = {
+export type TestScenarioViewDto = {
     expectedRevision: number;
     /**
-     * Array order is display order. IDs must exactly match the sheet columns.
+     * Array order is display order. IDs must exactly match the testScenario columns.
      */
     columns: Array<ColumnViewDto>;
 };
 
-export type SheetExportQueryDto = {
+export type TestScenarioExportQueryDto = {
     contentRevision?: number;
     viewRevision?: number;
 };
 
-export type CandidateDto = {
+export type GenerationResultItemDto = {
+    kind?: 'case' | 'candidate';
+    requirementIds?: Array<string>;
     id: string;
     status: 'pending' | 'added' | 'excluded';
     reason: string;
@@ -310,15 +351,16 @@ export type CandidateDto = {
 };
 
 export type GenerationDto = {
+    mode?: 'replace' | 'review';
     id: string;
-    sheetId: string;
+    testScenarioId: string;
     provider: 'anthropic' | 'openai';
     model: string;
     status: 'running' | 'succeeded' | 'failed';
     error: string | null;
     revision: number;
     caseCount: number;
-    candidates: Array<CandidateDto>;
+    results: Array<GenerationResultItemDto>;
     createdAt: string;
 };
 
@@ -327,15 +369,24 @@ export type GenerationListDto = {
 };
 
 export type StartGenerationDto = {
+    mode?: 'replace' | 'review';
+    frameIds?: Array<string>;
+    requirementIds?: Array<string>;
     clientRequestId: string;
     provider: 'anthropic' | 'openai';
     expectedRevision: number;
     uploadId?: string | null;
     description?: string;
-    exampleSheetId?: string;
+    exampleTestScenarioId?: string;
 };
 
-export type ReviewCandidateDto = {
+export type AddGeneratedCasesDto = {
+    expectedRevision: number;
+    testScenarioRevision: number;
+    resultIds: Array<string>;
+};
+
+export type ReviewGenerationResultDto = {
     expectedRevision: number;
     action: 'add' | 'exclude' | 'restore' | 'edit';
     content?: CaseContentDto;
@@ -681,6 +732,83 @@ export type GetUploadResponses = {
 
 export type GetUploadResponse = GetUploadResponses[keyof GetUploadResponses];
 
+export type GetAnalysisData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/analysis';
+};
+
+export type GetAnalysisErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+};
+
+export type GetAnalysisError = GetAnalysisErrors[keyof GetAnalysisErrors];
+
+export type GetAnalysisResponses = {
+    200: AnalysisDto;
+};
+
+export type GetAnalysisResponse = GetAnalysisResponses[keyof GetAnalysisResponses];
+
+export type SaveAnalysisData = {
+    body: AnalysisDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/analysis';
+};
+
+export type SaveAnalysisErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+};
+
+export type SaveAnalysisError = SaveAnalysisErrors[keyof SaveAnalysisErrors];
+
+export type SaveAnalysisResponses = {
+    200: AnalysisDto;
+};
+
+export type SaveAnalysisResponse = SaveAnalysisResponses[keyof SaveAnalysisResponses];
+
+export type ExtractAnalysisData = {
+    body: ExtractAnalysisDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/analysis/extract';
+};
+
+export type ExtractAnalysisErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+};
+
+export type ExtractAnalysisError = ExtractAnalysisErrors[keyof ExtractAnalysisErrors];
+
+export type ExtractAnalysisResponses = {
+    200: AnalysisDto;
+};
+
+export type ExtractAnalysisResponse = ExtractAnalysisResponses[keyof ExtractAnalysisResponses];
+
 export type ListIaItemsData = {
     body?: never;
     path: {
@@ -851,7 +979,7 @@ export type UpdateProjectTemplateResponses = {
 
 export type UpdateProjectTemplateResponse = UpdateProjectTemplateResponses[keyof UpdateProjectTemplateResponses];
 
-export type ListSheetsData = {
+export type ListTestScenariosData = {
     body?: never;
     path: {
         projectId: string;
@@ -861,10 +989,10 @@ export type ListSheetsData = {
         cursor?: string;
         uploadId?: string;
     };
-    url: '/api/v1/projects/{projectId}/sheets';
+    url: '/api/v1/projects/{projectId}/test-scenarios';
 };
 
-export type ListSheetsErrors = {
+export type ListTestScenariosErrors = {
     400: ErrorResponseDto;
     404: ErrorResponseDto;
     409: ErrorResponseDto;
@@ -872,24 +1000,24 @@ export type ListSheetsErrors = {
     500: ErrorResponseDto;
 };
 
-export type ListSheetsError = ListSheetsErrors[keyof ListSheetsErrors];
+export type ListTestScenariosError = ListTestScenariosErrors[keyof ListTestScenariosErrors];
 
-export type ListSheetsResponses = {
-    200: SheetPageDto;
+export type ListTestScenariosResponses = {
+    200: TestScenarioPageDto;
 };
 
-export type ListSheetsResponse = ListSheetsResponses[keyof ListSheetsResponses];
+export type ListTestScenariosResponse = ListTestScenariosResponses[keyof ListTestScenariosResponses];
 
-export type CreateSheetData = {
-    body: CreateSheetDto;
+export type CreateTestScenarioData = {
+    body: CreateTestScenarioDto;
     path: {
         projectId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets';
+    url: '/api/v1/projects/{projectId}/test-scenarios';
 };
 
-export type CreateSheetErrors = {
+export type CreateTestScenarioErrors = {
     400: ErrorResponseDto;
     /**
      * Origin rejected
@@ -901,25 +1029,25 @@ export type CreateSheetErrors = {
     500: ErrorResponseDto;
 };
 
-export type CreateSheetError = CreateSheetErrors[keyof CreateSheetErrors];
+export type CreateTestScenarioError = CreateTestScenarioErrors[keyof CreateTestScenarioErrors];
 
-export type CreateSheetResponses = {
-    201: SheetSnapshotDto;
+export type CreateTestScenarioResponses = {
+    201: TestScenarioSnapshotDto;
 };
 
-export type CreateSheetResponse = CreateSheetResponses[keyof CreateSheetResponses];
+export type CreateTestScenarioResponse = CreateTestScenarioResponses[keyof CreateTestScenarioResponses];
 
-export type GetSheetData = {
+export type GetTestScenarioData = {
     body?: never;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}';
 };
 
-export type GetSheetErrors = {
+export type GetTestScenarioErrors = {
     400: ErrorResponseDto;
     404: ErrorResponseDto;
     409: ErrorResponseDto;
@@ -927,25 +1055,25 @@ export type GetSheetErrors = {
     500: ErrorResponseDto;
 };
 
-export type GetSheetError = GetSheetErrors[keyof GetSheetErrors];
+export type GetTestScenarioError = GetTestScenarioErrors[keyof GetTestScenarioErrors];
 
-export type GetSheetResponses = {
-    200: SheetSnapshotDto;
+export type GetTestScenarioResponses = {
+    200: TestScenarioSnapshotDto;
 };
 
-export type GetSheetResponse = GetSheetResponses[keyof GetSheetResponses];
+export type GetTestScenarioResponse = GetTestScenarioResponses[keyof GetTestScenarioResponses];
 
-export type UpdateSheetContentData = {
-    body: SheetContentDto;
+export type UpdateTestScenarioContentData = {
+    body: TestScenarioContentDto;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/content';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/content';
 };
 
-export type UpdateSheetContentErrors = {
+export type UpdateTestScenarioContentErrors = {
     400: ErrorResponseDto;
     /**
      * Origin rejected
@@ -957,25 +1085,25 @@ export type UpdateSheetContentErrors = {
     500: ErrorResponseDto;
 };
 
-export type UpdateSheetContentError = UpdateSheetContentErrors[keyof UpdateSheetContentErrors];
+export type UpdateTestScenarioContentError = UpdateTestScenarioContentErrors[keyof UpdateTestScenarioContentErrors];
 
-export type UpdateSheetContentResponses = {
-    200: SheetSnapshotDto;
+export type UpdateTestScenarioContentResponses = {
+    200: TestScenarioSnapshotDto;
 };
 
-export type UpdateSheetContentResponse = UpdateSheetContentResponses[keyof UpdateSheetContentResponses];
+export type UpdateTestScenarioContentResponse = UpdateTestScenarioContentResponses[keyof UpdateTestScenarioContentResponses];
 
-export type UpdateSheetViewData = {
-    body: SheetViewDto;
+export type UpdateTestScenarioViewData = {
+    body: TestScenarioViewDto;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/view';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/view';
 };
 
-export type UpdateSheetViewErrors = {
+export type UpdateTestScenarioViewErrors = {
     400: ErrorResponseDto;
     /**
      * Origin rejected
@@ -987,28 +1115,28 @@ export type UpdateSheetViewErrors = {
     500: ErrorResponseDto;
 };
 
-export type UpdateSheetViewError = UpdateSheetViewErrors[keyof UpdateSheetViewErrors];
+export type UpdateTestScenarioViewError = UpdateTestScenarioViewErrors[keyof UpdateTestScenarioViewErrors];
 
-export type UpdateSheetViewResponses = {
-    200: SheetSnapshotDto;
+export type UpdateTestScenarioViewResponses = {
+    200: TestScenarioSnapshotDto;
 };
 
-export type UpdateSheetViewResponse = UpdateSheetViewResponses[keyof UpdateSheetViewResponses];
+export type UpdateTestScenarioViewResponse = UpdateTestScenarioViewResponses[keyof UpdateTestScenarioViewResponses];
 
-export type ExportSheetXlsxData = {
+export type ExportTestScenarioXlsxData = {
     body?: never;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
     };
     query?: {
         contentRevision?: number;
         viewRevision?: number;
     };
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/export.xlsx';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/export.xlsx';
 };
 
-export type ExportSheetXlsxErrors = {
+export type ExportTestScenarioXlsxErrors = {
     400: ErrorResponseDto;
     404: ErrorResponseDto;
     409: ErrorResponseDto;
@@ -1016,22 +1144,22 @@ export type ExportSheetXlsxErrors = {
     500: ErrorResponseDto;
 };
 
-export type ExportSheetXlsxError = ExportSheetXlsxErrors[keyof ExportSheetXlsxErrors];
+export type ExportTestScenarioXlsxError = ExportTestScenarioXlsxErrors[keyof ExportTestScenarioXlsxErrors];
 
-export type ExportSheetXlsxResponses = {
+export type ExportTestScenarioXlsxResponses = {
     200: Blob | File;
 };
 
-export type ExportSheetXlsxResponse = ExportSheetXlsxResponses[keyof ExportSheetXlsxResponses];
+export type ExportTestScenarioXlsxResponse = ExportTestScenarioXlsxResponses[keyof ExportTestScenarioXlsxResponses];
 
 export type ListGenerationsData = {
     body?: never;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations';
 };
 
 export type ListGenerationsErrors = {
@@ -1053,10 +1181,10 @@ export type StartGenerationData = {
     body: StartGenerationDto;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations';
 };
 
 export type StartGenerationErrors = {
@@ -1078,19 +1206,18 @@ export type StartGenerationResponses = {
 
 export type StartGenerationResponse = StartGenerationResponses[keyof StartGenerationResponses];
 
-export type ReviewCandidateData = {
-    body: ReviewCandidateDto;
+export type AddGeneratedCasesData = {
+    body: AddGeneratedCasesDto;
     path: {
         projectId: string;
-        sheetId: string;
+        testScenarioId: string;
         jobId: string;
-        candidateId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/candidates/{candidateId}';
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations/{jobId}/add';
 };
 
-export type ReviewCandidateErrors = {
+export type AddGeneratedCasesErrors = {
     400: ErrorResponseDto;
     /**
      * Origin rejected
@@ -1101,13 +1228,44 @@ export type ReviewCandidateErrors = {
     503: ErrorResponseDto;
 };
 
-export type ReviewCandidateError = ReviewCandidateErrors[keyof ReviewCandidateErrors];
+export type AddGeneratedCasesError = AddGeneratedCasesErrors[keyof AddGeneratedCasesErrors];
 
-export type ReviewCandidateResponses = {
+export type AddGeneratedCasesResponses = {
     200: GenerationDto;
 };
 
-export type ReviewCandidateResponse = ReviewCandidateResponses[keyof ReviewCandidateResponses];
+export type AddGeneratedCasesResponse = AddGeneratedCasesResponses[keyof AddGeneratedCasesResponses];
+
+export type ReviewGenerationResultData = {
+    body: ReviewGenerationResultDto;
+    path: {
+        projectId: string;
+        testScenarioId: string;
+        jobId: string;
+        resultId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/generations/{jobId}/results/{resultId}';
+};
+
+export type ReviewGenerationResultErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type ReviewGenerationResultError = ReviewGenerationResultErrors[keyof ReviewGenerationResultErrors];
+
+export type ReviewGenerationResultResponses = {
+    200: GenerationDto;
+};
+
+export type ReviewGenerationResultResponse = ReviewGenerationResultResponses[keyof ReviewGenerationResultResponses];
 
 export type ListGenerationProvidersData = {
     body?: never;

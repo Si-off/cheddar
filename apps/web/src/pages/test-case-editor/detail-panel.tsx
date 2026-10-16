@@ -45,10 +45,13 @@ export function DetailPanel({
     .map((v) => snapshot.columns.find((c) => c.id === v.columnId))
     .filter((c) => !!c);
   return (
-    <aside className="sheet-detail" aria-label="테스트 상세 편집">
+    <aside
+      className="test-scenario-detail"
+      aria-label="테스트 케이스 상세 편집"
+    >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-heading font-heading">
-          {item.caseCode || "새 테스트"}
+          {item.caseCode || "새 테스트 케이스"}
         </h2>
         <Button
           variant="ghost"
@@ -69,7 +72,7 @@ export function DetailPanel({
               <Label htmlFor={inputId}>{column.name}</Label>
               {column.field === "priority" ? (
                 <select
-                  className="sheet-select"
+                  className="test-scenario-select"
                   id={inputId}
                   disabled={disabled}
                   value={item.priority ?? ""}
@@ -117,7 +120,7 @@ export function DetailPanel({
         </legend>
         <Label htmlFor="frame-upload">업로드 묶음</Label>
         <select
-          className="sheet-select"
+          className="test-scenario-select"
           id="frame-upload"
           value={uploadId}
           onChange={(e) => onUpload(e.target.value)}

@@ -2,18 +2,18 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { ApiError, invalid, notFound } from "../common/errors";
-import { assertSheetEditable } from "../common/generation-lock";
+import { assertTestScenarioEditable } from "../common/generation-lock";
 import { decodeCursor, encodeCursor } from "../common/pagination";
 import type { ProjectTemplateDto } from "../contracts/ia.dto";
 import {
-  type CreateSheetDto,
-  type SheetContentDto,
-  type SheetPageQueryDto,
-  type SheetSnapshotDto,
-  type SheetSummaryDto,
-  type SheetViewDto,
+  type CreateTestScenarioDto,
+  type TestScenarioContentDto,
+  type TestScenarioPageQueryDto,
+  type TestScenarioSnapshotDto,
+  type TestScenarioSummaryDto,
+  type TestScenarioViewDto,
   validColumns,
-} from "../contracts/sheets.dto";
+} from "../contracts/test-scenarios.dto";
 import {
   DatabaseService,
   type DatabaseTransaction,
@@ -21,24 +21,24 @@ import {
 import {
   iaItems,
   projects,
-  sheetColumns,
-  sheetColumnViews,
-  sheets,
   testCaseFrameLinks,
   testCaseIaLinks,
   testCases,
   testCaseValues,
+  testScenarioColumns,
+  testScenarioColumnViews,
+  testScenarios,
   uploadFrames,
   uploads,
 } from "../database/schema";
 import { DEFAULT_COLUMN_WIDTH } from "../projects/default-template";
 
-type SheetRow = typeof sheets.$inferSelect;
+type TestScenarioRow = typeof testScenarios.$inferSelect;
 type TemplateReader = (
   tx: DatabaseTransaction,
   projectId: string,
 ) => Promise<ProjectTemplateDto>;
-function summary(row: SheetRow): SheetSummaryDto {
+function summary(row: TestScenarioRow): TestScenarioSummaryDto {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -89,7 +89,7 @@ function pgCode(error: unknown): string | undefined {
   return "cause" in error ? pgCode(error.cause) : undefined;
 }
 @Injectable()
-export class SheetsRepository {
+export class TestScenariosRepository {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
   ) {}
@@ -106,19 +106,24 @@ export class SheetsRepository {
     const [project] = await (lock ? query.for("update") : query);
     if (!project) throw notFound();
   }
-  private async sheet(
+  private async testScenario(
     tx: DatabaseTransaction,
     projectId: string,
-    sheetId: string,
+    testScenarioId: string,
     lock = false,
   ) {
     const query = tx
       .select()
-      .from(sheets)
-      .where(and(eq(sheets.projectId, projectId), eq(sheets.id, sheetId)));
-    const [sheet] = await (lock ? query.for("update") : query);
-    if (!sheet) throw notFound();
-    return sheet;
+      .from(testScenarios)
+      .where(
+        and(
+          eq(testScenarios.projectId, projectId),
+          eq(testScenarios.id, testScenarioId),
+        ),
+      );
+    const [testScenario] = await (lock ? query.for("update") : query);
+    if (!testScenario) throw notFound();
+    return testScenario;
   }
   private async upload(
     tx: DatabaseTransaction,
@@ -156,7 +161,7 @@ export class SheetsRepository {
   }
   async create(
     projectId: string,
-    input: CreateSheetDto,
+    input: CreateTestScenarioDto,
     readTemplate: TemplateReader,
   ) {
     return this.write(projectId, async (tx) => {
@@ -181,7 +186,7 @@ export class SheetsRepository {
         "template",
         "invalidTemplate",
       );
-      await tx.insert(sheets).values({
+      await tx.insert(testScenarios).values({
         id,
         projectId,
         name: input.name,
@@ -189,26 +194,26 @@ export class SheetsRepository {
         uploadId: input.uploadId ?? null,
         sourceTemplateRevision: template.revision,
       });
-      await tx.insert(sheetColumns).values(
+      await tx.insert(testScenarioColumns).values(
         template.columns.map((column) => ({
           ...column,
           id: mapping.get(column.id) as string,
           projectId,
-          sheetId: id,
+          testScenarioId: id,
         })),
       );
-      await tx.insert(sheetColumnViews).values(
+      await tx.insert(testScenarioColumnViews).values(
         template.view.map((column, position) => ({
           ...column,
           columnId: mapping.get(column.columnId) as string,
-          sheetId: id,
+          testScenarioId: id,
           position,
         })),
       );
       return this.readSnapshot(tx, projectId, id);
     });
   }
-  async list(projectId: string, query: SheetPageQueryDto) {
+  async list(projectId: string, query: TestScenarioPageQueryDto) {
     return this.database.db.transaction(
       async (tx) => {
         await this.project(tx, projectId);
@@ -216,23 +221,25 @@ export class SheetsRepository {
         const cursor = decodeCursor(query.cursor);
         const rows = await tx
           .select()
-          .from(sheets)
+          .from(testScenarios)
           .where(
             and(
-              eq(sheets.projectId, projectId),
-              query.uploadId ? eq(sheets.uploadId, query.uploadId) : undefined,
+              eq(testScenarios.projectId, projectId),
+              query.uploadId
+                ? eq(testScenarios.uploadId, query.uploadId)
+                : undefined,
               cursor
                 ? or(
-                    lt(sheets.createdAt, cursor.createdAt),
+                    lt(testScenarios.createdAt, cursor.createdAt),
                     and(
-                      eq(sheets.createdAt, cursor.createdAt),
-                      lt(sheets.id, cursor.id),
+                      eq(testScenarios.createdAt, cursor.createdAt),
+                      lt(testScenarios.id, cursor.id),
                     ),
                   )
                 : undefined,
             ),
           )
-          .orderBy(desc(sheets.createdAt), desc(sheets.id))
+          .orderBy(desc(testScenarios.createdAt), desc(testScenarios.id))
           .limit(query.limit + 1);
         const items = rows.slice(0, query.limit);
         return {
@@ -246,37 +253,37 @@ export class SheetsRepository {
       { isolationLevel: "repeatable read", accessMode: "read only" },
     );
   }
-  async get(projectId: string, sheetId: string) {
+  async get(projectId: string, testScenarioId: string) {
     return this.database.db.transaction(
-      (tx) => this.readSnapshot(tx, projectId, sheetId),
+      (tx) => this.readSnapshot(tx, projectId, testScenarioId),
       { isolationLevel: "repeatable read", accessMode: "read only" },
     );
   }
   async readSnapshot(
     tx: DatabaseTransaction,
     projectId: string,
-    sheetId: string,
-  ): Promise<SheetSnapshotDto> {
-    const row = await this.sheet(tx, projectId, sheetId);
+    testScenarioId: string,
+  ): Promise<TestScenarioSnapshotDto> {
+    const row = await this.testScenario(tx, projectId, testScenarioId);
     const columns = await tx
       .select()
-      .from(sheetColumns)
-      .where(eq(sheetColumns.sheetId, sheetId))
-      .orderBy(asc(sheetColumns.id));
+      .from(testScenarioColumns)
+      .where(eq(testScenarioColumns.testScenarioId, testScenarioId))
+      .orderBy(asc(testScenarioColumns.id));
     const view = await tx
       .select()
-      .from(sheetColumnViews)
-      .where(eq(sheetColumnViews.sheetId, sheetId))
-      .orderBy(asc(sheetColumnViews.position));
+      .from(testScenarioColumnViews)
+      .where(eq(testScenarioColumnViews.testScenarioId, testScenarioId))
+      .orderBy(asc(testScenarioColumnViews.position));
     const cases = await tx
       .select()
       .from(testCases)
-      .where(eq(testCases.sheetId, sheetId))
+      .where(eq(testCases.testScenarioId, testScenarioId))
       .orderBy(asc(testCases.position));
     const values = await tx
       .select()
       .from(testCaseValues)
-      .where(eq(testCaseValues.sheetId, sheetId));
+      .where(eq(testCaseValues.testScenarioId, testScenarioId));
     const caseIds = cases.map((c) => c.id);
     const frameLinks = await tx
       .select()
@@ -351,16 +358,25 @@ export class SheetsRepository {
       },
     };
   }
-  async updateView(projectId: string, sheetId: string, input: SheetViewDto) {
+  async updateView(
+    projectId: string,
+    testScenarioId: string,
+    input: TestScenarioViewDto,
+  ) {
     return this.write(projectId, async (tx) => {
-      const sheet = await this.sheet(tx, projectId, sheetId, true);
-      await assertSheetEditable(tx, sheetId);
-      if (sheet.viewRevision !== input.expectedRevision)
-        throw revisionConflict("view", sheet.viewRevision);
+      const testScenario = await this.testScenario(
+        tx,
+        projectId,
+        testScenarioId,
+        true,
+      );
+      await assertTestScenarioEditable(tx, testScenarioId);
+      if (testScenario.viewRevision !== input.expectedRevision)
+        throw revisionConflict("view", testScenario.viewRevision);
       const columns = await tx
-        .select({ id: sheetColumns.id })
-        .from(sheetColumns)
-        .where(eq(sheetColumns.sheetId, sheetId));
+        .select({ id: testScenarioColumns.id })
+        .from(testScenarioColumns)
+        .where(eq(testScenarioColumns.testScenarioId, testScenarioId));
       check(
         idsMatch(
           input.columns.map((c) => c.columnId),
@@ -370,44 +386,54 @@ export class SheetsRepository {
         "columnSetMismatch",
       );
       await tx
-        .delete(sheetColumnViews)
-        .where(eq(sheetColumnViews.sheetId, sheetId));
+        .delete(testScenarioColumnViews)
+        .where(eq(testScenarioColumnViews.testScenarioId, testScenarioId));
+      await tx.insert(testScenarioColumnViews).values(
+        input.columns.map((c, position) => ({
+          ...c,
+          testScenarioId,
+          position,
+        })),
+      );
       await tx
-        .insert(sheetColumnViews)
-        .values(
-          input.columns.map((c, position) => ({ ...c, sheetId, position })),
-        );
-      await tx
-        .update(sheets)
-        .set({ viewRevision: sheet.viewRevision + 1, updatedAt: new Date() })
-        .where(eq(sheets.id, sheetId));
-      return this.readSnapshot(tx, projectId, sheetId);
+        .update(testScenarios)
+        .set({
+          viewRevision: testScenario.viewRevision + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(testScenarios.id, testScenarioId));
+      return this.readSnapshot(tx, projectId, testScenarioId);
     });
   }
   async updateContent(
     projectId: string,
-    sheetId: string,
-    input: SheetContentDto,
+    testScenarioId: string,
+    input: TestScenarioContentDto,
   ) {
     return this.write(projectId, async (tx) => {
-      await assertSheetEditable(tx, sheetId);
-      return this.writeContent(tx, projectId, sheetId, input);
+      await assertTestScenarioEditable(tx, testScenarioId);
+      return this.writeContent(tx, projectId, testScenarioId, input);
     });
   }
   // Caller owns the project lock and commits its surrounding operation atomically.
   async writeContent(
     tx: DatabaseTransaction,
     projectId: string,
-    sheetId: string,
-    input: SheetContentDto,
+    testScenarioId: string,
+    input: TestScenarioContentDto,
   ) {
-    const sheet = await this.sheet(tx, projectId, sheetId, true);
-    if (sheet.contentRevision !== input.expectedRevision)
-      throw revisionConflict("content", sheet.contentRevision);
+    const testScenario = await this.testScenario(
+      tx,
+      projectId,
+      testScenarioId,
+      true,
+    );
+    if (testScenario.contentRevision !== input.expectedRevision)
+      throw revisionConflict("content", testScenario.contentRevision);
     const existing = await tx
       .select()
-      .from(sheetColumns)
-      .where(eq(sheetColumns.sheetId, sheetId));
+      .from(testScenarioColumns)
+      .where(eq(testScenarioColumns.testScenarioId, testScenarioId));
     check(validColumns(input.columns), "columns", "invalidColumns");
     check(
       existing
@@ -434,10 +460,10 @@ export class SheetsRepository {
     );
     const reusedColumns = await tx
       .select()
-      .from(sheetColumns)
+      .from(testScenarioColumns)
       .where(
         inArray(
-          sheetColumns.id,
+          testScenarioColumns.id,
           input.columns.map((c) => c.id),
         ),
       );
@@ -451,14 +477,14 @@ export class SheetsRepository {
         ),
       );
     check(
-      reusedColumns.every((c) => c.sheetId === sheetId),
+      reusedColumns.every((c) => c.testScenarioId === testScenarioId),
       "columns",
-      "identifierInAnotherSheet",
+      "identifierInAnotherTestScenario",
     );
     check(
-      reusedCases.every((c) => c.sheetId === sheetId),
+      reusedCases.every((c) => c.testScenarioId === testScenarioId),
       "cases",
-      "identifierInAnotherSheet",
+      "identifierInAnotherTestScenario",
     );
     const frameIds = [
       ...new Set(input.cases.flatMap((c) => c.relatedFrameIds)),
@@ -496,13 +522,13 @@ export class SheetsRepository {
     const existingCases = await tx
       .select()
       .from(testCases)
-      .where(eq(testCases.sheetId, sheetId));
+      .where(eq(testCases.testScenarioId, testScenarioId));
     const existingIds = new Set(existingCases.map((c) => c.id));
     const oldColumnIds = new Set(existing.map((c) => c.id));
     const nextIds = new Set(input.cases.map((c) => c.id));
     const nextColumnIds = new Set(input.columns.map((c) => c.id));
     const structureChanged = !idsMatch([...oldColumnIds], [...nextColumnIds]);
-    let nextNumber = sheet.nextCaseNumber;
+    let nextNumber = testScenario.nextCaseNumber;
     const codes = new Set(input.cases.map((c) => c.caseCode).filter(Boolean));
     const cases = input.cases.map((c) => {
       if (existingIds.has(c.id) || c.caseCode) return c;
@@ -513,7 +539,9 @@ export class SheetsRepository {
       codes.add(code);
       return { ...c, caseCode: code };
     });
-    await tx.delete(testCaseValues).where(eq(testCaseValues.sheetId, sheetId));
+    await tx
+      .delete(testCaseValues)
+      .where(eq(testCaseValues.testScenarioId, testScenarioId));
     await tx
       .delete(testCaseFrameLinks)
       .where(inArray(testCaseFrameLinks.caseId, [...existingIds]));
@@ -528,34 +556,34 @@ export class SheetsRepository {
     );
     const view = await tx
       .select()
-      .from(sheetColumnViews)
-      .where(eq(sheetColumnViews.sheetId, sheetId))
-      .orderBy(asc(sheetColumnViews.position));
+      .from(testScenarioColumnViews)
+      .where(eq(testScenarioColumnViews.testScenarioId, testScenarioId))
+      .orderBy(asc(testScenarioColumnViews.position));
     if (structureChanged)
       await tx
-        .delete(sheetColumnViews)
-        .where(eq(sheetColumnViews.sheetId, sheetId));
-    await tx.delete(sheetColumns).where(
+        .delete(testScenarioColumnViews)
+        .where(eq(testScenarioColumnViews.testScenarioId, testScenarioId));
+    await tx.delete(testScenarioColumns).where(
       inArray(
-        sheetColumns.id,
+        testScenarioColumns.id,
         [...oldColumnIds].filter((id) => !nextColumnIds.has(id)),
       ),
     );
     for (const column of input.columns.filter((c) => oldColumnIds.has(c.id)))
       await tx
-        .update(sheetColumns)
+        .update(testScenarioColumns)
         .set({ name: column.name })
         .where(
           and(
-            eq(sheetColumns.sheetId, sheetId),
-            eq(sheetColumns.id, column.id),
+            eq(testScenarioColumns.testScenarioId, testScenarioId),
+            eq(testScenarioColumns.id, column.id),
           ),
         );
     await insertChunks(
       input.columns
         .filter((c) => !oldColumnIds.has(c.id))
-        .map((c) => ({ ...c, projectId, sheetId })),
-      (chunk) => tx.insert(sheetColumns).values(chunk),
+        .map((c) => ({ ...c, projectId, testScenarioId })),
+      (chunk) => tx.insert(testScenarioColumns).values(chunk),
     );
     if (structureChanged) {
       const retained = view
@@ -564,10 +592,10 @@ export class SheetsRepository {
       const added = input.columns
         .filter((c) => !oldColumnIds.has(c.id))
         .map((c) => ({ columnId: c.id, width: DEFAULT_COLUMN_WIDTH }));
-      await tx.insert(sheetColumnViews).values(
+      await tx.insert(testScenarioColumnViews).values(
         [...retained, ...added].map((c, position) => ({
           ...c,
-          sheetId,
+          testScenarioId,
           position,
         })),
       );
@@ -577,7 +605,7 @@ export class SheetsRepository {
     await tx
       .update(testCases)
       .set({ position: sql`${testCases.position} + ${offset}`, caseCode: "" })
-      .where(eq(testCases.sheetId, sheetId));
+      .where(eq(testCases.testScenarioId, testScenarioId));
     const rows = cases.map(
       (
         {
@@ -587,13 +615,18 @@ export class SheetsRepository {
           ...c
         },
         position,
-      ) => ({ ...c, projectId, sheetId, position }),
+      ) => ({ ...c, projectId, testScenarioId, position }),
     );
     for (const row of rows.filter((c) => existingIds.has(c.id)))
       await tx
         .update(testCases)
         .set(row)
-        .where(and(eq(testCases.sheetId, sheetId), eq(testCases.id, row.id)));
+        .where(
+          and(
+            eq(testCases.testScenarioId, testScenarioId),
+            eq(testCases.id, row.id),
+          ),
+        );
     await insertChunks(
       rows.filter((c) => !existingIds.has(c.id)),
       (chunk) => tx.insert(testCases).values(chunk),
@@ -601,7 +634,7 @@ export class SheetsRepository {
     await insertChunks(
       cases.flatMap((c) =>
         Object.entries(c.customValues).map(([columnId, value]) => ({
-          sheetId,
+          testScenarioId,
           caseId: c.id,
           columnId,
           value,
@@ -632,14 +665,14 @@ export class SheetsRepository {
       (chunk) => tx.insert(testCaseIaLinks).values(chunk),
     );
     await tx
-      .update(sheets)
+      .update(testScenarios)
       .set({
-        contentRevision: sheet.contentRevision + 1,
-        viewRevision: sheet.viewRevision + (structureChanged ? 1 : 0),
+        contentRevision: testScenario.contentRevision + 1,
+        viewRevision: testScenario.viewRevision + (structureChanged ? 1 : 0),
         nextCaseNumber: nextNumber,
         updatedAt: new Date(),
       })
-      .where(eq(sheets.id, sheetId));
-    return this.readSnapshot(tx, projectId, sheetId);
+      .where(eq(testScenarios.id, testScenarioId));
+    return this.readSnapshot(tx, projectId, testScenarioId);
   }
 }

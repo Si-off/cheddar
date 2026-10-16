@@ -1,20 +1,25 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { SheetExportQueryDto } from "../contracts/sheets.dto";
+import type { TestScenarioExportQueryDto } from "../contracts/test-scenarios.dto";
 import {
   revisionConflict,
-  SheetsRepository,
-} from "../sheets/sheets.repository";
+  TestScenariosRepository,
+} from "../test-scenarios/test-scenarios.repository";
 import { createXlsx, downloadName } from "./xlsx";
 
 @Injectable()
 export class ExportsService {
   constructor(
-    @Inject(SheetsRepository) private readonly sheets: SheetsRepository,
+    @Inject(TestScenariosRepository)
+    private readonly testScenarios: TestScenariosRepository,
   ) {}
-  async export(projectId: string, sheetId: string, query: SheetExportQueryDto) {
-    const snapshot = await this.sheets.get(
+  async export(
+    projectId: string,
+    testScenarioId: string,
+    query: TestScenarioExportQueryDto,
+  ) {
+    const snapshot = await this.testScenarios.get(
       projectId.toLowerCase(),
-      sheetId.toLowerCase(),
+      testScenarioId.toLowerCase(),
     );
     if (
       query.contentRevision !== undefined &&

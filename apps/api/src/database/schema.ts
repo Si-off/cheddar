@@ -17,10 +17,10 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import type {
-  CandidateDto,
+  GenerationResultItemDto,
   StartGenerationDto,
 } from "../contracts/generation.dto";
-import type { SheetSnapshotDto } from "../contracts/sheets.dto";
+import type { TestScenarioSnapshotDto } from "../contracts/test-scenarios.dto";
 
 export const projects = pgTable(
   "projects",
@@ -241,8 +241,8 @@ export const projectTemplates = pgTable(
     ),
   ],
 );
-export const sheets = pgTable(
-  "sheets",
+export const testScenarios = pgTable(
+  "test_scenarios",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     projectId: uuid("project_id")
@@ -265,80 +265,100 @@ export const sheets = pgTable(
       .defaultNow(),
   },
   (t) => [
-    unique("sheets_project_id_unique").on(t.projectId, t.id),
+    unique("test_scenarios_project_id_unique").on(t.projectId, t.id),
     foreignKey({
-      name: "sheets_upload_fk",
+      name: "test_scenarios_upload_fk",
       columns: [t.projectId, t.uploadId],
       foreignColumns: [uploads.projectId, uploads.id],
     }).onDelete("restrict"),
-    index("sheets_project_created_idx").on(t.projectId, t.createdAt, t.id),
-    index("sheets_upload_created_idx").on(
+    index("test_scenarios_project_created_idx").on(
+      t.projectId,
+      t.createdAt,
+      t.id,
+    ),
+    index("test_scenarios_upload_created_idx").on(
       t.projectId,
       t.uploadId,
       t.createdAt,
       t.id,
     ),
     check(
-      "sheets_name_check",
+      "test_scenarios_name_check",
       sql`char_length(btrim(${t.name})) > 0 AND ${t.name} = btrim(${t.name})`,
     ),
-    check("sheets_kind_check", sql`${t.kind} IN ('unit','integration')`),
     check(
-      "sheets_revisions_check",
+      "test_scenarios_kind_check",
+      sql`${t.kind} IN ('unit','integration')`,
+    ),
+    check(
+      "test_scenarios_revisions_check",
       sql`${t.contentRevision} > 0 AND ${t.viewRevision} > 0 AND ${t.nextCaseNumber} > 0 AND ${t.sourceTemplateRevision} > 0`,
     ),
   ],
 );
-export const sheetColumns = pgTable(
-  "sheet_columns",
+export const testScenarioColumns = pgTable(
+  "test_scenario_columns",
   {
     id: uuid("id").primaryKey(),
     projectId: uuid("project_id").notNull(),
-    sheetId: uuid("sheet_id").notNull(),
+    testScenarioId: uuid("test_scenario_id").notNull(),
     kind: varchar("kind", { length: 6 }).$type<"system" | "custom">().notNull(),
     field: varchar("field", { length: 20 }).$type<TemplateColumn["field"]>(),
     valueType: varchar("value_type", { length: 4 }).$type<"text">(),
     name: varchar("name", { length: 100 }).notNull(),
   },
   (t) => [
-    unique("sheet_columns_sheet_id_unique").on(t.sheetId, t.id),
-    unique("sheet_columns_custom_fk_unique").on(t.sheetId, t.id, t.kind),
+    unique("test_scenario_columns_test_scenario_id_unique").on(
+      t.testScenarioId,
+      t.id,
+    ),
+    unique("test_scenario_columns_custom_fk_unique").on(
+      t.testScenarioId,
+      t.id,
+      t.kind,
+    ),
     foreignKey({
-      name: "sheet_columns_sheet_fk",
-      columns: [t.projectId, t.sheetId],
-      foreignColumns: [sheets.projectId, sheets.id],
+      name: "test_scenario_columns_test_scenario_fk",
+      columns: [t.projectId, t.testScenarioId],
+      foreignColumns: [testScenarios.projectId, testScenarios.id],
     }).onDelete("restrict"),
-    uniqueIndex("sheet_columns_system_unique")
-      .on(t.sheetId, t.field)
+    uniqueIndex("test_scenario_columns_system_unique")
+      .on(t.testScenarioId, t.field)
       .where(sql`${t.kind} = 'system'`),
     check(
-      "sheet_columns_kind_check",
+      "test_scenario_columns_kind_check",
       sql`(${t.kind} = 'system' AND ${t.field} IS NOT NULL AND ${t.field} IN ('caseCode','title','preconditions','steps','expectedResult','priority','relatedFrames','screens') AND ${t.valueType} IS NULL) OR (${t.kind} = 'custom' AND ${t.field} IS NULL AND ${t.valueType} IS NOT NULL AND ${t.valueType} = 'text')`,
     ),
     check(
-      "sheet_columns_name_check",
+      "test_scenario_columns_name_check",
       sql`char_length(btrim(${t.name})) > 0 AND ${t.name} = btrim(${t.name})`,
     ),
   ],
 );
-export const sheetColumnViews = pgTable(
-  "sheet_column_views",
+export const testScenarioColumnViews = pgTable(
+  "test_scenario_column_views",
   {
-    sheetId: uuid("sheet_id").notNull(),
+    testScenarioId: uuid("test_scenario_id").notNull(),
     columnId: uuid("column_id").notNull(),
     position: integer("position").notNull(),
     width: integer("width").notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.sheetId, t.columnId] }),
-    unique("sheet_column_views_position_unique").on(t.sheetId, t.position),
+    primaryKey({ columns: [t.testScenarioId, t.columnId] }),
+    unique("test_scenario_column_views_position_unique").on(
+      t.testScenarioId,
+      t.position,
+    ),
     foreignKey({
-      name: "sheet_column_views_column_fk",
-      columns: [t.sheetId, t.columnId],
-      foreignColumns: [sheetColumns.sheetId, sheetColumns.id],
+      name: "test_scenario_column_views_column_fk",
+      columns: [t.testScenarioId, t.columnId],
+      foreignColumns: [
+        testScenarioColumns.testScenarioId,
+        testScenarioColumns.id,
+      ],
     }).onDelete("restrict"),
     check(
-      "sheet_column_views_dimensions_check",
+      "test_scenario_column_views_dimensions_check",
       sql`${t.position} >= 0 AND ${t.width} > 0`,
     ),
   ],
@@ -348,7 +368,7 @@ export const testCases = pgTable(
   {
     id: uuid("id").primaryKey(),
     projectId: uuid("project_id").notNull(),
-    sheetId: uuid("sheet_id").notNull(),
+    testScenarioId: uuid("test_scenario_id").notNull(),
     position: integer("position").notNull(),
     caseCode: varchar("case_code", { length: 100 }).notNull(),
     title: text("title").notNull(),
@@ -361,15 +381,15 @@ export const testCases = pgTable(
   },
   (t) => [
     unique("test_cases_project_id_unique").on(t.projectId, t.id),
-    unique("test_cases_sheet_id_unique").on(t.sheetId, t.id),
-    unique("test_cases_position_unique").on(t.sheetId, t.position),
+    unique("test_cases_test_scenario_id_unique").on(t.testScenarioId, t.id),
+    unique("test_cases_position_unique").on(t.testScenarioId, t.position),
     uniqueIndex("test_cases_code_unique")
-      .on(t.sheetId, t.caseCode)
+      .on(t.testScenarioId, t.caseCode)
       .where(sql`${t.caseCode} <> ''`),
     foreignKey({
-      name: "test_cases_sheet_fk",
-      columns: [t.projectId, t.sheetId],
-      foreignColumns: [sheets.projectId, sheets.id],
+      name: "test_cases_test_scenario_fk",
+      columns: [t.projectId, t.testScenarioId],
+      foreignColumns: [testScenarios.projectId, testScenarios.id],
     }).onDelete("restrict"),
     check("test_cases_position_check", sql`${t.position} >= 0`),
     check(
@@ -381,7 +401,7 @@ export const testCases = pgTable(
 export const testCaseValues = pgTable(
   "test_case_values",
   {
-    sheetId: uuid("sheet_id").notNull(),
+    testScenarioId: uuid("test_scenario_id").notNull(),
     caseId: uuid("case_id").notNull(),
     columnId: uuid("column_id").notNull(),
     columnKind: varchar("column_kind", { length: 6 })
@@ -394,19 +414,19 @@ export const testCaseValues = pgTable(
     primaryKey({ columns: [t.caseId, t.columnId] }),
     foreignKey({
       name: "test_case_values_case_fk",
-      columns: [t.sheetId, t.caseId],
-      foreignColumns: [testCases.sheetId, testCases.id],
+      columns: [t.testScenarioId, t.caseId],
+      foreignColumns: [testCases.testScenarioId, testCases.id],
     }).onDelete("restrict"),
     foreignKey({
       name: "test_case_values_column_fk",
-      columns: [t.sheetId, t.columnId, t.columnKind],
+      columns: [t.testScenarioId, t.columnId, t.columnKind],
       foreignColumns: [
-        sheetColumns.sheetId,
-        sheetColumns.id,
-        sheetColumns.kind,
+        testScenarioColumns.testScenarioId,
+        testScenarioColumns.id,
+        testScenarioColumns.kind,
       ],
     }).onDelete("restrict"),
-    index("test_case_values_column_idx").on(t.sheetId, t.columnId),
+    index("test_case_values_column_idx").on(t.testScenarioId, t.columnId),
     check("test_case_values_kind_check", sql`${t.columnKind} = 'custom'`),
   ],
 );
@@ -466,7 +486,7 @@ export const generationJobs = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     projectId: uuid("project_id").notNull(),
-    sheetId: uuid("sheet_id").notNull(),
+    testScenarioId: uuid("test_scenario_id").notNull(),
     clientRequestId: uuid("client_request_id").notNull(),
     requestHash: text("request_hash").notNull(),
     provider: text("provider").$type<"anthropic" | "openai">().notNull(),
@@ -476,9 +496,9 @@ export const generationJobs = pgTable(
       .notNull()
       .default("running"),
     request: jsonb("request").$type<StartGenerationDto>().notNull(),
-    snapshot: jsonb("snapshot").$type<SheetSnapshotDto>().notNull(),
-    candidates: jsonb("candidates")
-      .$type<CandidateDto[]>()
+    snapshot: jsonb("snapshot").$type<TestScenarioSnapshotDto>().notNull(),
+    results: jsonb("results")
+      .$type<GenerationResultItemDto[]>()
       .notNull()
       .default([]),
     caseCount: integer("case_count").notNull().default(0),
@@ -491,14 +511,14 @@ export const generationJobs = pgTable(
   },
   (t) => [
     foreignKey({
-      columns: [t.projectId, t.sheetId],
-      foreignColumns: [sheets.projectId, sheets.id],
+      columns: [t.projectId, t.testScenarioId],
+      foreignColumns: [testScenarios.projectId, testScenarios.id],
     }).onDelete("restrict"),
     unique("generation_request_unique").on(t.projectId, t.clientRequestId),
-    uniqueIndex("generation_running_sheet_unique")
-      .on(t.sheetId)
+    uniqueIndex("generation_running_test_scenario_unique")
+      .on(t.testScenarioId)
       .where(sql`${t.status} = 'running'`),
-    index("generation_sheet_idx").on(t.sheetId, t.createdAt),
+    index("generation_test_scenario_idx").on(t.testScenarioId, t.createdAt),
     check(
       "generation_status_check",
       sql`${t.status} in ('running','succeeded','failed')`,
@@ -508,4 +528,24 @@ export const generationJobs = pgTable(
       sql`${t.provider} in ('anthropic','openai')`,
     ),
   ],
+);
+
+// Source annotations and their manual associations are independent of uploaded bytes.
+export const projectAnalysis = pgTable(
+  "project_analysis",
+  {
+    projectId: uuid("project_id")
+      .primaryKey()
+      .references(() => projects.id, { onDelete: "restrict" }),
+    revision: integer("revision").notNull().default(1),
+    items: jsonb("items")
+      .$type<import("../contracts/analysis.dto").AnalysisItemDto[]>()
+      .notNull()
+      .default([]),
+    links: jsonb("links")
+      .$type<import("../contracts/analysis.dto").AnalysisLinkDto[]>()
+      .notNull()
+      .default([]),
+  },
+  (t) => [check("project_analysis_revision_check", sql`${t.revision} > 0`)],
 );

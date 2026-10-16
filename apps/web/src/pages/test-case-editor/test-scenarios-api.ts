@@ -5,21 +5,22 @@ import {
   type Snapshot,
 } from "@/entities/test-case";
 import {
+  addGeneratedCases,
   createProject,
-  createSheet,
-  exportSheetXlsx,
-  getSheet,
+  createTestScenario,
+  exportTestScenarioXlsx,
+  getTestScenario,
   getUpload,
   listGenerationProviders,
   listGenerations,
   listIaItems,
   listProjects,
-  listSheets,
+  listTestScenarios,
   listUploads,
-  reviewCandidate,
+  reviewGenerationResult,
   startGeneration,
-  updateSheetContent,
-  updateSheetView,
+  updateTestScenarioContent,
+  updateTestScenarioView,
 } from "@/shared/api/generated/sdk.gen";
 
 function failure(error: unknown, status?: number): SaveError {
@@ -53,34 +54,44 @@ function unwrap<T>(result: {
 export async function projectPage(cursor?: string) {
   return unwrap(await listProjects({ query: { cursor, limit: 100 } }));
 }
-export async function sheetPage(projectId: string, cursor?: string) {
+export async function testScenarioPage(projectId: string, cursor?: string) {
   return unwrap(
-    await listSheets({ path: { projectId }, query: { cursor, limit: 100 } }),
+    await listTestScenarios({
+      path: { projectId },
+      query: { cursor, limit: 100 },
+    }),
   );
 }
-export async function createEmptySheet(
+export async function createEmptyTestScenario(
   projectId: string,
   name: string,
   kind: "unit" | "integration",
 ) {
   return fromSnapshot(
-    unwrap(await createSheet({ path: { projectId }, body: { name, kind } })),
+    unwrap(
+      await createTestScenario({ path: { projectId }, body: { name, kind } }),
+    ),
   );
 }
-export async function readSheet(projectId: string, sheetId: string) {
-  return fromSnapshot(unwrap(await getSheet({ path: { projectId, sheetId } })));
+export async function readTestScenario(
+  projectId: string,
+  testScenarioId: string,
+) {
+  return fromSnapshot(
+    unwrap(await getTestScenario({ path: { projectId, testScenarioId } })),
+  );
 }
 export function saveTransport(
   projectId: string,
-  sheetId: string,
+  testScenarioId: string,
 ): SaveTransport {
-  const path = { projectId, sheetId };
+  const path = { projectId, testScenarioId };
   return {
-    get: () => readSheet(projectId, sheetId),
+    get: () => readTestScenario(projectId, testScenarioId),
     content: async (body) =>
-      fromSnapshot(unwrap(await updateSheetContent({ path, body }))),
+      fromSnapshot(unwrap(await updateTestScenarioContent({ path, body }))),
     view: async (body) =>
-      fromSnapshot(unwrap(await updateSheetView({ path, body }))),
+      fromSnapshot(unwrap(await updateTestScenarioView({ path, body }))),
   };
 }
 export async function referenceOptions(projectId: string) {
@@ -108,9 +119,9 @@ export async function framesForUpload(projectId: string, uploadId: string) {
     dataFileId: f.dataFileId,
   }));
 }
-export async function downloadSheet(snapshot: Snapshot) {
-  const result = await exportSheetXlsx({
-    path: { projectId: snapshot.projectId, sheetId: snapshot.id },
+export async function downloadTestScenario(snapshot: Snapshot) {
+  const result = await exportTestScenarioXlsx({
+    path: { projectId: snapshot.projectId, testScenarioId: snapshot.id },
     query: {
       contentRevision: snapshot.contentRevision,
       viewRevision: snapshot.viewRevision,
@@ -142,26 +153,45 @@ export async function createProjectNamed(name: string) {
 export async function generationProviders() {
   return unwrap(await listGenerationProviders());
 }
-export async function generationList(projectId: string, sheetId: string) {
-  return unwrap(await listGenerations({ path: { projectId, sheetId } }));
+export async function generationList(
+  projectId: string,
+  testScenarioId: string,
+) {
+  return unwrap(await listGenerations({ path: { projectId, testScenarioId } }));
 }
 export async function beginGeneration(
   projectId: string,
-  sheetId: string,
+  testScenarioId: string,
   body: import("@/shared/api/generated").StartGenerationDto,
 ) {
-  return unwrap(await startGeneration({ path: { projectId, sheetId }, body }));
+  return unwrap(
+    await startGeneration({ path: { projectId, testScenarioId }, body }),
+  );
 }
 export async function updateCandidate(
   projectId: string,
-  sheetId: string,
+  testScenarioId: string,
   jobId: string,
-  candidateId: string,
-  body: import("@/shared/api/generated").ReviewCandidateDto,
+  resultId: string,
+  body: import("@/shared/api/generated").ReviewGenerationResultDto,
 ) {
   return unwrap(
-    await reviewCandidate({
-      path: { projectId, sheetId, jobId, candidateId },
+    await reviewGenerationResult({
+      path: { projectId, testScenarioId, jobId, resultId },
+      body,
+    }),
+  );
+}
+
+export async function addGenerationSelection(
+  projectId: string,
+  testScenarioId: string,
+  jobId: string,
+  body: import("@/shared/api/generated").AddGeneratedCasesDto,
+) {
+  return unwrap(
+    await addGeneratedCases({
+      path: { projectId, testScenarioId, jobId },
       body,
     }),
   );

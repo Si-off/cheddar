@@ -54,7 +54,7 @@ pnpm install --frozen-lockfile
 pnpm dev:web
 ```
 
-웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시트를 선택하고 `/projects/<projectId>/sheets/<sheetId>`에서 편집한다. 프로젝트별 `/uploads`, `/sheets`, `/settings` 경로와 AI 생성·후보 검토를 제공한다. 실제 공유 링크 발급·외부 열람은 후속이다. 실제 모델 권한·응답 품질은 사용하는 환경에서 별도로 확인한다.
+웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시나리오를 선택하고 `/projects/<projectId>/test-scenarios/<testScenarioId>`에서 편집한다. 프로젝트별 `/uploads`, `/test-scenarios`, `/settings` 경로와 AI 생성·생성 결과 검토를 제공한다. 실제 공유 링크 발급·외부 열람은 후속이다. 실제 모델 권한·응답 품질은 사용하는 환경에서 별도로 확인한다.
 
 ```sh
 pnpm dev:plugin
@@ -205,13 +205,13 @@ pnpm 저장소는 저장소 밖에 둔다. `@scarf/scarf` 설치 스크립트는
 
 명세·SDK 갱신은 [API 코드 생성](#api-코드-생성)을 따른다.
 
-명세 export/check는 DB 연결·포트 listen·파일 저장 루트 생성 없이 실행한다. DTO와 실제 응답을 계약 테스트로 검증하고 두 생성 SDK의 프로젝트·multipart·다운로드 호출도 HTTP로 확인한다. 생성 코드는 직접 편집하지 않는다. 업로드·시트·IA·기본 양식은 실제 API와 양쪽 생성 SDK에 연결되어 있다.
+명세 export/check는 DB 연결·포트 listen·파일 저장 루트 생성 없이 실행한다. DTO와 실제 응답을 계약 테스트로 검증하고 두 생성 SDK의 프로젝트·multipart·다운로드 호출도 HTTP로 확인한다. 생성 코드는 직접 편집하지 않는다. 업로드·시나리오·IA·기본 양식은 실제 API와 양쪽 생성 SDK에 연결되어 있다.
 
 DB 백업과 `FILE_STORAGE_ROOT` 전체를 함께 옮기면 저장 키를 바꾸지 않고 새 루트로 연결할 수 있다. 실제 이전·클라우드 배포는 후속 검증 대상이다. 중단된 업로드는 시작 시 개수만 보고하며 자동 삭제하지 않는다. 프로젝트·파일 삭제와 보관 만료도 아직 제공하지 않는다.
 
 Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이 설정은 Figma 신원을 인증하지 않으며 같은 `null` origin을 보내는 다른 opaque origin에도 적용된다. 일반 웹 origin은 계속 `CORS_ORIGINS`에 정확히 나열한다.
 
-업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시트 생성·목록·조회는 `.../sheets`, 내용·보기 저장은 `.../sheets/{sheetId}/content`·`.../view`, XLSX 내보내기는 `.../sheets/{sheetId}/export.xlsx`에서 제공한다. 내보내기는 서버에 저장된 전체 시트를 대상으로 하며 내용·보기 revision을 지정해 최신 저장본과 일치하는지 검사할 수 있다.
+업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시나리오 생성·목록·조회는 `.../test-scenarios`, 내용·보기 저장은 `.../test-scenarios/{testScenarioId}/content`·`.../view`, XLSX 내보내기는 `.../test-scenarios/{testScenarioId}/export.xlsx`에서 제공한다. 내보내기는 서버에 저장된 전체 시나리오를 대상으로 하며 내용·보기 revision을 지정해 최신 저장본과 일치하는지 검사할 수 있다.
 
 두 앱의 공통 API client는 빌드 시 `VITE_API_BASE_URL`을 사용한다. 웹 기본값은 `http://127.0.0.1:3101`, 플러그인 개발 기본값은 `http://localhost:3102`다. 2A 웹 검증 시 웹에는 `http://127.0.0.1:3102`를 지정할 수 있다. Figma 플러그인 주소는 manifest의 `networkAccess.devAllowedDomains`와 일치시킨다. Figma import에서 숫자 IP 주소가 거부되어 [공식 manifest 문서](https://developers.figma.com/docs/plugins/manifest/)의 개발 서버 패턴인 `http://localhost:3102`를 사용한다. 값을 바꾸면 UI를 다시 빌드하며 기존 로컬 환경 설정이 기본값을 덮어쓸 수 있다. API listen은 loopback으로 제한한다. POST mutation 자동 재시도는 비활성화한다. Playwright는 `PLAYWRIGHT_BASE_URL`로 이미 실행된 웹에 연결하며 브라우저 캐시는 `PLAYWRIGHT_BROWSERS_PATH`로 OS 임시 경로에 지정한다.
 
@@ -222,11 +222,25 @@ Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이
 AI 생성에는 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블이 필요하다. 기존 서버에서 새 기능을 사용하려면 연결 설정과 migration 상태를 확인하고, 필요한 migration 적용과 이 체크아웃의 API 재시작을 수행한다. 기존 서버의 경로·사용 목적과 현재 작업의 실행 범위를 확인한 뒤 진행한다.
 
 1. 웹에서 프로젝트를 선택하거나 만든다.
-2. 새 시트를 만들고 단위/통합을 선택하거나 기존 시트를 연다.
-3. `AI 케이스 생성·후보 검토`에서 모델과 업로드 묶음 또는 설명을 지정한다.
-4. 기존 케이스가 있다면 교체 확인 후 생성한다. 기존 케이스는 작성 예시로도 사용한다.
-5. 생성 완료 후 표를 편집하고 후보를 확인해 추가·편집·제외한다. 제외한 후보는 다시 표시하고 복원할 수 있다.
+2. 새 시나리오를 만들고 단위/통합을 선택하거나 기존 시나리오를 연다.
+3. 시나리오 메뉴의 `테스트 케이스 생성`에서 모델과 업로드 묶음 또는 설명을 지정한다.
+4. 생성 후 `생성 결과 검토`에서 결과를 편집하고 선택한 항목을 `시나리오에 추가`한다. 기존 케이스는 작성 예시로도 사용하며 유지한다.
+5. 검토 후보를 편집·추가·제외한다. 제외한 검토 후보는 다시 표시하고 복원할 수 있다.
 
-생성 중 대상 시트는 잠기며 다른 시트는 계속 편집할 수 있다. 작업 상태는 새로고침 후 다시 읽는다. AI 호출이 중단되면 자동 재호출하지 않는다. 서버 중단으로 상태가 남은 작업은 10분 후 조회할 때 실패 처리하며, 사용자가 다시 생성할 수 있다. 같은 요청 ID를 다시 보내도 AI 작업은 중복 생성하지 않는다. 입력 크기 초과·출력 잘림·참조 오류는 기존 시트를 교체하지 않는다.
+생성 중 대상 시나리오는 잠기며 다른 시나리오는 계속 편집할 수 있다. 작업 상태는 새로고침 후 다시 읽는다. AI 호출이 중단되면 자동 재호출하지 않는다. 서버 중단으로 상태가 남은 작업은 10분 후 조회할 때 실패 처리하며, 사용자가 다시 생성할 수 있다. 같은 요청 ID를 다시 보내도 AI 작업은 중복 생성하지 않는다. 입력 크기 초과·출력 잘림·참조 오류는 기존 시나리오를 교체하지 않는다.
 
 AI 호출은 공식 [Claude structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)와 [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) 형식을 사용한다. 실제 키 권한·응답 품질은 각 환경에서 확인한다.
+
+## 기능 명칭 전환과 로컬 초기화
+
+프로젝트 → 테스트 시나리오 → 테스트 케이스 구조를 사용한다. API는 `/api/v1/projects/{projectId}/test-scenarios`, 분석 결과는 `.../analysis`다. 생성 결과 응답은 `results`, 결과 수정은 `.../generations/{jobId}/results/{resultId}`를 사용한다. 이전 경로·필드의 호환 별칭은 제공하지 않으며 웹·플러그인·API를 함께 갱신한다.
+
+`0005_feature-terminology` 적용 전에는 로컬 API와 테스트 실행을 중지하고 아래 명령으로 업무 데이터를 명시적으로 초기화한다. 스크립트는 loopback의 Cheddar 전용 DB 이름·role·소유권을 확인하고 업무 테이블만 비운다. 다른 브랜치의 테이블이 섞여 있으면 초기화를 중단하므로 전용 DB 환경을 준비한다. 마이그레이션 이력과 저장 파일 바이트는 보존한다. 서버 시작과 마이그레이션은 초기화를 자동 실행하지 않는다.
+
+```sh
+pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-data.mjs runtime --confirm-reset
+pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-data.mjs test --confirm-reset
+pnpm db:migrate
+```
+
+브라우저 초안은 새 `cheddar-test-scenario-drafts` 저장소에서 시작하며 이전 `cheddar-sheet-drafts`의 초안을 가져오지 않는다. 이전 초안 삭제가 필요하면 해당 웹 origin의 개발자 도구에서 이전 IndexedDB 저장소만 삭제한다. 다른 앱의 브라우저 데이터는 삭제하지 않는다.

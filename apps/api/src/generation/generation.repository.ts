@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { ApiError, invalid, notFound } from "../common/errors";
 import {
-  assertSheetEditable,
+  assertTestScenarioEditable,
   expireGeneration,
 } from "../common/generation-lock";
 import type {
+  AddGeneratedCasesDto,
   GenerationDto,
-  ReviewCandidateDto,
+  ReviewGenerationResultDto,
   StartGenerationDto,
 } from "../contracts/generation.dto";
 import {
@@ -18,28 +19,31 @@ import {
 import {
   generationJobs,
   iaItems,
+  projectAnalysis,
   projects,
-  sheets as sheetsTable,
+  testScenarios as testScenariosTable,
   uploadFrames,
   uploads,
 } from "../database/schema";
 import {
   revisionConflict,
-  SheetsRepository,
-} from "../sheets/sheets.repository";
+  TestScenariosRepository,
+} from "../test-scenarios/test-scenarios.repository";
+import { appendAnalysisLinks } from "../uploads/analysis.service";
 import { type GenerationResult, validateContent } from "./result";
 export type Job = typeof generationJobs.$inferSelect;
 export function present(job: Job): GenerationDto {
   return {
     id: job.id,
-    sheetId: job.sheetId,
+    mode: job.request.mode ?? "replace",
+    testScenarioId: job.testScenarioId,
     provider: job.provider,
     model: job.model,
     status: job.status,
     error: job.error,
     revision: job.revision,
     caseCount: job.caseCount,
-    candidates: job.candidates,
+    results: job.results,
     createdAt: job.createdAt.toISOString(),
   };
 }
@@ -47,7 +51,8 @@ export function present(job: Job): GenerationDto {
 export class GenerationRepository {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
-    @Inject(SheetsRepository) private readonly sheets: SheetsRepository,
+    @Inject(TestScenariosRepository)
+    private readonly testScenarios: TestScenariosRepository,
   ) {}
   private async write<T>(
     projectId: string,
@@ -65,25 +70,32 @@ export class GenerationRepository {
   }
   async start(
     projectId: string,
-    sheetId: string,
+    testScenarioId: string,
     request: StartGenerationDto,
     model: string,
   ) {
     const requestHash = createHash("sha256")
       .update(
         JSON.stringify({
-          sheetId,
+          testScenarioId,
+          mode: request.mode ?? "replace",
+          frameIds: request.frameIds ? [...request.frameIds].sort() : null,
+          requirementIds: request.requirementIds
+            ? [...request.requirementIds].sort()
+            : null,
           provider: request.provider,
           expectedRevision: request.expectedRevision,
           uploadId:
-            request.uploadId === undefined ? "sheet-default" : request.uploadId,
+            request.uploadId === undefined
+              ? "test-scenario-default"
+              : request.uploadId,
           description: request.description ?? "",
-          exampleSheetId: request.exampleSheetId ?? null,
+          exampleTestScenarioId: request.exampleTestScenarioId ?? null,
         }),
       )
       .digest("hex");
     return this.write(projectId, async (tx) => {
-      await expireGeneration(tx, sheetId);
+      await expireGeneration(tx, testScenarioId);
       const [existing] = await tx
         .select()
         .from(generationJobs)
@@ -102,8 +114,12 @@ export class GenerationRepository {
           );
         return { job: existing, created: false };
       }
-      await assertSheetEditable(tx, sheetId);
-      const snapshot = await this.sheets.readSnapshot(tx, projectId, sheetId);
+      await assertTestScenarioEditable(tx, testScenarioId);
+      const snapshot = await this.testScenarios.readSnapshot(
+        tx,
+        projectId,
+        testScenarioId,
+      );
       if (snapshot.contentRevision !== request.expectedRevision)
         throw revisionConflict("content", snapshot.contentRevision);
       const uploadId =
@@ -117,19 +133,57 @@ export class GenerationRepository {
           );
         if (!upload) throw notFound();
       }
-      if (!uploadId && !request.description?.trim())
+      if (request.frameIds) {
+        const selected = await tx
+          .select({ id: uploadFrames.id })
+          .from(uploadFrames)
+          .where(
+            eq(
+              uploadFrames.uploadId,
+              uploadId ?? "00000000-0000-4000-8000-000000000000",
+            ),
+          );
+        if (request.frameIds.some((id) => !selected.some((f) => f.id === id)))
+          throw invalid([{ field: "frameIds", code: "uploadMismatch" }]);
+      }
+      if (request.requirementIds) {
+        const [analysis] = await tx
+          .select()
+          .from(projectAnalysis)
+          .where(eq(projectAnalysis.projectId, projectId));
+        if (
+          request.requirementIds.some(
+            (id) =>
+              !analysis?.items.some(
+                (i) =>
+                  i.id === id &&
+                  (i.kind === "requirement" || i.kind === "question"),
+              ),
+          )
+        )
+          throw invalid([{ field: "requirementIds", code: "projectMismatch" }]);
+      }
+      if (
+        !uploadId &&
+        !request.description?.trim() &&
+        !request.requirementIds?.length
+      )
         throw new ApiError(
           400,
           "GENERATION_INPUT_REQUIRED",
           "업로드 묶음을 선택하거나 테스트할 내용을 설명해주세요.",
         );
-      if (request.exampleSheetId)
-        await this.sheets.readSnapshot(tx, projectId, request.exampleSheetId);
+      if (request.exampleTestScenarioId)
+        await this.testScenarios.readSnapshot(
+          tx,
+          projectId,
+          request.exampleTestScenarioId,
+        );
       const [job] = await tx
         .insert(generationJobs)
         .values({
           projectId,
-          sheetId,
+          testScenarioId,
           requestHash,
           clientRequestId: request.clientRequestId,
           provider: request.provider,
@@ -142,10 +196,10 @@ export class GenerationRepository {
       return { job, created: true };
     });
   }
-  async list(projectId: string, sheetId: string) {
+  async list(projectId: string, testScenarioId: string) {
     return this.write(projectId, async (tx) => {
-      await this.sheets.readSnapshot(tx, projectId, sheetId);
-      await expireGeneration(tx, sheetId);
+      await this.testScenarios.readSnapshot(tx, projectId, testScenarioId);
+      await expireGeneration(tx, testScenarioId);
       return {
         items: (
           await tx
@@ -154,7 +208,7 @@ export class GenerationRepository {
             .where(
               and(
                 eq(generationJobs.projectId, projectId),
-                eq(generationJobs.sheetId, sheetId),
+                eq(generationJobs.testScenarioId, testScenarioId),
               ),
             )
             .orderBy(desc(generationJobs.createdAt), desc(generationJobs.id))
@@ -163,7 +217,7 @@ export class GenerationRepository {
     });
   }
   async context(job: Job) {
-    const frames = job.request.uploadId
+    let frames = job.request.uploadId
       ? await this.database.db
           .select()
           .from(uploadFrames)
@@ -185,10 +239,46 @@ export class GenerationRepository {
       })
       .from(iaItems)
       .where(eq(iaItems.projectId, job.projectId));
-    const example = job.request.exampleSheetId
-      ? await this.sheets.get(job.projectId, job.request.exampleSheetId)
+    const [analysis] = await this.database.db
+      .select()
+      .from(projectAnalysis)
+      .where(eq(projectAnalysis.projectId, job.projectId));
+    if (job.request.requirementIds?.length && !job.request.frameIds) {
+      const sourceFrames = [
+        ...new Set(
+          (analysis?.items ?? [])
+            .filter(
+              (i) => job.request.requirementIds?.includes(i.id) && i.frameId,
+            )
+            .map((i) => i.frameId as string),
+        ),
+      ];
+      if (sourceFrames.length)
+        frames = await this.database.db
+          .select()
+          .from(uploadFrames)
+          .where(
+            and(
+              eq(uploadFrames.projectId, job.projectId),
+              inArray(uploadFrames.id, sourceFrames),
+            ),
+          )
+          .orderBy(asc(uploadFrames.position));
+    }
+    const example = job.request.exampleTestScenarioId
+      ? await this.testScenarios.get(
+          job.projectId,
+          job.request.exampleTestScenarioId,
+        )
       : job.snapshot;
-    return { frames, ia, example };
+    return {
+      frames: job.request.frameIds
+        ? frames.filter((f) => job.request.frameIds?.includes(f.id))
+        : frames,
+      ia,
+      example,
+      analysis,
+    };
   }
   async succeed(job: Job, result: GenerationResult) {
     await this.write(job.projectId, async (tx) => {
@@ -205,20 +295,83 @@ export class GenerationRepository {
           "GENERATION_EXPIRED",
           "생성 시간이 초과되어 결과를 반영하지 않았습니다. 다시 생성해주세요.",
         );
-      await this.sheets.writeContent(tx, job.projectId, job.sheetId, {
-        expectedRevision: job.snapshot.contentRevision,
-        columns: job.snapshot.columns,
-        cases: result.cases,
-      });
-      await tx
-        .update(sheetsTable)
-        .set({ uploadId: job.request.uploadId ?? null })
-        .where(eq(sheetsTable.id, job.sheetId));
+      let results = result.candidates;
+      if (result.sources) {
+        const [doc] = await tx
+          .select()
+          .from(projectAnalysis)
+          .where(eq(projectAnalysis.projectId, job.projectId));
+        if ((doc?.revision ?? 0) !== result.sourceRevision)
+          throw new ApiError(
+            409,
+            "ANALYSIS_CONFLICT",
+            "생성 중 분석 결과가 변경되었습니다. 최신 자료로 다시 생성해주세요.",
+          );
+        await tx
+          .insert(projectAnalysis)
+          .values({
+            projectId: job.projectId,
+            revision: (doc?.revision ?? 0) + 1,
+            items: result.sources,
+            links: doc?.links ?? [],
+          })
+          .onConflictDoUpdate({
+            target: projectAnalysis.projectId,
+            set: { revision: (doc?.revision ?? 0) + 1, items: result.sources },
+          });
+      }
+      if (job.request.mode === "review") {
+        results = [
+          ...result.cases.map((content) => ({
+            id: content.id,
+            status: "pending" as const,
+            kind: "case" as const,
+            reason: "",
+            content,
+            requirementIds:
+              result.links?.find((l) => l.caseId === content.id)
+                ?.requirementIds ?? [],
+          })),
+          ...result.candidates.map((c) => ({
+            ...c,
+            kind: "candidate" as const,
+          })),
+        ];
+      } else {
+        await this.testScenarios.writeContent(
+          tx,
+          job.projectId,
+          job.testScenarioId,
+          {
+            expectedRevision: job.snapshot.contentRevision,
+            columns: job.snapshot.columns,
+            cases: result.cases,
+          },
+        );
+        await tx
+          .update(testScenariosTable)
+          .set({ uploadId: job.request.uploadId ?? null })
+          .where(eq(testScenariosTable.id, job.testScenarioId));
+        await appendAnalysisLinks(
+          tx,
+          job.projectId,
+          (result.links ?? [])
+            .filter((l) => result.cases.some((c) => c.id === l.caseId))
+            .flatMap((l) =>
+              l.requirementIds.map((requirementId) => ({
+                requirementId,
+                caseId: l.caseId,
+                testScenarioId: job.testScenarioId,
+              })),
+            ),
+          job.testScenarioId,
+        );
+      }
       await tx
         .update(generationJobs)
         .set({
           status: "succeeded",
-          candidates: result.candidates,
+          results,
           caseCount: result.cases.length,
           revision: current.revision + 1,
         })
@@ -238,15 +391,14 @@ export class GenerationRepository {
         );
     });
   }
-  async review(
+  async add(
     projectId: string,
-    sheetId: string,
+    testScenarioId: string,
     jobId: string,
-    candidateId: string,
-    input: ReviewCandidateDto,
+    input: AddGeneratedCasesDto,
   ) {
     return this.write(projectId, async (tx) => {
-      await assertSheetEditable(tx, sheetId);
+      await assertTestScenarioEditable(tx, testScenarioId);
       const [job] = await tx
         .select()
         .from(generationJobs)
@@ -254,45 +406,130 @@ export class GenerationRepository {
           and(
             eq(generationJobs.id, jobId),
             eq(generationJobs.projectId, projectId),
-            eq(generationJobs.sheetId, sheetId),
+            eq(generationJobs.testScenarioId, testScenarioId),
           ),
         );
       if (job?.status !== "succeeded") throw notFound();
       if (job.revision !== input.expectedRevision)
         throw new ApiError(
           409,
-          "CANDIDATE_CONFLICT",
-          "다른 곳에서 후보를 변경했습니다. 최신 후보를 불러와주세요.",
+          "GENERATION_RESULT_CONFLICT",
+          "결과가 변경되었습니다. 최신 결과를 불러와주세요.",
         );
-      const candidates = structuredClone(job.candidates);
-      const candidate = candidates.find((c) => c.id === candidateId);
+      const chosen = job.results.filter((c) => input.resultIds.includes(c.id));
+      if (
+        chosen.length !== input.resultIds.length ||
+        chosen.some((c) => c.status !== "pending")
+      )
+        throw invalid([{ field: "resultIds", code: "unavailable" }]);
+      const snapshot = await this.testScenarios.readSnapshot(
+        tx,
+        projectId,
+        testScenarioId,
+      );
+      if (snapshot.contentRevision !== input.testScenarioRevision)
+        throw revisionConflict("content", snapshot.contentRevision);
+      const cases = [...snapshot.cases, ...chosen.map((c) => c.content)];
+      validateContent(snapshot, cases);
+      await this.testScenarios.writeContent(tx, projectId, testScenarioId, {
+        expectedRevision: input.testScenarioRevision,
+        columns: snapshot.columns,
+        cases,
+      });
+      await appendAnalysisLinks(
+        tx,
+        projectId,
+        chosen.flatMap((c) =>
+          (c.requirementIds ?? []).map((requirementId) => ({
+            requirementId,
+            testScenarioId,
+            caseId: c.id,
+          })),
+        ),
+      );
+      const [updated] = await tx
+        .update(generationJobs)
+        .set({
+          results: job.results.map((c) =>
+            input.resultIds.includes(c.id)
+              ? { ...c, status: "added" as const }
+              : c,
+          ),
+          revision: job.revision + 1,
+        })
+        .where(eq(generationJobs.id, job.id))
+        .returning();
+      return present(updated);
+    });
+  }
+  async review(
+    projectId: string,
+    testScenarioId: string,
+    jobId: string,
+    resultId: string,
+    input: ReviewGenerationResultDto,
+  ) {
+    return this.write(projectId, async (tx) => {
+      await assertTestScenarioEditable(tx, testScenarioId);
+      const [job] = await tx
+        .select()
+        .from(generationJobs)
+        .where(
+          and(
+            eq(generationJobs.id, jobId),
+            eq(generationJobs.projectId, projectId),
+            eq(generationJobs.testScenarioId, testScenarioId),
+          ),
+        );
+      if (job?.status !== "succeeded") throw notFound();
+      if (job.revision !== input.expectedRevision)
+        throw new ApiError(
+          409,
+          "GENERATION_RESULT_CONFLICT",
+          "다른 곳에서 생성 결과를 변경했습니다. 최신 결과를 불러와주세요.",
+        );
+      const results = structuredClone(job.results);
+      const candidate = results.find((c) => c.id === resultId);
       if (!candidate) throw notFound();
       if (candidate.status === "added")
         throw new ApiError(
           409,
-          "CANDIDATE_ADDED",
-          "이미 시트에 추가한 후보입니다. 시트에서 편집해주세요.",
+          "GENERATION_RESULT_ADDED",
+          "이미 시나리오에 추가한 테스트 케이스입니다. 시나리오에서 편집해주세요.",
         );
-      const snapshot = await this.sheets.readSnapshot(tx, projectId, sheetId);
+      const snapshot = await this.testScenarios.readSnapshot(
+        tx,
+        projectId,
+        testScenarioId,
+      );
       if (input.action === "edit") {
         if (!input.content) throw invalid();
         const content = { ...input.content, id: candidate.id, caseCode: "" };
         validateContent(snapshot, [content]);
-        // References are also checked when this candidate is added to the sheet.
+        // References are also checked when this candidate is added to the testScenario.
         candidate.content = content;
       } else if (input.action === "add") {
         validateContent(snapshot, [...snapshot.cases, candidate.content]);
-        await this.sheets.writeContent(tx, projectId, sheetId, {
+        await this.testScenarios.writeContent(tx, projectId, testScenarioId, {
           expectedRevision: snapshot.contentRevision,
           columns: snapshot.columns,
           cases: [...snapshot.cases, candidate.content],
         });
+        await appendAnalysisLinks(
+          tx,
+          projectId,
+          (candidate.requirementIds ?? []).map((requirementId) => ({
+            requirementId,
+            testScenarioId,
+            caseId: candidate.id,
+          })),
+        );
         candidate.status = "added";
       } else
         candidate.status = input.action === "exclude" ? "excluded" : "pending";
       const [updated] = await tx
         .update(generationJobs)
-        .set({ candidates, revision: job.revision + 1 })
+        .set({ results, revision: job.revision + 1 })
         .where(eq(generationJobs.id, job.id))
         .returning();
       return present(updated);

@@ -48,18 +48,19 @@ export async function openTestDatabase() {
             [projects],
           );
         await lock.query(
-          "DELETE FROM test_case_values WHERE sheet_id IN (SELECT id FROM sheets WHERE project_id = ANY($1::uuid[]))",
+          "DELETE FROM test_case_values WHERE test_scenario_id IN (SELECT id FROM test_scenarios WHERE project_id = ANY($1::uuid[]))",
           [projects],
         );
         await lock.query(
-          "DELETE FROM sheet_column_views WHERE sheet_id IN (SELECT id FROM sheets WHERE project_id = ANY($1::uuid[]))",
+          "DELETE FROM test_scenario_column_views WHERE test_scenario_id IN (SELECT id FROM test_scenarios WHERE project_id = ANY($1::uuid[]))",
           [projects],
         );
         for (const table of [
           "generation_jobs",
+          "project_analysis",
           "test_cases",
-          "sheet_columns",
-          "sheets",
+          "test_scenario_columns",
+          "test_scenarios",
           "ia_items",
           "project_templates",
           "upload_frames",

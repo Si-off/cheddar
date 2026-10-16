@@ -15,7 +15,11 @@ import {
   ValidatorConstraint,
   type ValidatorConstraintInterface,
 } from "class-validator";
-import { ColumnViewDto, SheetColumnDto, validColumns } from "./sheets.dto";
+import {
+  ColumnViewDto,
+  TestScenarioColumnDto,
+  validColumns,
+} from "./test-scenarios.dto";
 
 export class CreateIaItemDto {
   @ApiProperty({
@@ -79,11 +83,11 @@ export class UpdateTemplateDto {
   @IsInt()
   @Min(1)
   expectedRevision!: number;
-  @ApiProperty({ type: [SheetColumnDto] })
+  @ApiProperty({ type: [TestScenarioColumnDto] })
   @IsArray()
-  @Type(() => SheetColumnDto)
+  @Type(() => TestScenarioColumnDto)
   @ValidateNested({ each: true })
-  columns!: SheetColumnDto[];
+  columns!: TestScenarioColumnDto[];
   @ApiProperty({ type: [ColumnViewDto] })
   @IsArray()
   @ArrayUnique((c: ColumnViewDto) => c?.columnId)
@@ -119,7 +123,8 @@ export class IaPageDto {
 }
 export class ProjectTemplateDto {
   @ApiProperty({ format: "uuid" }) projectId!: string;
-  @ApiProperty({ type: [SheetColumnDto] }) columns!: SheetColumnDto[];
+  @ApiProperty({ type: [TestScenarioColumnDto] })
+  columns!: TestScenarioColumnDto[];
   @ApiProperty({ type: [ColumnViewDto] }) view!: ColumnViewDto[];
   @ApiProperty({ type: "integer", minimum: 1 }) revision!: number;
   @ApiProperty({ format: "date-time" }) createdAt!: string;

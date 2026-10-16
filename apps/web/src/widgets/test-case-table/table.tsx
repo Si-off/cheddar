@@ -266,7 +266,7 @@ export function TestCaseTable({
               <span className="workspace-count">
                 {item.caseCode || String(index + 1).padStart(3, "0")}
               </span>
-              <strong>{item.title || "제목 없는 테스트"}</strong>
+              <strong>{item.title || "제목 없는 테스트 케이스"}</strong>
             </summary>
             <div className="workspace-qa-content">
               {columns
@@ -283,23 +283,23 @@ export function TestCaseTable({
                 disabled={disabled}
               >
                 <WorkspaceIcon name="file" />
-                테스트 편집
+                테스트 케이스 편집
               </Button>
             </div>
           </details>
         ))}
         {!rows.length && (
           <p className="workspace-empty">
-            {query ? "검색 결과가 없습니다" : "테스트가 없습니다"}
+            {query ? "검색 결과가 없습니다" : "테스트 케이스가 없습니다"}
           </p>
         )}
       </div>
     );
   return (
-    <div className="sheet-table-scroll">
+    <div className="test-scenario-table-scroll">
       <table
         ref={tableRef}
-        className="sheet-table"
+        className="test-scenario-table"
         style={{
           width: `calc(${table.getTotalSize()}px + var(--spacing-control-lg))`,
         }}
@@ -352,7 +352,7 @@ export function TestCaseTable({
                     maxWidth: header.getSize(),
                   }}
                 >
-                  <div className="sheet-column-header">
+                  <div className="test-scenario-column-header">
                     <span>
                       {flexRender(
                         header.column.columnDef.header,
@@ -361,7 +361,7 @@ export function TestCaseTable({
                     </span>
                     <button
                       type="button"
-                      className="sheet-resize"
+                      className="test-scenario-resize"
                       aria-label={`${header.column.columnDef.header} 너비 조절`}
                       disabled={disabled}
                       onMouseDown={header.getResizeHandler()}
@@ -401,11 +401,11 @@ export function TestCaseTable({
               aria-rowindex={rowIndex + 2}
               style={{ height: rowHeights[row.id] }}
             >
-              <td className="sheet-row-selection">
+              <td className="test-scenario-row-selection">
                 <button
                   type="button"
                   aria-label={`${rowIndex + 1}행 높이 조절`}
-                  className="sheet-row-resize"
+                  className="test-scenario-row-resize"
                   disabled={disabled}
                   onDoubleClick={() =>
                     setRowHeights((current) => {
@@ -513,7 +513,7 @@ export function TestCaseTable({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="sheet-open-detail"
+                        className="test-scenario-open-detail"
                         aria-label={`${rowIndex + 1}행 상세 편집`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -524,7 +524,7 @@ export function TestCaseTable({
                       </Button>
                     )}
                     <div
-                      className="sheet-cell-content"
+                      className="test-scenario-cell-content"
                       data-editing={edit}
                       style={
                         rowHeights[row.id]
@@ -536,7 +536,7 @@ export function TestCaseTable({
                       }
                     >
                       <span
-                        className="sheet-cell-text"
+                        className="test-scenario-cell-text"
                         aria-hidden={edit || undefined}
                       >
                         {value}

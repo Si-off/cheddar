@@ -31,7 +31,7 @@ export const SYSTEM_FIELDS = [
   "relatedFrames",
   "screens",
 ] as const;
-export class SheetColumnDto {
+export class TestScenarioColumnDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
   @ApiProperty({ enum: ["system", "custom"] })
   @IsIn(["system", "custom"])
@@ -88,7 +88,9 @@ export class CaseContentDto {
   customValues!: Record<string, string>;
 }
 
-export function validColumns(columns: unknown): columns is SheetColumnDto[] {
+export function validColumns(
+  columns: unknown,
+): columns is TestScenarioColumnDto[] {
   if (
     !Array.isArray(columns) ||
     new Set(columns.map((c) => c?.id)).size !== columns.length
@@ -111,11 +113,11 @@ export function validColumns(columns: unknown): columns is SheetColumnDto[] {
     )
   );
 }
-@ValidatorConstraint({ name: "sheetContent", async: false })
-export class SheetContentRules implements ValidatorConstraintInterface {
+@ValidatorConstraint({ name: "testScenarioContent", async: false })
+export class TestScenarioContentRules implements ValidatorConstraintInterface {
   validate(_value: unknown, args?: { object: object }) {
     if (!args) return false;
-    const content = args.object as SheetContentDto;
+    const content = args.object as TestScenarioContentDto;
     if (!validColumns(content.columns) || !Array.isArray(content.cases))
       return false;
     const columnIds = new Set(
@@ -135,29 +137,29 @@ export class SheetContentRules implements ValidatorConstraintInterface {
     );
   }
   defaultMessage() {
-    return "Sheet columns, case codes and custom values must be consistent.";
+    return "TestScenario columns, case codes and custom values must be consistent.";
   }
 }
-export class SheetContentDto {
+export class TestScenarioContentDto {
   @ApiProperty({ type: "integer", minimum: 1 })
   @IsInt()
   @Min(1)
   expectedRevision!: number;
   @ApiProperty({
-    type: [SheetColumnDto],
+    type: [TestScenarioColumnDto],
     description: "All system fields once; custom columns have valueType text.",
   })
   @IsArray()
-  @ArrayUnique((c: SheetColumnDto) => c?.id)
-  @Type(() => SheetColumnDto)
+  @ArrayUnique((c: TestScenarioColumnDto) => c?.id)
+  @Type(() => TestScenarioColumnDto)
   @ValidateNested({ each: true })
-  columns!: SheetColumnDto[];
+  columns!: TestScenarioColumnDto[];
   @ApiProperty({ type: [CaseContentDto] })
   @IsArray()
   @ArrayUnique((c: CaseContentDto) => c?.id)
   @Type(() => CaseContentDto)
   @ValidateNested({ each: true })
-  @Validate(SheetContentRules)
+  @Validate(TestScenarioContentRules)
   cases!: CaseContentDto[];
 }
 export class ColumnViewDto {
@@ -168,7 +170,7 @@ export class ColumnViewDto {
   @Max(2147483647)
   width!: number;
 }
-export class SheetViewDto {
+export class TestScenarioViewDto {
   @ApiProperty({ type: "integer", minimum: 1 })
   @IsInt()
   @Min(1)
@@ -176,7 +178,7 @@ export class SheetViewDto {
   @ApiProperty({
     type: [ColumnViewDto],
     description:
-      "Array order is display order. IDs must exactly match the sheet columns.",
+      "Array order is display order. IDs must exactly match the testScenario columns.",
   })
   @IsArray()
   @ArrayUnique((c: ColumnViewDto) => c?.columnId)
@@ -184,7 +186,7 @@ export class SheetViewDto {
   @ValidateNested({ each: true })
   columns!: ColumnViewDto[];
 }
-export class CreateSheetDto {
+export class CreateTestScenarioDto {
   @ApiProperty({ minLength: 1, maxLength: 100 })
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
@@ -200,13 +202,13 @@ export class CreateSheetDto {
   uploadId?: string | null;
 }
 
-export class SheetPageQueryDto extends PageQueryDto {
+export class TestScenarioPageQueryDto extends PageQueryDto {
   @ApiPropertyOptional({ format: "uuid" })
   @ValidateIf((_o, v) => v !== undefined)
   @IsUUID()
   uploadId?: string;
 }
-export class SheetExportQueryDto {
+export class TestScenarioExportQueryDto {
   @ApiPropertyOptional({ type: "integer", minimum: 1 })
   @ValidateIf((_o, v) => v !== undefined)
   @Type(() => Number)
@@ -220,7 +222,7 @@ export class SheetExportQueryDto {
   @Min(1)
   viewRevision?: number;
 }
-export class SheetSummaryDto {
+export class TestScenarioSummaryDto {
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty({ format: "uuid" }) projectId!: string;
   @ApiProperty() name!: string;
@@ -233,8 +235,9 @@ export class SheetSummaryDto {
   @ApiProperty({ format: "date-time" }) createdAt!: string;
   @ApiProperty({ format: "date-time" }) updatedAt!: string;
 }
-export class SheetPageDto {
-  @ApiProperty({ type: [SheetSummaryDto] }) items!: SheetSummaryDto[];
+export class TestScenarioPageDto {
+  @ApiProperty({ type: [TestScenarioSummaryDto] })
+  items!: TestScenarioSummaryDto[];
   @ApiProperty({ type: String, nullable: true }) nextCursor!: string | null;
 }
 export class FrameReferenceDto {
@@ -251,14 +254,16 @@ export class IaReferenceDto {
   @ApiProperty() screenId!: string;
   @ApiProperty() name!: string;
 }
-export class SheetReferencesDto {
+export class TestScenarioReferencesDto {
   @ApiProperty({ type: [FrameReferenceDto] }) frames!: FrameReferenceDto[];
   @ApiProperty({ type: [IaReferenceDto] }) iaItems!: IaReferenceDto[];
 }
-export class SheetSnapshotDto extends SheetSummaryDto {
+export class TestScenarioSnapshotDto extends TestScenarioSummaryDto {
   @ApiProperty({ type: "integer", minimum: 1 }) sourceTemplateRevision!: number;
-  @ApiProperty({ type: [SheetColumnDto] }) columns!: SheetColumnDto[];
+  @ApiProperty({ type: [TestScenarioColumnDto] })
+  columns!: TestScenarioColumnDto[];
   @ApiProperty({ type: [CaseContentDto] }) cases!: CaseContentDto[];
   @ApiProperty({ type: [ColumnViewDto] }) view!: ColumnViewDto[];
-  @ApiProperty({ type: SheetReferencesDto }) references!: SheetReferencesDto;
+  @ApiProperty({ type: TestScenarioReferencesDto })
+  references!: TestScenarioReferencesDto;
 }

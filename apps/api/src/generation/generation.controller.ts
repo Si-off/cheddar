@@ -19,10 +19,11 @@ import {
 } from "@nestjs/swagger";
 import { ErrorResponseDto } from "../contracts/common.dto";
 import {
+  AddGeneratedCasesDto,
   GenerationDto,
   GenerationListDto,
   GenerationProvidersDto,
-  ReviewCandidateDto,
+  ReviewGenerationResultDto,
   StartGenerationDto,
 } from "../contracts/generation.dto";
 import { GenerationService } from "./generation.service";
@@ -44,7 +45,9 @@ export class GenerationProvidersController {
 @ApiResponse({ status: 404, type: ErrorResponseDto })
 @ApiResponse({ status: 409, type: ErrorResponseDto })
 @ApiResponse({ status: 503, type: ErrorResponseDto })
-@Controller("api/v1/projects/:projectId/sheets/:sheetId/generations")
+@Controller(
+  "api/v1/projects/:projectId/test-scenarios/:testScenarioId/generations",
+)
 export class GenerationController {
   constructor(
     @Inject(GenerationService) private readonly service: GenerationService,
@@ -54,9 +57,9 @@ export class GenerationController {
   @ApiOkResponse({ type: GenerationListDto })
   list(
     @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("sheetId", new ParseUUIDPipe()) sheetId: string,
+    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
   ) {
-    return this.service.list(projectId, sheetId);
+    return this.service.list(projectId, testScenarioId);
   }
   @Post()
   @HttpCode(202)
@@ -65,22 +68,40 @@ export class GenerationController {
   @ApiAcceptedResponse({ type: GenerationDto })
   start(
     @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("sheetId", new ParseUUIDPipe()) sheetId: string,
+    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
     @Body() input: StartGenerationDto,
   ) {
-    return this.service.start(projectId, sheetId, input);
+    return this.service.start(projectId, testScenarioId, input);
   }
-  @Put(":jobId/candidates/:candidateId")
-  @ApiOperation({ operationId: "reviewCandidate" })
-  @ApiBody({ type: ReviewCandidateDto })
+  @Post(":jobId/add")
+  @ApiOperation({ operationId: "addGeneratedCases" })
+  @ApiBody({ type: AddGeneratedCasesDto })
+  @ApiOkResponse({ type: GenerationDto })
+  add(
+    @Param("projectId", new ParseUUIDPipe()) projectId: string,
+    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
+    @Param("jobId", new ParseUUIDPipe()) jobId: string,
+    @Body() input: AddGeneratedCasesDto,
+  ) {
+    return this.service.add(projectId, testScenarioId, jobId, input);
+  }
+  @Put(":jobId/results/:resultId")
+  @ApiOperation({ operationId: "reviewGenerationResult" })
+  @ApiBody({ type: ReviewGenerationResultDto })
   @ApiOkResponse({ type: GenerationDto })
   review(
     @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("sheetId", new ParseUUIDPipe()) sheetId: string,
+    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
     @Param("jobId", new ParseUUIDPipe()) jobId: string,
-    @Param("candidateId", new ParseUUIDPipe()) candidateId: string,
-    @Body() input: ReviewCandidateDto,
+    @Param("resultId", new ParseUUIDPipe()) resultId: string,
+    @Body() input: ReviewGenerationResultDto,
   ) {
-    return this.service.review(projectId, sheetId, jobId, candidateId, input);
+    return this.service.review(
+      projectId,
+      testScenarioId,
+      jobId,
+      resultId,
+      input,
+    );
   }
 }

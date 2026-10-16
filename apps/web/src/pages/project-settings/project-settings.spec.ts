@@ -197,7 +197,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
 }, testInfo) => {
   const projectId = new URL(page.url()).pathname.split("/")[2];
   const beforeResponse = await request.post(
-    `${apiBase}/api/v1/projects/${projectId}/sheets`,
+    `${apiBase}/api/v1/projects/${projectId}/test-scenarios`,
     { data: { name: "양식 변경 전", kind: "unit" } },
   );
   expect(beforeResponse.status()).toBe(201);
@@ -206,7 +206,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
     .getByRole("combobox", { name: "설정 항목", exact: true })
     .selectOption("template");
   await expect(
-    page.getByText("변경한 양식은 새 시트에만 적용됩니다."),
+    page.getByText("변경한 양식은 새 시나리오에만 적용됩니다."),
   ).toBeVisible();
   await page.getByRole("button", { name: "열 추가", exact: true }).click();
   await page.getByRole("button", { name: "새 열 설정", exact: true }).click();
@@ -230,12 +230,12 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
   expect(stored.view[9]).toEqual({ columnId: custom.id, width: 260 });
   const existing = await (
     await request.get(
-      `${apiBase}/api/v1/projects/${projectId}/sheets/${before.id}`,
+      `${apiBase}/api/v1/projects/${projectId}/test-scenarios/${before.id}`,
     )
   ).json();
   expect(existing).toEqual(before);
   const afterResponse = await request.post(
-    `${apiBase}/api/v1/projects/${projectId}/sheets`,
+    `${apiBase}/api/v1/projects/${projectId}/test-scenarios`,
     { data: { name: "양식 변경 후", kind: "unit" } },
   );
   expect(afterResponse.status()).toBe(201);
@@ -561,7 +561,7 @@ for (const kind of ["project", "template"] as const) {
   }
 }
 
-test("기본 양식 경계선에서 조절한 너비는 저장 후 새 시트에 반영된다", async ({
+test("기본 양식 경계선에서 조절한 너비는 저장 후 새 시나리오에 반영된다", async ({
   page,
   request,
 }) => {
@@ -590,7 +590,7 @@ test("기본 양식 경계선에서 조절한 너비는 저장 후 새 시트에
   const stored = await (await request.get(endpoint)).json();
   expect(stored.view[0].width).toBe(before.view[0].width + 60);
   const created = await request.post(
-    `${apiBase}/api/v1/projects/${projectId}/sheets`,
+    `${apiBase}/api/v1/projects/${projectId}/test-scenarios`,
     { data: { name: "너비 검증", kind: "unit" } },
   );
   expect(created.status()).toBe(201);

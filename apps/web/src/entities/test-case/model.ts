@@ -1,4 +1,4 @@
-import type { SheetSnapshotDto } from "@/shared/api/generated";
+import type { TestScenarioSnapshotDto } from "@/shared/api/generated";
 
 export type SystemField =
   | "caseCode"
@@ -55,7 +55,7 @@ export type Snapshot = {
   view: ViewColumn[];
   references: { frames: FrameReference[]; iaItems: IaReference[] };
 };
-export function fromSnapshot(dto: SheetSnapshotDto): Snapshot {
+export function fromSnapshot(dto: TestScenarioSnapshotDto): Snapshot {
   return structuredClone(dto);
 }
 export function newCase(): CaseDraft {
@@ -93,9 +93,9 @@ export function validate(snapshot: Snapshot): string | undefined {
     return "열 이름은 1~100자로 입력해주세요.";
   const codes = snapshot.cases.map((c) => c.caseCode).filter(Boolean);
   if (new Set(codes).size !== codes.length)
-    return "중복된 케이스 번호를 수정해주세요.";
+    return "중복된 테스트 케이스 번호를 수정해주세요.";
   if (snapshot.cases.some((c) => c.caseCode.length > 100))
-    return "케이스 번호는 100자 이내로 입력해주세요.";
+    return "테스트 케이스 번호는 100자 이내로 입력해주세요.";
   if (
     new TextEncoder().encode(
       JSON.stringify({
@@ -105,7 +105,7 @@ export function validate(snapshot: Snapshot): string | undefined {
     ).byteLength >
     5 * 1024 * 1024
   )
-    return "시트 내용이 저장 한도인 5MiB를 넘었습니다. 입력 내용을 줄여주세요.";
+    return "시나리오 내용이 저장 한도인 5MiB를 넘었습니다. 입력 내용을 줄여주세요.";
 }
 export function displayValue(
   snapshot: Snapshot,

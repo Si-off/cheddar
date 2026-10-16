@@ -2,9 +2,9 @@ import ExcelJS from "exceljs";
 import { ApiError } from "../common/errors";
 import type {
   CaseContentDto,
-  SheetColumnDto,
-  SheetSnapshotDto,
-} from "../contracts/sheets.dto";
+  TestScenarioColumnDto,
+  TestScenarioSnapshotDto,
+} from "../contracts/test-scenarios.dto";
 
 const priorities = { high: "높음", medium: "보통", low: "낮음" };
 function limit(row: number, column: number, reason: string): never {
@@ -12,7 +12,7 @@ function limit(row: number, column: number, reason: string): never {
     422,
     "EXPORT_LIMIT_EXCEEDED",
     reason === "rowCount"
-      ? "케이스 수가 Excel 한도를 넘었습니다. 시트의 케이스 수를 확인해주세요."
+      ? "테스트 케이스 수가 Excel 한도를 넘었습니다. 시나리오의 테스트 케이스 수를 확인해주세요."
       : reason === "columnCount"
         ? "열 수가 Excel 한도를 넘었습니다. 사용자 열 수를 확인해주세요."
         : "Excel 형식의 한도를 넘어 내보내지 못했습니다. 해당 셀의 내용을 확인해주세요.",
@@ -20,9 +20,9 @@ function limit(row: number, column: number, reason: string): never {
   );
 }
 export function displayValue(
-  snapshot: SheetSnapshotDto,
+  snapshot: TestScenarioSnapshotDto,
   item: CaseContentDto,
-  column: SheetColumnDto,
+  column: TestScenarioColumnDto,
 ): string {
   if (column.kind === "custom") return item.customValues[column.id] ?? "";
   if (column.field === "priority")
@@ -78,7 +78,9 @@ function checkText(value: string, row: number, column: number) {
       limit(row, column, "unsupportedCharacter");
   }
 }
-export async function createXlsx(snapshot: SheetSnapshotDto): Promise<Buffer> {
+export async function createXlsx(
+  snapshot: TestScenarioSnapshotDto,
+): Promise<Buffer> {
   if (snapshot.view.length > 16384) limit(1, 16385, "columnCount");
   if (snapshot.cases.length + 1 > 1048576) limit(1048577, 1, "rowCount");
   const columns = snapshot.view.map((v) => {

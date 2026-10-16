@@ -1,15 +1,15 @@
 import { expect, type Page, test } from "@playwright/test";
 import type {
   GenerationDto,
-  SheetContentDto,
-  SheetSnapshotDto,
-  SheetViewDto,
   StartGenerationDto,
+  TestScenarioContentDto,
+  TestScenarioSnapshotDto,
+  TestScenarioViewDto,
 } from "@/shared/api/generated";
 
 const projectId = "10000000-0000-4000-8000-000000000001";
-const sheetId = "20000000-0000-4000-8000-000000000001";
-function fixture(): SheetSnapshotDto {
+const testScenarioId = "20000000-0000-4000-8000-000000000001";
+function fixture(): TestScenarioSnapshotDto {
   const fields = [
     "caseCode",
     "title",
@@ -37,7 +37,7 @@ function fixture(): SheetSnapshotDto {
     name: names[index],
   }));
   return {
-    id: sheetId,
+    id: testScenarioId,
     projectId,
     name: "시트 하나",
     kind: "unit",
@@ -80,8 +80,8 @@ async function mockApi(page: Page) {
       imageFileId: string;
       dataFileId: string;
     }[],
-    requests: [] as SheetContentDto[],
-    viewRequests: [] as SheetViewDto[],
+    requests: [] as TestScenarioContentDto[],
+    viewRequests: [] as TestScenarioViewDto[],
     reject: false,
     rejectGet: false,
     loseResponse: false,
@@ -115,15 +115,16 @@ async function mockApi(page: Page) {
       if (request.method() === "POST") {
         control.generationRequests.push(request.postDataJSON());
         control.generation = {
+          mode: request.postDataJSON().mode,
           id: "50000000-0000-4000-8000-000000000001",
-          sheetId,
+          testScenarioId,
           provider: "anthropic",
           model: "synthetic-model",
           status: "running",
           error: null,
           revision: 1,
           caseCount: 0,
-          candidates: [],
+          results: [],
           createdAt: new Date().toISOString(),
         };
         return json(control.generation, 202);
@@ -134,8 +135,25 @@ async function mockApi(page: Page) {
         });
       return json({ items: control.generation ? [control.generation] : [] });
     }
-    if (path.includes("/candidates/") && control.generation) {
-      const candidate = control.generation.candidates[0];
+    if (path.endsWith("/add") && control.generation) {
+      const body = request.postDataJSON();
+      for (const candidate of control.generation.results.filter((c) =>
+        body.resultIds.includes(c.id),
+      )) {
+        candidate.status = "added";
+        control.saved.cases.push({
+          ...candidate.content,
+          caseCode: `TC-${control.saved.cases.length + 1}`,
+        });
+      }
+      control.generation.revision++;
+      control.saved.contentRevision++;
+      return json(control.generation, 201);
+    }
+    if (path.endsWith("/analysis"))
+      return json({ revision: 0, items: [], links: [] });
+    if (path.includes("/results/") && control.generation) {
+      const candidate = control.generation.results[0];
       candidate.status = "added";
       control.generation.revision++;
       control.saved.cases.push({ ...candidate.content, caseCode: "TC-003" });
@@ -164,7 +182,7 @@ async function mockApi(page: Page) {
       return json({ items: control.uploads, nextCursor: null });
     if (path.includes("/uploads/"))
       return json({ id: control.uploads[0]?.id, frames: control.frames });
-    if (path.endsWith("/sheets") && request.method() === "GET")
+    if (path.endsWith("/test-scenarios") && request.method() === "GET")
       return json({ items: [control.saved], nextCursor: null });
     if (path.endsWith("/export.xlsx")) {
       control.exports.push(url.search);
@@ -178,12 +196,12 @@ async function mockApi(page: Page) {
         body: Buffer.from([80, 75, 3, 4]),
       });
     }
-    if (path.endsWith(`/sheets/${sheetId}`))
+    if (path.endsWith(`/test-scenarios/${testScenarioId}`))
       return control.rejectGet
         ? json(
             {
               error: {
-                message: "일시적으로 시트를 불러오지 못했습니다.",
+                message: "일시적으로 시나리오를 불러오지 못했습니다.",
                 requestId: "test",
                 code: "DEPENDENCY_UNAVAILABLE",
               },
@@ -192,7 +210,7 @@ async function mockApi(page: Page) {
           )
         : json(control.saved);
     if (path.endsWith("/content")) {
-      const body = request.postDataJSON() as SheetContentDto;
+      const body = request.postDataJSON() as TestScenarioContentDto;
       control.requests.push(body);
       if (body.expectedRevision !== control.saved.contentRevision)
         return json(
@@ -266,7 +284,7 @@ async function mockApi(page: Page) {
       return json(reply);
     }
     if (path.endsWith("/view")) {
-      const body = request.postDataJSON() as SheetViewDto;
+      const body = request.postDataJSON() as TestScenarioViewDto;
       control.viewRequests.push(body);
       if (body.expectedRevision !== control.saved.viewRevision)
         return json(
@@ -319,12 +337,12 @@ async function open(page: Page) {
 async function search(page: Page, value: string) {
   if (
     !(await page
-      .getByRole("textbox", { name: "테스트 검색", exact: true })
+      .getByRole("textbox", { name: "테스트 케이스 검색", exact: true })
       .isVisible())
   )
     await page.getByRole("button", { name: "검색", exact: true }).click();
   await page
-    .getByRole("textbox", { name: "테스트 검색", exact: true })
+    .getByRole("textbox", { name: "테스트 케이스 검색", exact: true })
     .fill(value);
 }
 async function columns(page: Page) {
@@ -377,7 +395,7 @@ test("initial generation lookup explains the temporary editing lock", async ({
       .filter({ hasText: "생성 상태를 확인하는 중입니다." }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "행 추가", exact: true }),
+    page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
   ).toBeDisabled();
   await expect.poll(() => !!control.releaseGenerations).toBe(true);
   control.holdGenerations = false;
@@ -386,7 +404,7 @@ test("initial generation lookup explains the temporary editing lock", async ({
     page.getByText("생성 상태를 확인하는 중입니다.", { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "행 추가", exact: true }),
+    page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
   ).toBeEnabled();
 });
 
@@ -399,7 +417,7 @@ test("long cell text remains readable and editing retains its expanded row", asy
   control.saved.cases[0].steps = text;
   await open(page);
   await expect(
-    page.getByRole("button", { name: "행 추가", exact: true }),
+    page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
   ).toBeEnabled();
   const cell = page.getByRole("gridcell", {
     name: "1행 수행 단계",
@@ -441,56 +459,59 @@ test("long cell text remains readable and editing retains its expanded row", asy
   expect(horizontal).toBe(true);
 });
 
-test("generation confirms replacement, locks editing and loads generated cases and reviewed candidates", async ({
+test("generation locks editing, preserves existing cases and adds reviewed results", async ({
   page,
 }) => {
   const control = await mockApi(page);
   await open(page);
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
-  await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
-  await page.getByLabel("테스트 내용", { exact: true }).fill("로그인 흐름");
-  const generate = page.getByRole("button", {
-    name: "케이스 다시 생성",
-    exact: true,
-  });
-  await expect(generate).toBeDisabled();
   await page
-    .getByRole("checkbox", {
-      name: "기존 케이스 1개를 생성 결과로 교체합니다.",
-    })
-    .check();
-  await generate.click();
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
+  await page.getByLabel("테스트 내용", { exact: true }).fill("로그인 흐름");
+  await page
+    .getByRole("button", { name: "테스트 케이스 생성", exact: true })
+    .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "테스트 생성 중" }),
+    page.getByRole("status").filter({ hasText: "테스트 케이스 생성 중" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "행 추가", exact: true }),
+    page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
   ).toBeDisabled();
   expect(control.generationRequests).toHaveLength(1);
   expect(control.generationRequests[0]).toMatchObject({
     description: "로그인 흐름",
     expectedRevision: 1,
+    mode: "review",
   });
   const generated = {
     ...control.saved.cases[0],
-    title: "생성된 로그인 케이스",
+    id: "40000000-0000-4000-8000-000000000002",
+    caseCode: "",
+    title: "생성 로그인 케이스",
   };
   const candidate = {
     ...generated,
-    id: "40000000-0000-4000-8000-000000000002",
-    caseCode: "",
-    title: "확인할 후보",
+    id: "40000000-0000-4000-8000-000000000003",
+    title: "로그인 예외 후보",
   };
-  control.saved.cases = [generated];
-  control.saved.contentRevision++;
-  expect(control.generation).toBeDefined();
   Object.assign(control.generation ?? {}, {
     status: "succeeded",
     revision: 2,
     caseCount: 1,
-    candidates: [
+    results: [
+      {
+        id: generated.id,
+        kind: "case",
+        status: "pending",
+        reason: "",
+        content: generated,
+      },
       {
         id: candidate.id,
+        kind: "candidate",
         status: "pending",
         reason: "동작 확인 필요",
         content: candidate,
@@ -498,25 +519,34 @@ test("generation confirms replacement, locks editing and loads generated cases a
     ],
   });
   await expect(
+    page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
+  ).toBeEnabled();
+  await expect(
     page.getByRole("gridcell", { name: "1행 제목", exact: true }),
-  ).toContainText(generated.title);
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
-  await page.getByRole("button", { name: "후보 검토", exact: true }).click();
-  await expect(
-    page.locator("summary").filter({ hasText: "확인할 후보" }),
-  ).toHaveCount(1);
-  await page.locator("summary").filter({ hasText: "확인할 후보" }).click();
-  await page.getByRole("button", { name: "시트에 추가", exact: true }).click();
-  await expect(
-    page.locator("summary").filter({ hasText: "추가됨" }),
-  ).toBeVisible();
+  ).toContainText("기존 제목");
+  await page.getByRole("button", { name: "결과 검토", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "생성 로그인 케이스 선택", exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: "1개 시나리오에 추가", exact: true })
+    .click();
+  await expect.poll(() => control.saved.cases.length).toBe(2);
+  await page.getByRole("button", { name: "검토 후보", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "로그인 예외 후보 선택", exact: true })
+    .check();
+  await page
+    .getByRole("button", { name: "1개 시나리오에 추가", exact: true })
+    .click();
+  await expect.poll(() => control.saved.cases.length).toBe(3);
   await page.getByRole("button", { name: "닫기", exact: true }).click();
   await expect(
-    page.getByRole("gridcell", { name: "2행 제목", exact: true }),
-  ).toContainText(candidate.title);
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText("기존 제목");
   await expect(
-    page.getByRole("button", { name: "행 추가", exact: true }),
-  ).toBeEnabled();
+    page.getByRole("gridcell", { name: "3행 제목", exact: true }),
+  ).toContainText(candidate.title);
   expect(control.generationRequests).toHaveLength(1);
 });
 async function paste(page: Page, target: string, text: string) {
@@ -554,7 +584,9 @@ test("multi-cell paste, search, keyboard navigation and atomic rejection preserv
   await search(page, "");
   const before = structuredClone(control.saved.cases);
   await paste(page, "1행 케이스 번호", "중복\n중복");
-  await expect(page.getByRole("alert")).toContainText("중복된 케이스 번호");
+  await expect(page.getByRole("alert")).toContainText(
+    "중복된 테스트 케이스 번호",
+  );
   expect(control.saved.cases).toEqual(before);
   const cell = page.getByRole("gridcell", { name: "1행 제목", exact: true });
   await cell.click();
@@ -713,10 +745,12 @@ test("a delayed content acknowledgement preserves later row and column additions
   await page.getByRole("checkbox", { name: "2행 선택", exact: true }).check();
   await page.getByRole("button", { name: "선택 행 삭제", exact: true }).click();
   await page
-    .getByRole("dialog", { name: "케이스 삭제", exact: true })
+    .getByRole("dialog", { name: "테스트 케이스 삭제", exact: true })
     .getByRole("button", { name: "확인", exact: true })
     .click();
-  await page.getByRole("button", { name: "행 추가", exact: true }).click();
+  await page
+    .getByRole("button", { name: "테스트 케이스 추가", exact: true })
+    .click();
   await page
     .getByRole("gridcell", { name: "2행 제목", exact: true })
     .dblclick();
@@ -804,7 +838,9 @@ test("a conflict preserves local input, shows latest text and requires explicit 
   await expect(
     page.getByRole("textbox", { name: "제목 편집", exact: true }),
   ).toHaveValue("내 미저장 입력");
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "XLSX 내보내기", exact: true }),
   ).toBeDisabled();
@@ -837,7 +873,7 @@ test("reload offers unsaved draft recovery without silently sending it", async (
   await page.waitForFunction(
     () =>
       new Promise<boolean>((resolve) => {
-        const open = indexedDB.open("cheddar-sheet-drafts", 1);
+        const open = indexedDB.open("cheddar-test-scenario-drafts", 1);
         open.onsuccess = () => {
           const tx = open.result.transaction("drafts");
           const request = tx.objectStore("drafts").count();
@@ -848,7 +884,7 @@ test("reload offers unsaved draft recovery without silently sending it", async (
   const requestCount = control.requests.length;
   page.on("dialog", (dialog) => void dialog.accept());
   await page.reload();
-  // Root-only integrations may need project/sheet selection after reload.
+  // Root-only integrations may need project/testScenario selection after reload.
   if (
     await page
       .getByRole("button", { name: "테스트 프로젝트", exact: true })
@@ -868,7 +904,7 @@ test("reload offers unsaved draft recovery without silently sending it", async (
     .toBe("새로고침 복구할 입력");
 });
 
-test("column edits persist, deletion confirms value loss, search still exports the saved whole sheet", async ({
+test("column edits persist, deletion confirms value loss, search still exports the saved whole testScenario", async ({
   page,
 }) => {
   const control = await mockApi(page);
@@ -893,7 +929,7 @@ test("column edits persist, deletion confirms value loss, search still exports t
   await page.getByRole("button", { name: "열 삭제", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "사용자 열 삭제", exact: true }),
-  ).toContainText("케이스 1개에 입력된 값");
+  ).toContainText("테스트 케이스 1개에 입력된 값");
   await page.getByRole("button", { name: "확인", exact: true }).click();
   await expect
     .poll(() => control.saved.columns.some((c) => c.name === "사용자 메모"))
@@ -906,7 +942,9 @@ test("column edits persist, deletion confirms value loss, search still exports t
     page.getByText("검색 결과가 없습니다", { exact: true }),
   ).toBeVisible();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "XLSX 내보내기", exact: true })
     .click();
@@ -961,7 +999,9 @@ test("detail fields share the grid draft, explicit reference selection uses UUID
   await expect.poll(() => control.saved.cases[0].title).toBe("한글 조합 입력");
   await page.getByRole("checkbox", { name: "1행 선택", exact: true }).click();
   await page.getByRole("button", { name: "상세 편집", exact: true }).click();
-  const panel = page.getByRole("complementary", { name: "테스트 상세 편집" });
+  const panel = page.getByRole("complementary", {
+    name: "테스트 케이스 상세 편집",
+  });
   await panel
     .getByLabel("수행 단계", { exact: true })
     .fill("상세 패널의 긴 내용\n두 번째 단계");
@@ -1108,7 +1148,7 @@ test("internal header navigation and browser back preserve failed drafts and req
   page,
 }) => {
   const control = await mockApi(page);
-  await page.goto(`/projects/${projectId}/sheets`);
+  await page.goto(`/projects/${projectId}/test-scenarios`);
   await page.getByRole("button", { name: /시트 하나/, exact: false }).click();
   await expect(
     page.getByRole("grid", { name: "테스트 케이스 편집" }),
@@ -1121,14 +1161,20 @@ test("internal header navigation and browser back preserve failed drafts and req
   const dialog = page.getByRole("dialog", {
     name: "저장되지 않은 입력이 있습니다",
   });
-  await page.getByRole("button", { name: "시트 목록", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시나리오 목록", exact: true })
+    .click();
   await expect(dialog).toContainText("입력을 이 브라우저에 보관했습니다");
   await dialog.getByRole("button", { name: "계속 편집", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/sheets/${sheetId}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/test-scenarios/${testScenarioId}$`),
+  );
   await page.getByRole("link", { name: "프로젝트 목록", exact: true }).click();
   await expect(dialog).toContainText("입력을 이 브라우저에 보관했습니다");
   await dialog.getByRole("button", { name: "계속 편집", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/sheets/${sheetId}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/test-scenarios/${testScenarioId}$`),
+  );
   await expect(
     page.getByRole("gridcell", { name: "1행 제목", exact: true }),
   ).toContainText("내부 이동에서 유지할 입력");
@@ -1137,8 +1183,10 @@ test("internal header navigation and browser back preserve failed drafts and req
   await dialog
     .getByRole("button", { name: "초안 보관 후 이동", exact: true })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sheets$`));
-  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await expect(page).toHaveURL(
+    new RegExp(`/projects/${projectId}/test-scenarios$`),
+  );
+  await page.goto(`/projects/${projectId}/test-scenarios/${testScenarioId}`);
   await expect(
     page.getByRole("button", { name: "초안 복원", exact: true }),
   ).toBeVisible();
@@ -1156,7 +1204,7 @@ test("internal navigation stays blocked when both the server save and browser dr
       },
     }),
   );
-  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await page.goto(`/projects/${projectId}/test-scenarios/${testScenarioId}`);
   await expect(
     page.getByRole("grid", { name: "테스트 케이스 편집" }),
   ).toBeVisible();
@@ -1194,7 +1242,7 @@ test("a background snapshot failure keeps the editor and unsaved input even when
       },
     }),
   );
-  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await page.goto(`/projects/${projectId}/test-scenarios/${testScenarioId}`);
   await expect(
     page.getByRole("grid", { name: "테스트 케이스 편집" }),
   ).toBeVisible();
@@ -1204,7 +1252,9 @@ test("a background snapshot failure keeps the editor and unsaved input even when
   ).toBeVisible();
   control.rejectGet = true;
   const response = page.waitForResponse(
-    (r) => r.url().endsWith(`/sheets/${sheetId}`) && r.status() === 503,
+    (r) =>
+      r.url().endsWith(`/test-scenarios/${testScenarioId}`) &&
+      r.status() === 503,
   );
   await page.evaluate(() =>
     window.dispatchEvent(new Event("visibilitychange")),
@@ -1218,7 +1268,7 @@ test("a background snapshot failure keeps the editor and unsaved input even when
   ).toHaveValue("메모리에만 남은 입력");
   const refreshWarning = page
     .getByRole("alert")
-    .filter({ hasText: "시트의 최신 저장 내용을 확인하지 못했습니다" });
+    .filter({ hasText: "시나리오의 최신 저장 내용을 확인하지 못했습니다" });
   await expect(refreshWarning).toBeVisible();
   control.rejectGet = false;
   await refreshWarning
@@ -1242,7 +1292,7 @@ test("restoring an old draft during an in-flight save cannot clear its conflict 
 }) => {
   const control = await mockApi(page);
   control.reject = true;
-  await page.goto(`/projects/${projectId}/sheets/${sheetId}`);
+  await page.goto(`/projects/${projectId}/test-scenarios/${testScenarioId}`);
   await expect(
     page.getByRole("grid", { name: "테스트 케이스 편집" }),
   ).toBeVisible();
@@ -1285,7 +1335,7 @@ test("restoring an old draft during an in-flight save cannot clear its conflict 
   );
 });
 
-test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시트·모바일 스크롤을 제공한다", async ({
+test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시나리오·모바일 스크롤을 제공한다", async ({
   page,
 }, testInfo) => {
   const control = await mockApi(page);
@@ -1376,7 +1426,7 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
     path: testInfo.outputPath("redesign-layout.png"),
     animations: "disabled",
   });
-  await page.getByRole("button", { name: "QA 진행", exact: true }).click();
+  await page.getByRole("button", { name: "상세 목록", exact: true }).click();
   await expect(page.locator("summary")).toHaveCount(12);
   await page.locator("summary").nth(0).click();
   await page.locator("summary").nth(1).click();
@@ -1390,17 +1440,22 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
     fullPage: true,
     animations: "disabled",
   });
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
   await page
-    .getByRole("button", { name: "공유 시트 미리보기", exact: true })
+    .getByRole("button", { name: "시나리오 메뉴", exact: true })
     .click();
-  const shared = page.getByRole("region", { name: "공유 시트", exact: true });
+  await page
+    .getByRole("button", { name: "공유 시나리오 미리보기", exact: true })
+    .click();
+  const shared = page.getByRole("region", {
+    name: "공유 시나리오",
+    exact: true,
+  });
   await expect(shared.getByRole("table").getByRole("row")).toHaveCount(13);
   await expect(shared.getByRole("textbox")).toHaveCount(0);
   await expect(shared.getByRole("img")).toHaveCount(0);
   await expect(shared.getByText("읽기 전용", { exact: true })).toBeInViewport();
   await page.screenshot({
-    path: testInfo.outputPath("redesign-shared-sheet.png"),
+    path: testInfo.outputPath("redesign-shared-testScenario.png"),
     animations: "disabled",
   });
   await page
