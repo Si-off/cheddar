@@ -583,6 +583,7 @@ test("사용자 양식의 네 형식과 선택 항목을 저장하고 새 시나
   page,
   request,
 }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   const projectId = new URL(page.url()).pathname.split("/")[2];
   await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
   for (const [name, type] of [
@@ -616,7 +617,12 @@ test("사용자 양식의 네 형식과 선택 항목을 저장하고 새 시나
   await expect(page.getByRole("status")).toHaveText("저장됨");
   await page.reload();
   await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
-  await page.getByRole("button", { name: "분류 설정", exact: true }).click();
+  await page.screenshot({
+    path: testInfo.outputPath("configurable-template-overview.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "결과 설정", exact: true }).click();
   await expect(page.getByLabel("성공 이름", { exact: true })).toHaveValue(
     "성공",
   );
@@ -664,4 +670,16 @@ test("사용자 양식의 네 형식과 선택 항목을 저장하고 새 시나
         data.columns.find((column) => column.id === entry.columnId)?.name,
     );
   expect(namesInView(snapshot)).toEqual(namesInView(stored));
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("열 이름", { exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "분류 설정", exact: true }).click();
+  await page
+    .getByRole("button", { name: "열 삭제", exact: true })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath("configurable-template-mobile.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
 });

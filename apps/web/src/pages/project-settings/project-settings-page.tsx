@@ -561,7 +561,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
         </TabsList>
         <form
           ref={form}
-          className="workspace-settings-form space-y-5"
+          className={`workspace-settings-form space-y-5 ${draft.kind === "template" ? "workspace-template-form" : ""}`}
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
@@ -595,17 +595,15 @@ function SettingsEditor({ projectId }: { projectId: string }) {
             )}
           </TabsContent>
           <TabsContent value="template">
-            <Surface>
-              {draft.kind === "template" && (
-                <TemplateEditor
-                  value={draft.value}
-                  errors={errors}
-                  disabled={editingDisabled}
-                  onChange={(value) => edit({ ...draft, value })}
-                  onRemove={(id) => setConfirmation({ kind: "column", id })}
-                />
-              )}
-            </Surface>
+            {draft.kind === "template" && (
+              <TemplateEditor
+                value={draft.value}
+                errors={errors}
+                disabled={editingDisabled}
+                onChange={(value) => edit({ ...draft, value })}
+                onRemove={(id) => setConfirmation({ kind: "column", id })}
+              />
+            )}
           </TabsContent>
           {issue && !Object.values(errors).includes(issue.message) && (
             <div className="space-y-3 rounded-panel border border-border bg-warning-subtle p-4">
@@ -638,7 +636,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
               </Button>
             </Surface>
           )}
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="workspace-settings-actions flex flex-wrap items-center justify-end gap-3">
             <p role="status" className="mr-auto text-label text-muted">
               {saving
                 ? "저장 중…"

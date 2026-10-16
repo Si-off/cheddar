@@ -22,7 +22,9 @@ export function ColumnSettings({
   onRemove,
   onClearValues,
   cases = [],
+  appearance = "compact",
 }: {
+  appearance?: "compact" | "template";
   columns: Column[];
   cases?: Snapshot["cases"];
   view: Snapshot["view"];
@@ -35,7 +37,13 @@ export function ColumnSettings({
 }) {
   const [editing, setEditing] = useState<string>();
   return (
-    <div className="workspace-columns">
+    <div
+      className={
+        appearance === "template"
+          ? "workspace-columns template-columns"
+          : "workspace-columns"
+      }
+    >
       {view.map((entry, index) => {
         const column = columns.find((c) => c.id === entry.columnId);
         if (!column) return null;
@@ -49,7 +57,11 @@ export function ColumnSettings({
             view,
           );
         return (
-          <div className="workspace-column" key={column.id}>
+          <div
+            className="workspace-column"
+            key={column.id}
+            data-editing={editing === column.id || undefined}
+          >
             {onVisibility && (
               <Checkbox
                 aria-label={`${column.name} 표시`}
@@ -75,10 +87,53 @@ export function ColumnSettings({
                   />
                 }
               >
-                <span>{column.name}</span>
-                <WorkspaceIcon name="chevron" />
+                {appearance === "template" && (
+                  <span className="template-column-symbol" aria-hidden="true">
+                    {column.field === "caseCode" ? (
+                      "#"
+                    ) : column.valueType === "checkbox" ? (
+                      <WorkspaceIcon name="check" />
+                    ) : column.valueType === "select" ? (
+                      <WorkspaceIcon name="down" />
+                    ) : column.valueType === "tags" ? (
+                      <WorkspaceIcon name="columns" />
+                    ) : (
+                      "T"
+                    )}
+                  </span>
+                )}
+                <span className="template-column-name">{column.name}</span>
+                {appearance === "template" && (
+                  <span className="template-column-type">
+                    {column.kind === "system"
+                      ? "필수 열"
+                      : {
+                          text: "텍스트",
+                          select: "선택",
+                          checkbox: "체크박스",
+                          tags: "태그",
+                        }[column.valueType ?? "text"]}
+                  </span>
+                )}
+                <WorkspaceIcon
+                  name={appearance === "template" ? "more" : "chevron"}
+                />
               </PopoverTrigger>
-              <PopoverContent aria-label="열 설정">
+              <PopoverContent
+                aria-label="열 설정"
+                side={appearance === "template" ? "right" : undefined}
+                align={appearance === "template" ? "center" : undefined}
+                collisionAvoidance={
+                  appearance === "template"
+                    ? { side: "shift", align: "shift" }
+                    : undefined
+                }
+                className={
+                  appearance === "template"
+                    ? "template-column-popover"
+                    : undefined
+                }
+              >
                 <div className="workspace-form-stack">
                   <Label htmlFor={`column-name-${column.id}`}>열 이름</Label>
                   <Input
@@ -139,7 +194,7 @@ export function ColumnSettings({
                       )}
                       {(column.valueType === "select" ||
                         column.valueType === "tags") && (
-                        <fieldset className="workspace-form-stack">
+                        <fieldset className="workspace-form-stack template-column-options">
                           <legend>선택 항목</legend>
                           {(column.options ?? []).map((option) => {
                             const used = values.some(
@@ -251,6 +306,7 @@ export function ColumnSettings({
                   {column.kind === "custom" && (
                     <Button
                       variant="ghost"
+                      className="template-column-delete"
                       disabled={disabled}
                       onClick={() => {
                         setEditing(undefined);
@@ -268,6 +324,9 @@ export function ColumnSettings({
       })}
       <Button
         variant="ghost"
+        className={
+          appearance === "template" ? "template-column-add" : undefined
+        }
         disabled={disabled}
         onClick={() => {
           const id = crypto.randomUUID();

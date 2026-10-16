@@ -8,13 +8,22 @@ export const PopoverTitle = PopoverPrimitive.Title;
 export function PopoverContent({
   className,
   children,
+  collisionAvoidance,
+  side,
+  align = "end",
   ...props
-}: PopoverPrimitive.Popup.Props) {
+}: PopoverPrimitive.Popup.Props & {
+  collisionAvoidance?: PopoverPrimitive.Positioner.Props["collisionAvoidance"];
+  side?: PopoverPrimitive.Positioner.Props["side"];
+  align?: PopoverPrimitive.Positioner.Props["align"];
+}) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
         sideOffset={8}
-        align="end"
+        collisionAvoidance={collisionAvoidance}
+        side={side}
+        align={align}
         className="cd-popover-positioner"
       >
         <PopoverPrimitive.Popup
