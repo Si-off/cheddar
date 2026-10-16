@@ -190,9 +190,7 @@ export class GenerationService implements OnModuleDestroy {
       sourceRevision: context.analysis?.revision ?? 0,
       frameIds: context.frames.map((f) => f.id),
       screenIds: context.ia.map((i) => i.id),
-      customColumnIds: job.snapshot.columns
-        .filter((column) => column.kind === "custom")
-        .map((column) => column.id),
+      columns: job.snapshot.columns,
     };
   }
   private async structure(

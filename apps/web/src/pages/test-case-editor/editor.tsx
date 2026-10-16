@@ -92,14 +92,7 @@ export function TestScenarioEditor({
   const [detailId, setDetailId] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [layout, setLayout] = useState<"table" | "qa">("table");
-  const [hidden, setHidden] = useState<Set<string>>(
-    () =>
-      new Set(
-        snapshot.columns
-          .filter((c) => c.field === "priority" || c.field === "relatedFrames")
-          .map((c) => c.id),
-      ),
-  );
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [menuOpen, setMenuOpen] = useState(false);
   const [generationPanel, setGenerationPanel] = useState<
     "generate" | "results" | null
@@ -290,7 +283,9 @@ export function TestScenarioEditor({
   function removeColumn(id: string) {
     setSettingsOpen(false);
     const column = state.draft.columns.find((c) => c.id === id);
-    const count = state.draft.cases.filter((c) => !!c.customValues[id]).length;
+    const count = state.draft.cases.filter((c) =>
+      Object.hasOwn(c.customValues, id),
+    ).length;
     setConfirm({
       title: "사용자 열 삭제",
       description: `${column?.name} 열과 테스트 케이스 ${count}개의 값을 삭제할까요?`,
@@ -641,6 +636,7 @@ export function TestScenarioEditor({
               </div>
               <ColumnSettings
                 columns={state.draft.columns}
+                cases={state.draft.cases}
                 view={state.draft.view}
                 disabled={disabled}
                 hidden={hidden}
@@ -655,6 +651,29 @@ export function TestScenarioEditor({
                 onChange={(columns, view) =>
                   session.edit((s) => ({ ...s, columns, view }))
                 }
+                onClearValues={(id) => {
+                  setSettingsOpen(false);
+                  const column = state.draft.columns.find((c) => c.id === id);
+                  const count = state.draft.cases.filter((c) =>
+                    Object.hasOwn(c.customValues, id),
+                  ).length;
+                  setConfirm({
+                    title: "열 값 비우기",
+                    description: `${column?.name} 열의 테스트 케이스 ${count}개 값을 비울까요?`,
+                    action: () =>
+                      session.edit((current) => ({
+                        ...current,
+                        cases: current.cases.map((item) => ({
+                          ...item,
+                          customValues: Object.fromEntries(
+                            Object.entries(item.customValues).filter(
+                              ([key]) => key !== id,
+                            ),
+                          ),
+                        })),
+                      })),
+                  });
+                }}
                 onRemove={removeColumn}
               />
             </PopoverContent>

@@ -6,6 +6,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Textarea,
   WorkspaceIcon,
 } from "@cheddar/ui";
 import { useState } from "react";
@@ -19,14 +20,18 @@ export function ColumnSettings({
   onVisibility,
   onChange,
   onRemove,
+  onClearValues,
+  cases = [],
 }: {
   columns: Column[];
+  cases?: Snapshot["cases"];
   view: Snapshot["view"];
   disabled?: boolean;
   hidden?: Set<string>;
   onVisibility?: (id: string) => void;
   onChange: (columns: Column[], view: Snapshot["view"]) => void;
   onRemove: (id: string) => void;
+  onClearValues?: (id: string) => void;
 }) {
   const [editing, setEditing] = useState<string>();
   return (
@@ -34,6 +39,15 @@ export function ColumnSettings({
       {view.map((entry, index) => {
         const column = columns.find((c) => c.id === entry.columnId);
         if (!column) return null;
+        const values = cases.map((item) => item.customValues[column.id]);
+        const hasValues = cases.some((item) =>
+          Object.hasOwn(item.customValues, column.id),
+        );
+        const updateColumn = (update: Partial<Column>) =>
+          onChange(
+            columns.map((c) => (c.id === column.id ? { ...c, ...update } : c)),
+            view,
+          );
         return (
           <div className="workspace-column" key={column.id}>
             {onVisibility && (
@@ -81,6 +95,144 @@ export function ColumnSettings({
                       )
                     }
                   />
+                  {column.kind === "custom" && (
+                    <>
+                      <Label htmlFor={`column-type-${column.id}`}>형식</Label>
+                      <WorkspaceSelect
+                        id={`column-type-${column.id}`}
+                        value={column.valueType ?? "text"}
+                        disabled={disabled || hasValues}
+                        options={[
+                          { value: "text", label: "텍스트" },
+                          { value: "select", label: "선택" },
+                          { value: "checkbox", label: "체크박스" },
+                          { value: "tags", label: "태그" },
+                        ]}
+                        onValueChange={(valueType) =>
+                          updateColumn({
+                            valueType: valueType as Column["valueType"],
+                            options:
+                              valueType === "select" || valueType === "tags"
+                                ? (column.options ?? [])
+                                : undefined,
+                          })
+                        }
+                      />
+                      {hasValues && (
+                        <div>
+                          <p className="text-caption text-muted">
+                            값을 비우면 형식을 바꿀 수 있습니다.
+                          </p>
+                          {onClearValues && (
+                            <Button
+                              variant="ghost"
+                              disabled={disabled}
+                              onClick={() => {
+                                setEditing(undefined);
+                                onClearValues(column.id);
+                              }}
+                            >
+                              값 비우기
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {(column.valueType === "select" ||
+                        column.valueType === "tags") && (
+                        <fieldset className="workspace-form-stack">
+                          <legend>선택 항목</legend>
+                          {(column.options ?? []).map((option) => {
+                            const used = values.some(
+                              (value) =>
+                                value === option.id ||
+                                (Array.isArray(value) &&
+                                  value.includes(option.id)),
+                            );
+                            return (
+                              <div
+                                key={option.id}
+                                className="flex items-center gap-2"
+                              >
+                                <Input
+                                  aria-label={`${option.name || "새 항목"} 이름`}
+                                  value={option.name}
+                                  disabled={disabled}
+                                  maxLength={100}
+                                  onValueChange={(name) =>
+                                    updateColumn({
+                                      options: column.options?.map((o) =>
+                                        o.id === option.id ? { ...o, name } : o,
+                                      ),
+                                    })
+                                  }
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`${option.name || "새 항목"} 삭제`}
+                                  disabled={disabled || used}
+                                  onClick={() =>
+                                    updateColumn({
+                                      options: column.options?.filter(
+                                        (o) => o.id !== option.id,
+                                      ),
+                                    })
+                                  }
+                                >
+                                  <WorkspaceIcon name="trash" />
+                                </Button>
+                                {used && (
+                                  <span className="text-caption text-muted">
+                                    사용 중
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                          <Button
+                            variant="ghost"
+                            disabled={disabled}
+                            onClick={() => {
+                              let number = 1;
+                              while (
+                                column.options?.some(
+                                  (option) => option.name === `항목 ${number}`,
+                                )
+                              )
+                                number++;
+                              updateColumn({
+                                options: [
+                                  ...(column.options ?? []),
+                                  {
+                                    id: crypto.randomUUID(),
+                                    name: `항목 ${number}`,
+                                  },
+                                ],
+                              });
+                            }}
+                          >
+                            항목 추가
+                          </Button>
+                        </fieldset>
+                      )}
+                    </>
+                  )}
+                  {column.field !== "caseCode" && (
+                    <>
+                      <Label htmlFor={`column-description-${column.id}`}>
+                        작성 기준
+                      </Label>
+                      <Textarea
+                        id={`column-description-${column.id}`}
+                        value={column.description ?? ""}
+                        disabled={disabled}
+                        maxLength={2000}
+                        onChange={(event) =>
+                          updateColumn({ description: event.target.value })
+                        }
+                      />
+                    </>
+                  )}
                   <Label htmlFor={`column-order-${column.id}`}>순서</Label>
                   <WorkspaceSelect
                     id={`column-order-${column.id}`}

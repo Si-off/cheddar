@@ -6,7 +6,6 @@ import type {
   TestScenarioSnapshotDto,
 } from "../contracts/test-scenarios.dto";
 
-const priorities = { high: "높음", medium: "보통", low: "낮음" };
 function limit(row: number, column: number, reason: string): never {
   throw new ApiError(
     422,
@@ -20,45 +19,22 @@ function limit(row: number, column: number, reason: string): never {
   );
 }
 export function displayValue(
-  snapshot: TestScenarioSnapshotDto,
+  _snapshot: TestScenarioSnapshotDto,
   item: CaseContentDto,
   column: TestScenarioColumnDto,
 ): string {
-  if (column.kind === "custom") return item.customValues[column.id] ?? "";
-  if (column.field === "priority")
-    return item.priority ? priorities[item.priority] : "";
-  if (column.field === "relatedFrames") {
-    return item.relatedFrameIds
-      .map((id) => {
-        const frame = snapshot.references.frames.find((f) => f.id === id);
-        if (!frame)
-          throw new ApiError(
-            409,
-            "REFERENCE_IN_USE",
-            "프레임 연결 확인 후 다시 내보내주세요.",
-          );
-        const duplicate = snapshot.references.frames.some(
-          (f) => f.id !== id && f.name === frame.name,
-        );
-        return duplicate
-          ? `${frame.name} (${frame.figmaFileKey}/${frame.figmaNodeId})`
-          : frame.name;
-      })
-      .join("\n");
+  if (column.kind === "custom") {
+    const value = item.customValues[column.id];
+    const label = (id: string) =>
+      column.options?.find((option) => option.id === id)?.name ?? "";
+    if (column.valueType === "checkbox")
+      return value === true ? "체크" : "미체크";
+    if (column.valueType === "select")
+      return typeof value === "string" ? label(value) : "";
+    if (column.valueType === "tags")
+      return Array.isArray(value) ? value.map(label).join("\n") : "";
+    return typeof value === "string" ? value : "";
   }
-  if (column.field === "screens")
-    return item.screenIds
-      .map((id) => {
-        const screen = snapshot.references.iaItems.find((i) => i.id === id);
-        if (!screen)
-          throw new ApiError(
-            409,
-            "REFERENCE_IN_USE",
-            "화면 구조 연결 확인 후 다시 내보내주세요.",
-          );
-        return `${screen.screenId} ${screen.name}`;
-      })
-      .join("\n");
   const field = column.field;
   return field ? item[field] : "";
 }

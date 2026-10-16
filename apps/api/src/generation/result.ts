@@ -5,6 +5,7 @@ import { ApiError } from "../common/errors";
 import type { GenerationResultItemDto } from "../contracts/generation.dto";
 import {
   type CaseContentDto,
+  type TestScenarioColumnDto,
   TestScenarioContentDto,
   type TestScenarioSnapshotDto,
 } from "../contracts/test-scenarios.dto";
@@ -15,11 +16,10 @@ const object = (properties: Record<string, unknown>) => ({
   required: Object.keys(properties),
   additionalProperties: false,
 });
-const string = { type: "string" };
 export function createResultSchema(
   frameIds: string[],
   screenIds: string[],
-  customColumnIds: string[],
+  columns: TestScenarioColumnDto[],
   requirementIds: string[] = [],
 ) {
   const references = (ids: string[]) => ({
@@ -27,33 +27,48 @@ export function createResultSchema(
     items: { type: "string", enum: ids },
   });
   const nonempty = { type: "string", pattern: "\\S" };
+  const customProperties = Object.fromEntries(
+    columns
+      .filter((column) => column.kind === "custom")
+      .map((column) => {
+        const ids = (column.options ?? []).map((option) => option.id);
+        let schema: Record<string, unknown> = { type: "string" };
+        if (column.valueType === "checkbox") schema = { type: "boolean" };
+        if (column.valueType === "select")
+          schema = ids.length
+            ? { anyOf: [{ type: "string", enum: ids }, { type: "null" }] }
+            : { type: "null" };
+        if (column.valueType === "tags")
+          schema = {
+            type: "array",
+            items: ids.length
+              ? { type: "string", enum: ids }
+              : { type: "string" },
+            ...(!ids.length ? { maxItems: 0 } : {}),
+          };
+        return [
+          column.id,
+          {
+            ...schema,
+            description: [column.name, column.description]
+              .filter(Boolean)
+              .join(": "),
+          },
+        ];
+      }),
+  );
   const caseSchema = object({
     ...(requirementIds.length
       ? { requirementIds: references(requirementIds) }
       : {}),
-    title: nonempty,
-    preconditions: string,
-    steps: nonempty,
-    expectedResult: nonempty,
-    priority: {
-      anyOf: [
-        { type: "string", enum: ["high", "medium", "low"] },
-        { type: "null" },
-      ],
+    title: {
+      ...nonempty,
+      description:
+        columns.find((c) => c.field === "title")?.description ?? "테스트 항목",
     },
     ...(frameIds.length ? { relatedFrameIds: references(frameIds) } : {}),
     ...(screenIds.length ? { screenIds: references(screenIds) } : {}),
-    ...(customColumnIds.length
-      ? {
-          customValues: {
-            type: "array",
-            items: object({
-              columnId: { type: "string", enum: customColumnIds },
-              value: string,
-            }),
-          },
-        }
-      : {}),
+    customValues: object(customProperties),
   });
   return object({
     cases: { type: "array", items: caseSchema },
@@ -133,23 +148,17 @@ export function parseResult(
   function convert(value: Record<string, unknown>): CaseContentDto {
     if (!value || typeof value !== "object" || Array.isArray(value))
       throw invalidResult("case_structure");
-    const customValues =
-      value.customValues ?? (!customColumnIds.length ? [] : undefined);
-    if (!Array.isArray(customValues)) throw invalidResult("custom_values");
-    const entries = customValues as { columnId: string; value: string }[];
+    const customValues = value.customValues;
     if (
-      entries.some(
-        (e) =>
-          !e || typeof e.columnId !== "string" || typeof e.value !== "string",
-      ) ||
-      new Set(entries.map((e) => e.columnId.trim().toLowerCase())).size !==
-        entries.length
+      !customValues ||
+      typeof customValues !== "object" ||
+      Array.isArray(customValues)
     )
       throw invalidResult("custom_values");
+    const keys = Object.keys(customValues);
     if (
-      entries.some(
-        (e) => !customColumnIds.includes(e.columnId.trim().toLowerCase()),
-      )
+      keys.length !== customColumnIds.length ||
+      keys.some((id) => !customColumnIds.includes(id))
     )
       throw invalidResult("custom_column_reference");
     const { requirementIds: rawRequirements, ...fields } = value;
@@ -162,27 +171,16 @@ export function parseResult(
       ...fields,
       id: randomUUID(),
       caseCode: "",
-      priority:
-        typeof value.priority === "string"
-          ? value.priority.trim().toLowerCase()
-          : value.priority,
       relatedFrameIds: references(
         value.relatedFrameIds,
         frameIds,
         "frame_reference",
       ),
       screenIds: references(value.screenIds, screenIds, "ia_reference"),
-      customValues: Object.fromEntries(
-        entries.map((e) => [e.columnId.trim().toLowerCase(), e.value]),
-      ),
+      customValues,
     } as CaseContentDto;
     validateContent(snapshot, [content]);
-    if (
-      !content.title.trim() ||
-      !content.steps.trim() ||
-      !content.expectedResult.trim()
-    )
-      throw invalidResult("empty_case_text");
+    if (!content.title.trim()) throw invalidResult("empty_case_text");
     sourceLinks.push({
       caseId: content.id,
       requirementIds: linkedRequirements,

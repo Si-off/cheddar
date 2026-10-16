@@ -1,32 +1,23 @@
 import type { TestScenarioSnapshotDto } from "@/shared/api/generated";
 
-export type SystemField =
-  | "caseCode"
-  | "title"
-  | "preconditions"
-  | "steps"
-  | "expectedResult"
-  | "priority"
-  | "relatedFrames"
-  | "screens";
+export type SystemField = "caseCode" | "title";
+export type ColumnValue = string | boolean | string[] | null;
 export type Column = {
   id: string;
   kind: "system" | "custom";
   name: string;
   field?: SystemField;
-  valueType?: "text";
+  valueType?: "text" | "select" | "checkbox" | "tags";
+  description?: string;
+  options?: { id: string; name: string }[];
 };
 export type CaseDraft = {
   id: string;
   caseCode: string;
   title: string;
-  preconditions: string;
-  steps: string;
-  expectedResult: string;
-  priority: "high" | "medium" | "low" | null;
   relatedFrameIds: string[];
   screenIds: string[];
-  customValues: Record<string, string>;
+  customValues: Record<string, ColumnValue>;
 };
 export type ViewColumn = { columnId: string; width: number };
 export type FrameReference = {
@@ -63,16 +54,11 @@ export function newCase(): CaseDraft {
     id: crypto.randomUUID(),
     caseCode: "",
     title: "",
-    preconditions: "",
-    steps: "",
-    expectedResult: "",
-    priority: null,
     relatedFrameIds: [],
     screenIds: [],
     customValues: {},
   };
 }
-export const priorityLabels = { high: "높음", medium: "보통", low: "낮음" };
 export function content(snapshot: Snapshot) {
   return {
     columns: [...snapshot.columns].sort((a, b) => a.id.localeCompare(b.id)),
@@ -108,55 +94,47 @@ export function validate(snapshot: Snapshot): string | undefined {
     return "시나리오 내용이 저장 한도인 5MiB를 넘었습니다. 입력 내용을 줄여주세요.";
 }
 export function displayValue(
-  snapshot: Snapshot,
+  _snapshot: Snapshot,
   item: CaseDraft,
   column: Column,
-) {
-  if (column.kind === "custom") return item.customValues[column.id] ?? "";
-  if (column.field === "priority")
-    return item.priority ? priorityLabels[item.priority] : "";
-  if (column.field === "relatedFrames")
-    return item.relatedFrameIds
-      .map((id) => {
-        const f = snapshot.references.frames.find((v) => v.id === id);
-        return f ? f.name : "프레임";
-      })
-      .join("\n");
-  if (column.field === "screens")
-    return item.screenIds
-      .map((id) => {
-        const i = snapshot.references.iaItems.find((v) => v.id === id);
-        return i ? `${i.screenId} ${i.name}` : "화면";
-      })
-      .join("\n");
-  return column.field ? item[column.field] : "";
+): string {
+  if (column.kind === "system") return column.field ? item[column.field] : "";
+  const value = item.customValues[column.id];
+  const label = (id: string) =>
+    column.options?.find((option) => option.id === id)?.name ?? "";
+  if (column.valueType === "checkbox")
+    return value === true ? "체크" : "미체크";
+  if (column.valueType === "select")
+    return typeof value === "string" ? label(value) : "";
+  if (column.valueType === "tags")
+    return Array.isArray(value) ? value.map(label).join("\n") : "";
+  return typeof value === "string" ? value : "";
 }
 export function setValue(
   item: CaseDraft,
   column: Column,
   value: string,
 ): CaseDraft {
-  if (column.kind === "custom")
-    return {
-      ...item,
-      customValues: { ...item.customValues, [column.id]: value },
-    };
-  if (column.field === "priority") {
-    const priority =
-      value === ""
-        ? null
-        : value === "높음" || value === "high"
-          ? "high"
-          : value === "보통" || value === "medium"
-            ? "medium"
-            : value === "낮음" || value === "low"
-              ? "low"
-              : undefined;
-    if (priority === undefined)
-      throw new Error("우선순위 셀에서 값을 선택하거나 비워주세요.");
-    return { ...item, priority };
+  if (column.kind === "system")
+    return column.field ? { ...item, [column.field]: value } : item;
+  let parsed: ColumnValue = value;
+  const optionId = (text: string) => {
+    const option = column.options?.find(
+      (option) => option.id === text || option.name === text,
+    );
+    if (!option) throw new Error(`${column.name}의 선택 항목을 확인해주세요.`);
+    return option.id;
+  };
+  if (column.valueType === "select") parsed = value ? optionId(value) : null;
+  if (column.valueType === "checkbox") {
+    if (["체크", "true", "1"].includes(value)) parsed = true;
+    else if (["", "미체크", "false", "0"].includes(value)) parsed = false;
+    else throw new Error(`${column.name}에는 체크 또는 미체크를 입력해주세요.`);
   }
-  if (column.field === "relatedFrames" || column.field === "screens")
-    throw new Error("프레임과 화면 구조 연결은 상세 편집에서 변경해주세요.");
-  return column.field ? { ...item, [column.field]: value } : item;
+  if (column.valueType === "tags")
+    parsed = value ? [...new Set(value.split("\n").map(optionId))] : [];
+  return {
+    ...item,
+    customValues: { ...item.customValues, [column.id]: parsed },
+  };
 }

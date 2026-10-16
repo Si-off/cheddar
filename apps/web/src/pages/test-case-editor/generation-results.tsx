@@ -12,7 +12,7 @@ import {
 } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { Snapshot } from "@/entities/test-case";
+import { displayValue, type Snapshot } from "@/entities/test-case";
 import { readAnalysis } from "@/pages/project-uploads/analysis-api";
 import { SourceImage } from "@/pages/project-uploads/source-viewer";
 import type {
@@ -20,6 +20,7 @@ import type {
   GenerationResultItemDto,
   ReviewGenerationResultDto,
 } from "@/shared/api/generated";
+import { ColumnValueEditor } from "@/widgets/test-case-table/column-value-editor";
 import {
   type ResultDraft,
   type ResultDrafts,
@@ -28,11 +29,6 @@ import {
   writeResultDrafts,
 } from "./generation-drafts";
 
-const fields = [
-  ["preconditions", "사전 조건"],
-  ["steps", "수행 절차"],
-  ["expectedResult", "예상 결과"],
-] as const;
 export function similarCases(title: string, snapshot: Snapshot) {
   const words = new Set(
     title
@@ -344,30 +340,14 @@ export function GenerationResults({
                   <details>
                     <summary>최신 내용 비교</summary>
                     <h4>{item.content.title}</h4>
-                    {fields.map(([field, label]) => (
-                      <div key={field}>
-                        <strong>{label}</strong>
-                        <p>{item.content[field]}</p>
-                      </div>
-                    ))}
-                    <p>
-                      우선순위:{" "}
-                      {
-                        {
-                          high: "높음",
-                          medium: "보통",
-                          low: "낮음",
-                          none: "미지정",
-                        }[item.content.priority ?? "none"]
-                      }
-                    </p>
                     {snapshot.columns
                       .filter((column) => column.kind === "custom")
                       .map((column) => (
                         <div key={column.id}>
                           <strong>{column.name}</strong>
                           <p>
-                            {item.content.customValues[column.id] || "미입력"}
+                            {displayValue(snapshot, item.content, column) ||
+                              "미입력"}
                           </p>
                         </div>
                       ))}
@@ -459,74 +439,30 @@ export function GenerationResults({
                     onValueChange={(title) => edit({ title })}
                   />
                 </div>
-                {fields.map(([field, label]) => (
-                  <div key={field}>
-                    <Label htmlFor={`result-${field}`}>
-                      {snapshot.columns.find((column) => column.field === field)
-                        ?.name ?? label}
-                    </Label>
-                    <Textarea
-                      id={`result-${field}`}
-                      value={content[field]}
-                      disabled={locked}
-                      onChange={(event) =>
-                        edit({ [field]: event.target.value })
-                      }
-                    />
-                  </div>
-                ))}
+                {snapshot.columns
+                  .filter((column) => column.kind === "custom")
+                  .map((column) => (
+                    <div key={column.id}>
+                      <Label htmlFor={`result-${column.id}`}>
+                        {column.name}
+                      </Label>
+                      <ColumnValueEditor
+                        id={`result-${column.id}`}
+                        column={column}
+                        value={content.customValues[column.id]}
+                        disabled={locked}
+                        onChange={(value) =>
+                          edit({
+                            customValues: {
+                              ...content.customValues,
+                              [column.id]: value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  ))}
               </div>
-              <Label htmlFor="result-priority">우선순위</Label>
-              <Select
-                value={content.priority ?? "none"}
-                disabled={locked}
-                onValueChange={(value) =>
-                  edit({
-                    priority:
-                      value === "none"
-                        ? null
-                        : (value as ResultDraft["content"]["priority"]),
-                  })
-                }
-              >
-                <SelectTrigger id="result-priority">
-                  <SelectValue>
-                    {
-                      {
-                        high: "높음",
-                        medium: "보통",
-                        low: "낮음",
-                        none: "미지정",
-                      }[content.priority ?? "none"]
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">미지정</SelectItem>
-                  <SelectItem value="high">높음</SelectItem>
-                  <SelectItem value="medium">보통</SelectItem>
-                  <SelectItem value="low">낮음</SelectItem>
-                </SelectContent>
-              </Select>
-              {snapshot.columns
-                .filter((column) => column.kind === "custom")
-                .map((column) => (
-                  <Label key={column.id}>
-                    {column.name}
-                    <Input
-                      value={content.customValues[column.id] ?? ""}
-                      disabled={locked}
-                      onValueChange={(value) =>
-                        edit({
-                          customValues: {
-                            ...content.customValues,
-                            [column.id]: value,
-                          },
-                        })
-                      }
-                    />
-                  </Label>
-                ))}
               <details className="confirmation-evidence">
                 <summary>근거 자료</summary>
                 {sources.map((source) => (
@@ -572,14 +508,14 @@ export function GenerationResults({
                   </Select>
                   {comparison && (
                     <div className="result-comparison">
-                      {fields.map(([field, label]) => (
-                        <div key={field}>
-                          <h4>{label}</h4>
-                          <p className="whitespace-pre-wrap">
-                            {comparison[field]}
-                          </p>
-                        </div>
-                      ))}
+                      {snapshot.columns
+                        .filter((column) => column.kind === "custom")
+                        .map((column) => (
+                          <div key={column.id}>
+                            <strong>{column.name}</strong>
+                            <p>{displayValue(snapshot, comparison, column)}</p>
+                          </div>
+                        ))}
                     </div>
                   )}
                 </details>

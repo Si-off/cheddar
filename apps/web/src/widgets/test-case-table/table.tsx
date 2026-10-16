@@ -1,14 +1,4 @@
-import {
-  Button,
-  Checkbox,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
-  WorkspaceIcon,
-} from "@cheddar/ui";
+import { Button, Checkbox, Textarea, WorkspaceIcon } from "@cheddar/ui";
 import {
   type ColumnDef,
   flexRender,
@@ -37,6 +27,7 @@ import {
   copyRange,
   pasteRange,
 } from "./clipboard";
+import { ColumnValueEditor } from "./column-value-editor";
 import "./table.css";
 
 type Props = {
@@ -177,12 +168,11 @@ export function TestCaseTable({
     const item = snapshot.cases.find((c) => c.id === position.rowId),
       column = columns.find((c) => c.id === position.columnId);
     if (disabled || !item || !column) return;
-    if (column.field === "relatedFrames" || column.field === "screens") {
-      onDetails(item.id);
-      return;
-    }
     setEditing({ ...position, original: displayValue(snapshot, item, column) });
-    if (replacement !== undefined && column.field !== "priority")
+    if (
+      replacement !== undefined &&
+      (column.kind === "system" || column.valueType === "text")
+    )
       changeCell(item.id, column, replacement);
   }
   function changeCell(id: string, column: Column, value: string) {
@@ -210,11 +200,7 @@ export function TestCaseTable({
         event.preventDefault();
       } else if (event.key === "Enter") {
         const column = columns.find((c) => c.id === editing.columnId);
-        const multiline =
-          column &&
-          ["preconditions", "steps", "expectedResult"].includes(
-            column.field ?? "",
-          );
+        const multiline = column?.valueType === "text";
         if (multiline && !event.metaKey && !event.ctrlKey) return;
         setEditing(undefined);
         move(
@@ -570,42 +556,34 @@ export function TestCaseTable({
                         {"\u200b"}
                       </span>
                       {edit &&
-                        (column.field === "priority" ? (
-                          <Select
-                            defaultOpen
-                            value={row.original.priority ?? ""}
-                            items={[
-                              { value: "", label: "미지정" },
-                              { value: "high", label: "높음" },
-                              { value: "medium", label: "보통" },
-                              { value: "low", label: "낮음" },
-                            ]}
-                            onValueChange={(next) => {
-                              if (next !== null)
-                                changeCell(row.id, column, next);
+                        (column.kind === "custom" &&
+                        column.valueType !== "text" ? (
+                          <ColumnValueEditor
+                            id={`cell-${row.id}-${column.id}`}
+                            column={column}
+                            value={row.original.customValues[column.id]}
+                            disabled={disabled}
+                            onChange={(value) =>
+                              onChange({
+                                ...snapshot,
+                                cases: snapshot.cases.map((item) =>
+                                  item.id === row.id
+                                    ? {
+                                        ...item,
+                                        customValues: {
+                                          ...item.customValues,
+                                          [column.id]: value,
+                                        },
+                                      }
+                                    : item,
+                                ),
+                              })
+                            }
+                            onDone={() => {
+                              setEditing(undefined);
+                              focus(position);
                             }}
-                            onOpenChange={(open) => {
-                              if (!open) {
-                                setEditing(undefined);
-                                focus(position);
-                              }
-                            }}
-                          >
-                            <SelectTrigger
-                              aria-label="우선순위 편집"
-                              onKeyDown={(event) => event.stopPropagation()}
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent
-                              onKeyDown={(event) => event.stopPropagation()}
-                            >
-                              <SelectItem value="">미지정</SelectItem>
-                              <SelectItem value="high">높음</SelectItem>
-                              <SelectItem value="medium">보통</SelectItem>
-                              <SelectItem value="low">낮음</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          />
                         ) : (
                           <Textarea
                             ref={focusEditor}

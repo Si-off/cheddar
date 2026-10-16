@@ -28,10 +28,7 @@ function draft(extra: Partial<CaseContentDto> = {}): CaseContentDto {
     id: randomUUID(),
     caseCode: "",
     title: "",
-    preconditions: "",
-    steps: "",
-    expectedResult: "",
-    priority: null,
+
     relatedFrameIds: [],
     screenIds: [],
     customValues: {},
@@ -93,7 +90,7 @@ test("testScenario HTTP persistence, conflict, template copy and exports", async
       "new testScenarios copy the template with fresh IDs and existing testScenarios remain independent",
       async () => {
         const first = await create();
-        assert.equal(first.columns.length, 10);
+        assert.equal(first.columns.length, 2);
         assert.deepEqual(first.cases, []);
         assert.equal(first.view[0].width, 100);
         const [template] = await lease.database.db
@@ -130,6 +127,84 @@ test("testScenario HTTP persistence, conflict, template copy and exports", async
           ).status,
           404,
         );
+      },
+    );
+    await t.test(
+      "configured values persist by type, option renames preserve values and invalid options are rejected atomically",
+      async () => {
+        let scenario = await create();
+        const option = { id: randomUUID(), name: "기본" };
+        const custom = (["text", "select", "checkbox", "tags"] as const).map(
+          (valueType) => ({
+            id: randomUUID(),
+            kind: "custom" as const,
+            name: valueType,
+            valueType,
+            ...(["select", "tags"].includes(valueType)
+              ? { options: [option] }
+              : {}),
+          }),
+        );
+        const [text, select, checkbox, tags] = custom.map(
+          (column) => column.id,
+        );
+        const values = {
+          [text]: "사용자 절차\n둘째 줄",
+          [select]: option.id,
+          [checkbox]: true,
+          [tags]: [option.id],
+        };
+        const response = await save(
+          scenario,
+          [draft({ title: "선택한 양식", customValues: values })],
+          [...scenario.columns, ...custom],
+        );
+        assert.equal(response.status, 200, await response.clone().text());
+        scenario = (await response.json()) as TestScenarioSnapshotDto;
+        assert.deepEqual(scenario.cases[0].customValues, values);
+        assert.equal("priority" in scenario.cases[0], false);
+        const renamed = scenario.columns.map((column) =>
+          column.options
+            ? {
+                ...column,
+                name: `${column.name} 변경`,
+                options: [{ ...option, name: "변경된 항목" }],
+              }
+            : column,
+        );
+        const rename = await save(scenario, scenario.cases, renamed);
+        assert.equal(rename.status, 200, await rename.clone().text());
+        scenario = (await rename.json()) as TestScenarioSnapshotDto;
+        assert.deepEqual(scenario.cases[0].customValues, values);
+        for (const invalid of [
+          { ...values, [select]: randomUUID() },
+          { ...values, [checkbox]: "true" },
+          { ...values, [tags]: [option.id, option.id] },
+          { ...values, [randomUUID()]: "없는 열" },
+        ]) {
+          assert.equal(
+            (await save(scenario, [draft({ customValues: invalid })])).status,
+            400,
+          );
+          assert.deepEqual(
+            await (await request(`${prefix}/${scenario.id}`)).json(),
+            scenario,
+          );
+        }
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(
+          await (
+            await request(`${prefix}/${scenario.id}/export.xlsx`)
+          ).arrayBuffer(),
+        );
+        const row = workbook.worksheets[0].getRow(2).values;
+        assert.ok(
+          Array.isArray(row) &&
+            row.includes("변경된 항목") &&
+            row.includes("체크") &&
+            row.includes("사용자 절차\n둘째 줄"),
+        );
+        assert.equal(workbook.worksheets[0].columnCount, 6);
       },
     );
     await t.test(
@@ -422,10 +497,7 @@ test("testScenario HTTP persistence, conflict, template copy and exports", async
         assert.equal(worksheet.rowCount, 3);
         const values = worksheet.getRow(2).values;
         assert.ok(
-          Array.isArray(values) &&
-            values.includes("=SUM(1,2)\n한글 😀") &&
-            values.includes("ORD-01 주문") &&
-            values.includes("주문"),
+          Array.isArray(values) && values.includes("=SUM(1,2)\n한글 😀"),
         );
         await lease.database.db
           .update(iaItems)
@@ -451,7 +523,6 @@ test("testScenario HTTP persistence, conflict, template copy and exports", async
         const cases = Array.from({ length: 500 }, (_, i) =>
           draft({
             title: `케이스 ${i + 1}`,
-            steps: "긴 수행 단계\n".repeat(10),
             customValues: Object.fromEntries(
               custom.map((c) => [c.id, `값 ${i}`]),
             ),

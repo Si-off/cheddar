@@ -206,12 +206,19 @@ export type UpdateIaItemDto = {
     expectedRevision: number;
 };
 
+export type ColumnOptionDto = {
+    id: string;
+    name: string;
+};
+
 export type TestScenarioColumnDto = {
     id: string;
     kind: 'system' | 'custom';
     name: string;
-    field?: 'caseCode' | 'title' | 'preconditions' | 'steps' | 'expectedResult' | 'priority' | 'relatedFrames' | 'screens';
-    valueType?: 'text';
+    field?: 'caseCode' | 'title';
+    valueType?: 'text' | 'select' | 'checkbox' | 'tags';
+    description?: string;
+    options?: Array<ColumnOptionDto>;
 };
 
 export type ColumnViewDto = {
@@ -250,17 +257,13 @@ export type CaseContentDto = {
     id: string;
     caseCode: string;
     title: string;
-    preconditions: string;
-    steps: string;
-    expectedResult: string;
-    priority: 'high' | 'medium' | 'low' | null;
     relatedFrameIds: Array<string>;
     screenIds: Array<string>;
     /**
      * Keys are custom column UUIDs, not labels or positions.
      */
     customValues: {
-        [key: string]: string;
+        [key: string]: string | null | boolean | Array<string>;
     };
 };
 
@@ -322,7 +325,7 @@ export type TestScenarioPageDto = {
 export type TestScenarioContentDto = {
     expectedRevision: number;
     /**
-     * All system fields once; custom columns have valueType text.
+     * ID and title once; other columns use text, select, checkbox or tags.
      */
     columns: Array<TestScenarioColumnDto>;
     cases: Array<CaseContentDto>;

@@ -41,47 +41,65 @@ function snapshot(): TestScenarioSnapshotDto {
 }
 const content = () => ({
   title: "Login",
-  preconditions: "",
-  steps: "Submit credentials",
-  expectedResult: "Home is displayed",
-  priority: null,
+  customValues: {},
 });
-test("generation schema permits nullable priorities and restricts references to the selected input", () => {
+test("generation follows configured types and rejects unconfigured columns, options and references", () => {
   const frameId = randomUUID(),
-    iaId = randomUUID(),
-    columnId = randomUUID();
+    iaId = randomUUID();
+  const option = { id: randomUUID(), name: "긴급" };
+  const columns = (["text", "select", "checkbox", "tags"] as const).map(
+    (valueType) => ({
+      id: randomUUID(),
+      kind: "custom" as const,
+      name: valueType,
+      valueType,
+      ...(["select", "tags"].includes(valueType) ? { options: [option] } : {}),
+    }),
+  );
+  const [text, select, checkbox, tags] = columns.map((column) => column.id);
   const validate = new Ajv().compile(
-    createResultSchema([frameId], [iaId], [columnId]),
+    createResultSchema([frameId], [iaId], columns),
   );
   const row = {
-    ...content(),
+    title: "Login",
     relatedFrameIds: [frameId],
     screenIds: [iaId],
-    customValues: [{ columnId, value: "Text" }],
+    customValues: {
+      [text]: "절차",
+      [select]: option.id,
+      [checkbox]: true,
+      [tags]: [option.id],
+    },
   };
   assert.equal(validate({ cases: [row], candidates: [] }), true);
-  for (const priority of ["high", "medium", "low"])
-    assert.equal(
-      validate({ cases: [{ ...row, priority }], candidates: [] }),
-      true,
-    );
+  assert.equal(
+    validate({
+      cases: [
+        { ...row, customValues: { ...row.customValues, [select]: null } },
+      ],
+      candidates: [],
+    }),
+    true,
+  );
   for (const patch of [
     { relatedFrameIds: [randomUUID()] },
     { screenIds: [randomUUID()] },
-    { customValues: [{ columnId: randomUUID(), value: "Text" }] },
-    { steps: "   " },
+    { priority: "high" },
+    { steps: "fixed" },
+    { title: "   " },
+    { customValues: { ...row.customValues, [select]: randomUUID() } },
+    { customValues: { ...row.customValues, [checkbox]: "true" } },
+    { customValues: { ...row.customValues, [tags]: [randomUUID()] } },
+    { customValues: {} },
   ])
     assert.equal(
       validate({ cases: [{ ...row, ...patch }], candidates: [] }),
       false,
     );
-  const emptySchema = new Ajv().compile(createResultSchema([], [], []));
-  assert.equal(emptySchema({ cases: [content()], candidates: [] }), true);
+  const empty = new Ajv().compile(createResultSchema([], [], []));
+  assert.equal(empty({ cases: [content()], candidates: [] }), true);
   assert.equal(
-    emptySchema({
-      cases: [{ ...content(), screenIds: [iaId] }],
-      candidates: [],
-    }),
+    empty({ cases: [{ ...content(), priority: null }], candidates: [] }),
     false,
   );
 });
@@ -111,7 +129,7 @@ test("AI result parsing normalizes repeated UUID references but still rejects in
   for (const [patch, reason] of [
     [{ relatedFrameIds: [randomUUID()] }, "frame_reference"],
     [{ screenIds: [randomUUID()] }, "ia_reference"],
-    [{ steps: " " }, "empty_case_text"],
+    [{ title: " " }, "empty_case_text"],
   ] as const)
     assert.throws(
       () =>
@@ -139,7 +157,7 @@ test("both provider payloads use the selected reference schema and provider erro
     images: [],
     frameIds: [frameId],
     screenIds: [],
-    customColumnIds: [],
+    columns: [],
   };
   try {
     for (const provider of ["anthropic", "openai"] as const) {
@@ -230,12 +248,13 @@ test("generation HTTP lifecycle preserves testScenarios on failure and serialize
         return originalFetch(url, options);
       calls++;
       const body = JSON.parse(String(options?.body));
-      const customIds: string[] =
+      const customIds = Object.keys(
         body.output_config.format.schema.properties.cases.items.properties
-          .customValues?.items.properties.columnId.enum ?? [];
+          .customValues.properties,
+      );
       const row = {
         ...content(),
-        customValues: customIds.map((columnId) => ({ columnId, value: "" })),
+        customValues: Object.fromEntries(customIds.map((id) => [id, ""])),
       };
       await gate;
       return new Response(

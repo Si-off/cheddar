@@ -14,8 +14,8 @@ import {
   type Snapshot,
   setValue,
 } from "@/entities/test-case";
-
 import { WorkspaceSelect } from "@/shared/ui/workspace";
+import { ColumnValueEditor } from "@/widgets/test-case-table/column-value-editor";
 
 type Props = {
   embedded?: boolean;
@@ -70,27 +70,29 @@ export function DetailPanel({
         )}
       </div>
       {columns
-        .filter((c) => c.field !== "relatedFrames" && c.field !== "screens")
+        .filter((c) => !!c)
         .map((column) => {
           const inputId = `detail-${column.id}`;
           const value = displayValue(snapshot, item, column);
           return (
             <div className="mt-4" key={column.id}>
               <Label htmlFor={inputId}>{column.name}</Label>
-              {column.field === "priority" ? (
-                <WorkspaceSelect
+              {column.kind === "custom" ? (
+                <ColumnValueEditor
                   id={inputId}
+                  column={column}
+                  value={item.customValues[column.id]}
                   disabled={disabled}
-                  value={item.priority ?? ""}
-                  onValueChange={(value) =>
-                    onChange(setValue(item, column, value))
+                  onComposition={onComposition}
+                  onChange={(value) =>
+                    onChange({
+                      ...item,
+                      customValues: {
+                        ...item.customValues,
+                        [column.id]: value,
+                      },
+                    })
                   }
-                  options={[
-                    { value: "", label: "미지정" },
-                    { value: "high", label: "높음" },
-                    { value: "medium", label: "보통" },
-                    { value: "low", label: "낮음" },
-                  ]}
                 />
               ) : column.field === "caseCode" || column.field === "title" ? (
                 <Input
@@ -121,10 +123,7 @@ export function DetailPanel({
           );
         })}
       <fieldset className="mt-5" disabled={disabled}>
-        <legend className="text-label font-label">
-          {snapshot.columns.find((c) => c.field === "relatedFrames")?.name ??
-            "관련 화면"}
-        </legend>
+        <legend className="text-label font-label">관련 화면</legend>
         <Label htmlFor="frame-upload">Figma 자료</Label>
         <WorkspaceSelect
           id="frame-upload"
@@ -157,10 +156,7 @@ export function DetailPanel({
         </div>
       </fieldset>
       <fieldset className="mt-5" disabled={disabled}>
-        <legend className="text-label font-label">
-          {snapshot.columns.find((c) => c.field === "screens")?.name ??
-            "화면 ID"}
-        </legend>
+        <legend className="text-label font-label">화면 ID</legend>
         <div className="mt-2 flex flex-col gap-2">
           {iaItems.map((i) => (
             <Label key={i.id}>

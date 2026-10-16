@@ -205,16 +205,10 @@ export type TemplateColumn = {
   id: string;
   kind: "system" | "custom";
   name: string;
-  field?:
-    | "caseCode"
-    | "title"
-    | "preconditions"
-    | "steps"
-    | "expectedResult"
-    | "priority"
-    | "relatedFrames"
-    | "screens";
-  valueType?: "text";
+  field?: "caseCode" | "title";
+  valueType?: "text" | "select" | "checkbox" | "tags";
+  description?: string;
+  options?: { id: string; name: string }[];
 };
 export type TemplateView = { columnId: string; width: number };
 export const projectTemplates = pgTable(
@@ -304,7 +298,11 @@ export const testScenarioColumns = pgTable(
     testScenarioId: uuid("test_scenario_id").notNull(),
     kind: varchar("kind", { length: 6 }).$type<"system" | "custom">().notNull(),
     field: varchar("field", { length: 20 }).$type<TemplateColumn["field"]>(),
-    valueType: varchar("value_type", { length: 4 }).$type<"text">(),
+    valueType: varchar("value_type", { length: 8 }).$type<
+      TemplateColumn["valueType"]
+    >(),
+    description: text("description"),
+    options: jsonb("options").$type<TemplateColumn["options"]>(),
     name: varchar("name", { length: 100 }).notNull(),
   },
   (t) => [
@@ -327,7 +325,7 @@ export const testScenarioColumns = pgTable(
       .where(sql`${t.kind} = 'system'`),
     check(
       "test_scenario_columns_kind_check",
-      sql`(${t.kind} = 'system' AND ${t.field} IS NOT NULL AND ${t.field} IN ('caseCode','title','preconditions','steps','expectedResult','priority','relatedFrames','screens') AND ${t.valueType} IS NULL) OR (${t.kind} = 'custom' AND ${t.field} IS NULL AND ${t.valueType} IS NOT NULL AND ${t.valueType} = 'text')`,
+      sql`(${t.kind} = 'system' AND ${t.field} IS NOT NULL AND ${t.field} IN ('caseCode','title') AND ${t.valueType} IS NULL) OR (${t.kind} = 'custom' AND ${t.field} IS NULL AND ${t.valueType} IS NOT NULL AND ${t.valueType} IN ('text','select','checkbox','tags'))`,
     ),
     check(
       "test_scenario_columns_name_check",
@@ -372,12 +370,6 @@ export const testCases = pgTable(
     position: integer("position").notNull(),
     caseCode: varchar("case_code", { length: 100 }).notNull(),
     title: text("title").notNull(),
-    preconditions: text("preconditions").notNull(),
-    steps: text("steps").notNull(),
-    expectedResult: text("expected_result").notNull(),
-    priority: varchar("priority", { length: 6 }).$type<
-      "high" | "medium" | "low"
-    >(),
   },
   (t) => [
     unique("test_cases_project_id_unique").on(t.projectId, t.id),
@@ -392,10 +384,6 @@ export const testCases = pgTable(
       foreignColumns: [testScenarios.projectId, testScenarios.id],
     }).onDelete("restrict"),
     check("test_cases_position_check", sql`${t.position} >= 0`),
-    check(
-      "test_cases_priority_check",
-      sql`${t.priority} IS NULL OR ${t.priority} IN ('high','medium','low')`,
-    ),
   ],
 );
 export const testCaseValues = pgTable(
@@ -408,7 +396,10 @@ export const testCaseValues = pgTable(
       .$type<"custom">()
       .notNull()
       .default("custom"),
-    value: text("value").notNull(),
+    value:
+      jsonb("value").$type<
+        import("../contracts/test-scenarios.dto").ColumnValue
+      >(),
   },
   (t) => [
     primaryKey({ columns: [t.caseId, t.columnId] }),

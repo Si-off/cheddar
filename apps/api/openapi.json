@@ -3668,6 +3668,25 @@
         ],
         "additionalProperties": false
       },
+      "ColumnOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
       "TestScenarioColumnDto": {
         "type": "object",
         "properties": {
@@ -3691,20 +3710,27 @@
             "type": "string",
             "enum": [
               "caseCode",
-              "title",
-              "preconditions",
-              "steps",
-              "expectedResult",
-              "priority",
-              "relatedFrames",
-              "screens"
+              "title"
             ]
           },
           "valueType": {
             "type": "string",
             "enum": [
-              "text"
+              "text",
+              "select",
+              "checkbox",
+              "tags"
             ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnOptionDto"
+            }
           }
         },
         "required": [
@@ -3863,25 +3889,6 @@
           "title": {
             "type": "string"
           },
-          "preconditions": {
-            "type": "string"
-          },
-          "steps": {
-            "type": "string"
-          },
-          "expectedResult": {
-            "type": "string"
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "high",
-              "medium",
-              "low",
-              null
-            ],
-            "nullable": true
-          },
           "relatedFrameIds": {
             "type": "array",
             "items": {
@@ -3899,7 +3906,21 @@
           "customValues": {
             "type": "object",
             "additionalProperties": {
-              "type": "string"
+              "oneOf": [
+                {
+                  "type": "string",
+                  "nullable": true
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
             },
             "description": "Keys are custom column UUIDs, not labels or positions."
           }
@@ -3908,10 +3929,6 @@
           "id",
           "caseCode",
           "title",
-          "preconditions",
-          "steps",
-          "expectedResult",
-          "priority",
           "relatedFrameIds",
           "screenIds",
           "customValues"
@@ -4171,7 +4188,7 @@
             "minimum": 1
           },
           "columns": {
-            "description": "All system fields once; custom columns have valueType text.",
+            "description": "ID and title once; other columns use text, select, checkbox or tags.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TestScenarioColumnDto"

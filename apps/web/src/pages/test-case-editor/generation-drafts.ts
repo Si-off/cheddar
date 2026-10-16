@@ -7,7 +7,7 @@ export type ResultDraft = {
 };
 export type ResultDrafts = Record<string, ResultDraft>;
 const key = (projectId: string, scenarioId: string) =>
-  `cheddar-confirmation-drafts:${projectId}:${scenarioId}`;
+  `cheddar-confirmation-drafts-v2:${projectId}:${scenarioId}`;
 export const resultDraftId = (jobId: string, resultId: string) =>
   `${jobId}/${resultId}`;
 export function readResultDrafts(
@@ -25,14 +25,7 @@ export function readResultDrafts(
     const draft = value as ResultDraft;
     if (
       !draft?.content ||
-      [
-        "id",
-        "caseCode",
-        "title",
-        "preconditions",
-        "steps",
-        "expectedResult",
-      ].some(
+      ["id", "caseCode", "title"].some(
         (field) =>
           typeof draft.content[field as keyof ResultDraft["content"]] !==
           "string",
@@ -42,7 +35,14 @@ export function readResultDrafts(
       !draft.content.customValues ||
       typeof draft.content.customValues !== "object" ||
       Object.values(draft.content.customValues).some(
-        (value) => typeof value !== "string",
+        (value) =>
+          value !== null &&
+          typeof value !== "string" &&
+          typeof value !== "boolean" &&
+          !(
+            Array.isArray(value) &&
+            value.every((entry) => typeof entry === "string")
+          ),
       ) ||
       (draft.question !== undefined &&
         (typeof draft.question.answer !== "string" ||

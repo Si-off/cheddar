@@ -584,10 +584,7 @@ test("real PostgreSQL and HTTP foundation", async (t) => {
                   id: randomUUID(),
                   caseCode: "",
                   title: "=문자열",
-                  preconditions: "",
-                  steps: "",
-                  expectedResult: "",
-                  priority: null,
+
                   relatedFrameIds: [],
                   screenIds: [],
                   customValues: {},

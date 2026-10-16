@@ -14,7 +14,7 @@ export type StoredDraft = {
 let database: Promise<IDBDatabase> | undefined;
 function open() {
   database ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("cheddar-test-scenario-drafts", 1);
+    const request = indexedDB.open("cheddar-test-scenario-drafts-v2", 1);
     request.onupgradeneeded = () =>
       request.result.createObjectStore("drafts", { keyPath: "key" });
     request.onsuccess = () => resolve(request.result);

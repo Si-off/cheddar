@@ -318,16 +318,14 @@ export class TestScenariosRepository {
         name: c.name,
         ...(c.field ? { field: c.field } : {}),
         ...(c.valueType ? { valueType: c.valueType } : {}),
+        ...(c.description !== null ? { description: c.description } : {}),
+        ...(c.options !== null ? { options: c.options } : {}),
       })),
       view: view.map((c) => ({ columnId: c.columnId, width: c.width })),
       cases: cases.map((c) => ({
         id: c.id,
         caseCode: c.caseCode,
         title: c.title,
-        preconditions: c.preconditions,
-        steps: c.steps,
-        expectedResult: c.expectedResult,
-        priority: c.priority,
         customValues: Object.fromEntries(
           values
             .filter((v) => v.caseId === c.id)
@@ -572,7 +570,12 @@ export class TestScenariosRepository {
     for (const column of input.columns.filter((c) => oldColumnIds.has(c.id)))
       await tx
         .update(testScenarioColumns)
-        .set({ name: column.name })
+        .set({
+          name: column.name,
+          valueType: column.valueType ?? null,
+          description: column.description ?? null,
+          options: column.options ?? null,
+        })
         .where(
           and(
             eq(testScenarioColumns.testScenarioId, testScenarioId),

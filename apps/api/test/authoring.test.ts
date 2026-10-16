@@ -109,24 +109,19 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
         const props = schema.properties.cases.items.properties;
         const row = {
           title: "쿠폰 적용",
-          preconditions: "",
-          steps: "쿠폰을 선택한다.",
-          expectedResult: "쿠폰 금액이 차감된다.",
-          priority: null,
+
           ...(props.relatedFrameIds
             ? { relatedFrameIds: [props.relatedFrameIds.items.enum[0]] }
             : {}),
           ...(props.requirementIds
             ? { requirementIds: [props.requirementIds.items.enum[0]] }
             : {}),
-          ...(props.customValues
-            ? {
-                customValues:
-                  props.customValues.items.properties.columnId.enum.map(
-                    (columnId: string) => ({ columnId, value: "" }),
-                  ),
-              }
-            : {}),
+          customValues: Object.fromEntries(
+            Object.keys(props.customValues.properties).map((id) => [
+              id,
+              "쿠폰 금액이 차감된다.",
+            ]),
+          ),
         };
         result = {
           cases: [row],
@@ -212,14 +207,18 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
         uploadId: upload.id,
       })
     ).json()) as TestScenarioSnapshotDto;
+    const expectedColumn = {
+      id: randomUUID(),
+      kind: "custom" as const,
+      valueType: "text" as const,
+      name: "예상 결과",
+    };
+    testScenario.columns.push(expectedColumn);
     const manual = {
       id: randomUUID(),
       caseCode: "MANUAL-1",
       title: "사람이 작성한 케이스",
-      preconditions: "",
-      steps: "기존 절차",
-      expectedResult: "기존 결과",
-      priority: null,
+
       relatedFrameIds: [],
       screenIds: [],
       customValues: {},
@@ -479,7 +478,13 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
     const confirmation = {
       expectedRevision: appended.revision,
       action: "add",
-      content: { ...uncertain.content, expectedResult: "답변을 반영한 결과" },
+      content: {
+        ...uncertain.content,
+        customValues: {
+          ...uncertain.content.customValues,
+          [expectedColumn.id]: "답변을 반영한 결과",
+        },
+      },
       question: {
         expectedRevision: analysis.revision,
         answer: "쿠폰을 복원한다.",
@@ -542,8 +547,8 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
       await req(`${prefix}/test-scenarios/${testScenario.id}`)
     ).json()) as TestScenarioSnapshotDto;
     assert.equal(
-      saved.cases.at(-1)?.expectedResult,
-      confirmation.content.expectedResult,
+      saved.cases.at(-1)?.customValues[expectedColumn.id],
+      confirmation.content.customValues[expectedColumn.id],
     );
     analysis = (await (await req(`${prefix}/analysis`)).json()) as AnalysisDto;
     assert.equal(
