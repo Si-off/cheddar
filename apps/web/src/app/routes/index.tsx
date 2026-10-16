@@ -1,4 +1,12 @@
 import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  WorkspaceIcon,
+} from "@cheddar/ui";
+import { useQuery } from "@tanstack/react-query";
+import {
   createRootRoute,
   createRoute,
   createRouter,
@@ -6,7 +14,7 @@ import {
   Outlet,
   useParams,
 } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ProjectSettingsPage } from "@/pages/project-settings";
 import {
   ProjectUploadDetailPage,
@@ -15,46 +23,89 @@ import {
 } from "@/pages/project-uploads";
 import { SharedTestCasesPage } from "@/pages/shared-test-cases";
 import { TestCaseEditorPage } from "@/pages/test-case-editor";
-import { createSheet, listSheets } from "@/shared/api/generated";
+import { createSheet, getProject, listSheets } from "@/shared/api/generated";
 
 function RootLayout() {
-  const { projectId, sheetId } = useParams({ strict: false });
+  const { projectId, sheetId, shareId } = useParams({ strict: false });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const project = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: async () =>
+      (
+        await getProject({
+          path: { projectId: projectId as string },
+          throwOnError: true,
+        })
+      ).data,
+    enabled: !!projectId,
+  });
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="flex flex-wrap items-center gap-6 border-b border-border bg-surface px-page py-4">
-        <Link to="/" className="text-brand font-heading">
-          Cheddar
+    <div className="workspace-root">
+      <header className="workspace-header">
+        <Link to="/" aria-label="프로젝트 목록" className="workspace-home">
+          <WorkspaceIcon name="projects" />
         </Link>
         {projectId && (
-          <nav
-            aria-label="프로젝트 메뉴"
-            className="flex flex-wrap items-center gap-4"
-          >
+          <>
+            <WorkspaceIcon name="chevron" />
             <Link
               to="/projects/$projectId/sheets"
               params={{ projectId }}
-              activeProps={{ "aria-current": "page" }}
+              onClick={() => setMenuOpen(false)}
             >
-              테스트 시트
+              {project.data?.name ?? "프로젝트"}
             </Link>
-            <Link
-              to="/projects/$projectId/uploads"
-              params={{ projectId }}
-              activeProps={{ "aria-current": "page" }}
+          </>
+        )}
+        {sheetId && (
+          <>
+            <WorkspaceIcon name="chevron" />
+            <span className="workspace-crumb">테스트 시트</span>
+          </>
+        )}
+        {shareId && <span className="workspace-crumb">공유 시트</span>}
+        {projectId && (
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="workspace-header-menu"
+                  aria-label="프로젝트 메뉴"
+                />
+              }
             >
-              업로드
-            </Link>
-            <Link
-              to="/projects/$projectId/settings"
-              params={{ projectId }}
-              activeProps={{ "aria-current": "page" }}
-            >
-              프로젝트 설정
-            </Link>
-          </nav>
+              <WorkspaceIcon name="more" />
+            </PopoverTrigger>
+            <PopoverContent aria-label="프로젝트 메뉴">
+              <nav className="workspace-nav">
+                <Link
+                  to="/projects/$projectId/sheets"
+                  params={{ projectId }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <WorkspaceIcon name="file" />
+                  테스트 시트
+                </Link>
+                <Link
+                  to="/projects/$projectId/uploads"
+                  params={{ projectId }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <WorkspaceIcon name="image" />
+                  화면 자료
+                </Link>
+                <Link to="/projects/$projectId/settings" params={{ projectId }}>
+                  <WorkspaceIcon name="settings" />
+                  프로젝트 설정
+                </Link>
+              </nav>
+            </PopoverContent>
+          </Popover>
         )}
       </header>
-      <main className={sheetId ? "p-page" : "mx-auto max-w-content p-page"}>
+      <main className={sheetId ? "workspace-main is-editor" : "workspace-main"}>
         <Outlet />
       </main>
     </div>
@@ -69,6 +120,12 @@ const editorRoute = createRoute({
     const navigate = editorRoute.useNavigate();
     return (
       <TestCaseEditorPage
+        onOpenProject={(projectId) =>
+          void navigate({
+            to: "/projects/$projectId/sheets",
+            params: { projectId },
+          })
+        }
         onOpenSheet={(params) =>
           void navigate({ to: "/projects/$projectId/sheets/$sheetId", params })
         }

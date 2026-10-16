@@ -1,4 +1,4 @@
-import { Button } from "@cheddar/ui";
+import { Button, WorkspaceIcon } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { frameFile } from "./uploads-api";
@@ -25,7 +25,7 @@ export function FramePreview({
     return () => URL.revokeObjectURL(next);
   }, [file.data]);
   return (
-    <div className="rounded-panel border border-border bg-background p-4">
+    <div className="workspace-frame-preview">
       {file.isPending && (
         <p role="status" className="text-label text-muted">
           이미지 불러오는 중
@@ -93,12 +93,13 @@ export function FrameDataDownload({
   return (
     <div className="space-y-2">
       <Button
-        variant="outline"
+        variant="ghost"
+        size="icon"
         onClick={() => void download()}
         disabled={busy}
         aria-label={`${name} 데이터 내려받기`}
       >
-        {busy ? "데이터 불러오는 중" : "데이터 내려받기"}
+        <WorkspaceIcon name="download" />
       </Button>
       {failed && (
         <p role="alert" className="text-label text-danger">

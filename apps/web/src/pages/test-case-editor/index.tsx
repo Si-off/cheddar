@@ -7,6 +7,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  WorkspaceIcon,
 } from "@cheddar/ui";
 import {
   useInfiniteQuery,
@@ -16,6 +17,7 @@ import {
 } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { env } from "@/shared/config/env";
+import { LoadingSkeleton } from "@/shared/ui/workspace";
 import { SheetEditor } from "./editor";
 import {
   createEmptySheet,
@@ -34,12 +36,14 @@ export type TestCaseEditorPageProps = {
   sheetId?: string;
   onOpenSheet?: (target: { projectId: string; sheetId: string }) => void;
   onBack?: () => void;
+  onOpenProject?: (projectId: string) => void;
 };
 export function TestCaseEditorPage({
   projectId,
   sheetId,
   onOpenSheet,
   onBack,
+  onOpenProject,
 }: TestCaseEditorPageProps = {}) {
   const queryClient = useQueryClient();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -112,6 +116,7 @@ export function TestCaseEditorPage({
     onSuccess: async (project) => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
       setSelectedProject(project.id);
+      onOpenProject?.(project.id);
       setNewProjectOpen(false);
       setProjectName("");
     },
@@ -129,8 +134,7 @@ export function TestCaseEditorPage({
   );
   if (sheetId && !projectId)
     return <p role="alert">프로젝트와 시트를 목록에서 다시 선택해주세요.</p>;
-  if (activeSheet && snapshot.isPending)
-    return <p role="status">시트를 불러오는 중</p>;
+  if (activeSheet && snapshot.isPending) return <LoadingSkeleton table />;
   if (activeSheet && snapshot.isError && !snapshot.data)
     return (
       <div>
@@ -195,29 +199,25 @@ export function TestCaseEditorPage({
     );
   return (
     <section className="flex flex-col gap-5" aria-label="시트 목록">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-title font-heading">테스트 케이스</h1>
+      <div className="workspace-page-heading">
+        <h1>{activeProject ? "테스트 시트" : "프로젝트"}</h1>
         <Button
-          disabled={!activeProject}
+          size="icon"
+          variant={activeProject ? "default" : "ghost"}
+          aria-label={activeProject ? "새 시트" : "새 프로젝트"}
           onClick={() => {
-            create.reset();
-            setCreating(true);
+            if (activeProject) {
+              create.reset();
+              setCreating(true);
+            } else {
+              createProject.reset();
+              setNewProjectOpen(true);
+            }
           }}
         >
-          새 시트
+          <WorkspaceIcon name="plus" />
         </Button>
       </div>
-      {!projectId && (
-        <Button
-          variant="outline"
-          onClick={() => {
-            createProject.reset();
-            setNewProjectOpen(true);
-          }}
-        >
-          새 프로젝트
-        </Button>
-      )}
       <Dialog
         open={newProjectOpen}
         onOpenChange={(open) => {
@@ -267,49 +267,67 @@ export function TestCaseEditorPage({
           </form>
         </DialogContent>
       </Dialog>
-      <div>
-        <Label htmlFor="sheet-project">프로젝트</Label>
-        <select
-          className="sheet-select"
-          id="sheet-project"
-          value={activeProject}
-          disabled={!!projectId}
-          onChange={(e) => {
-            setSelectedProject(e.target.value);
-            setLocalSheet(undefined);
-          }}
-        >
-          <option value="">프로젝트 선택</option>
-          {projects.data?.pages
-            .flatMap((page) => page.items)
-            .map((p) => (
-              <option value={p.id} key={p.id}>
-                {p.name}
-              </option>
-            ))}
-        </select>
-        {projects.hasNextPage && (
-          <Button
-            variant="link"
-            disabled={projects.isFetchingNextPage}
-            onClick={() => void projects.fetchNextPage()}
-          >
-            프로젝트 더 불러오기
-          </Button>
-        )}
-        {projects.isError && (
-          <p role="alert">
-            프로젝트를 불러오지 못했습니다.{" "}
-            <Button variant="link" onClick={() => void projects.refetch()}>
-              다시 불러오기
+      {!activeProject && (
+        <section className="workspace-collection" aria-label="프로젝트 목록">
+          {projects.isPending ? (
+            <LoadingSkeleton />
+          ) : projects.isError ? (
+            <div role="alert">
+              프로젝트를 불러오지 못했습니다.{" "}
+              <Button variant="link" onClick={() => void projects.refetch()}>
+                다시 불러오기
+              </Button>
+            </div>
+          ) : (
+            <>
+              {projects.data?.pages
+                .flatMap((page) => page.items)
+                .map((p) => (
+                  <button
+                    type="button"
+                    className="workspace-document-row"
+                    key={p.id}
+                    onClick={() => {
+                      if (onOpenProject) onOpenProject(p.id);
+                      else setSelectedProject(p.id);
+                    }}
+                  >
+                    <span className="workspace-document-symbol">
+                      <WorkspaceIcon name="folder" />
+                    </span>
+                    <span>
+                      <strong>{p.name}</strong>
+                      {p.description && <small>{p.description}</small>}
+                    </span>
+                    <WorkspaceIcon name="chevron" />
+                  </button>
+                ))}
+              {projects.data?.pages.every((page) => !page.items.length) && (
+                <div className="workspace-empty">
+                  <WorkspaceIcon name="folder" />
+                  <p>프로젝트가 없습니다</p>
+                  <Button onClick={() => setNewProjectOpen(true)}>
+                    프로젝트 만들기
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+          {projects.hasNextPage && (
+            <Button
+              variant="ghost"
+              disabled={projects.isFetchingNextPage}
+              onClick={() => void projects.fetchNextPage()}
+            >
+              프로젝트 더 불러오기
             </Button>
-          </p>
-        )}
-      </div>
+          )}
+        </section>
+      )}
       {activeProject && (
         <div>
           {sheets.isPending ? (
-            <p role="status">시트를 불러오는 중</p>
+            <LoadingSkeleton />
           ) : sheets.isError ? (
             <p role="alert">
               시트 목록을 불러오지 못했습니다.{" "}
@@ -319,13 +337,14 @@ export function TestCaseEditorPage({
             </p>
           ) : (
             <>
-              <ul className="flex flex-col gap-3">
+              <ul className="workspace-collection">
                 {sheets.data?.pages
                   .flatMap((page) => page.items)
                   .map((sheet) => (
                     <li key={sheet.id}>
                       <Button
-                        variant="outline"
+                        variant="ghost"
+                        className="workspace-document-row"
                         onClick={() =>
                           openSheet({
                             projectId: activeProject,
@@ -333,13 +352,28 @@ export function TestCaseEditorPage({
                           })
                         }
                       >
-                        {sheet.name} · {sheet.kind === "unit" ? "단위" : "통합"}
+                        <span className="workspace-document-symbol">
+                          <WorkspaceIcon name="file" />
+                        </span>
+                        <span>
+                          <strong>{sheet.name}</strong>
+                          <small>
+                            {sheet.kind === "unit"
+                              ? "화면·기능 테스트"
+                              : "사용자 흐름 테스트"}
+                          </small>
+                        </span>
+                        <WorkspaceIcon name="arrow" />
                       </Button>
                     </li>
                   ))}
               </ul>
               {sheets.data?.pages.every((page) => page.items.length === 0) && (
-                <p>시트가 없습니다</p>
+                <div className="workspace-empty">
+                  <WorkspaceIcon name="file" />
+                  <p>시트가 없습니다</p>
+                  <Button onClick={() => setCreating(true)}>시트 만들기</Button>
+                </div>
               )}
               {sheets.hasNextPage && (
                 <Button
@@ -381,7 +415,7 @@ export function TestCaseEditorPage({
               disabled={create.isPending}
             />
             <Label htmlFor="new-sheet-kind" className="mt-4">
-              케이스 종류
+              테스트 범위
             </Label>
             <select
               id="new-sheet-kind"
@@ -392,8 +426,8 @@ export function TestCaseEditorPage({
                 setKind(e.target.value as "unit" | "integration")
               }
             >
-              <option value="unit">단위</option>
-              <option value="integration">통합</option>
+              <option value="unit">화면·기능</option>
+              <option value="integration">사용자 흐름</option>
             </select>
             {create.isError && (
               <p className="mt-3 text-danger" role="alert">

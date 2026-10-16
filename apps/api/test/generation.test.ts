@@ -10,6 +10,10 @@ import { createResultSchema, parseResult } from "../src/generation/result";
 import { createDefaultTemplate } from "../src/projects/default-template";
 
 function snapshot(): SheetSnapshotDto {
+  // These tests exercise the no-custom-column schema. Project defaults also
+  // contain editable text columns, covered by the custom-value schema test.
+  const template = createDefaultTemplate();
+  const columns = template.columns.filter((column) => column.kind === "system");
   return {
     id: randomUUID(),
     projectId: randomUUID(),
@@ -21,7 +25,10 @@ function snapshot(): SheetSnapshotDto {
     sourceTemplateRevision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    ...createDefaultTemplate(),
+    columns,
+    view: template.view.filter((entry) =>
+      columns.some((column) => column.id === entry.columnId),
+    ),
     cases: [],
     references: { frames: [], iaItems: [] },
   };

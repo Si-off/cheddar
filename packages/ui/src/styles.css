@@ -561,3 +561,31 @@
     }
   }
 }
+
+.cd-popover-positioner {
+  z-index: var(--layer-select);
+}
+.cd-popover-content {
+  width: min(340px, calc(100vw - var(--spacing-6)));
+  max-height: min(70dvh, var(--available-height));
+  overflow: auto;
+  padding: var(--spacing-3);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  box-shadow: var(--shadow-floating);
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  transform-origin: var(--transform-origin);
+  transition: opacity var(--duration-state) var(--ease-standard);
+}
+.cd-popover-content[data-starting-style],
+.cd-popover-content[data-ending-style] {
+  opacity: 0;
+}
+.workspace-icon {
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
+  flex-shrink: 0;
+}

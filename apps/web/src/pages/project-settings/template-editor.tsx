@@ -1,6 +1,5 @@
-import { Button, Input, Label } from "@cheddar/ui";
+import { ColumnSettings } from "@/widgets/test-case-table/column-settings";
 import { type FieldErrors, MAX_COLUMN_WIDTH, type TemplateForm } from "./model";
-
 export function TemplateEditor({
   value,
   onChange,
@@ -14,150 +13,117 @@ export function TemplateEditor({
   errors: FieldErrors;
   disabled: boolean;
 }) {
-  const move = (index: number, offset: number) => {
-    const view = [...value.view];
-    [view[index], view[index + offset]] = [view[index + offset], view[index]];
-    onChange({ ...value, view });
-  };
-  const add = () => {
-    const id = crypto.randomUUID();
+  const resize = (id: string, width: number) =>
     onChange({
-      columns: [
-        ...value.columns,
-        { id, kind: "custom", valueType: "text", name: "새 열" },
-      ],
-      view: [...value.view, { columnId: id, width: "180" }],
+      ...value,
+      view: value.view.map((entry) =>
+        entry.columnId === id
+          ? {
+              ...entry,
+              width: String(
+                Math.max(1, Math.min(MAX_COLUMN_WIDTH, Math.round(width))),
+              ),
+            }
+          : entry,
+      ),
     });
-  };
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-label text-muted">
-          변경한 양식은 새 시트에만 적용됩니다.
-        </p>
-        <Button variant="outline" disabled={disabled} onClick={add}>
-          열 추가
-        </Button>
+    <div className="workspace-template-editor">
+      <p className="text-label text-muted">
+        변경한 양식은 새 시트에만 적용됩니다.
+      </p>
+      <ColumnSettings
+        columns={value.columns}
+        view={value.view.map((v) => ({ ...v, width: Number(v.width) }))}
+        disabled={disabled}
+        onChange={(columns, view) =>
+          onChange({
+            columns,
+            view: view.map((v) => ({ ...v, width: String(v.width) })),
+          })
+        }
+        onRemove={onRemove}
+      />
+      <div className="sheet-table-scroll workspace-template-preview">
+        <table
+          className="sheet-table"
+          aria-label="양식 미리보기"
+          style={{
+            width: value.view.reduce((sum, v) => sum + Number(v.width), 0),
+          }}
+        >
+          <caption className="workspace-table-caption">양식 미리보기</caption>
+          <thead>
+            <tr>
+              {value.view.map((entry) => {
+                const column = value.columns.find(
+                  (c) => c.id === entry.columnId,
+                );
+                if (!column) return null;
+                return (
+                  <th
+                    key={column.id}
+                    style={{
+                      width: Number(entry.width),
+                      minWidth: Number(entry.width),
+                    }}
+                  >
+                    <span>{column.name}</span>
+                    <button
+                      type="button"
+                      className="sheet-resize"
+                      aria-label={`${column.name} 기본 너비 조절`}
+                      disabled={disabled}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key !== "ArrowLeft" &&
+                          event.key !== "ArrowRight"
+                        )
+                          return;
+                        event.preventDefault();
+                        resize(
+                          column.id,
+                          Number(entry.width) +
+                            (event.key === "ArrowRight" ? 1 : -1) *
+                              (event.shiftKey ? 10 : 1),
+                        );
+                      }}
+                      onPointerDown={(event) => {
+                        const start = event.clientX,
+                          width = Number(entry.width),
+                          el = event.currentTarget;
+                        el.setPointerCapture(event.pointerId);
+                        const move = (ev: PointerEvent) =>
+                          resize(column.id, width + ev.clientX - start);
+                        const end = () => {
+                          el.removeEventListener("pointermove", move);
+                          el.removeEventListener("pointerup", end);
+                          el.removeEventListener("pointercancel", end);
+                        };
+                        el.addEventListener("pointermove", move);
+                        el.addEventListener("pointerup", end);
+                        el.addEventListener("pointercancel", end);
+                      }}
+                    />
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {value.view.map((entry) => (
+                <td key={entry.columnId}>—</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <ol className="space-y-3" aria-label="기본 양식 열">
-        {value.view.map((entry, index) => {
-          const column = value.columns.find(
-            (item) => item.id === entry.columnId,
-          );
-          if (!column) return null;
-          return (
-            <li
-              key={column.id}
-              className="rounded-panel border border-border bg-surface p-4"
-            >
-              <fieldset
-                disabled={disabled}
-                className="flex flex-wrap items-start gap-4"
-              >
-                <span className="pt-2 text-label text-muted" aria-hidden="true">
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Label htmlFor={`column-name-${column.id}`}>열 이름</Label>
-                  <Input
-                    id={`column-name-${column.id}`}
-                    value={column.name}
-                    maxLength={100}
-                    onValueChange={(name) =>
-                      onChange({
-                        ...value,
-                        columns: value.columns.map((item) =>
-                          item.id === column.id ? { ...item, name } : item,
-                        ),
-                      })
-                    }
-                    aria-invalid={!!errors[`name-${column.id}`]}
-                    aria-describedby={
-                      errors[`name-${column.id}`]
-                        ? `name-error-${column.id}`
-                        : undefined
-                    }
-                  />
-                  {errors[`name-${column.id}`] && (
-                    <p
-                      id={`name-error-${column.id}`}
-                      className="text-label text-danger"
-                    >
-                      {errors[`name-${column.id}`]}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`column-width-${column.id}`}>너비</Label>
-                  <Input
-                    id={`column-width-${column.id}`}
-                    className="w-24"
-                    type="number"
-                    min={1}
-                    max={MAX_COLUMN_WIDTH}
-                    step={1}
-                    value={entry.width}
-                    onValueChange={(width) =>
-                      onChange({
-                        ...value,
-                        view: value.view.map((item) =>
-                          item.columnId === column.id
-                            ? { ...item, width }
-                            : item,
-                        ),
-                      })
-                    }
-                    aria-invalid={!!errors[`width-${column.id}`]}
-                    aria-describedby={
-                      errors[`width-${column.id}`]
-                        ? `width-error-${column.id}`
-                        : undefined
-                    }
-                  />
-                  {errors[`width-${column.id}`] && (
-                    <p
-                      id={`width-error-${column.id}`}
-                      className="text-label text-danger"
-                    >
-                      {errors[`width-${column.id}`]}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2 pt-8">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={index === 0}
-                    aria-label={`${column.name} 위로`}
-                    onClick={() => move(index, -1)}
-                  >
-                    위로
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={index === value.view.length - 1}
-                    aria-label={`${column.name} 아래로`}
-                    onClick={() => move(index, 1)}
-                  >
-                    아래로
-                  </Button>
-                  {column.kind === "custom" && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      aria-label={`${column.name} 열 삭제`}
-                      onClick={() => onRemove(column.id)}
-                    >
-                      삭제
-                    </Button>
-                  )}
-                </div>
-              </fieldset>
-            </li>
-          );
-        })}
-      </ol>
+      {Object.values(errors).map((error) => (
+        <p role="alert" key={error} className="text-danger">
+          {error}
+        </p>
+      ))}
     </div>
   );
 }

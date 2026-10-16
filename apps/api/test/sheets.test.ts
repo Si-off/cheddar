@@ -93,9 +93,9 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
       "new sheets copy the template with fresh IDs and existing sheets remain independent",
       async () => {
         const first = await create();
-        assert.equal(first.columns.length, 8);
+        assert.equal(first.columns.length, 10);
         assert.deepEqual(first.cases, []);
-        assert.equal(first.view[0].width, 180);
+        assert.equal(first.view[0].width, 100);
         const [template] = await lease.database.db
           .select()
           .from(projectTemplates)
@@ -274,7 +274,17 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
           "view",
         );
         assert.equal(
-          (await save(result, result.cases, result.columns.slice(1))).status,
+          (
+            await save(
+              result,
+              result.cases,
+              result.columns.filter(
+                (column) =>
+                  column.id !==
+                  result.columns.find((entry) => entry.kind === "system")?.id,
+              ),
+            )
+          ).status,
           400,
         );
         const otherSheet = await create();
@@ -457,7 +467,7 @@ test("sheet HTTP persistence, conflict, template copy and exports", async (t) =>
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(await exported.arrayBuffer());
         assert.equal(workbook.worksheets[0].rowCount, 501);
-        assert.equal(workbook.worksheets[0].columnCount, 13);
+        assert.equal(workbook.worksheets[0].columnCount, sheet.columns.length);
         t.diagnostic(
           `500 cases: save=${Math.round(savedMs)}ms payload=${bytes} bytes export+read=${Math.round(performance.now() - startExport)}ms`,
         );
