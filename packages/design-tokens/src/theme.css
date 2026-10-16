@@ -77,10 +77,10 @@
   --color-info-subtle: #edf4ff;
   --color-overlay: #1d243352;
 
-  --radius-small: 0.25rem;
-  --radius-control: 0.5rem;
-  --radius-panel: 0.75rem;
-  --radius-dialog: 1rem;
+  --radius-small: 0.375rem;
+  --radius-control: 0.75rem;
+  --radius-panel: 1rem;
+  --radius-dialog: 1.25rem;
   --radius-full: 9999px;
   --spacing: 0.25rem;
   --spacing-1: 0.25rem;
