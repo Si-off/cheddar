@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -15,13 +16,18 @@ import {
   type SheetSession,
   type Snapshot,
 } from "@/entities/test-case";
+import { SourceImage } from "@/pages/project-uploads/source-viewer";
 import type {
   CandidateDto,
   GenerationDto,
   ReviewCandidateDto,
   StartGenerationDto,
 } from "@/shared/api/generated";
+
+import { getUpload } from "@/shared/api/generated";
+import { GenerationResults } from "./generation-results";
 import {
+  addGenerationSelection,
   beginGeneration,
   generationList,
   generationProviders,
@@ -29,6 +35,8 @@ import {
 } from "./sheets-api";
 
 type Props = {
+  seed?: { requirementIds: string[]; description: string };
+  onResults?: () => void;
   snapshot: Snapshot;
   session: SheetSession;
   uploads: { id: string; name: string }[];
@@ -37,6 +45,8 @@ type Props = {
   onClose: () => void;
 };
 export function GenerationPanel({
+  seed,
+  onResults,
   snapshot,
   session,
   uploads,
@@ -60,7 +70,27 @@ export function GenerationPanel({
   const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
   const [uploadId, setUploadId] = useState(snapshot.uploadId ?? "");
   const [description, setDescription] = useState("");
-  const [replace, setReplace] = useState(false);
+  const [selectedFrames, setSelectedFrames] = useState<string[]>([]);
+  const upload = useQuery({
+    queryKey: ["generation-upload", snapshot.projectId, uploadId],
+    queryFn: async () =>
+      (
+        await getUpload({
+          path: { projectId: snapshot.projectId, uploadId },
+          throwOnError: true,
+        })
+      ).data,
+    enabled: !!uploadId,
+  });
+  useEffect(() => {
+    if (upload.data) setSelectedFrames(upload.data.frames.map((f) => f.id));
+  }, [upload.data]);
+  useEffect(() => {
+    if (seed) {
+      setDescription(seed.description);
+      setUploadId("");
+    }
+  }, [seed]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const [needsRefresh, setNeedsRefresh] = useState(false);
@@ -82,6 +112,9 @@ export function GenerationPanel({
         (job) => job.status === "succeeded" && !seen.current.has(job.id),
       ) ?? [];
     if (!completed.length || refreshing.current) return;
+    void client.invalidateQueries({
+      queryKey: ["evidence", snapshot.projectId],
+    });
     for (const job of completed) seen.current.add(job.id);
     refreshing.current = true;
     void session
@@ -91,7 +124,7 @@ export function GenerationPanel({
       .finally(() => {
         refreshing.current = false;
       });
-  }, [jobs.data, session]);
+  }, [jobs.data, session, client, snapshot.projectId]);
   const latest = jobs.data?.items[0];
   const configured =
     providers.data?.items.find((p) => p.id === provider)?.configured ?? false;
@@ -123,6 +156,11 @@ export function GenerationPanel({
           expectedRevision: session.store.getState().base.contentRevision,
           uploadId: uploadId || null,
           description,
+          mode: "review",
+          ...(uploadId ? { frameIds: selectedFrames } : {}),
+          ...(seed?.requirementIds.length
+            ? { requirementIds: seed.requirementIds }
+            : {}),
         };
         setPending(request);
       }
@@ -141,7 +179,7 @@ export function GenerationPanel({
         }),
       );
       setPending(undefined);
-      setReplace(false);
+
       onClose();
       await jobs.refetch();
     } catch (error) {
@@ -194,6 +232,42 @@ export function GenerationPanel({
       setBusy(false);
     }
   }
+  async function add(job: GenerationDto, ids: string[]) {
+    setBusy(true);
+    setMessage(undefined);
+    try {
+      if (!(await session.settle()))
+        throw new Error("시트 저장을 완료해주세요.");
+      const updated = await addGenerationSelection(
+        snapshot.projectId,
+        snapshot.id,
+        job.id,
+        {
+          expectedRevision: job.revision,
+          sheetRevision: session.store.getState().base.contentRevision,
+          candidateIds: ids,
+        },
+      );
+      client.setQueryData(
+        key,
+        (old: { items: GenerationDto[] } | undefined) => ({
+          items: (old?.items ?? []).map((j) =>
+            j.id === updated.id ? updated : j,
+          ),
+        }),
+      );
+      await refreshSheet();
+      void client.invalidateQueries({
+        queryKey: ["evidence", snapshot.projectId],
+      });
+    } catch (error) {
+      setMessage(errorText(error));
+      void jobs.refetch();
+      throw error;
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section className="workspace-generation" aria-label="테스트 생성 상태">
       {jobs.isPending && <p role="status">생성 상태를 확인하는 중입니다.</p>}
@@ -202,6 +276,11 @@ export function GenerationPanel({
           <span className="workspace-spinner" />
           <span>테스트 생성 중</span>
         </div>
+      )}
+      {latest?.status === "succeeded" && onResults && (
+        <Button variant="outline" onClick={onResults}>
+          결과 검토
+        </Button>
       )}
       {latest?.status === "failed" && <p role="alert">{latest.error}</p>}
       {jobs.isError && (
@@ -235,12 +314,14 @@ export function GenerationPanel({
       >
         <DialogContent
           className={
-            panel === "candidates" ? "workspace-candidates-dialog" : ""
+            panel === "candidates"
+              ? "workspace-candidates-dialog is-results"
+              : "generation-dialog"
           }
           aria-describedby={undefined}
         >
           <DialogTitle>
-            {panel === "candidates" ? "후보 검토" : "테스트 생성"}
+            {panel === "candidates" ? "생성 결과 검토" : "테스트 생성"}
           </DialogTitle>
           {panel === "generate" && (
             <form
@@ -305,6 +386,47 @@ export function GenerationPanel({
                   </option>
                 ))}
               </select>
+              {uploadId && (
+                <section
+                  className="generation-frame-picker"
+                  aria-label="생성 화면 선택"
+                >
+                  {upload.isPending && <p role="status">화면 불러오는 중</p>}
+                  {upload.isError && (
+                    <p role="alert">
+                      화면을 불러오지 못했습니다.
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => void upload.refetch()}
+                      >
+                        다시 불러오기
+                      </Button>
+                    </p>
+                  )}
+                  {upload.data?.frames.map((frame) => (
+                    <Label key={frame.id} className="generation-frame">
+                      <Checkbox
+                        aria-label={`${frame.name} 생성 선택`}
+                        checked={selectedFrames.includes(frame.id)}
+                        disabled={locked}
+                        onCheckedChange={(checked) =>
+                          setSelectedFrames((old) =>
+                            checked
+                              ? [...old, frame.id]
+                              : old.filter((id) => id !== frame.id),
+                          )
+                        }
+                      />
+                      <span>{frame.name}</span>
+                      <SourceImage
+                        projectId={snapshot.projectId}
+                        frame={frame}
+                      />
+                    </Label>
+                  ))}
+                </section>
+              )}
               <Label htmlFor="ai-description">테스트 내용</Label>
               <Textarea
                 id="ai-description"
@@ -316,18 +438,6 @@ export function GenerationPanel({
               {!uploadId && !description.trim() && (
                 <p>업로드 묶음을 선택하거나 테스트할 내용을 입력해주세요.</p>
               )}
-              {snapshot.cases.length > 0 && (
-                <Label>
-                  <input
-                    type="checkbox"
-                    checked={replace}
-                    onChange={(event) => setReplace(event.target.checked)}
-                    disabled={locked}
-                  />{" "}
-                  기존 케이스 {snapshot.cases.length}개를 생성 결과로
-                  교체합니다.
-                </Label>
-              )}
               <Button
                 type="submit"
                 disabled={
@@ -335,48 +445,62 @@ export function GenerationPanel({
                   jobs.isError ||
                   !configured ||
                   (!uploadId && !description.trim()) ||
-                  (snapshot.cases.length > 0 && !replace)
+                  (!!uploadId &&
+                    (upload.isPending ||
+                      upload.isError ||
+                      !selectedFrames.length))
                 }
               >
-                {snapshot.cases.length ? "케이스 다시 생성" : "케이스 생성"}
+                케이스 생성
               </Button>
             </form>
           )}
-          {panel === "candidates" && (
-            <div className="mt-4 flex flex-col gap-3">
-              <Label>
-                <input
-                  type="checkbox"
-                  checked={showExcluded}
-                  onChange={(event) => setShowExcluded(event.target.checked)}
-                />{" "}
-                제외한 후보 보기
-              </Label>
-              {jobs.data?.items.flatMap((job) =>
-                job.candidates
-                  .filter(
-                    (candidate) =>
-                      showExcluded || candidate.status !== "excluded",
-                  )
-                  .map((candidate) => (
-                    <CandidateCard
-                      key={candidate.id}
-                      candidate={candidate}
-                      job={job}
-                      snapshot={snapshot}
-                      disabled={locked || jobs.isError}
-                      review={review}
-                    />
-                  )),
-              )}
-              {jobs.data &&
-                !jobs.data.items.some((job) =>
-                  job.candidates.some(
-                    (candidate) =>
-                      showExcluded || candidate.status !== "excluded",
-                  ),
-                ) && <p>검토할 후보가 없습니다.</p>}
-            </div>
+          {panel === "candidates" &&
+          jobs.data?.items.some((j) => j.mode === "review") ? (
+            <GenerationResults
+              jobs={jobs.data.items}
+              snapshot={snapshot}
+              disabled={locked || jobs.isError}
+              onReview={review}
+              onAdd={add}
+            />
+          ) : (
+            panel === "candidates" && (
+              <div className="mt-4 flex flex-col gap-3">
+                <Label>
+                  <input
+                    type="checkbox"
+                    checked={showExcluded}
+                    onChange={(event) => setShowExcluded(event.target.checked)}
+                  />{" "}
+                  제외한 후보 보기
+                </Label>
+                {jobs.data?.items.flatMap((job) =>
+                  job.candidates
+                    .filter(
+                      (candidate) =>
+                        showExcluded || candidate.status !== "excluded",
+                    )
+                    .map((candidate) => (
+                      <CandidateCard
+                        key={candidate.id}
+                        candidate={candidate}
+                        job={job}
+                        snapshot={snapshot}
+                        disabled={locked || jobs.isError}
+                        review={review}
+                      />
+                    )),
+                )}
+                {jobs.data &&
+                  !jobs.data.items.some((job) =>
+                    job.candidates.some(
+                      (candidate) =>
+                        showExcluded || candidate.status !== "excluded",
+                    ),
+                  ) && <p>검토할 후보가 없습니다.</p>}
+              </div>
+            )
           )}
         </DialogContent>
       </Dialog>

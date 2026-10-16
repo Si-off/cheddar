@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsIn,
   IsInt,
   IsString,
@@ -13,6 +17,32 @@ import {
 import { CaseContentDto } from "./sheets.dto";
 
 export class StartGenerationDto {
+  @ApiPropertyOptional({ enum: ["replace", "review"] })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsIn(["replace", "review"])
+  mode?: "replace" | "review";
+  @ApiPropertyOptional({
+    type: "array",
+    items: { type: "string", format: "uuid" },
+  })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(1000)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  frameIds?: string[];
+  @ApiPropertyOptional({
+    type: "array",
+    items: { type: "string", format: "uuid" },
+  })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(1000)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  requirementIds?: string[];
   @ApiProperty({ format: "uuid" }) @IsUUID() clientRequestId!: string;
   @ApiProperty({ enum: ["anthropic", "openai"] })
   @IsIn(["anthropic", "openai"])
@@ -36,6 +66,14 @@ export class StartGenerationDto {
   exampleSheetId?: string;
 }
 export class CandidateDto {
+  @ApiPropertyOptional({ enum: ["case", "candidate"] }) kind?:
+    | "case"
+    | "candidate";
+  @ApiPropertyOptional({
+    type: "array",
+    items: { type: "string", format: "uuid" },
+  })
+  requirementIds?: string[];
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty({ enum: ["pending", "added", "excluded"] }) status!:
     | "pending"
@@ -45,6 +83,9 @@ export class CandidateDto {
   @ApiProperty({ type: CaseContentDto }) content!: CaseContentDto;
 }
 export class GenerationDto {
+  @ApiPropertyOptional({ enum: ["replace", "review"] }) mode?:
+    | "replace"
+    | "review";
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty({ format: "uuid" }) sheetId!: string;
   @ApiProperty({ enum: ["anthropic", "openai"] }) provider!:
@@ -86,4 +127,22 @@ export class GenerationProviderDto {
 export class GenerationProvidersDto {
   @ApiProperty({ type: [GenerationProviderDto] })
   items!: GenerationProviderDto[];
+}
+
+export class AddGeneratedCasesDto {
+  @ApiProperty({ type: "integer", minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expectedRevision!: number;
+  @ApiProperty({ type: "integer", minimum: 1 })
+  @IsInt()
+  @Min(1)
+  sheetRevision!: number;
+  @ApiProperty({ type: "array", items: { type: "string", format: "uuid" } })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(1000)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  candidateIds!: string[];
 }

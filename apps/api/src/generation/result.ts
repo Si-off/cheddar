@@ -20,6 +20,7 @@ export function createResultSchema(
   frameIds: string[],
   screenIds: string[],
   customColumnIds: string[],
+  requirementIds: string[] = [],
 ) {
   const references = (ids: string[]) => ({
     type: "array",
@@ -27,6 +28,9 @@ export function createResultSchema(
   });
   const nonempty = { type: "string", pattern: "\\S" };
   const caseSchema = object({
+    ...(requirementIds.length
+      ? { requirementIds: references(requirementIds) }
+      : {}),
     title: nonempty,
     preconditions: string,
     steps: nonempty,
@@ -69,6 +73,9 @@ export const invalidResult = (reason = "invalid_structure") =>
 export type GenerationResult = {
   cases: CaseContentDto[];
   candidates: CandidateDto[];
+  links?: { caseId: string; requirementIds: string[] }[];
+  sources?: import("../contracts/evidence.dto").EvidenceItemDto[];
+  sourceRevision?: number;
 };
 export function validateContent(
   snapshot: SheetSnapshotDto,
@@ -89,6 +96,7 @@ export function parseResult(
   snapshot: SheetSnapshotDto,
   frameIds: string[],
   screenIds: string[],
+  requirementIds: string[] = [],
 ): GenerationResult {
   let parsed: Record<string, unknown> | null;
   try {
@@ -121,6 +129,7 @@ export function parseResult(
     Object.keys(parsed).some((k) => !["cases", "candidates"].includes(k))
   )
     throw invalidResult();
+  const sourceLinks: { caseId: string; requirementIds: string[] }[] = [];
   function convert(value: Record<string, unknown>): CaseContentDto {
     if (!value || typeof value !== "object" || Array.isArray(value))
       throw invalidResult("case_structure");
@@ -143,8 +152,14 @@ export function parseResult(
       )
     )
       throw invalidResult("custom_column_reference");
+    const { requirementIds: rawRequirements, ...fields } = value;
+    const linkedRequirements = references(
+      rawRequirements,
+      requirementIds,
+      "requirement_reference",
+    );
     const content = {
-      ...value,
+      ...fields,
       id: randomUUID(),
       caseCode: "",
       priority:
@@ -168,6 +183,10 @@ export function parseResult(
       !content.expectedResult.trim()
     )
       throw invalidResult("empty_case_text");
+    sourceLinks.push({
+      caseId: content.id,
+      requirementIds: linkedRequirements,
+    });
     return content;
   }
   const cases = parsed.cases.map(convert);
@@ -184,6 +203,9 @@ export function parseResult(
         id: content.id,
         status: "pending" as const,
         reason: candidate.reason,
+        requirementIds:
+          sourceLinks.find((l) => l.caseId === content.id)?.requirementIds ??
+          [],
         content,
       };
     },
@@ -194,5 +216,5 @@ export function parseResult(
       "EMPTY_AI_RESULT",
       "입력에서 테스트 케이스를 만들지 못했습니다. 기존 시트는 유지됩니다. 프레임이나 설명을 보완해주세요.",
     );
-  return { cases, candidates };
+  return { cases, candidates, links: sourceLinks };
 }

@@ -28,6 +28,8 @@ import {
   type Snapshot,
   type StoredDraft,
 } from "@/entities/test-case";
+import { EvidencePanel } from "@/pages/project-uploads/evidence-panel";
+import { SourceViewer } from "@/pages/project-uploads/source-viewer";
 import { SharedSheetView } from "@/pages/shared-test-cases";
 import { MenuAction } from "@/shared/ui/workspace";
 import { TestCaseTable } from "@/widgets/test-case-table";
@@ -35,6 +37,7 @@ import { ColumnSettings } from "@/widgets/test-case-table/column-settings";
 import { DetailPanel } from "./detail-panel";
 import { GenerationPanel } from "./generation-panel";
 import "./editor.css";
+import "./authoring.css";
 
 type Props = {
   snapshot: Snapshot;
@@ -105,6 +108,12 @@ export function SheetEditor({
   const [generationPanel, setGenerationPanel] = useState<
     "generate" | "candidates" | null
   >(null);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [generationSeed, setGenerationSeed] = useState<{
+    requirementIds: string[];
+    description: string;
+  }>();
   const [shareOpen, setShareOpen] = useState(false);
   const [message, setMessage] = useState<string>();
   const [generationLocked, setGenerationLocked] = useState(true);
@@ -153,7 +162,7 @@ export function SheetEditor({
     };
   }, [origin, snapshot.projectId, snapshot.id]);
   useEffect(() => {
-    if (!uploadId || !detailId) return;
+    if (!uploadId || (!detailId && !sourceOpen)) return;
     let live = true;
     void loadFrames(uploadId)
       .then((next) => {
@@ -171,7 +180,26 @@ export function SheetEditor({
     return () => {
       live = false;
     };
-  }, [uploadId, detailId, loadFrames]);
+  }, [uploadId, detailId, sourceOpen, loadFrames]);
+  useEffect(() => {
+    if (!evidenceOpen) return;
+    let live = true;
+    void Promise.all(uploads.map((upload) => loadFrames(upload.id)))
+      .then((groups) => {
+        if (live)
+          setFrames((old) => [
+            ...new Map(
+              [...old, ...groups.flat()].map((f) => [f.id, f]),
+            ).values(),
+          ]);
+      })
+      .catch(() => {
+        if (live) setMessage("화면 자료를 불러오지 못했습니다.");
+      });
+    return () => {
+      live = false;
+    };
+  }, [evidenceOpen, uploads, loadFrames]);
   const change = useCallback(
     (next: Snapshot) => session.edit(() => next),
     [session],
@@ -179,6 +207,10 @@ export function SheetEditor({
   const item = state.draft.cases.find((c) => c.id === detailId);
   const disabled = busy || generationLocked;
   function details(id: string) {
+    if (sourceOpen) {
+      setSelected(new Set([id]));
+      return;
+    }
     returnFocus.current = document.activeElement as HTMLElement;
     setDetailId(id);
   }
@@ -363,6 +395,8 @@ export function SheetEditor({
         snapshot={state.draft}
         session={session}
         uploads={uploads}
+        seed={generationSeed}
+        onResults={() => setGenerationPanel("candidates")}
         onLock={setGenerationLocked}
         panel={generationPanel}
         onClose={() => setGenerationPanel(null)}
@@ -615,7 +649,52 @@ export function SheetEditor({
           </Button>
         </div>
       )}
-      <div className="sheet-editor-body">
+      <div className="source-toolbar authoring-actions">
+        {!state.draft.cases.length && (
+          <Button
+            disabled={disabled}
+            onClick={() => setGenerationPanel("generate")}
+          >
+            케이스 생성
+          </Button>
+        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label="원본 대조"
+          onClick={() => setSourceOpen((open) => !open)}
+        >
+          <WorkspaceIcon name="image" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label="근거 수정"
+          onClick={() => setEvidenceOpen(true)}
+        >
+          <WorkspaceIcon name="settings" />
+        </Button>
+      </div>
+      <EvidencePanel
+        open={evidenceOpen}
+        onClose={() => setEvidenceOpen(false)}
+        snapshot={state.draft}
+        frames={[
+          ...new Map(
+            [...frames, ...state.draft.references.frames].map((f) => [f.id, f]),
+          ).values(),
+        ]}
+        onGenerate={(requirementIds, description) => {
+          setEvidenceOpen(false);
+          setGenerationSeed({ requirementIds, description });
+          setGenerationPanel("generate");
+        }}
+      />
+      <div
+        className={
+          sourceOpen ? "sheet-editor-body has-source" : "sheet-editor-body"
+        }
+      >
         <div className="sheet-editor-table">
           <TestCaseTable
             layout={layout}
@@ -632,6 +711,27 @@ export function SheetEditor({
             onError={setMessage}
           />
         </div>
+        {sourceOpen && (
+          <SourceViewer
+            key={[...selected][0] ?? "source"}
+            projectId={snapshot.projectId}
+            caseId={[...selected][0]}
+            frames={[
+              ...new Map(
+                [...frames, ...state.draft.references.frames].map((f) => [
+                  f.id,
+                  f,
+                ]),
+              ).values(),
+            ].filter((f) => {
+              const active = state.draft.cases.find(
+                (c) => c.id === [...selected][0],
+              );
+              return !active || active.relatedFrameIds.includes(f.id);
+            })}
+            onClose={() => setSourceOpen(false)}
+          />
+        )}
         <Dialog
           open={!!item}
           onOpenChange={(open) => {

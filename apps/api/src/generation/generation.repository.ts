@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { ApiError, invalid, notFound } from "../common/errors";
 import {
   assertSheetEditable,
   expireGeneration,
 } from "../common/generation-lock";
 import type {
+  AddGeneratedCasesDto,
   GenerationDto,
   ReviewCandidateDto,
   StartGenerationDto,
@@ -18,6 +19,7 @@ import {
 import {
   generationJobs,
   iaItems,
+  projectEvidence,
   projects,
   sheets as sheetsTable,
   uploadFrames,
@@ -27,11 +29,13 @@ import {
   revisionConflict,
   SheetsRepository,
 } from "../sheets/sheets.repository";
+import { appendEvidenceLinks } from "../uploads/evidence.service";
 import { type GenerationResult, validateContent } from "./result";
 export type Job = typeof generationJobs.$inferSelect;
 export function present(job: Job): GenerationDto {
   return {
     id: job.id,
+    mode: job.request.mode ?? "replace",
     sheetId: job.sheetId,
     provider: job.provider,
     model: job.model,
@@ -73,6 +77,11 @@ export class GenerationRepository {
       .update(
         JSON.stringify({
           sheetId,
+          mode: request.mode ?? "replace",
+          frameIds: request.frameIds ? [...request.frameIds].sort() : null,
+          requirementIds: request.requirementIds
+            ? [...request.requirementIds].sort()
+            : null,
           provider: request.provider,
           expectedRevision: request.expectedRevision,
           uploadId:
@@ -117,7 +126,41 @@ export class GenerationRepository {
           );
         if (!upload) throw notFound();
       }
-      if (!uploadId && !request.description?.trim())
+      if (request.frameIds) {
+        const selected = await tx
+          .select({ id: uploadFrames.id })
+          .from(uploadFrames)
+          .where(
+            eq(
+              uploadFrames.uploadId,
+              uploadId ?? "00000000-0000-4000-8000-000000000000",
+            ),
+          );
+        if (request.frameIds.some((id) => !selected.some((f) => f.id === id)))
+          throw invalid([{ field: "frameIds", code: "uploadMismatch" }]);
+      }
+      if (request.requirementIds) {
+        const [evidence] = await tx
+          .select()
+          .from(projectEvidence)
+          .where(eq(projectEvidence.projectId, projectId));
+        if (
+          request.requirementIds.some(
+            (id) =>
+              !evidence?.items.some(
+                (i) =>
+                  i.id === id &&
+                  (i.kind === "requirement" || i.kind === "question"),
+              ),
+          )
+        )
+          throw invalid([{ field: "requirementIds", code: "projectMismatch" }]);
+      }
+      if (
+        !uploadId &&
+        !request.description?.trim() &&
+        !request.requirementIds?.length
+      )
         throw new ApiError(
           400,
           "GENERATION_INPUT_REQUIRED",
@@ -163,7 +206,7 @@ export class GenerationRepository {
     });
   }
   async context(job: Job) {
-    const frames = job.request.uploadId
+    let frames = job.request.uploadId
       ? await this.database.db
           .select()
           .from(uploadFrames)
@@ -185,10 +228,43 @@ export class GenerationRepository {
       })
       .from(iaItems)
       .where(eq(iaItems.projectId, job.projectId));
+    const [evidence] = await this.database.db
+      .select()
+      .from(projectEvidence)
+      .where(eq(projectEvidence.projectId, job.projectId));
+    if (job.request.requirementIds?.length && !job.request.frameIds) {
+      const sourceFrames = [
+        ...new Set(
+          (evidence?.items ?? [])
+            .filter(
+              (i) => job.request.requirementIds?.includes(i.id) && i.frameId,
+            )
+            .map((i) => i.frameId as string),
+        ),
+      ];
+      if (sourceFrames.length)
+        frames = await this.database.db
+          .select()
+          .from(uploadFrames)
+          .where(
+            and(
+              eq(uploadFrames.projectId, job.projectId),
+              inArray(uploadFrames.id, sourceFrames),
+            ),
+          )
+          .orderBy(asc(uploadFrames.position));
+    }
     const example = job.request.exampleSheetId
       ? await this.sheets.get(job.projectId, job.request.exampleSheetId)
       : job.snapshot;
-    return { frames, ia, example };
+    return {
+      frames: job.request.frameIds
+        ? frames.filter((f) => job.request.frameIds?.includes(f.id))
+        : frames,
+      ia,
+      example,
+      evidence,
+    };
   }
   async succeed(job: Job, result: GenerationResult) {
     await this.write(job.projectId, async (tx) => {
@@ -205,20 +281,78 @@ export class GenerationRepository {
           "GENERATION_EXPIRED",
           "생성 시간이 초과되어 결과를 반영하지 않았습니다. 다시 생성해주세요.",
         );
-      await this.sheets.writeContent(tx, job.projectId, job.sheetId, {
-        expectedRevision: job.snapshot.contentRevision,
-        columns: job.snapshot.columns,
-        cases: result.cases,
-      });
-      await tx
-        .update(sheetsTable)
-        .set({ uploadId: job.request.uploadId ?? null })
-        .where(eq(sheetsTable.id, job.sheetId));
+      let candidates = result.candidates;
+      if (result.sources) {
+        const [doc] = await tx
+          .select()
+          .from(projectEvidence)
+          .where(eq(projectEvidence.projectId, job.projectId));
+        if ((doc?.revision ?? 0) !== result.sourceRevision)
+          throw new ApiError(
+            409,
+            "EVIDENCE_CONFLICT",
+            "생성 중 근거가 변경되었습니다. 최신 자료로 다시 생성해주세요.",
+          );
+        await tx
+          .insert(projectEvidence)
+          .values({
+            projectId: job.projectId,
+            revision: (doc?.revision ?? 0) + 1,
+            items: result.sources,
+            links: doc?.links ?? [],
+          })
+          .onConflictDoUpdate({
+            target: projectEvidence.projectId,
+            set: { revision: (doc?.revision ?? 0) + 1, items: result.sources },
+          });
+      }
+      if (job.request.mode === "review") {
+        candidates = [
+          ...result.cases.map((content) => ({
+            id: content.id,
+            status: "pending" as const,
+            kind: "case" as const,
+            reason: "",
+            content,
+            requirementIds:
+              result.links?.find((l) => l.caseId === content.id)
+                ?.requirementIds ?? [],
+          })),
+          ...result.candidates.map((c) => ({
+            ...c,
+            kind: "candidate" as const,
+          })),
+        ];
+      } else {
+        await this.sheets.writeContent(tx, job.projectId, job.sheetId, {
+          expectedRevision: job.snapshot.contentRevision,
+          columns: job.snapshot.columns,
+          cases: result.cases,
+        });
+        await tx
+          .update(sheetsTable)
+          .set({ uploadId: job.request.uploadId ?? null })
+          .where(eq(sheetsTable.id, job.sheetId));
+        await appendEvidenceLinks(
+          tx,
+          job.projectId,
+          (result.links ?? [])
+            .filter((l) => result.cases.some((c) => c.id === l.caseId))
+            .flatMap((l) =>
+              l.requirementIds.map((requirementId) => ({
+                requirementId,
+                caseId: l.caseId,
+                sheetId: job.sheetId,
+              })),
+            ),
+          job.sheetId,
+        );
+      }
       await tx
         .update(generationJobs)
         .set({
           status: "succeeded",
-          candidates: result.candidates,
+          candidates,
           caseCount: result.cases.length,
           revision: current.revision + 1,
         })
@@ -236,6 +370,75 @@ export class GenerationRepository {
             eq(generationJobs.status, "running"),
           ),
         );
+    });
+  }
+  async add(
+    projectId: string,
+    sheetId: string,
+    jobId: string,
+    input: AddGeneratedCasesDto,
+  ) {
+    return this.write(projectId, async (tx) => {
+      await assertSheetEditable(tx, sheetId);
+      const [job] = await tx
+        .select()
+        .from(generationJobs)
+        .where(
+          and(
+            eq(generationJobs.id, jobId),
+            eq(generationJobs.projectId, projectId),
+            eq(generationJobs.sheetId, sheetId),
+          ),
+        );
+      if (job?.status !== "succeeded") throw notFound();
+      if (job.revision !== input.expectedRevision)
+        throw new ApiError(
+          409,
+          "CANDIDATE_CONFLICT",
+          "결과가 변경되었습니다. 최신 결과를 불러와주세요.",
+        );
+      const chosen = job.candidates.filter((c) =>
+        input.candidateIds.includes(c.id),
+      );
+      if (
+        chosen.length !== input.candidateIds.length ||
+        chosen.some((c) => c.status !== "pending")
+      )
+        throw invalid([{ field: "candidateIds", code: "unavailable" }]);
+      const snapshot = await this.sheets.readSnapshot(tx, projectId, sheetId);
+      if (snapshot.contentRevision !== input.sheetRevision)
+        throw revisionConflict("content", snapshot.contentRevision);
+      const cases = [...snapshot.cases, ...chosen.map((c) => c.content)];
+      validateContent(snapshot, cases);
+      await this.sheets.writeContent(tx, projectId, sheetId, {
+        expectedRevision: input.sheetRevision,
+        columns: snapshot.columns,
+        cases,
+      });
+      await appendEvidenceLinks(
+        tx,
+        projectId,
+        chosen.flatMap((c) =>
+          (c.requirementIds ?? []).map((requirementId) => ({
+            requirementId,
+            sheetId,
+            caseId: c.id,
+          })),
+        ),
+      );
+      const [updated] = await tx
+        .update(generationJobs)
+        .set({
+          candidates: job.candidates.map((c) =>
+            input.candidateIds.includes(c.id)
+              ? { ...c, status: "added" as const }
+              : c,
+          ),
+          revision: job.revision + 1,
+        })
+        .where(eq(generationJobs.id, job.id))
+        .returning();
+      return present(updated);
     });
   }
   async review(
@@ -287,6 +490,15 @@ export class GenerationRepository {
           columns: snapshot.columns,
           cases: [...snapshot.cases, candidate.content],
         });
+        await appendEvidenceLinks(
+          tx,
+          projectId,
+          (candidate.requirementIds ?? []).map((requirementId) => ({
+            requirementId,
+            sheetId,
+            caseId: candidate.id,
+          })),
+        );
         candidate.status = "added";
       } else
         candidate.status = input.action === "exclude" ? "excluded" : "pending";

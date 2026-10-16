@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateSheetData, CreateSheetErrors, CreateSheetResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportSheetXlsxData, ExportSheetXlsxErrors, ExportSheetXlsxResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSheetData, GetSheetErrors, GetSheetResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListSheetsData, ListSheetsErrors, ListSheetsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReviewCandidateData, ReviewCandidateErrors, ReviewCandidateResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateSheetContentData, UpdateSheetContentErrors, UpdateSheetContentResponses, UpdateSheetViewData, UpdateSheetViewErrors, UpdateSheetViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
+import type { AddGeneratedCasesData, AddGeneratedCasesErrors, AddGeneratedCasesResponses, CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateSheetData, CreateSheetErrors, CreateSheetResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportSheetXlsxData, ExportSheetXlsxErrors, ExportSheetXlsxResponses, ExtractEvidenceData, ExtractEvidenceErrors, ExtractEvidenceResponses, GetEvidenceData, GetEvidenceErrors, GetEvidenceResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSheetData, GetSheetErrors, GetSheetResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListSheetsData, ListSheetsErrors, ListSheetsResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReviewCandidateData, ReviewCandidateErrors, ReviewCandidateResponses, SaveEvidenceData, SaveEvidenceErrors, SaveEvidenceResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateSheetContentData, UpdateSheetContentErrors, UpdateSheetContentResponses, UpdateSheetViewData, UpdateSheetViewErrors, UpdateSheetViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -72,6 +72,26 @@ export const createUpload = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 export const getUpload = <ThrowOnError extends boolean = false>(options: Options<GetUploadData, ThrowOnError>): RequestResult<GetUploadResponses, GetUploadErrors, ThrowOnError> => (options.client ?? client).get<GetUploadResponses, GetUploadErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/uploads/{uploadId}', ...options });
+
+export const getEvidence = <ThrowOnError extends boolean = false>(options: Options<GetEvidenceData, ThrowOnError>): RequestResult<GetEvidenceResponses, GetEvidenceErrors, ThrowOnError> => (options.client ?? client).get<GetEvidenceResponses, GetEvidenceErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/evidence', ...options });
+
+export const saveEvidence = <ThrowOnError extends boolean = false>(options: Options<SaveEvidenceData, ThrowOnError>): RequestResult<SaveEvidenceResponses, SaveEvidenceErrors, ThrowOnError> => (options.client ?? client).put<SaveEvidenceResponses, SaveEvidenceErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/evidence',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const extractEvidence = <ThrowOnError extends boolean = false>(options: Options<ExtractEvidenceData, ThrowOnError>): RequestResult<ExtractEvidenceResponses, ExtractEvidenceErrors, ThrowOnError> => (options.client ?? client).post<ExtractEvidenceResponses, ExtractEvidenceErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/evidence/extract',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 export const listIaItems = <ThrowOnError extends boolean = false>(options: Options<ListIaItemsData, ThrowOnError>): RequestResult<ListIaItemsResponses, ListIaItemsErrors, ThrowOnError> => (options.client ?? client).get<ListIaItemsResponses, ListIaItemsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/ia', ...options });
 
@@ -143,6 +163,15 @@ export const listGenerations = <ThrowOnError extends boolean = false>(options: O
 
 export const startGeneration = <ThrowOnError extends boolean = false>(options: Options<StartGenerationData, ThrowOnError>): RequestResult<StartGenerationResponses, StartGenerationErrors, ThrowOnError> => (options.client ?? client).post<StartGenerationResponses, StartGenerationErrors, ThrowOnError>({
     url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const addGeneratedCases = <ThrowOnError extends boolean = false>(options: Options<AddGeneratedCasesData, ThrowOnError>): RequestResult<AddGeneratedCasesResponses, AddGeneratedCasesErrors, ThrowOnError> => (options.client ?? client).post<AddGeneratedCasesResponses, AddGeneratedCasesErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/add',
     ...options,
     headers: {
         'Content-Type': 'application/json',

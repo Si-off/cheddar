@@ -19,6 +19,7 @@ import {
 } from "@nestjs/swagger";
 import { ErrorResponseDto } from "../contracts/common.dto";
 import {
+  AddGeneratedCasesDto,
   GenerationDto,
   GenerationListDto,
   GenerationProvidersDto,
@@ -69,6 +70,18 @@ export class GenerationController {
     @Body() input: StartGenerationDto,
   ) {
     return this.service.start(projectId, sheetId, input);
+  }
+  @Post(":jobId/add")
+  @ApiOperation({ operationId: "addGeneratedCases" })
+  @ApiBody({ type: AddGeneratedCasesDto })
+  @ApiOkResponse({ type: GenerationDto })
+  add(
+    @Param("projectId", new ParseUUIDPipe()) projectId: string,
+    @Param("sheetId", new ParseUUIDPipe()) sheetId: string,
+    @Param("jobId", new ParseUUIDPipe()) jobId: string,
+    @Body() input: AddGeneratedCasesDto,
+  ) {
+    return this.service.add(projectId, sheetId, jobId, input);
   }
   @Put(":jobId/candidates/:candidateId")
   @ApiOperation({ operationId: "reviewCandidate" })

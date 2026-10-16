@@ -16,6 +16,7 @@ export async function checkMigrations(
   )
     throw new Error("Migration history differs.");
   await database.pool.query("SELECT id FROM projects LIMIT 0");
+  await database.pool.query("SELECT project_id FROM project_evidence LIMIT 0");
   await database.pool.query("SELECT id FROM files LIMIT 0");
   await database.pool.query("SELECT id FROM uploads LIMIT 0");
   await database.pool.query("SELECT id FROM upload_frames LIMIT 0");

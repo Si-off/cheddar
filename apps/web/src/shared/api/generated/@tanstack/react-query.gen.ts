@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createIaItem, createProject, createSheet, createUpload, deleteIaItem, downloadFile, exportSheetXlsx, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getSheet, getUpload, listFiles, listGenerationProviders, listGenerations, listIaItems, listProjects, listSheets, listUploads, type Options, reviewCandidate, startGeneration, updateIaItem, updateProject, updateProjectTemplate, updateSheetContent, updateSheetView, uploadFile } from '../sdk.gen';
-import type { CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateSheetData, CreateSheetError, CreateSheetResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportSheetXlsxData, ExportSheetXlsxError, ExportSheetXlsxResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetSheetData, GetSheetError, GetSheetResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListGenerationProvidersData, ListGenerationProvidersResponse, ListGenerationsData, ListGenerationsError, ListGenerationsResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListSheetsData, ListSheetsError, ListSheetsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, ReviewCandidateData, ReviewCandidateError, ReviewCandidateResponse, StartGenerationData, StartGenerationError, StartGenerationResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateSheetContentData, UpdateSheetContentError, UpdateSheetContentResponse, UpdateSheetViewData, UpdateSheetViewError, UpdateSheetViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
+import { addGeneratedCases, createIaItem, createProject, createSheet, createUpload, deleteIaItem, downloadFile, exportSheetXlsx, extractEvidence, getEvidence, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getSheet, getUpload, listFiles, listGenerationProviders, listGenerations, listIaItems, listProjects, listSheets, listUploads, type Options, reviewCandidate, saveEvidence, startGeneration, updateIaItem, updateProject, updateProjectTemplate, updateSheetContent, updateSheetView, uploadFile } from '../sdk.gen';
+import type { AddGeneratedCasesData, AddGeneratedCasesError, AddGeneratedCasesResponse, CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateSheetData, CreateSheetError, CreateSheetResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportSheetXlsxData, ExportSheetXlsxError, ExportSheetXlsxResponse, ExtractEvidenceData, ExtractEvidenceError, ExtractEvidenceResponse, GetEvidenceData, GetEvidenceError, GetEvidenceResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetSheetData, GetSheetError, GetSheetResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListGenerationProvidersData, ListGenerationProvidersResponse, ListGenerationsData, ListGenerationsError, ListGenerationsResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListSheetsData, ListSheetsError, ListSheetsResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, ReviewCandidateData, ReviewCandidateError, ReviewCandidateResponse, SaveEvidenceData, SaveEvidenceError, SaveEvidenceResponse, StartGenerationData, StartGenerationError, StartGenerationResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateSheetContentData, UpdateSheetContentError, UpdateSheetContentResponse, UpdateSheetViewData, UpdateSheetViewError, UpdateSheetViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -340,6 +340,49 @@ export const getUploadOptions = (options: Options<GetUploadData>) => queryOption
     queryKey: getUploadQueryKey(options)
 });
 
+export const getEvidenceQueryKey = (options: Options<GetEvidenceData>) => createQueryKey('getEvidence', options);
+
+export const getEvidenceOptions = (options: Options<GetEvidenceData>) => queryOptions<GetEvidenceResponse, GetEvidenceError, GetEvidenceResponse, ReturnType<typeof getEvidenceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getEvidence({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getEvidenceQueryKey(options)
+});
+
+export const saveEvidenceMutation = (options?: Partial<Options<SaveEvidenceData>>): UseMutationOptions<SaveEvidenceResponse, SaveEvidenceError, Options<SaveEvidenceData>> => {
+    const mutationOptions: UseMutationOptions<SaveEvidenceResponse, SaveEvidenceError, Options<SaveEvidenceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveEvidence({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const extractEvidenceMutation = (options?: Partial<Options<ExtractEvidenceData>>): UseMutationOptions<ExtractEvidenceResponse, ExtractEvidenceError, Options<ExtractEvidenceData>> => {
+    const mutationOptions: UseMutationOptions<ExtractEvidenceResponse, ExtractEvidenceError, Options<ExtractEvidenceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await extractEvidence({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listIaItemsQueryKey = (options: Options<ListIaItemsData>) => createQueryKey('listIaItems', options);
 
 export const listIaItemsOptions = (options: Options<ListIaItemsData>) => queryOptions<ListIaItemsResponse, ListIaItemsError, ListIaItemsResponse, ReturnType<typeof listIaItemsQueryKey>>({
@@ -559,6 +602,20 @@ export const startGenerationMutation = (options?: Partial<Options<StartGeneratio
     const mutationOptions: UseMutationOptions<StartGenerationResponse, StartGenerationError, Options<StartGenerationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await startGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const addGeneratedCasesMutation = (options?: Partial<Options<AddGeneratedCasesData>>): UseMutationOptions<AddGeneratedCasesResponse, AddGeneratedCasesError, Options<AddGeneratedCasesData>> => {
+    const mutationOptions: UseMutationOptions<AddGeneratedCasesResponse, AddGeneratedCasesError, Options<AddGeneratedCasesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addGeneratedCases({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

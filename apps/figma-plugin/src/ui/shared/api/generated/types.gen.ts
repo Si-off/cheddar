@@ -123,6 +123,45 @@ export type UploadPageDto = {
     nextCursor: string | null;
 };
 
+export type EvidenceRegionDto = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type EvidenceItemDto = {
+    id: string;
+    kind: 'screen' | 'state' | 'requirement' | 'question' | 'relation';
+    title: string;
+    text: string;
+    frameId?: string;
+    nodeId?: string;
+    parentId?: string;
+    region?: EvidenceRegionDto;
+    answer?: string;
+    useAsRule?: boolean;
+    relation?: 'transition' | 'state' | 'annotation';
+    fromId?: string;
+    toId?: string;
+};
+
+export type EvidenceLinkDto = {
+    requirementId: string;
+    sheetId: string;
+    caseId: string;
+};
+
+export type EvidenceDto = {
+    revision: number;
+    items: Array<EvidenceItemDto>;
+    links: Array<EvidenceLinkDto>;
+};
+
+export type ExtractEvidenceDto = {
+    uploadId: string;
+};
+
 export type DeleteIaQueryDto = {
     expectedRevision: number;
 };
@@ -303,6 +342,8 @@ export type SheetExportQueryDto = {
 };
 
 export type CandidateDto = {
+    kind?: 'case' | 'candidate';
+    requirementIds?: Array<string>;
     id: string;
     status: 'pending' | 'added' | 'excluded';
     reason: string;
@@ -310,6 +351,7 @@ export type CandidateDto = {
 };
 
 export type GenerationDto = {
+    mode?: 'replace' | 'review';
     id: string;
     sheetId: string;
     provider: 'anthropic' | 'openai';
@@ -327,12 +369,21 @@ export type GenerationListDto = {
 };
 
 export type StartGenerationDto = {
+    mode?: 'replace' | 'review';
+    frameIds?: Array<string>;
+    requirementIds?: Array<string>;
     clientRequestId: string;
     provider: 'anthropic' | 'openai';
     expectedRevision: number;
     uploadId?: string | null;
     description?: string;
     exampleSheetId?: string;
+};
+
+export type AddGeneratedCasesDto = {
+    expectedRevision: number;
+    sheetRevision: number;
+    candidateIds: Array<string>;
 };
 
 export type ReviewCandidateDto = {
@@ -680,6 +731,83 @@ export type GetUploadResponses = {
 };
 
 export type GetUploadResponse = GetUploadResponses[keyof GetUploadResponses];
+
+export type GetEvidenceData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/evidence';
+};
+
+export type GetEvidenceErrors = {
+    400: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+};
+
+export type GetEvidenceError = GetEvidenceErrors[keyof GetEvidenceErrors];
+
+export type GetEvidenceResponses = {
+    200: EvidenceDto;
+};
+
+export type GetEvidenceResponse = GetEvidenceResponses[keyof GetEvidenceResponses];
+
+export type SaveEvidenceData = {
+    body: EvidenceDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/evidence';
+};
+
+export type SaveEvidenceErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+};
+
+export type SaveEvidenceError = SaveEvidenceErrors[keyof SaveEvidenceErrors];
+
+export type SaveEvidenceResponses = {
+    200: EvidenceDto;
+};
+
+export type SaveEvidenceResponse = SaveEvidenceResponses[keyof SaveEvidenceResponses];
+
+export type ExtractEvidenceData = {
+    body: ExtractEvidenceDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/evidence/extract';
+};
+
+export type ExtractEvidenceErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+};
+
+export type ExtractEvidenceError = ExtractEvidenceErrors[keyof ExtractEvidenceErrors];
+
+export type ExtractEvidenceResponses = {
+    200: EvidenceDto;
+};
+
+export type ExtractEvidenceResponse = ExtractEvidenceResponses[keyof ExtractEvidenceResponses];
 
 export type ListIaItemsData = {
     body?: never;
@@ -1077,6 +1205,36 @@ export type StartGenerationResponses = {
 };
 
 export type StartGenerationResponse = StartGenerationResponses[keyof StartGenerationResponses];
+
+export type AddGeneratedCasesData = {
+    body: AddGeneratedCasesDto;
+    path: {
+        projectId: string;
+        sheetId: string;
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/sheets/{sheetId}/generations/{jobId}/add';
+};
+
+export type AddGeneratedCasesErrors = {
+    400: ErrorResponseDto;
+    /**
+     * Origin rejected
+     */
+    403: ErrorResponseDto;
+    404: ErrorResponseDto;
+    409: ErrorResponseDto;
+    503: ErrorResponseDto;
+};
+
+export type AddGeneratedCasesError = AddGeneratedCasesErrors[keyof AddGeneratedCasesErrors];
+
+export type AddGeneratedCasesResponses = {
+    200: GenerationDto;
+};
+
+export type AddGeneratedCasesResponse = AddGeneratedCasesResponses[keyof AddGeneratedCasesResponses];
 
 export type ReviewCandidateData = {
     body: ReviewCandidateDto;

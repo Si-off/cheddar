@@ -5,6 +5,7 @@ import {
   type Snapshot,
 } from "@/entities/test-case";
 import {
+  addGeneratedCases,
   createProject,
   createSheet,
   exportSheetXlsx,
@@ -164,5 +165,16 @@ export async function updateCandidate(
       path: { projectId, sheetId, jobId, candidateId },
       body,
     }),
+  );
+}
+
+export async function addGenerationSelection(
+  projectId: string,
+  sheetId: string,
+  jobId: string,
+  body: import("@/shared/api/generated").AddGeneratedCasesDto,
+) {
+  return unwrap(
+    await addGeneratedCases({ path: { projectId, sheetId, jobId }, body }),
   );
 }

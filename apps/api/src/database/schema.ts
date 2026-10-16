@@ -509,3 +509,23 @@ export const generationJobs = pgTable(
     ),
   ],
 );
+
+// Source annotations and their manual associations are independent of uploaded bytes.
+export const projectEvidence = pgTable(
+  "project_evidence",
+  {
+    projectId: uuid("project_id")
+      .primaryKey()
+      .references(() => projects.id, { onDelete: "restrict" }),
+    revision: integer("revision").notNull().default(1),
+    items: jsonb("items")
+      .$type<import("../contracts/evidence.dto").EvidenceItemDto[]>()
+      .notNull()
+      .default([]),
+    links: jsonb("links")
+      .$type<import("../contracts/evidence.dto").EvidenceLinkDto[]>()
+      .notNull()
+      .default([]),
+  },
+  (t) => [check("project_evidence_revision_check", sql`${t.revision} > 0`)],
+);

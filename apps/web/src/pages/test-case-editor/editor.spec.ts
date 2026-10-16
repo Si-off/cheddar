@@ -115,6 +115,7 @@ async function mockApi(page: Page) {
       if (request.method() === "POST") {
         control.generationRequests.push(request.postDataJSON());
         control.generation = {
+          mode: request.postDataJSON().mode,
           id: "50000000-0000-4000-8000-000000000001",
           sheetId,
           provider: "anthropic",
@@ -134,6 +135,23 @@ async function mockApi(page: Page) {
         });
       return json({ items: control.generation ? [control.generation] : [] });
     }
+    if (path.endsWith("/add") && control.generation) {
+      const body = request.postDataJSON();
+      for (const candidate of control.generation.candidates.filter((c) =>
+        body.candidateIds.includes(c.id),
+      )) {
+        candidate.status = "added";
+        control.saved.cases.push({
+          ...candidate.content,
+          caseCode: `TC-${control.saved.cases.length + 1}`,
+        });
+      }
+      control.generation.revision++;
+      control.saved.contentRevision++;
+      return json(control.generation, 201);
+    }
+    if (path.endsWith("/evidence"))
+      return json({ revision: 0, items: [], links: [] });
     if (path.includes("/candidates/") && control.generation) {
       const candidate = control.generation.candidates[0];
       candidate.status = "added";
@@ -441,7 +459,7 @@ test("long cell text remains readable and editing retains its expanded row", asy
   expect(horizontal).toBe(true);
 });
 
-test("generation confirms replacement, locks editing and loads generated cases and reviewed candidates", async ({
+test("generation locks editing, preserves existing cases and adds reviewed results", async ({
   page,
 }) => {
   const control = await mockApi(page);
@@ -449,17 +467,7 @@ test("generation confirms replacement, locks editing and loads generated cases a
   await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
   await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
   await page.getByLabel("테스트 내용", { exact: true }).fill("로그인 흐름");
-  const generate = page.getByRole("button", {
-    name: "케이스 다시 생성",
-    exact: true,
-  });
-  await expect(generate).toBeDisabled();
-  await page
-    .getByRole("checkbox", {
-      name: "기존 케이스 1개를 생성 결과로 교체합니다.",
-    })
-    .check();
-  await generate.click();
+  await page.getByRole("button", { name: "케이스 생성", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "테스트 생성 중" }),
   ).toBeVisible();
@@ -470,27 +478,34 @@ test("generation confirms replacement, locks editing and loads generated cases a
   expect(control.generationRequests[0]).toMatchObject({
     description: "로그인 흐름",
     expectedRevision: 1,
+    mode: "review",
   });
   const generated = {
     ...control.saved.cases[0],
-    title: "생성된 로그인 케이스",
+    id: "40000000-0000-4000-8000-000000000002",
+    caseCode: "",
+    title: "생성 로그인 케이스",
   };
   const candidate = {
     ...generated,
-    id: "40000000-0000-4000-8000-000000000002",
-    caseCode: "",
-    title: "확인할 후보",
+    id: "40000000-0000-4000-8000-000000000003",
+    title: "로그인 예외 후보",
   };
-  control.saved.cases = [generated];
-  control.saved.contentRevision++;
-  expect(control.generation).toBeDefined();
   Object.assign(control.generation ?? {}, {
     status: "succeeded",
     revision: 2,
     caseCount: 1,
     candidates: [
       {
+        id: generated.id,
+        kind: "case",
+        status: "pending",
+        reason: "",
+        content: generated,
+      },
+      {
         id: candidate.id,
+        kind: "candidate",
         status: "pending",
         reason: "동작 확인 필요",
         content: candidate,
@@ -498,25 +513,30 @@ test("generation confirms replacement, locks editing and loads generated cases a
     ],
   });
   await expect(
-    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
-  ).toContainText(generated.title);
-  await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
-  await page.getByRole("button", { name: "후보 검토", exact: true }).click();
-  await expect(
-    page.locator("summary").filter({ hasText: "확인할 후보" }),
-  ).toHaveCount(1);
-  await page.locator("summary").filter({ hasText: "확인할 후보" }).click();
-  await page.getByRole("button", { name: "시트에 추가", exact: true }).click();
-  await expect(
-    page.locator("summary").filter({ hasText: "추가됨" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "닫기", exact: true }).click();
-  await expect(
-    page.getByRole("gridcell", { name: "2행 제목", exact: true }),
-  ).toContainText(candidate.title);
-  await expect(
     page.getByRole("button", { name: "행 추가", exact: true }),
   ).toBeEnabled();
+  await expect(
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText("기존 제목");
+  await page.getByRole("button", { name: "결과 검토", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "생성 로그인 케이스 선택", exact: true })
+    .check();
+  await page.getByRole("button", { name: "1개 추가", exact: true }).click();
+  await expect.poll(() => control.saved.cases.length).toBe(2);
+  await page.getByRole("button", { name: "후보 검토", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "로그인 예외 후보 선택", exact: true })
+    .check();
+  await page.getByRole("button", { name: "1개 추가", exact: true }).click();
+  await expect.poll(() => control.saved.cases.length).toBe(3);
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(
+    page.getByRole("gridcell", { name: "1행 제목", exact: true }),
+  ).toContainText("기존 제목");
+  await expect(
+    page.getByRole("gridcell", { name: "3행 제목", exact: true }),
+  ).toContainText(candidate.title);
   expect(control.generationRequests).toHaveLength(1);
 });
 async function paste(page: Page, target: string, text: string) {
