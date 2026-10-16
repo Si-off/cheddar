@@ -19,7 +19,7 @@ FONT_LICENSES -->
       button { cursor: pointer; }
       button, input, select, a { -webkit-tap-highlight-color: transparent; }
       button, input, select { transition: background-color var(--duration-feedback) var(--ease-standard), border-color var(--duration-feedback) var(--ease-standard), box-shadow var(--duration-feedback) var(--ease-standard); }
-      :focus-visible { outline: var(--focus-width) solid var(--color-focus); outline-offset: var(--focus-offset); }
+      :focus-visible { outline: none; border-color: var(--color-focus-border); }
       button:disabled { cursor: not-allowed; background: var(--color-disabled); color: var(--color-disabled-foreground); border-color: var(--color-border); }
       h1, h2, h3, p { margin: 0; }
       h1 { font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-heading); }
@@ -57,7 +57,7 @@ FONT_LICENSES -->
       .row { display: flex; align-items: center; gap: var(--spacing-3); flex-wrap: wrap; }
       .muted { color: var(--color-muted); }
       .small { font-size: var(--text-caption); }
-      .button { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-2); min-height: var(--spacing-control-md); padding: var(--spacing-control-y) var(--spacing-control-x); border-radius: var(--radius-control); border: var(--border-width-default) solid var(--color-border-control); background: var(--color-surface); color: var(--color-foreground); font-weight: var(--font-weight-label); white-space: nowrap; }
+      .button { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-2); min-height: var(--size-form); padding: var(--spacing-control-y) var(--spacing-control-x); border-radius: var(--radius-control); border: var(--border-width-default) solid var(--color-border-control); background: var(--color-surface); color: var(--color-foreground); font-weight: var(--font-weight-label); white-space: nowrap; }
       .button:hover { background: var(--color-surface-hover); }
       .button:active { background: var(--color-border); }
       .button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-foreground); }
@@ -67,7 +67,8 @@ FONT_LICENSES -->
       .button.secondary:hover { background: var(--color-secondary-hover); }
       .button.secondary:active { background: var(--color-secondary-active); }
       .secondary-palette { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-      .button.small-button { min-height: var(--spacing-control-sm); padding: var(--spacing-1) var(--spacing-3); font-size: var(--text-caption); }
+      .button.small-button { min-height: var(--size-toolbar); padding: var(--spacing-1) var(--spacing-3); font-size: var(--text-caption); }
+      .row-size-demo { display: flex; align-items: center; justify-content: space-between; min-height: var(--size-row-min); padding: 0 var(--spacing-3); border-bottom: var(--border-width-default) solid var(--color-border); }
       .button.large-button { min-height: var(--spacing-control-lg); }
       .button:disabled { background: var(--color-disabled); color: var(--color-disabled-foreground); border-color: var(--color-border); }
       .palette { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: var(--spacing-2); }
@@ -111,7 +112,7 @@ FONT_LICENSES -->
       .selection-control input[type="radio"] + .control-indicator::after { content: ""; position: relative; width: var(--spacing-radio-dot); height: var(--spacing-radio-dot); border-radius: var(--radius-full); background: var(--color-primary); clip-path: circle(0% at 50% 50%); transition: clip-path var(--duration-selection) var(--ease-standard); }
       .selection-control input[type="radio"]:checked + .control-indicator::after { clip-path: circle(50% at 50% 50%); }
       .selection-control input:disabled + .control-indicator { opacity: 0.5; }
-      .selection-control input:focus-visible + .control-indicator { outline: var(--focus-width) solid var(--color-focus); outline-offset: var(--focus-offset); }
+      .selection-control input:focus-visible + .control-indicator { outline: none; border-color: var(--color-focus-border); background: var(--color-focus-surface); }
       .selection-control input:hover:not(:disabled) + .control-indicator { border-color: var(--color-primary); }
       .selection-control input:disabled { cursor: not-allowed; }
       label:has(.selection-control) { min-height: var(--spacing-control-md); cursor: pointer; }
@@ -198,7 +199,7 @@ FONT_LICENSES -->
           </section>
           <section id="spacing" aria-labelledby="page-title" class="stack" hidden>
             <div class="grid2"><div class="card"><div class="section-heading"><h2>간격 단계</h2><code>4px base</code></div><div id="spacing-scale"></div></div><div class="stack"><div class="card stack"><h2>여백 비교</h2><label class="field" for="space-select">내부 여백<select id="space-select"><option value="3">12px</option><option value="4">16px</option><option value="6" selected>24px</option><option value="8">32px</option></select></label><div class="spacing-demo" id="spacing-demo"><div>내용 영역</div><div>내용 영역</div></div><code id="spacing-code">spacing-6 / 24px</code></div><div class="card stack"><h2>기본 여백</h2><div class="layer-row"><span>화면 / 패널</span><code>24px</code></div><div class="layer-row"><span>컨트롤 좌우 / 상하</span><code>16px / 8px</code></div><div class="layer-row"><span>콘텐츠 최대 너비</span><code>1152px</code></div></div></div></div>
-            <div class="card stack"><h2>컨트롤 높이</h2><div class="row"><button type="button" class="button small-button size-demo">Small 32</button><button type="button" class="button size-demo">Medium 40</button><button type="button" class="button large-button size-demo">Large 48</button></div><div class="row muted"><span>아이콘</span><code>16px</code><code>20px</code><code>24px</code></div></div>
+            <div class="card stack"><h2>작업 공간 크기</h2><div class="row"><button type="button" class="button small-button size-demo">툴바 32px</button><code>size-toolbar</code><button type="button" class="button size-demo">폼 40px</button><code>size-form</code></div><div class="row-size-demo"><span>표 최소 행 48px</span><code>size-row-min</code></div><div class="row muted"><span>아이콘</span><code>16px</code><code>20px</code><code>24px</code></div></div>
           </section>
           <section id="shape" aria-labelledby="page-title" class="stack" hidden>
             <div class="card"><div class="section-heading"><h2>모서리</h2><code>radius</code></div><div id="radius-scale" class="shape-grid"></div></div>
@@ -259,11 +260,14 @@ FONT_LICENSES -->
       $("#open-dialog").addEventListener("click", () => $("#color-dialog").showModal());
       document.querySelectorAll('[role="switch"]').forEach((button) => { button.addEventListener("click", () => { const enabled = button.getAttribute("aria-checked") !== "true"; button.setAttribute("aria-checked",String(enabled)); }); });
       let motionAnimations = [];
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+      reducedMotion.addEventListener("change", () => { if (reducedMotion.matches) for (const animation of motionAnimations) animation.cancel(); });
       $("#play-motion").addEventListener("click", () => {
+        for (const animation of motionAnimations) animation.cancel();
+        if (reducedMotion.matches) return;
         const kind = $('input[name="duration"]:checked').value;
         const duration = parseFloat(token(`duration-${kind}`));
         const timing = { duration, easing: token("ease-standard") };
-        for (const animation of motionAnimations) animation.cancel();
         motionAnimations = [
           $(".motion-fill").animate([{ clipPath: "circle(0% at 50% 50%)" }, { clipPath: "circle(75% at 50% 50%)" }], timing),
           $(".motion-drawing path").animate([{ strokeDashoffset: "1" }, { strokeDashoffset: "0" }], timing),

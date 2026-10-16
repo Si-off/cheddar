@@ -351,7 +351,7 @@ export type GenerationResultItemDto = {
 };
 
 export type GenerationDto = {
-    mode?: 'replace' | 'review';
+    mode?: 'replace' | 'review' | 'append';
     id: string;
     testScenarioId: string;
     provider: 'anthropic' | 'openai';
@@ -369,7 +369,7 @@ export type GenerationListDto = {
 };
 
 export type StartGenerationDto = {
-    mode?: 'replace' | 'review';
+    mode?: 'replace' | 'review' | 'append';
     frameIds?: Array<string>;
     requirementIds?: Array<string>;
     clientRequestId: string;
@@ -386,10 +386,17 @@ export type AddGeneratedCasesDto = {
     resultIds: Array<string>;
 };
 
+export type GenerationQuestionAnswerDto = {
+    expectedRevision: number;
+    answer: string;
+    useAsRule: boolean;
+};
+
 export type ReviewGenerationResultDto = {
     expectedRevision: number;
     action: 'add' | 'exclude' | 'restore' | 'edit';
     content?: CaseContentDto;
+    question?: GenerationQuestionAnswerDto;
 };
 
 export type GenerationProviderDto = {

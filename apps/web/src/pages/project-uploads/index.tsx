@@ -85,11 +85,11 @@ export function ProjectUploadsPage({
   });
   const items = uploads.data?.pages.flatMap((page) => page.items) ?? [];
   return (
-    <div className="space-y-6">
+    <div className="workspace-uploads-page space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-label text-muted">{project.data?.name}</p>
-          <h1 className="text-display font-heading">화면 자료</h1>
+          <h1 className="text-title font-heading">Figma 자료</h1>
         </div>
         <Button
           variant="ghost"
@@ -98,7 +98,7 @@ export function ProjectUploadsPage({
           disabled={uploads.isFetching}
           onClick={() => void uploads.refetch()}
         >
-          <WorkspaceIcon name="settings" />
+          <WorkspaceIcon name="refresh" />
         </Button>
       </div>
       {project.isError && (
@@ -108,18 +108,22 @@ export function ProjectUploadsPage({
       )}
       {uploads.isPending && <LoadingSkeleton />}
       {uploads.isError && (
-        <p role="alert" className="text-danger">
-          {uploadError(
-            uploads.error,
-            "업로드를 불러오지 못했습니다. 다시 불러와주세요.",
-          )}
-        </p>
+        <div role="alert" className="space-y-3 text-danger">
+          <p>
+            {uploadError(
+              uploads.error,
+              "Figma 자료를 불러오지 못했습니다. 다시 불러와주세요.",
+            )}
+          </p>
+          <Button variant="outline" onClick={() => void uploads.refetch()}>
+            다시 불러오기
+          </Button>
+        </div>
       )}
       {uploads.isSuccess && items.length === 0 && (
         <Surface>
           <p className="text-muted">
-            업로드가 없습니다. Figma 플러그인에서 이 프로젝트에 프레임을
-            업로드해주세요.
+            Figma 자료가 없습니다. Figma 플러그인에서 화면을 업로드해주세요.
           </p>
         </Surface>
       )}
@@ -137,7 +141,10 @@ export function ProjectUploadsPage({
               <span>
                 <strong>{upload.name}</strong>
                 <small>
-                  화면 {upload.frameCount}개 · {date(upload.createdAt)}
+                  <span>화면 {upload.frameCount}개</span>{" "}
+                  <time dateTime={upload.createdAt}>
+                    {date(upload.createdAt)}
+                  </time>
                 </small>
               </span>
               <WorkspaceIcon name="arrow" />
@@ -151,7 +158,7 @@ export function ProjectUploadsPage({
           disabled={uploads.isFetchingNextPage}
           onClick={() => void uploads.fetchNextPage()}
         >
-          업로드 더 보기
+          자료 더 보기
         </Button>
       )}
     </div>
@@ -234,64 +241,77 @@ function UploadTestScenarios({
     }
   }
   return (
-    <section aria-labelledby="upload-testScenarios" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 id="upload-testScenarios" className="text-heading font-heading">
-          테스트 시나리오
-        </h2>
+    <section
+      aria-labelledby="upload-testScenarios"
+      className="upload-scenario-strip"
+    >
+      <h2 id="upload-testScenarios" className="upload-scenario-heading">
+        테스트 시나리오
+      </h2>
+      <div className="upload-scenario-content">
+        {testScenarios.isPending && (
+          <p role="status" className="text-muted">
+            시나리오 조회 중
+          </p>
+        )}
+        {testScenarios.isError && (
+          <p role="alert" className="text-danger">
+            {uploadError(
+              testScenarios.error,
+              "시나리오를 불러오지 못했습니다. 다시 불러와주세요.",
+            )}
+          </p>
+        )}
+        {testScenarios.isSuccess && items.length === 0 && (
+          <p className="text-label text-muted">시나리오 연결이 없습니다.</p>
+        )}
+        <ul className="upload-scenario-chips">
+          {items.map((testScenario) => (
+            <li key={testScenario.id}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="upload-scenario-chip"
+                onClick={() => onOpenTestScenario(testScenario.id)}
+              >
+                <span>{testScenario.name}</span>
+                <span className="upload-scenario-kind">
+                  {testScenario.kind === "unit" ? "단위 테스트" : "통합 테스트"}
+                </span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+        {testScenarios.hasNextPage && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={testScenarios.isFetchingNextPage || creating}
+            onClick={() => void testScenarios.fetchNextPage()}
+          >
+            시나리오 더 보기
+          </Button>
+        )}
+      </div>
+      <div className="upload-scenario-actions">
         <Button
           variant="outline"
+          size="sm"
+          onClick={() => setNewTestScenarioOpen(true)}
+        >
+          <WorkspaceIcon name="plus" />
+          시나리오 만들기
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="시나리오 새로고침"
           disabled={testScenarios.isFetching || creating}
           onClick={() => void refresh()}
         >
-          시나리오 새로고침
+          <WorkspaceIcon name="refresh" />
         </Button>
       </div>
-      {testScenarios.isPending && (
-        <p role="status" className="text-muted">
-          시나리오 불러오는 중
-        </p>
-      )}
-      {testScenarios.isError && (
-        <p role="alert" className="text-danger">
-          {uploadError(
-            testScenarios.error,
-            "시나리오를 불러오지 못했습니다. 다시 불러와주세요.",
-          )}
-        </p>
-      )}
-      {testScenarios.isSuccess && items.length === 0 && (
-        <p className="text-label text-muted">연결된 시나리오가 없습니다.</p>
-      )}
-      <ul className="flex flex-wrap gap-2">
-        {items.map((testScenario) => (
-          <li key={testScenario.id}>
-            <Button
-              variant="outline"
-              className="h-auto flex-col items-start"
-              onClick={() => onOpenTestScenario(testScenario.id)}
-            >
-              <span>{testScenario.name}</span>
-              <span className="text-muted">
-                {testScenario.kind === "unit" ? "단위 테스트" : "통합 테스트"}
-              </span>
-            </Button>
-          </li>
-        ))}
-      </ul>
-      {testScenarios.hasNextPage && (
-        <Button
-          variant="ghost"
-          disabled={testScenarios.isFetchingNextPage || creating}
-          onClick={() => void testScenarios.fetchNextPage()}
-        >
-          시나리오 더 보기
-        </Button>
-      )}
-      <Button onClick={() => setNewTestScenarioOpen(true)}>
-        <WorkspaceIcon name="plus" />
-        시나리오 만들기
-      </Button>
       <Dialog open={newTestScenarioOpen} onOpenChange={setNewTestScenarioOpen}>
         <DialogContent aria-describedby={undefined}>
           <DialogTitle>새 시나리오</DialogTitle>
@@ -345,8 +365,8 @@ function UploadTestScenarios({
             )}
             {uncertain && (
               <p className="text-label text-muted">
-                시나리오 목록을 새로고침해 생성된 시나리오를 확인해주세요.
-                목록에 없다면 다시 만들어주세요.
+                시나리오 목록을 새로고침해 생성 결과를 확인해주세요. 목록에
+                없다면 다시 만들어주세요.
               </p>
             )}
             <Button
@@ -358,7 +378,7 @@ function UploadTestScenarios({
                 !testScenarios.isSuccess
               }
             >
-              {creating ? "시나리오 만드는 중" : "시나리오 만들기"}
+              {creating ? "시나리오 생성 중" : "시나리오 만들기"}
             </Button>
           </form>
         </DialogContent>
@@ -374,7 +394,6 @@ export function ProjectUploadDetailPage({
   onOpenTestScenario,
   testScenarioGateway,
 }: ProjectUploadDetailPageProps) {
-  const project = useProject(projectId);
   const upload = useQuery({
     queryKey: ["upload", projectId, uploadId],
     queryFn: async ({ signal }) =>
@@ -387,17 +406,35 @@ export function ProjectUploadDetailPage({
       ).data,
   });
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" onClick={onBack}>
-        업로드 목록
-      </Button>
+    <div className="workspace-upload-detail upload-gallery-page">
+      <header className="upload-gallery-heading">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Figma 자료"
+          onClick={onBack}
+        >
+          <WorkspaceIcon name="back" />
+        </Button>
+        {upload.data && (
+          <>
+            <h1 className="upload-gallery-title">{upload.data.name}</h1>
+            <p className="upload-gallery-meta">
+              <span>화면 {upload.data.frames.length}개</span>
+              <time dateTime={upload.data.createdAt}>
+                {date(upload.data.createdAt)}
+              </time>
+            </p>
+          </>
+        )}
+      </header>
       {upload.isPending && <LoadingSkeleton />}
       {upload.isError && (
         <div role="alert" className="space-y-3">
           <p className="text-danger">
             {uploadError(
               upload.error,
-              "업로드를 불러오지 못했습니다. 다시 불러와주세요.",
+              "Figma 자료를 불러오지 못했습니다. 다시 불러와주세요.",
             )}
           </p>
           <Button variant="outline" onClick={() => void upload.refetch()}>
@@ -407,16 +444,6 @@ export function ProjectUploadDetailPage({
       )}
       {upload.data && (
         <>
-          <header>
-            <p className="text-label text-muted">{project.data?.name}</p>
-            <h1 className="break-words text-title font-heading">
-              {upload.data.name}
-            </h1>
-            <p className="mt-2 text-label text-muted">
-              프레임 {upload.data.frames.length}개 ·{" "}
-              {date(upload.data.createdAt)}
-            </p>
-          </header>
           {testScenarioGateway && (
             <UploadTestScenarios
               key={`${projectId}/${uploadId}`}
@@ -427,10 +454,16 @@ export function ProjectUploadDetailPage({
               gateway={testScenarioGateway}
             />
           )}
-          <section aria-labelledby="upload-frames" className="space-y-4">
+          <section
+            aria-labelledby="upload-frames"
+            className="upload-gallery-frames"
+          >
             <h2 id="upload-frames" className="text-heading font-heading">
               화면
             </h2>
+            {upload.data.frames.length === 0 && (
+              <p className="workspace-empty">화면이 없습니다.</p>
+            )}
             <ol className="workspace-frame-gallery">
               {upload.data.frames.map((frame) => (
                 <li key={frame.id}>

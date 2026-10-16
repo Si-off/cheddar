@@ -104,33 +104,21 @@ test("프로젝트 편집은 저장·재조회하고 미저장 이동에서 입�
 }) => {
   const name = page.getByLabel("프로젝트 이름");
   await name.fill("주문 QA 한글 입력");
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("ia");
+  await page.getByRole("tab", { name: "화면 구조", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "계속 편집", exact: true }).click();
   await expect(name).toHaveValue("주문 QA 한글 입력");
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("ia");
+  await page.getByRole("tab", { name: "화면 구조", exact: true }).click();
   await page
     .getByRole("button", { name: "저장하고 이동", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "IA 추가", exact: true }),
+    page.getByRole("heading", { name: "화면 추가", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("project");
+  await page.getByRole("tab", { name: "기본 정보", exact: true }).click();
   await expect(name).toHaveValue("주문 QA 한글 입력");
-  await page
-    .getByRole("button", { name: "프로젝트 메뉴", exact: true })
-    .click();
-  await page.getByRole("link", { name: "화면 자료", exact: true }).click();
+  await page.getByRole("link", { name: "Figma 자료", exact: true }).click();
   await expect(page).toHaveURL(/\/uploads$/);
-  await page
-    .getByRole("button", { name: "프로젝트 메뉴", exact: true })
-    .click();
   await page.getByRole("link", { name: "프로젝트 설정", exact: true }).click();
   await expect(name).toHaveValue("주문 QA 한글 입력");
   await name.fill("버릴 내용");
@@ -143,25 +131,23 @@ test("프로젝트 편집은 저장·재조회하고 미저장 이동에서 입�
 test("IA 등록·중복 오류·계층 변경과 참조 중 삭제 제한을 실제 API로 확인한다", async ({
   page,
 }, testInfo) => {
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("ia");
+  await page.getByRole("tab", { name: "화면 구조", exact: true }).click();
   await page.getByLabel("화면 ID", { exact: true }).fill("ORDER-01");
   await page.getByLabel("화면 이름", { exact: true }).fill("주문");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("저장됨");
-  await page.getByRole("button", { name: "IA 추가", exact: true }).click();
+  await page.getByRole("button", { name: "화면 추가", exact: true }).click();
   await page.getByLabel("화면 ID", { exact: true }).fill("ORDER-01");
   await page.getByLabel("화면 이름", { exact: true }).fill("결제");
   await page.getByRole("button", { name: "저장", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("이미 사용 중인 화면 ID");
+  await expect(page.getByRole("alert")).toContainText("화면 ID가 중복됩니다");
   await expect(page.getByLabel("화면 이름", { exact: true })).toHaveValue(
     "결제",
   );
   await page.getByLabel("화면 ID", { exact: true }).fill("PAY-01");
   await page.getByLabel("상위 항목", { exact: true }).click();
   await page
-    .getByRole("option", { name: "ORDER-01 · 주문", exact: true })
+    .getByRole("option", { name: "ORDER-01 주문", exact: true })
     .click();
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("저장됨");
@@ -170,23 +156,23 @@ test("IA 등록·중복 오류·계층 변경과 참조 중 삭제 제한을 실
     fullPage: true,
   });
   await page
-    .getByRole("list", { name: "IA 목록", exact: true })
+    .getByRole("list", { name: "화면 목록", exact: true })
     .getByRole("button")
     .filter({ hasText: "ORDER-01" })
     .filter({ hasNotText: "PAY-01" })
     .click();
-  await page.getByRole("button", { name: "IA 삭제", exact: true }).click();
+  await page.getByRole("button", { name: "화면 삭제", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "삭제", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("하위 IA 항목");
+  await expect(page.getByRole("alert")).toContainText("하위 화면");
   await expect(page.getByLabel("화면 ID", { exact: true })).toHaveValue(
     "ORDER-01",
   );
   await page.getByLabel("상위 항목", { exact: true }).click();
   await expect(
-    page.getByRole("option", { name: "PAY-01 · 결제", exact: true }),
+    page.getByRole("option", { name: "PAY-01 결제", exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
 });
@@ -202,16 +188,15 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
   );
   expect(beforeResponse.status()).toBe(201);
   const before = await beforeResponse.json();
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("template");
+  await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
   await expect(
-    page.getByText("변경한 양식은 새 시나리오에만 적용됩니다."),
+    page.getByText("기본 양식은 새 시나리오에만 적용됩니다."),
   ).toBeVisible();
   await page.getByRole("button", { name: "열 추가", exact: true }).click();
   await page.getByRole("button", { name: "새 열 설정", exact: true }).click();
   await page.getByLabel("열 이름", { exact: true }).fill("품질 메모");
-  await page.getByLabel("순서", { exact: true }).selectOption("9");
+  await page.getByLabel("순서", { exact: true }).click();
+  await page.getByRole("option", { name: "10번째", exact: true }).click();
   await page.keyboard.press("Escape");
   for (let i = 0; i < 8; i++)
     await page
@@ -256,9 +241,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
   ).toBe(true);
 
   await page.reload();
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("template");
+  await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "품질 메모 설정", exact: true }),
   ).toBeVisible();
@@ -378,11 +361,11 @@ test("좁은 화면에서 필수 입력 오류와 키보드 탭 이동을 확인
   await page.getByLabel("프로젝트 이름").fill("모바일 키보드 한글");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("저장됨");
-  await page.getByRole("combobox", { name: "설정 항목", exact: true }).focus();
-  await page.keyboard.press("i");
+  await page.getByRole("tab", { name: "기본 정보", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
   await expect(
-    page.getByRole("heading", { name: "IA 추가", exact: true }),
+    page.getByRole("heading", { name: "화면 추가", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -410,7 +393,7 @@ test("조회 갱신 실패와 복구 중에도 현재 입력을 유지한다", a
   await page.evaluate(() =>
     window.dispatchEvent(new Event("visibilitychange")),
   );
-  await expect(page.getByRole("alert")).toContainText("이전에 불러온 내용", {
+  await expect(page.getByRole("alert")).toContainText("이전 조회 결과", {
     timeout: 15000,
   });
   await expect(page.getByLabel("프로젝트 이름")).toHaveValue("유지할 초안");
@@ -467,9 +450,7 @@ for (const kind of ["project", "template"] as const) {
       const projectId = new URL(page.url()).pathname.split("/")[2];
       const endpoint = `${apiBase}/api/v1/projects/${projectId}${kind === "template" ? "/template" : ""}`;
       if (kind === "template")
-        await page
-          .getByRole("combobox", { name: "설정 항목", exact: true })
-          .selectOption("template");
+        await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
       const ensureInput = async () => {
         if (
           kind === "template" &&
@@ -546,11 +527,14 @@ for (const kind of ["project", "template"] as const) {
           await expect(page.getByRole("status")).toHaveText("저장됨");
         } else {
           await page
-            .getByRole("combobox", { name: "설정 항목", exact: true })
-            .selectOption("ia");
+            .getByRole("tab", { name: "화면 구조", exact: true })
+            .click();
           await page
-            .getByRole("combobox", { name: "설정 항목", exact: true })
-            .selectOption(kind);
+            .getByRole("tab", {
+              name: kind === "project" ? "기본 정보" : "기본 양식",
+              exact: true,
+            })
+            .click();
           await ensureInput();
           await expect(input).toHaveValue(savedValue);
         }
@@ -568,9 +552,7 @@ test("기본 양식 경계선에서 조절한 너비는 저장 후 새 시나리
   const projectId = new URL(page.url()).pathname.split("/")[2];
   const endpoint = `${apiBase}/api/v1/projects/${projectId}/template`;
   const before = await (await request.get(endpoint)).json();
-  await page
-    .getByRole("combobox", { name: "설정 항목", exact: true })
-    .selectOption("template");
+  await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
   await expect(page.getByRole("spinbutton")).toHaveCount(0);
   const handle = page.getByRole("button", {
     name: "테스트 ID 기본 너비 조절",

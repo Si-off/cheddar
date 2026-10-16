@@ -6,6 +6,11 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +25,7 @@ const kinds = {
   screen: "화면",
   state: "화면 상태",
   requirement: "요구사항",
-  question: "정책",
+  question: "확인 질문",
   relation: "관계",
 };
 export function AnalysisPanel({
@@ -88,7 +93,7 @@ export function AnalysisPanel({
     setDirty(true);
   }
   async function save() {
-    if (!draft) return false;
+    if (!draft || busy) return false;
     setBusy(true);
     setError(undefined);
     try {
@@ -105,6 +110,7 @@ export function AnalysisPanel({
     }
   }
   async function close() {
+    if (busy) return;
     if (dirty && !(await save())) return;
     onClose();
   }
@@ -134,7 +140,7 @@ export function AnalysisPanel({
     onGenerate(
       [item.id],
       item.kind === "question"
-        ? `다음 정책 답변으로 관련 검토 후보를 보완한다.\n질문: ${item.text}\n답변: ${item.answer ?? ""}`
+        ? `다음 확인 질문 답변으로 테스트 케이스를 보완한다.\n질문: ${item.text}\n답변: ${item.answer ?? ""}`
         : item.text,
     );
   }
@@ -146,18 +152,20 @@ export function AnalysisPanel({
       }}
     >
       <DialogContent className="analysis-dialog" aria-describedby={undefined}>
-        <DialogTitle>분석 결과 편집</DialogTitle>
-        <nav className="analysis-tabs" aria-label="분석 결과 보기">
+        <DialogTitle>화면 분석</DialogTitle>
+        <nav className="analysis-tabs" aria-label="분석 항목">
           {(
             [
-              ["sources", "자료"],
-              ["policies", "정책 확인"],
-              ["requirements", "요구사항 검토"],
+              ["sources", "화면 분석"],
+              ["policies", "확인 질문"],
+              ["requirements", "요구사항 연결"],
             ] as const
           ).map(([value, label]) => (
             <Button
               key={value}
               variant={tab === value ? "default" : "ghost"}
+              aria-pressed={tab === value}
+              disabled={busy}
               onClick={() => setTab(value)}
             >
               {label}
@@ -171,7 +179,7 @@ export function AnalysisPanel({
             저장
           </Button>
         </nav>
-        {query.isPending && <p role="status">분석 결과 불러오는 중</p>}
+        {query.isPending && <p role="status">분석 결과 조회 중</p>}
         {query.isError && (
           <p role="alert">
             분석 결과를 불러오지 못했습니다.
@@ -181,7 +189,7 @@ export function AnalysisPanel({
           </p>
         )}
         {error && <p role="alert">{error}</p>}
-        <div className="analysis-workbench">
+        <fieldset disabled={busy} className="analysis-workbench">
           <section className="analysis-list">
             <Input
               aria-label="분석 결과 검색"
@@ -203,7 +211,19 @@ export function AnalysisPanel({
                 {i.title}
               </Button>
             ))}
-            {draft && !list.length && <p>분석 결과가 없습니다.</p>}
+            {draft && !list.length && (
+              <p>
+                {search
+                  ? "검색 결과가 없습니다."
+                  : tab === "policies"
+                    ? "확인 질문이 없습니다."
+                    : tab === "requirements"
+                      ? missing
+                        ? "미연결 요구사항이 없습니다."
+                        : "요구사항이 없습니다."
+                      : "분석 결과가 없습니다."}
+              </p>
+            )}
           </section>
           {item && (
             <>
@@ -228,7 +248,7 @@ export function AnalysisPanel({
                       : "원본 설명"}
                 </h3>
                 <p className="whitespace-pre-wrap">
-                  {item.text || "원문 설명이 없습니다."}
+                  {item.text || "원본 설명이 없습니다."}
                 </p>
                 {item.nodeId && frame && (
                   <a
@@ -250,45 +270,36 @@ export function AnalysisPanel({
                 />
                 {tab === "sources" && (
                   <>
-                    <Label htmlFor="analysis-kind">유형</Label>
-                    <select
-                      className="test-scenario-select"
+                    <AnalysisSelect
                       id="analysis-kind"
+                      label="유형"
                       value={item.kind}
-                      onChange={(e) =>
-                        edit({
-                          kind: e.target.value as AnalysisItemDto["kind"],
-                        })
+                      items={Object.entries(kinds).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
+                      onValueChange={(kind) =>
+                        edit({ kind: kind as AnalysisItemDto["kind"] })
                       }
-                    >
-                      {Object.entries(kinds).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    <Label htmlFor="analysis-parent">화면 연결</Label>
-                    <select
+                    />
+                    <AnalysisSelect
                       id="analysis-parent"
-                      className="test-scenario-select"
+                      label="화면 연결"
                       value={item.parentId ?? ""}
-                      onChange={(e) =>
-                        edit({ parentId: e.target.value || undefined })
+                      items={[
+                        { value: "", label: "연결 없음" },
+                        ...(draft?.items ?? [])
+                          .filter(
+                            (i) =>
+                              i.id !== item.id &&
+                              (i.kind === "screen" || i.kind === "state"),
+                          )
+                          .map((i) => ({ value: i.id, label: i.title })),
+                      ]}
+                      onValueChange={(parentId) =>
+                        edit({ parentId: parentId || undefined })
                       }
-                    >
-                      <option value="">연결 없음</option>
-                      {draft?.items
-                        .filter(
-                          (i) =>
-                            i.id !== item.id &&
-                            (i.kind === "screen" || i.kind === "state"),
-                        )
-                        .map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.title}
-                          </option>
-                        ))}
-                    </select>
+                    />
                     {item.region && (
                       <fieldset>
                         <legend>원본 영역</legend>
@@ -330,45 +341,40 @@ export function AnalysisPanel({
                     )}
                     {item.kind === "relation" && (
                       <>
-                        <Label htmlFor="analysis-relation">관계 유형</Label>
-                        <select
+                        <AnalysisSelect
                           id="analysis-relation"
-                          className="test-scenario-select"
+                          label="관계 유형"
                           value={item.relation ?? "annotation"}
-                          onChange={(e) =>
+                          items={[
+                            { value: "transition", label: "화면 이동" },
+                            { value: "state", label: "상태 변화" },
+                            { value: "annotation", label: "설명 연결" },
+                          ]}
+                          onValueChange={(relation) =>
                             edit({
-                              relation: e.target
-                                .value as AnalysisItemDto["relation"],
+                              relation: relation as AnalysisItemDto["relation"],
                             })
                           }
-                        >
-                          <option value="transition">화면 이동</option>
-                          <option value="state">상태 변화</option>
-                          <option value="annotation">설명 연결</option>
-                        </select>
+                        />
                         {(["fromId", "toId"] as const).map((field, index) => (
-                          <Label key={field}>
-                            {index ? "도착" : "출발"}
-                            <select
-                              className="test-scenario-select"
-                              value={item[field] ?? ""}
-                              onChange={(e) =>
-                                edit({ [field]: e.target.value || undefined })
-                              }
-                            >
-                              <option value="">선택</option>
-                              {draft?.items
+                          <AnalysisSelect
+                            key={field}
+                            id={`analysis-${field}`}
+                            label={index ? "도착" : "출발"}
+                            value={item[field] ?? ""}
+                            items={[
+                              { value: "", label: "선택" },
+                              ...(draft?.items ?? [])
                                 .filter(
                                   (i) =>
                                     i.id !== item.id && i.kind !== "relation",
                                 )
-                                .map((i) => (
-                                  <option key={i.id} value={i.id}>
-                                    {i.title}
-                                  </option>
-                                ))}
-                            </select>
-                          </Label>
+                                .map((i) => ({ value: i.id, label: i.title })),
+                            ]}
+                            onValueChange={(value) =>
+                              edit({ [field]: value || undefined })
+                            }
+                          />
                         ))}
                       </>
                     )}
@@ -376,7 +382,7 @@ export function AnalysisPanel({
                 )}
                 {item.kind === "question" && (
                   <>
-                    <Label htmlFor="policy-answer">정책 답변</Label>
+                    <Label htmlFor="policy-answer">답변</Label>
                     <Textarea
                       id="policy-answer"
                       value={item.answer ?? ""}
@@ -387,13 +393,16 @@ export function AnalysisPanel({
                         checked={item.useAsRule ?? false}
                         onCheckedChange={(useAsRule) => edit({ useAsRule })}
                       />
-                      프로젝트 규칙 저장
+                      프로젝트 규칙으로 저장
                     </Label>
                   </>
                 )}
                 {(item.kind === "requirement" || item.kind === "question") && (
                   <>
                     <h3>테스트 케이스 연결</h3>
+                    {snapshot.cases.length === 0 && (
+                      <p>테스트 케이스가 없습니다.</p>
+                    )}
                     {snapshot.cases.map((c) => (
                       <Label key={c.id}>
                         <Checkbox
@@ -418,7 +427,7 @@ export function AnalysisPanel({
                       onClick={() => void generate()}
                     >
                       {item.kind === "question"
-                        ? "검토 후보 보완"
+                        ? "답변으로 생성"
                         : "테스트 케이스 생성"}
                     </Button>
                   </>
@@ -426,8 +435,44 @@ export function AnalysisPanel({
               </section>
             </>
           )}
-        </div>
+        </fieldset>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AnalysisSelect({
+  id,
+  label,
+  value,
+  items,
+  onValueChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  items: { value: string; label: string }[];
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        items={items}
+        value={value}
+        onValueChange={(value) => onValueChange(value ?? "")}
+      >
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </>
   );
 }

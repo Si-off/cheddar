@@ -400,6 +400,169 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
       1,
       "refinement loads the requirement source image without manual relinking",
     );
+    // Append stores clear cases immediately while retaining all current scenario data.
+    const beforeAppend = saved;
+    const beforeLinks = (
+      (await (await req(`${prefix}/analysis`)).json()) as AnalysisDto
+    ).links;
+    const appendRequest = {
+      mode: "append",
+      clientRequestId: randomUUID(),
+      provider: "anthropic",
+      expectedRevision: saved.contentRevision,
+      uploadId: null,
+      requirementIds: [question.id],
+      description: "추가 생성",
+    };
+    const appendStart = await req(
+      `${prefix}/test-scenarios/${testScenario.id}/generations`,
+      "POST",
+      appendRequest,
+    );
+    assert.equal(appendStart.status, 202, await appendStart.clone().text());
+    const appendJob = (await appendStart.json()) as GenerationDto;
+    const appended = await finished(appendJob.id);
+    assert.equal(appended?.status, "succeeded", appended?.error ?? "");
+    assert.equal(appended?.mode, "append");
+    assert.ok(appended);
+    saved = (await (
+      await req(`${prefix}/test-scenarios/${testScenario.id}`)
+    ).json()) as TestScenarioSnapshotDto;
+    assert.deepEqual(
+      saved.cases.slice(0, beforeAppend.cases.length),
+      beforeAppend.cases,
+    );
+    assert.equal(saved.cases.length, beforeAppend.cases.length + 1);
+    assert.deepEqual(saved.columns, beforeAppend.columns);
+    assert.deepEqual(saved.view, beforeAppend.view);
+    assert.equal(
+      saved.sourceTemplateRevision,
+      beforeAppend.sourceTemplateRevision,
+    );
+    assert.equal(
+      saved.uploadId,
+      upload.id,
+      "append input does not replace the scenario upload association",
+    );
+    assert.equal(
+      new Set(saved.cases.map((c) => c.caseCode)).size,
+      saved.cases.length,
+    );
+    const clear = appended.results.find((c) => c.kind === "case");
+    const uncertain = appended.results.find((c) => c.kind === "candidate");
+    assert.equal(clear?.status, "added");
+    assert.equal(uncertain?.status, "pending");
+    assert.ok(uncertain);
+    analysis = (await (await req(`${prefix}/analysis`)).json()) as AnalysisDto;
+    for (const link of beforeLinks)
+      assert.ok(
+        analysis.links.some(
+          (current) => JSON.stringify(current) === JSON.stringify(link),
+        ),
+      );
+    assert.ok(analysis.links.some((link) => link.caseId === clear?.id));
+    const replay = await req(
+      `${prefix}/test-scenarios/${testScenario.id}/generations`,
+      "POST",
+      appendRequest,
+    );
+    assert.equal(((await replay.json()) as GenerationDto).id, appendJob.id);
+    assert.equal(
+      (
+        (await (
+          await req(`${prefix}/test-scenarios/${testScenario.id}`)
+        ).json()) as TestScenarioSnapshotDto
+      ).cases.length,
+      saved.cases.length,
+    );
+    const uncertainPath = `${prefix}/test-scenarios/${testScenario.id}/generations/${appendJob.id}/results/${uncertain.id}`;
+    const confirmation = {
+      expectedRevision: appended.revision,
+      action: "add",
+      content: { ...uncertain.content, expectedResult: "답변을 반영한 결과" },
+      question: {
+        expectedRevision: analysis.revision,
+        answer: "쿠폰을 복원한다.",
+        useAsRule: true,
+      },
+    };
+    const conflicted = await req(uncertainPath, "PUT", {
+      ...confirmation,
+      question: {
+        ...confirmation.question,
+        expectedRevision: analysis.revision - 1,
+      },
+    });
+    assert.equal(
+      conflicted.status,
+      409,
+      "stale answer revision cannot overwrite current sources or append a case",
+    );
+    assert.equal(
+      (
+        (await (
+          await req(`${prefix}/test-scenarios/${testScenario.id}`)
+        ).json()) as TestScenarioSnapshotDto
+      ).cases.length,
+      saved.cases.length,
+    );
+    const invalidConfirmation = await req(uncertainPath, "PUT", {
+      ...confirmation,
+      content: { ...confirmation.content, relatedFrameIds: [randomUUID()] },
+    });
+    assert.equal(
+      invalidConfirmation.status,
+      400,
+      "invalid references roll back the answer and case together",
+    );
+    const afterInvalid = (await (
+      await req(`${prefix}/analysis`)
+    ).json()) as AnalysisDto;
+    assert.equal(afterInvalid.revision, analysis.revision);
+    assert.equal(
+      afterInvalid.items.find((i) => i.id === uncertain.id)?.answer,
+      undefined,
+    );
+    assert.equal(
+      (
+        (await (
+          await req(`${prefix}/test-scenarios/${testScenario.id}`)
+        ).json()) as TestScenarioSnapshotDto
+      ).cases.length,
+      saved.cases.length,
+    );
+    const confirmed = await req(uncertainPath, "PUT", confirmation);
+    assert.equal(confirmed.status, 200, await confirmed.clone().text());
+    const confirmedJob = (await confirmed.json()) as GenerationDto;
+    assert.equal(
+      confirmedJob.results.find((c) => c.id === uncertain.id)?.status,
+      "added",
+    );
+    saved = (await (
+      await req(`${prefix}/test-scenarios/${testScenario.id}`)
+    ).json()) as TestScenarioSnapshotDto;
+    assert.equal(
+      saved.cases.at(-1)?.expectedResult,
+      confirmation.content.expectedResult,
+    );
+    analysis = (await (await req(`${prefix}/analysis`)).json()) as AnalysisDto;
+    assert.equal(
+      analysis.items.find((i) => i.id === uncertain.id)?.answer,
+      confirmation.question.answer,
+    );
+    assert.equal(
+      analysis.items.find((i) => i.id === uncertain.id)?.useAsRule,
+      true,
+    );
+    assert.equal(
+      (
+        await req(uncertainPath, "PUT", {
+          ...confirmation,
+          expectedRevision: confirmedJob.revision,
+        })
+      ).status,
+      409,
+    );
   } finally {
     global.fetch = originalFetch;
     await app.close();

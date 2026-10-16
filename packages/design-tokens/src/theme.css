@@ -115,6 +115,16 @@
 
 :root {
   color-scheme: light;
+  --size-sidebar: 12.5rem;
+  --size-sidebar-collapsed: 3.5rem;
+  --size-inspector: 24rem;
+  --size-workspace-header: 3rem;
+  --size-resize-target: 0.375rem;
+  --motion-panel-offset: 1rem;
+  --duration-highlight: 1200ms;
+  --size-toolbar: 2rem;
+  --size-form: 2.5rem;
+  --size-row-min: 3rem;
   --border-width-default: 1px;
   --opacity-disabled: 0.5;
   --size-textarea-min: 6rem;
@@ -133,4 +143,14 @@
   --layer-toast: 40;
   --layer-select: 35;
   --layer-tooltip: 50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-highlight: 0ms;
+    --duration-feedback: 0ms;
+    --duration-state: 0ms;
+    --duration-selection: 0ms;
+    --duration-enter: 0ms;
+  }
 }

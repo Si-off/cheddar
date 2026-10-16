@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import type {
   GenerationDto,
   StartGenerationDto,
@@ -6,6 +6,15 @@ import type {
   TestScenarioSnapshotDto,
   TestScenarioViewDto,
 } from "@/shared/api/generated";
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (!page.isClosed())
+    await page.screenshot({
+      path: testInfo.outputPath("final-state.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
+});
 
 const projectId = "10000000-0000-4000-8000-000000000001";
 const testScenarioId = "20000000-0000-4000-8000-000000000001";
@@ -153,7 +162,12 @@ async function mockApi(page: Page) {
     if (path.endsWith("/analysis"))
       return json({ revision: 0, items: [], links: [] });
     if (path.includes("/results/") && control.generation) {
-      const candidate = control.generation.results[0];
+      const candidate = control.generation.results.find((item) =>
+        path.endsWith(item.id),
+      );
+      if (!candidate) return json({}, 404);
+      const body = request.postDataJSON();
+      if (body.content) candidate.content = body.content;
       candidate.status = "added";
       control.generation.revision++;
       control.saved.cases.push({ ...candidate.content, caseCode: "TC-003" });
@@ -325,29 +339,22 @@ async function mockApi(page: Page) {
   return control;
 }
 async function open(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "테스트 프로젝트", exact: true })
-    .click();
-  await page.getByRole("button", { name: /시트 하나/, exact: false }).click();
+  await page.goto(`/projects/${projectId}/test-scenarios/${testScenarioId}`);
   await expect(
     page.getByRole("grid", { name: "테스트 케이스 편집" }),
   ).toBeVisible();
 }
 async function search(page: Page, value: string) {
-  if (
-    !(await page
-      .getByRole("textbox", { name: "테스트 케이스 검색", exact: true })
-      .isVisible())
-  )
-    await page.getByRole("button", { name: "검색", exact: true }).click();
   await page
     .getByRole("textbox", { name: "테스트 케이스 검색", exact: true })
     .fill(value);
 }
 async function columns(page: Page) {
-  await page.getByRole("button", { name: "보기 설정", exact: true }).click();
-  await page.getByRole("button", { name: "열", exact: true }).click();
+  await page.getByRole("button", { name: "열 설정", exact: true }).click();
+}
+async function choose(page: Page, control: Locator, label: string) {
+  await control.click();
+  await page.getByRole("option", { name: label, exact: true }).click();
 }
 async function firstWidth(page: Page) {
   return page
@@ -390,9 +397,7 @@ test("initial generation lookup explains the temporary editing lock", async ({
   control.holdGenerations = true;
   await open(page);
   await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: "생성 상태를 확인하는 중입니다." }),
+    page.getByRole("status").filter({ hasText: "생성 상태 확인 중" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
@@ -401,7 +406,7 @@ test("initial generation lookup explains the temporary editing lock", async ({
   control.holdGenerations = false;
   control.releaseGenerations?.();
   await expect(
-    page.getByText("생성 상태를 확인하는 중입니다.", { exact: true }),
+    page.getByText("생성 상태 확인 중", { exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
@@ -459,21 +464,20 @@ test("long cell text remains readable and editing retains its expanded row", asy
   expect(horizontal).toBe(true);
 });
 
-test("generation locks editing, preserves existing cases and adds reviewed results", async ({
+test("generation locks editing, appends clear cases and confirms uncertain results in the sheet", async ({
   page,
 }) => {
   const control = await mockApi(page);
   await open(page);
   await page
-    .getByRole("button", { name: "시나리오 메뉴", exact: true })
-    .click();
-  await page
     .getByRole("button", { name: "테스트 케이스 생성", exact: true })
     .click();
   await page.getByLabel("테스트 내용", { exact: true }).fill("로그인 흐름");
   await page
+    .getByRole("dialog")
     .getByRole("button", { name: "테스트 케이스 생성", exact: true })
     .click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(
     page.getByRole("status").filter({ hasText: "테스트 케이스 생성 중" }),
   ).toBeVisible();
@@ -484,19 +488,22 @@ test("generation locks editing, preserves existing cases and adds reviewed resul
   expect(control.generationRequests[0]).toMatchObject({
     description: "로그인 흐름",
     expectedRevision: 1,
-    mode: "review",
+    mode: "append",
   });
   const generated = {
     ...control.saved.cases[0],
     id: "40000000-0000-4000-8000-000000000002",
-    caseCode: "",
+    caseCode: "TC-002",
     title: "생성 로그인 케이스",
   };
   const candidate = {
     ...generated,
     id: "40000000-0000-4000-8000-000000000003",
+    caseCode: "",
     title: "로그인 예외 후보",
   };
+  control.saved.cases.push(generated);
+  control.saved.contentRevision++;
   Object.assign(control.generation ?? {}, {
     status: "succeeded",
     revision: 2,
@@ -505,7 +512,7 @@ test("generation locks editing, preserves existing cases and adds reviewed resul
       {
         id: generated.id,
         kind: "case",
-        status: "pending",
+        status: "added",
         reason: "",
         content: generated,
       },
@@ -524,23 +531,27 @@ test("generation locks editing, preserves existing cases and adds reviewed resul
   await expect(
     page.getByRole("gridcell", { name: "1행 제목", exact: true }),
   ).toContainText("기존 제목");
-  await page.getByRole("button", { name: "결과 검토", exact: true }).click();
+  await expect(
+    page.getByRole("gridcell", { name: "2행 제목", exact: true }),
+  ).toContainText(generated.title);
+  await page.getByRole("button", { name: /^확인 항목/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "확인 항목", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: `${generated.title} 추가 대기`,
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await page
-    .getByRole("checkbox", { name: "생성 로그인 케이스 선택", exact: true })
-    .check();
-  await page
-    .getByRole("button", { name: "1개 시나리오에 추가", exact: true })
-    .click();
-  await expect.poll(() => control.saved.cases.length).toBe(2);
-  await page.getByRole("button", { name: "검토 후보", exact: true }).click();
-  await page
-    .getByRole("checkbox", { name: "로그인 예외 후보 선택", exact: true })
-    .check();
-  await page
-    .getByRole("button", { name: "1개 시나리오에 추가", exact: true })
+    .getByRole("button", { name: "시나리오에 추가", exact: true })
     .click();
   await expect.poll(() => control.saved.cases.length).toBe(3);
-  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "닫기", exact: true })
+    .click();
   await expect(
     page.getByRole("gridcell", { name: "1행 제목", exact: true }),
   ).toContainText("기존 제목");
@@ -585,7 +596,7 @@ test("multi-cell paste, search, keyboard navigation and atomic rejection preserv
   const before = structuredClone(control.saved.cases);
   await paste(page, "1행 케이스 번호", "중복\n중복");
   await expect(page.getByRole("alert")).toContainText(
-    "중복된 테스트 케이스 번호",
+    "테스트 케이스 번호가 중복됩니다.",
   );
   expect(control.saved.cases).toEqual(before);
   const cell = page.getByRole("gridcell", { name: "1행 제목", exact: true });
@@ -635,7 +646,7 @@ test("saving a local width adopts remote case additions, deletions, order and co
   control.saved.contentRevision++;
   await resizeFirst(page, 240);
   await expect(
-    page.getByRole("status").filter({ hasText: "저장됨" }),
+    page.getByRole("status").filter({ hasText: "저장 완료" }),
   ).toBeVisible();
   await expect(
     page.getByRole("gridcell", { name: "1행 원격 제목", exact: true }),
@@ -663,7 +674,7 @@ test("saving local content adopts a remote view order and width without writing 
   control.saved.viewRevision++;
   await editTitle(page, "내 제목 변경");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장됨" }),
+    page.getByRole("status").filter({ hasText: "저장 완료" }),
   ).toBeVisible();
   await expect(page.getByRole("columnheader").nth(1)).toContainText("IA 화면");
   expect(await firstWidth(page)).toBe(260);
@@ -770,12 +781,12 @@ test("a delayed content acknowledgement preserves later row and column additions
   await page.getByRole("button", { name: "열 추가", exact: true }).click();
   await page.getByRole("button", { name: "새 열 설정", exact: true }).click();
   await page.getByLabel("열 이름", { exact: true }).fill("나중에 추가한 열");
-  await page.getByLabel("순서", { exact: true }).selectOption("7");
+  await choose(page, page.getByLabel("순서", { exact: true }), "8번째");
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   control.hold?.();
   await expect(
-    page.getByRole("status").filter({ hasText: "저장됨" }),
+    page.getByRole("status").filter({ hasText: "저장 완료" }),
   ).toBeVisible();
   expect(control.saved.cases.map((c) => c.title)).toEqual([
     "먼저 보낸 입력",
@@ -810,7 +821,7 @@ test("a delayed save response cannot overwrite newer typing and an acknowledged 
     page.getByRole("textbox", { name: "제목 편집", exact: true }),
   ).toHaveValue("요청 중 새 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장됨" }),
+    page.getByRole("status").filter({ hasText: "저장 완료" }),
   ).toBeVisible();
   const requests = control.requests.length;
   control.loseResponse = true;
@@ -819,7 +830,7 @@ test("a delayed save response cannot overwrite newer typing and an acknowledged 
     .fill("응답 유실 입력");
   await expect.poll(() => control.requests.length).toBe(requests + 1);
   await expect(
-    page.getByRole("status").filter({ hasText: "저장됨" }),
+    page.getByRole("status").filter({ hasText: "저장 완료" }),
   ).toBeVisible();
   expect(control.requests.length).toBe(requests + 1);
 });
@@ -838,13 +849,9 @@ test("a conflict preserves local input, shows latest text and requires explicit 
   await expect(
     page.getByRole("textbox", { name: "제목 편집", exact: true }),
   ).toHaveValue("내 미저장 입력");
-  await page
-    .getByRole("button", { name: "시나리오 메뉴", exact: true })
-    .click();
   await expect(
     page.getByRole("button", { name: "XLSX 내보내기", exact: true }),
   ).toBeDisabled();
-  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "내 입력과 최신 내용 확인" }).click();
   await expect(page.getByLabel("내 입력", { exact: true })).toContainText(
     "내 미저장 입력",
@@ -868,7 +875,7 @@ test("reload offers unsaved draft recovery without silently sending it", async (
   control.reject = true;
   await editTitle(page, "새로고침 복구할 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   await page.waitForFunction(
     () =>
@@ -929,22 +936,19 @@ test("column edits persist, deletion confirms value loss, search still exports t
   await page.getByRole("button", { name: "열 삭제", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "사용자 열 삭제", exact: true }),
-  ).toContainText("테스트 케이스 1개에 입력된 값");
+  ).toContainText("테스트 케이스 1개의 값");
   await page.getByRole("button", { name: "확인", exact: true }).click();
   await expect
     .poll(() => control.saved.columns.some((c) => c.name === "사용자 메모"))
     .toBe(false);
   await expect(
-    page.getByRole("status").filter({ hasText: "저장됨" }),
+    page.getByRole("status").filter({ hasText: "저장 완료" }),
   ).toBeVisible();
   await search(page, "검색 결과 없음");
   await expect(
     page.getByText("검색 결과가 없습니다", { exact: true }),
   ).toBeVisible();
   const download = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "시나리오 메뉴", exact: true })
-    .click();
   await page
     .getByRole("button", { name: "XLSX 내보내기", exact: true })
     .click();
@@ -1000,12 +1004,17 @@ test("detail fields share the grid draft, explicit reference selection uses UUID
   await page.getByRole("checkbox", { name: "1행 선택", exact: true }).click();
   await page.getByRole("button", { name: "상세 편집", exact: true }).click();
   const panel = page.getByRole("complementary", {
-    name: "테스트 케이스 상세 편집",
+    name: "테스트 케이스 편집",
   });
   await panel
     .getByLabel("수행 단계", { exact: true })
     .fill("상세 패널의 긴 내용\n두 번째 단계");
-  await panel.getByLabel("업로드 묶음").selectOption(uploadId);
+  await choose(
+    page,
+    panel.getByLabel("Figma 자료", { exact: true }),
+    "주문 화면 묶음",
+  );
+  await choose(page, panel.getByLabel("우선순위", { exact: true }), "높음");
   await panel.getByRole("checkbox", { name: /주문 프레임/ }).click();
   await panel.getByRole("checkbox", { name: /ORDER-1 주문/ }).click();
   await page.clock.runFor(600);
@@ -1014,6 +1023,7 @@ test("detail fields share the grid draft, explicit reference selection uses UUID
     .toBe("상세 패널의 긴 내용\n두 번째 단계");
   expect(control.saved.cases[0].relatedFrameIds).toEqual([frameId]);
   expect(control.saved.cases[0].screenIds).toEqual([iaId]);
+  expect(control.saved.cases[0].priority).toBe("high");
   if (process.env.EDITOR_CAPTURE_PATH) {
     await panel.evaluate((element) => {
       element.scrollTop = 0;
@@ -1023,7 +1033,7 @@ test("detail fields share the grid draft, explicit reference selection uses UUID
       fullPage: true,
     });
   }
-  await page.getByRole("button", { name: "상세 닫기" }).click();
+  await page.getByRole("button", { name: "패널 닫기" }).click();
   await expect(
     page.getByRole("button", { name: "상세 편집", exact: true }),
   ).toBeFocused();
@@ -1096,10 +1106,10 @@ test("browser storage failure keeps the editable input and reports the narrower 
     page.getByRole("textbox", { name: "제목 편집", exact: true }),
   ).toHaveValue("저장소 오류 중 유지할 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   control.reject = false;
-  await page.getByRole("button", { name: "저장 다시 시도" }).click();
+  await page.getByRole("button", { name: "저장 재시도" }).click();
   await expect
     .poll(() => control.saved.cases[0].title)
     .toBe("저장소 오류 중 유지할 입력");
@@ -1137,7 +1147,7 @@ test("a recovered browser draft write clears an obsolete storage failure while s
     .fill("다음 보관 성공");
   await expect(warning).toHaveCount(0);
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   await expect(
     page.getByRole("textbox", { name: "제목 편집", exact: true }),
@@ -1146,9 +1156,23 @@ test("a recovered browser draft write clears an obsolete storage failure while s
 
 test("internal header navigation and browser back preserve failed drafts and require explicit confirmation", async ({
   page,
-}) => {
+}, testInfo) => {
   const control = await mockApi(page);
   await page.goto(`/projects/${projectId}/test-scenarios`);
+  const projectNavigation = page.getByRole("navigation", {
+    name: "프로젝트 탐색",
+    exact: true,
+  });
+  for (const name of ["테스트 시나리오", "Figma 자료", "프로젝트 설정"]) {
+    await expect(
+      projectNavigation.getByRole("link", { name, exact: true }),
+    ).toBeVisible();
+  }
+  await page.screenshot({
+    path: testInfo.outputPath("scenario-list-project-navigation.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
   await page.getByRole("button", { name: /시트 하나/, exact: false }).click();
   await expect(
     page.getByRole("grid", { name: "테스트 케이스 편집" }),
@@ -1156,10 +1180,10 @@ test("internal header navigation and browser back preserve failed drafts and req
   control.reject = true;
   await editTitle(page, "내부 이동에서 유지할 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   const dialog = page.getByRole("dialog", {
-    name: "저장되지 않은 입력이 있습니다",
+    name: "미저장 입력",
   });
   await page
     .getByRole("button", { name: "시나리오 목록", exact: true })
@@ -1210,11 +1234,11 @@ test("internal navigation stays blocked when both the server save and browser dr
   ).toBeVisible();
   await editTitle(page, "어디에도 저장되지 않은 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "프로젝트 목록", exact: true }).click();
   const dialog = page.getByRole("dialog", {
-    name: "저장되지 않은 입력이 있습니다",
+    name: "미저장 입력",
   });
   await expect(dialog).toContainText(
     "입력을 이 브라우저에 보관하지 못했습니다",
@@ -1248,7 +1272,7 @@ test("a background snapshot failure keeps the editor and unsaved input even when
   ).toBeVisible();
   await editTitle(page, "메모리에만 남은 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   control.rejectGet = true;
   const response = page.waitForResponse(
@@ -1279,9 +1303,7 @@ test("a background snapshot failure keeps the editor and unsaved input even when
     page.getByRole("gridcell", { name: "1행 제목", exact: true }),
   ).toContainText("메모리에만 남은 입력");
   control.reject = false;
-  await page
-    .getByRole("button", { name: "저장 다시 시도", exact: true })
-    .click();
+  await page.getByRole("button", { name: "저장 재시도", exact: true }).click();
   await expect
     .poll(() => control.saved.cases[0].title)
     .toBe("메모리에만 남은 입력");
@@ -1298,7 +1320,7 @@ test("restoring an old draft during an in-flight save cannot clear its conflict 
   ).toBeVisible();
   await editTitle(page, "복원할 옛 입력");
   await expect(
-    page.getByRole("status").filter({ hasText: "저장하지 못함" }),
+    page.getByRole("status").filter({ hasText: "저장 실패" }),
   ).toBeVisible();
   control.saved.contentRevision++;
   control.saved.cases[0].title = "서버 최신 입력";
@@ -1335,7 +1357,7 @@ test("restoring an old draft during an in-flight save cannot clear its conflict 
   );
 });
 
-test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시나리오·모바일 스크롤을 제공한다", async ({
+test("표와 상세 보기 전환, 시나리오 미리보기와 모바일 스크롤을 제공한다", async ({
   page,
 }, testInfo) => {
   const control = await mockApi(page);
@@ -1420,13 +1442,12 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
   });
   await border.press("ArrowDown");
   expect((await row.boundingBox())?.height).toBeGreaterThan(height);
-  await page.getByRole("button", { name: "보기 설정", exact: true }).click();
-  await page.getByRole("button", { name: "레이아웃", exact: true }).click();
+
   await page.screenshot({
     path: testInfo.outputPath("redesign-layout.png"),
     animations: "disabled",
   });
-  await page.getByRole("button", { name: "상세 목록", exact: true }).click();
+  await page.getByRole("button", { name: "상세 보기", exact: true }).click();
   await expect(page.locator("summary")).toHaveCount(12);
   await page.locator("summary").nth(0).click();
   await page.locator("summary").nth(1).click();
@@ -1444,10 +1465,10 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
     .getByRole("button", { name: "시나리오 메뉴", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "공유 시나리오 미리보기", exact: true })
+    .getByRole("button", { name: "시나리오 미리보기", exact: true })
     .click();
   const shared = page.getByRole("region", {
-    name: "공유 시나리오",
+    name: "시나리오 미리보기",
     exact: true,
   });
   await expect(shared.getByRole("table").getByRole("row")).toHaveCount(13);
@@ -1462,8 +1483,7 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
     .getByRole("dialog")
     .getByRole("button", { name: "닫기", exact: true })
     .click();
-  await page.getByRole("button", { name: "보기 설정", exact: true }).click();
-  await page.getByRole("button", { name: "레이아웃", exact: true }).click();
+
   await page.getByRole("button", { name: "표", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
@@ -1476,4 +1496,133 @@ test("리디자인은 표를 기본으로 설정 깊이·QA 목록·공유 시�
     fullPage: true,
     animations: "disabled",
   });
+});
+
+test("desktop uses one inspector for case edits and sources and restores focus on Escape", async ({
+  page,
+}, testInfo) => {
+  const control = await mockApi(page);
+  await open(page);
+  const trigger = page.getByRole("button", {
+    name: "1행 상세 편집",
+    exact: true,
+  });
+  await trigger.click();
+  const editorRegion = page.getByRole("region", {
+    name: "시나리오 편집",
+    exact: true,
+  });
+  await expect(editorRegion.getByRole("complementary")).toHaveCount(1);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  let inspector = page.getByRole("complementary", {
+    name: "테스트 케이스 편집",
+    exact: true,
+  });
+  await inspector.getByLabel("제목", { exact: true }).fill("자료와 함께 편집");
+  await page.screenshot({
+    path: testInfo.outputPath("desktop-case-inspector.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "관련 자료 보기", exact: true })
+    .click();
+  await expect(editorRegion.getByRole("complementary")).toHaveCount(1);
+  inspector = page.getByRole("complementary", {
+    name: "관련 자료",
+    exact: true,
+  });
+  await expect(inspector).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("desktop-source-inspector.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await inspector
+    .getByRole("button", { name: "케이스 편집", exact: true })
+    .click();
+  inspector = page.getByRole("complementary", {
+    name: "테스트 케이스 편집",
+    exact: true,
+  });
+  await expect(inspector.getByLabel("제목", { exact: true })).toHaveValue(
+    "자료와 함께 편집",
+  );
+  await inspector.getByLabel("제목", { exact: true }).press("Escape");
+  await expect(editorRegion.getByRole("complementary")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "관련 자료 보기", exact: true }),
+  ).toBeFocused();
+  await expect
+    .poll(() => control.saved.cases[0].title)
+    .toBe("자료와 함께 편집");
+});
+
+test("mobile inspector supports reduced motion, traps focus and returns to its trigger on Escape", async ({
+  page,
+}, testInfo) => {
+  const control = await mockApi(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await open(page);
+  const trigger = page.getByRole("button", {
+    name: "1행 상세 편집",
+    exact: true,
+  });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", {
+    name: "테스트 케이스 편집",
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "시나리오 편집", exact: true })
+      .getByRole("complementary"),
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => matchMedia("(prefers-reduced-motion: reduce)").matches,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      document
+        .getAnimations()
+        .filter((animation) => animation.playState === "running")
+        .every(
+          (animation) =>
+            Number(animation.effect?.getComputedTiming().activeDuration ?? 0) <=
+            1,
+        ),
+    ),
+  ).toBe(true);
+  const title = dialog.getByLabel("제목", { exact: true });
+  await title.fill("모바일 패널 입력");
+  await page.screenshot({
+    path: testInfo.outputPath("mobile-case-dialog.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  const close = dialog.getByRole("button", { name: "닫기", exact: true });
+  await close.focus();
+  await page.keyboard.press("Tab");
+  expect(
+    await dialog.evaluate((element) =>
+      element.contains(document.activeElement),
+    ),
+  ).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect
+    .poll(() => control.saved.cases[0].title)
+    .toBe("모바일 패널 입력");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBe(true);
 });

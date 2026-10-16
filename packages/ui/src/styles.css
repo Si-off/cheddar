@@ -28,10 +28,10 @@
     white-space: nowrap;
   }
   .cd-button-md {
-    min-height: var(--spacing-control-md);
+    min-height: var(--size-form);
   }
   .cd-button-sm {
-    min-height: var(--spacing-control-sm);
+    min-height: var(--size-toolbar);
     padding: var(--spacing-1) var(--spacing-3);
   }
   .cd-button-lg {
@@ -122,7 +122,7 @@
   .cd-input {
     width: 100%;
     min-width: 0;
-    min-height: var(--spacing-control-md);
+    min-height: var(--size-form);
     border: var(--border-width-default) solid var(--color-border-control);
     border-radius: var(--radius-control);
     background: var(--color-surface);
@@ -153,7 +153,7 @@
     color: var(--color-foreground);
   }
   .cd-label:has(.cd-choice, .cd-switch) {
-    min-height: var(--spacing-control-md);
+    min-height: var(--size-form);
     cursor: pointer;
   }
   .cd-label:has(:disabled, [data-disabled]) {
@@ -405,7 +405,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-4);
-    min-height: var(--spacing-control-md);
+    min-height: var(--size-form);
     padding: var(--spacing-2) var(--spacing-3);
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-small);
@@ -465,7 +465,7 @@
     flex-direction: column;
   }
   .cd-tabs-trigger {
-    min-height: var(--spacing-control-md);
+    min-height: var(--size-form);
     padding: var(--spacing-2) var(--spacing-4);
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-small);
@@ -588,4 +588,70 @@
   width: var(--spacing-icon-md);
   height: var(--spacing-icon-md);
   flex-shrink: 0;
+}
+
+.cd-combobox-content {
+  min-width: max(240px, var(--anchor-width));
+  max-width: min(420px, var(--available-width));
+}
+.cd-combobox-list {
+  max-height: min(280px, var(--available-height));
+  overflow: auto;
+}
+.cd-combobox-empty {
+  padding: var(--spacing-3);
+  font-size: var(--text-label);
+  color: var(--color-muted);
+}
+.cd-combobox-empty:empty {
+  display: none;
+}
+.cd-select-indicator svg {
+  width: var(--spacing-icon-sm);
+  height: var(--spacing-icon-sm);
+}
+.cd-dialog-content {
+  transform-origin: center;
+  transition:
+    opacity var(--duration-state) var(--ease-standard),
+    scale var(--duration-enter) var(--ease-enter);
+}
+.cd-dialog-content[data-starting-style],
+.cd-dialog-content[data-ending-style] {
+  scale: 0.97;
+}
+.cd-select-content,
+.cd-popover-content {
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--duration-feedback) var(--ease-standard),
+    translate var(--duration-state) var(--ease-enter);
+}
+.cd-select-content[data-starting-style],
+.cd-select-content[data-ending-style],
+.cd-popover-content[data-starting-style],
+.cd-popover-content[data-ending-style] {
+  opacity: 0;
+  translate: 0 -4px;
+}
+.cd-tabs-trigger[data-active] {
+  box-shadow: var(--shadow-low);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-dialog-content,
+  .cd-select-content,
+  .cd-popover-content,
+  .cd-tooltip-content,
+  .cd-checkbox::before,
+  .cd-checkbox-indicator path,
+  .cd-radio-indicator,
+  .cd-switch-thumb {
+    transition: none;
+  }
+}
+
+.cd-input[data-density="toolbar"] {
+  min-height: var(--size-toolbar);
+  height: var(--size-toolbar);
+  padding: var(--spacing-1) var(--spacing-3);
 }

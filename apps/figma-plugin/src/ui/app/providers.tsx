@@ -12,7 +12,7 @@ const queryClient = new QueryClient({
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="never">{children}</MotionConfig>
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </QueryClientProvider>
   );
 }

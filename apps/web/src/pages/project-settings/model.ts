@@ -132,7 +132,7 @@ export function saveIssue(error: unknown): SaveIssue {
   if (code === "SCREEN_ID_CONFLICT")
     return {
       kind: "validation",
-      message: "이미 사용 중인 화면 ID입니다. 다른 ID를 입력해주세요.",
+      message: "화면 ID가 중복됩니다. 다른 ID를 입력해주세요.",
       field: "screenId",
     };
   if (code === "REFERENCE_IN_USE") {
@@ -142,12 +142,12 @@ export function saveIssue(error: unknown): SaveIssue {
       kind: "reference",
       message:
         refs.includes("children") && refs.includes("cases")
-          ? "하위 IA 항목과 테스트 케이스에서 사용 중입니다. 상위 항목과 테스트 케이스 연결을 해제한 뒤 삭제해주세요."
+          ? "하위 화면과 테스트 케이스에서 사용 중입니다. 상위 항목과 테스트 케이스 연결 해제 후 삭제해주세요."
           : refs.includes("children")
-            ? "하위 IA 항목이 있습니다. 상위 항목 연결을 해제한 뒤 삭제해주세요."
+            ? "하위 화면이 있습니다. 상위 항목 연결 해제 후 삭제해주세요."
             : refs.includes("cases")
-              ? "테스트 케이스에서 사용 중입니다. 테스트 케이스의 IA 연결을 해제한 뒤 삭제해주세요."
-              : "연결된 항목이 있습니다. 연결을 해제한 뒤 삭제해주세요.",
+              ? "테스트 케이스에서 사용 중입니다. 테스트 케이스의 화면 연결 해제 후 삭제해주세요."
+              : "항목 연결이 있습니다. 연결 해제 후 삭제해주세요.",
     };
   }
   if (code === "VALIDATION_ERROR") {
@@ -162,18 +162,18 @@ export function saveIssue(error: unknown): SaveIssue {
         kind: "validation",
         field: "parentId",
         message:
-          "자신이나 하위 항목은 상위 항목으로 선택할 수 없습니다. 다른 상위 항목을 선택해주세요.",
+          "자신이나 하위 항목과의 연결은 불가합니다. 다른 상위 항목을 선택해주세요.",
       };
     return {
       kind: "validation",
-      message: "입력 내용을 저장할 수 없습니다. 입력값을 확인해주세요.",
+      message: "입력 내용을 저장하지 못했습니다. 입력값을 확인해주세요.",
     };
   }
   if (code === "NOT_FOUND")
     return {
       kind: "conflict",
       message:
-        "저장된 항목을 찾을 수 없습니다. 입력은 유지됩니다. 최신 목록을 확인해주세요.",
+        "저장 항목이 없습니다. 입력은 유지됩니다. 최신 목록을 확인해주세요.",
     };
   return {
     kind: "uncertain",

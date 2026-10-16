@@ -1,8 +1,8 @@
 import {
   Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   WorkspaceIcon,
 } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +12,7 @@ import {
   createRouter,
   Link,
   Outlet,
-  useParams,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ProjectSettingsPage } from "@/pages/project-settings";
@@ -30,8 +30,16 @@ import {
 } from "@/shared/api/generated";
 
 function RootLayout() {
-  const { projectId, testScenarioId, shareId } = useParams({ strict: false });
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { projectId, testScenarioId, shareId } = useRouterState({
+    select: (state) =>
+      (state.matches.at(-1)?.params ?? {}) as {
+        projectId?: string;
+        testScenarioId?: string;
+        shareId?: string;
+      },
+  });
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const project = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () =>
@@ -43,11 +51,88 @@ function RootLayout() {
       ).data,
     enabled: !!projectId,
   });
+  const navigation = (
+    <nav className="workspace-nav" aria-label="프로젝트 탐색">
+      <Link
+        to="/"
+        activeOptions={{ exact: true }}
+        onClick={() => setMobileOpen(false)}
+        aria-label="프로젝트 목록"
+      >
+        <WorkspaceIcon name="projects" />
+        <span>프로젝트 목록</span>
+      </Link>
+      {projectId && (
+        <>
+          <div className="workspace-project-name">
+            {project.data?.name ?? "프로젝트"}
+          </div>
+          <Link
+            to="/projects/$projectId/test-scenarios"
+            params={{ projectId }}
+            onClick={() => setMobileOpen(false)}
+            aria-label="테스트 시나리오"
+          >
+            <WorkspaceIcon name="file" />
+            <span>테스트 시나리오</span>
+          </Link>
+          <Link
+            to="/projects/$projectId/uploads"
+            params={{ projectId }}
+            onClick={() => setMobileOpen(false)}
+            aria-label="Figma 자료"
+          >
+            <WorkspaceIcon name="image" />
+            <span>Figma 자료</span>
+          </Link>
+          <Link
+            to="/projects/$projectId/settings"
+            params={{ projectId }}
+            onClick={() => setMobileOpen(false)}
+            aria-label="프로젝트 설정"
+          >
+            <WorkspaceIcon name="settings" />
+            <span>프로젝트 설정</span>
+          </Link>
+        </>
+      )}
+    </nav>
+  );
   return (
-    <div className="workspace-root">
+    <div className={`workspace-root${collapsed ? " is-nav-collapsed" : ""}`}>
+      <aside className="workspace-sidebar" aria-label="주 메뉴">
+        <Link
+          to="/"
+          className="workspace-brand"
+          aria-label="Cheddar 프로젝트 목록"
+        >
+          <span className="workspace-brand-mark">C</span>
+          <span>Cheddar</span>
+        </Link>
+        {navigation}
+        <Button
+          variant="ghost"
+          className="workspace-sidebar-toggle"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
+          aria-expanded={!collapsed}
+        >
+          <WorkspaceIcon name={collapsed ? "arrow" : "back"} />
+          <span>{collapsed ? "메뉴 펼치기" : "메뉴 접기"}</span>
+        </Button>
+      </aside>
       <header className="workspace-header">
-        <Link to="/" aria-label="프로젝트 목록" className="workspace-home">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="workspace-mobile-menu"
+          aria-label="프로젝트 메뉴"
+          onClick={() => setMobileOpen(true)}
+        >
           <WorkspaceIcon name="projects" />
+        </Button>
+        <Link to="/" className="workspace-breadcrumb">
+          프로젝트
         </Link>
         {projectId && (
           <>
@@ -55,7 +140,7 @@ function RootLayout() {
             <Link
               to="/projects/$projectId/test-scenarios"
               params={{ projectId }}
-              onClick={() => setMenuOpen(false)}
+              className="workspace-breadcrumb"
             >
               {project.data?.name ?? "프로젝트"}
             </Link>
@@ -67,47 +152,7 @@ function RootLayout() {
             <span className="workspace-crumb">테스트 시나리오</span>
           </>
         )}
-        {shareId && <span className="workspace-crumb">공유 시나리오</span>}
-        {projectId && (
-          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="workspace-header-menu"
-                  aria-label="프로젝트 메뉴"
-                />
-              }
-            >
-              <WorkspaceIcon name="more" />
-            </PopoverTrigger>
-            <PopoverContent aria-label="프로젝트 메뉴">
-              <nav className="workspace-nav">
-                <Link
-                  to="/projects/$projectId/test-scenarios"
-                  params={{ projectId }}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <WorkspaceIcon name="file" />
-                  테스트 시나리오
-                </Link>
-                <Link
-                  to="/projects/$projectId/uploads"
-                  params={{ projectId }}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <WorkspaceIcon name="image" />
-                  화면 자료
-                </Link>
-                <Link to="/projects/$projectId/settings" params={{ projectId }}>
-                  <WorkspaceIcon name="settings" />
-                  프로젝트 설정
-                </Link>
-              </nav>
-            </PopoverContent>
-          </Popover>
-        )}
+        {shareId && <span className="workspace-crumb">시나리오 미리보기</span>}
       </header>
       <main
         className={
@@ -116,6 +161,15 @@ function RootLayout() {
       >
         <Outlet />
       </main>
+      <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
+        <DialogContent
+          className="workspace-mobile-nav"
+          aria-describedby={undefined}
+        >
+          <DialogTitle>프로젝트 메뉴</DialogTitle>
+          {navigation}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

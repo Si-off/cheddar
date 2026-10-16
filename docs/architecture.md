@@ -35,7 +35,7 @@ Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정�
 ## 구성요소 경계와 공유
 
 - 플러그인은 직접 선택한 Frame과 선택 Section 내부의 최상위 Frame 데이터를 업로드한다. Section은 자식 순서로 탐색하고 Frame을 만나면 그 하위 탐색을 멈춘다. 같은 nodeId와 이미 수집한 조상 Frame에 포함된 Frame은 중복 등록하지 않는다. 빈 Section이나 지원하지 않는 직접 선택이 섞이면 사용자가 선택을 수정하도록 안내한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
-- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`에서 연결·선택·업로드 준비·프레임 추출·완료 전 검증 메시지를 구분한다. 실제 Figma 중첩 iframe relay는 정확한 Figma Origin과 manifest pluginId를 검사하고, opaque-origin UI 요청 UUID는 crypto.getRandomValues로 보완한다.
+- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`에서 연결·선택·경량 이미지·업로드 준비·프레임 추출·완료 전 검증·웹 열기 메시지를 구분한다. 썸네일은 긴 변 240px, 미리보기는 960px 이하로 별도 추출하고 선택 버전별로 캐시한다. 업로드 원본 추출과 분리하며 선택 변경 후 오래된 이미지 응답을 반영하지 않는다. 실제 Figma 중첩 iframe relay는 정확한 Figma Origin과 manifest pluginId를 검사하고, opaque-origin UI 요청 UUID는 crypto.getRandomValues로 보완한다.
 - 기본 UI와 디자인 토큰은 공유한다.
 - 화면·업무 기능·상태 저장소는 앱별로 관리한다.
 - 웹은 TanStack Table 기반 표·상세 편집과 별도 초안·저장 모델을 구현한다. 사용자 열은 텍스트이며 표시 문자열 부분 검색을 사용한다. TanStack Query는 서버 데이터, Zustand/화면 상태는 미저장 입력·선택·검색을 담당한다.
@@ -78,7 +78,7 @@ Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정�
 | --- | --- |
 | `apps/web/src/app/` | 웹 초기화·프로바이더·라우트·앱 스타일 |
 | `apps/web/src/pages/test-case-editor/` | 테스트 케이스 생성·편집 화면 |
-| `apps/web/src/pages/shared-test-cases/` | 공유 링크 열람 화면 |
+| `apps/web/src/pages/shared-test-cases/` | 읽기 전용 시나리오 미리보기와 공유 경로의 빈 상태. 실제 공유 링크는 후속 |
 | `apps/web/src/widgets/test-case-table/` | 편집·열람 화면에서 사용하는 표 |
 | `apps/web/src/entities/test-case/` | 웹 내부에서 사용하는 테스트 케이스 모델과 관련 처리 |
 | `apps/web/src/shared/` | 웹 전용 API 연결·설정·라이브러리·기본 UI |
@@ -93,13 +93,19 @@ Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정�
 
 앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
 
-웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/test-scenarios`·`/projects/$projectId/test-scenarios/$testScenarioId`, Query·Motion 프로바이더를 구성했다. 프로젝트 경로의 공통 헤더에서 테스트 시나리오·업로드·설정을 이동한다. 설정 페이지가 미저장 변경·저장 중 이동을 확인한다. 플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Tabs, Tooltip과 기존 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 제공한다. 토큰에는 라이트 팔레트, 의미별 상태, 타이포그래피, 간격·크기, 모서리, 그림자, 레이어, 모션 구현안이 있다. `packages/design-tokens/build-preview.mjs`가 같은 패키지의 `preview.template.html`과 공통 토큰, Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향을 확인할 영속 미리보기다. 실제 공통 컴포넌트는 웹 개발 서버의 `/design-system.html`에서 확인하며, 해당 React 진입점은 개발 모드에서만 렌더링한다. 업로드 목록·상세, 프로젝트 설정, 프로젝트별 시나리오 목록·편집 페이지를 라우트에 연결했다. 업로드 상세의 testScenarioGateway는 실제 생성 SDK로 해당 업로드 시나리오만 조회·생성하며 POST를 자동 재시도하지 않는다. 시나리오 페이지는 Router blocker로 저장을 기다리고 실패 시 IndexedDB 초안 보관을 확인한 뒤 명시 이동을 제공한다. 보관도 실패하면 이동을 막고, 전체 페이지 이탈은 beforeunload로 보호한다. AI 생성·후보 상태는 서버 API와 연결한다.
+웹은 TanStack Router의 `/`·`/share/$shareId`와 프로젝트별 `/projects/$projectId/uploads`·`/projects/$projectId/uploads/$uploadId`·`/projects/$projectId/settings`·`/projects/$projectId/test-scenarios`·`/projects/$projectId/test-scenarios/$testScenarioId`, Query·Motion 프로바이더를 구성했다. 접이식 사이드바에서 프로젝트별 시나리오·Figma 자료·설정을 이동한다. 생성과 확인 항목은 시트에서 모달로 열며 별도 결과 경로를 만들지 않는다. 케이스 편집과 관련 자료는 단일 inspector의 탭으로 표시하고 좁은 화면에서는 같은 내용을 Dialog로 연다. 설정의 기본 정보·화면 구조·기본 양식 탭은 미저장 변경·저장 중 이동 확인과 revision 보호를 유지한다. 자료 상세 이미지는 같은 화면에서 확대·원본 크기·접기를 제공한다.
+
+플러그인은 main/UI 메시지 연결과 Zustand 연결 상태를 구성했다. 프로젝트 검색, 선택 프레임 썸네일과 미리보기, 추출·이미지·데이터·등록 진행 상태를 제공한다. 업로드 완료 후 main의 `figma.openExternal`로 해당 웹 자료 경로를 연다. 웹 기준 주소는 main 빌드 시 `VITE_WEB_BASE_URL`에서 읽으며 HTTP(S) 주소만 허용한다. Vite serve 모드 기본값은 `http://127.0.0.1:5173`이며 build/watch에서는 값을 명시한다. 빌드 시 미설정이면 웹 열기를 오류로 처리한다.
+
+공통 UI는 shadcn/ui Base UI 기반의 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Combobox, Tabs, Tooltip, Popover와 Surface를 제공한다. `packages/ui/src/styles.css`는 공통 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`은 각 workspace의 shadcn 경로를 연결한다. 토큰은 별도 CSS 진입점으로 라이트 팔레트, 타이포그래피, 크기, 모서리, 그림자, 레이어와 모션을 제공한다. 툴바 32px·폼 40px·표 최소 행 48px와 전환 120/180/240ms를 공통 토큰으로 관리하며 시스템 동작 줄이기를 반영한다. Motion 프로바이더는 `reducedMotion="user"`를 사용한다. `packages/design-tokens/build-preview.mjs`는 `preview.template.html`·토큰·Fontsource 폰트로 `docs/design-foundations.html`을 생성한다. 이 HTML은 디자인 방향의 영속 미리보기다. 실제 공통 컴포넌트는 개발 전용 `/design-system.html`에서 확인한다.
+
+업로드 상세의 testScenarioGateway는 실제 SDK로 해당 업로드 시나리오만 조회·생성하며 POST를 자동 재시도하지 않는다. 시나리오 페이지는 Router blocker로 저장을 기다리고 실패 시 IndexedDB 초안 보관을 확인한 뒤 명시 이동을 제공한다. 보관도 실패하면 이동을 막고, 전체 페이지 이탈은 beforeunload로 보호한다. 확인 항목 수정·질문 답변의 초안은 프로젝트·시나리오별 localStorage 키로 보관한다. 생성 작업과 분석 revision 충돌 시 최신 내용과 초안을 비교하며, 초안 보관 실패 시 모달 이탈을 막는다. 이는 시나리오 편집기의 IndexedDB 초안과 별도 책임이다.
 
 두 앱은 실제 명세를 `OPENAPI_INPUT`으로 받아 타입·SDK·Query 코드를 각 `shared/api/generated/`에 생성하도록 설정했다. 현재 명세는 `apps/api/openapi.json`이며 두 앱의 생성 타입·SDK·Query 코드를 관리한다. 도구 기본 출력의 `client/`·`core/`·`@tanstack/` 하위 폴더는 생성 코드 전용으로 사용자 승인을 받았다. 명세 변경 후 재생성하며 생성 코드를 직접 편집하지 않는다.
 
 Figma ID는 `1692417282897261384`다. 웹 API 기본 주소는 `http://127.0.0.1:3101`, 플러그인 개발 API 기본 주소는 `http://localhost:3102`다. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시킨다. 배포용 외부 네트워크 허용은 `none`이며 개발 검증에만 localhost를 사용한다.
 
-검증 도구는 API·플러그인 로직의 Node 테스트와 UI의 Playwright/Chromium이다. 명령·환경·확인 범위는 [README](../README.md#검증과-api-코드-생성)를 따른다. 실제 실행 이력과 당시 미확인 사항은 [프레임 업로드](changes/2026-10-15-stage-2a-frame-upload/change.md), [시나리오·설정 통합](changes/2026-10-15-staged-development/stage-2bc-common.md), [AI 생성](changes/2026-10-15-mvp-generation/change.md), [화면 개편](changes/2026-10-16-workspace-redesign/change.md) 기록에 있다.
+검증 도구는 API·플러그인 로직의 Node 테스트와 UI의 Playwright/Chromium이다. 명령·환경·확인 범위는 [README](../README.md#검증과-api-코드-생성)를 따른다. 실제 실행 이력과 당시 미확인 사항은 [프레임 업로드](changes/2026-10-15-stage-2a-frame-upload/change.md), [시나리오·설정 통합](changes/2026-10-15-staged-development/stage-2bc-common.md), [AI 생성](changes/2026-10-15-mvp-generation/change.md), [화면 개편](changes/2026-10-16-workspace-redesign/change.md), [전체 UI/UX 리디자인](changes/2026-10-16-complete-ux-redesign/change.md) 기록에 있다.
 
 ## 문서와 검수 에이전트의 역할
 
@@ -251,13 +257,13 @@ cheddar/
 
 ## MVP AI 생성
 
-`apps/api/src/generation/`의 LangGraph는 입력 준비 → 모델 생성 → 형식·참조 검사 → 저장의 단일 흐름이며 자동 재시도·분할 생성은 초기 범위에서 제외한다. 생성 작업과 후보는 DB에 저장하고, 대상 시나리오만 편집을 잠근다. 키·모델은 서버 환경변수에서 관리한다. 생성 요청 ID로 중복 실행을 막고, 프로젝트 쓰기 잠금 안에서 시나리오 교체와 성공 상태를 한 트랜잭션으로 저장한다. 시나리오 자동 저장과 후보 추가도 같은 잠금 규칙을 따른다. 모델 호출 동안 DB 트랜잭션을 열어두지 않는다.
+`apps/api/src/generation/`의 LangGraph는 입력 준비 → 모델 생성 → 형식·참조 검사 → 저장의 단일 흐름이며 자동 재시도·분할 생성은 초기 범위에서 제외한다. 생성 작업과 후보는 DB에 저장하고, 대상 시나리오만 편집을 잠근다. 키·모델은 서버 환경변수에서 관리한다. 생성 요청 ID로 중복 실행을 막고, 프로젝트 쓰기 잠금 안에서 생성 모드별 시나리오 반영과 성공 상태를 한 트랜잭션으로 저장한다. 웹의 `append`는 기존 케이스·양식·번호를 보존하며 명확한 결과와 근거 연결을 원자적으로 추가하고 일반 행으로 반환한다. 기존 `replace`·`review` API 계약은 유지한다. DB 스키마 변경은 없다. 시나리오 자동 저장과 후보 추가도 같은 잠금 규칙을 따른다. 모델 호출 동안 DB 트랜잭션을 열어두지 않는다.
 
 
 ## QA 작성과 분석 결과 편집
 
 - `uploads/`의 analysis 서비스는 프로젝트별 `project_analysis`에 자료 항목과 요구사항의 케이스 연결을 JSON 문서로 저장한다. 프로젝트 PK와 revision을 사용하고 참조의 프로젝트 소속, 영역 범위, 부모 순환과 링크 중복을 검사한다. 업로드 바이트는 유지한다.
-- `generation/`의 검토 모드는 입력 준비 → AI 자료 정리 → 테스트 케이스 생성 → 형식과 근거 검사 → 검토 결과 저장으로 실행한다. 기존 교체 모드 API는 유지한다. 개별 프레임과 요구사항 선택, 요구사항 UUID 근거 연결을 지원한다.
+- `generation/`의 `append`·`review`는 입력 준비 → AI 자료 정리 → 테스트 케이스 생성 → 형식과 근거 검사 → 저장으로 실행한다. `append`는 명확한 결과를 즉시 추가하고 불확실한 항목만 대기로 남긴다. `review`는 결과 전체를 검토 대상으로 보관하며 기존 `replace`와 함께 유지한다. 개별 프레임과 요구사항 선택, 요구사항 UUID 근거 연결을 지원한다.
 - 자료 정리에서는 선택한 원본 노드의 후보를 제공하고 AI는 해당 ID만 선택해 화면, 상태, 요구사항과 관계를 구성한다. 텍스트 원문과 영역은 서버가 원본에서 유지한다. 원본 파일 밖 설명과 벡터만으로 확정할 수 없는 화살표는 자동 확정을 보장하지 않는다.
-- 결과 선택 추가는 생성 작업 revision과 시나리오 revision을 함께 검사한다. 시나리오 저장, 후보 상태, 근거 연결은 프로젝트 쓰기 잠금 안에서 한 트랜잭션으로 저장한다. 모델 호출은 잠금 밖에서 수행한다.
-- 웹의 관련 자료 보기, 생성 결과 비교, 분석 결과 편집은 기존 시나리오 편집 경로 안에 제공한다. 기능 소스는 승인된 `project-uploads`와 `test-case-editor` 폴더에 둔다. 표시 패널은 서버 업무 데이터와 분리한다.
+- 확인 항목 추가는 생성 작업 revision과 시나리오 revision을 함께 검사한다. 질문 답변을 함께 반영할 때는 분석 revision도 검사한다. 시나리오 저장, 후보 상태, 답변과 근거 연결은 프로젝트 쓰기 잠금 안에서 한 트랜잭션으로 저장한다. 모델 호출은 잠금 밖에서 수행한다.
+- 웹의 관련 자료, 확인 항목 비교와 화면 분석은 기존 시나리오 편집 경로 안에 제공한다. 화면 분석은 화면 분석·확인 질문·요구사항 연결을 포함한 하나의 모달이며 케이스 상세 inspector와 구분한다. 기능 소스는 승인된 `project-uploads`와 `test-case-editor` 폴더에 둔다. 표시 패널은 서버 업무 데이터와 분리한다.

@@ -1,4 +1,14 @@
-import { Button, Label, WorkspaceIcon } from "@cheddar/ui";
+import {
+  Button,
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  Label,
+  WorkspaceIcon,
+} from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FrameReference } from "@/entities/test-case";
@@ -40,7 +50,7 @@ export function SourceImage({
         </Button>
       </div>
     );
-  if (!url) return <p role="status">이미지 불러오는 중</p>;
+  if (!url) return <p role="status">이미지 조회 중</p>;
   return (
     <div className="source-image-scroll">
       <div style={{ width: `${zoom * 100}%` }}>
@@ -57,6 +67,7 @@ export function SourceImage({
         <img
           src={url}
           alt={frame.name}
+          aria-hidden={!!region}
           className={region ? "source-image-measure" : "source-image"}
           onLoad={(event) =>
             setSize({
@@ -74,11 +85,13 @@ export function SourceViewer({
   caseId,
   frames,
   onClose,
+  embedded = false,
 }: {
   projectId: string;
   caseId?: string;
   frames: FrameReference[];
-  onClose: () => void;
+  onClose?: () => void;
+  embedded?: boolean;
 }) {
   const [selected, setSelected] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -96,38 +109,52 @@ export function SourceViewer({
     analysis.data?.items.filter(
       (i) => ids.includes(i.id) && (!i.frameId || i.frameId === current?.id),
     ) ?? [];
+  const Container = embedded ? "section" : "aside";
   return (
-    <aside className="source-panel" aria-label="관련 자료 보기">
-      <header>
-        <h2>관련 자료</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="원본 닫기"
-          onClick={onClose}
-        >
-          <WorkspaceIcon name="close" />
-        </Button>
-      </header>
+    <Container
+      className={
+        embedded ? "source-panel source-panel--embedded" : "source-panel"
+      }
+      aria-label="관련 자료"
+    >
+      {!embedded && (
+        <header>
+          <h2>관련 자료</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="관련 자료 닫기"
+            onClick={onClose}
+          >
+            <WorkspaceIcon name="close" />
+          </Button>
+        </header>
+      )}
       {frames.length > 0 ? (
         <>
           <Label htmlFor="source-frame">화면</Label>
-          <select
-            id="source-frame"
-            className="test-scenario-select"
-            value={current?.id ?? ""}
-            onChange={(e) => {
-              setSelected(e.target.value);
+          <Combobox
+            items={frames}
+            value={current ?? null}
+            itemToStringLabel={(frame) => frame.name}
+            onValueChange={(frame) => {
+              setSelected(frame?.id ?? "");
               setRegion(undefined);
               setZoom(1);
             }}
           >
-            {frames.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+            <ComboboxInput id="source-frame" placeholder="화면 검색" />
+            <ComboboxContent>
+              <ComboboxEmpty>검색 결과가 없습니다</ComboboxEmpty>
+              <ComboboxList>
+                {(frame) => (
+                  <ComboboxItem key={frame.id} value={frame}>
+                    {frame.name}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
           {current && (
             <>
               <SourceImage
@@ -173,7 +200,7 @@ export function SourceViewer({
               </div>
             </>
           )}
-          <h3>연결된 요구사항</h3>
+          <h3>요구사항 연결</h3>
           {requirements.map((i) => (
             <article key={i.id}>
               <Button
@@ -188,7 +215,10 @@ export function SourceViewer({
               <p className="whitespace-pre-wrap">{i.answer || i.text}</p>
             </article>
           ))}
-          {!requirements.length && <p>연결된 요구사항이 없습니다.</p>}
+          {analysis.isPending && <p role="status">요구사항 조회 중</p>}
+          {analysis.isSuccess && !requirements.length && (
+            <p>요구사항 연결이 없습니다.</p>
+          )}
         </>
       ) : (
         <p>화면 연결이 없습니다.</p>
@@ -201,6 +231,6 @@ export function SourceViewer({
           </Button>
         </p>
       )}
-    </aside>
+    </Container>
   );
 }

@@ -171,7 +171,7 @@ export class GenerationRepository {
         throw new ApiError(
           400,
           "GENERATION_INPUT_REQUIRED",
-          "업로드 묶음을 선택하거나 테스트할 내용을 설명해주세요.",
+          "Figma 자료를 선택하거나 테스트 내용을 설명해주세요.",
         );
       if (request.exampleTestScenarioId)
         await this.testScenarios.readSnapshot(
@@ -337,6 +337,53 @@ export class GenerationRepository {
             kind: "candidate" as const,
           })),
         ];
+      } else if (job.request.mode === "append") {
+        const snapshot = await this.testScenarios.readSnapshot(
+          tx,
+          job.projectId,
+          job.testScenarioId,
+        );
+        const cases = [...snapshot.cases, ...result.cases];
+        validateContent(snapshot, cases);
+        await this.testScenarios.writeContent(
+          tx,
+          job.projectId,
+          job.testScenarioId,
+          {
+            expectedRevision: job.snapshot.contentRevision,
+            columns: snapshot.columns,
+            cases,
+          },
+        );
+        await appendAnalysisLinks(
+          tx,
+          job.projectId,
+          (result.links ?? [])
+            .filter((link) => result.cases.some((c) => c.id === link.caseId))
+            .flatMap((link) =>
+              link.requirementIds.map((requirementId) => ({
+                requirementId,
+                caseId: link.caseId,
+                testScenarioId: job.testScenarioId,
+              })),
+            ),
+        );
+        results = [
+          ...result.cases.map((content) => ({
+            id: content.id,
+            status: "added" as const,
+            kind: "case" as const,
+            reason: "",
+            content,
+            requirementIds:
+              result.links?.find((link) => link.caseId === content.id)
+                ?.requirementIds ?? [],
+          })),
+          ...result.candidates.map((c) => ({
+            ...c,
+            kind: "candidate" as const,
+          })),
+        ];
       } else {
         await this.testScenarios.writeContent(
           tx,
@@ -495,19 +542,58 @@ export class GenerationRepository {
         throw new ApiError(
           409,
           "GENERATION_RESULT_ADDED",
-          "이미 시나리오에 추가한 테스트 케이스입니다. 시나리오에서 편집해주세요.",
+          "이미 시나리오에 추가했습니다. 테스트 케이스는 시나리오에서 편집해주세요.",
         );
       const snapshot = await this.testScenarios.readSnapshot(
         tx,
         projectId,
         testScenarioId,
       );
-      if (input.action === "edit") {
-        if (!input.content) throw invalid();
+      if (
+        input.content &&
+        (input.action === "edit" || input.action === "add")
+      ) {
         const content = { ...input.content, id: candidate.id, caseCode: "" };
         validateContent(snapshot, [content]);
-        // References are also checked when this candidate is added to the testScenario.
         candidate.content = content;
+      }
+      if (input.question) {
+        if (input.action !== "add")
+          throw invalid([{ field: "question", code: "requiresAdd" }]);
+        const [analysis] = await tx
+          .select()
+          .from(projectAnalysis)
+          .where(eq(projectAnalysis.projectId, projectId));
+        if (analysis?.revision !== input.question.expectedRevision)
+          throw new ApiError(
+            409,
+            "ANALYSIS_CONFLICT",
+            "확인 질문이 변경되었습니다. 최신 자료를 확인해주세요.",
+          );
+        if (
+          !analysis.items.some(
+            (i) => i.id === candidate.id && i.kind === "question",
+          )
+        )
+          throw invalid([{ field: "question", code: "unknownQuestion" }]);
+        await tx
+          .update(projectAnalysis)
+          .set({
+            revision: analysis.revision + 1,
+            items: analysis.items.map((i) =>
+              i.id === candidate.id
+                ? {
+                    ...i,
+                    answer: input.question?.answer,
+                    useAsRule: input.question?.useAsRule,
+                  }
+                : i,
+            ),
+          })
+          .where(eq(projectAnalysis.projectId, projectId));
+      }
+      if (input.action === "edit") {
+        if (!input.content) throw invalid();
       } else if (input.action === "add") {
         validateContent(snapshot, [...snapshot.cases, candidate.content]);
         await this.testScenarios.writeContent(tx, projectId, testScenarioId, {

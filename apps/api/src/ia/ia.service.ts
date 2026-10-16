@@ -49,7 +49,7 @@ function checkScreenId(
     throw new ApiError(
       409,
       "SCREEN_ID_CONFLICT",
-      "이미 사용 중인 화면 ID입니다. 다른 ID를 입력해주세요.",
+      "화면 ID가 이미 사용 중입니다. 다른 ID를 입력해주세요.",
       { field: "screenId" },
     );
   }
@@ -138,7 +138,7 @@ export class IaService {
     return new ApiError(
       409,
       "REFERENCE_IN_USE",
-      "연결된 항목이 있습니다. 연결을 해제한 뒤 삭제해주세요.",
+      "항목 연결이 있습니다. 연결 해제 후 삭제해주세요.",
       { references },
     );
   }

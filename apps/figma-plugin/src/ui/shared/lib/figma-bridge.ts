@@ -4,6 +4,7 @@ import {
   type ExportErrorCode,
   type FrameSelection,
   isMainToUiMessage,
+  isResourceId,
   type MainToUiMessage,
   type UiToMainMessage,
 } from "../../../protocol/messages";
@@ -60,6 +61,35 @@ async function request<T extends Reply["type"]>(
   });
   if (reply.type !== expected) throw new FigmaExportError("DISCONNECTED");
   return reply as Extract<Reply, { type: T }>;
+}
+export function requestFrameThumbnail(
+  selectionVersion: number,
+  nodeId: string,
+  size: "thumbnail" | "preview" = "thumbnail",
+) {
+  return request(
+    {
+      type: "thumbnail-frame",
+      requestId: createRequestId(),
+      selectionVersion,
+      nodeId,
+      size,
+    },
+    "frame-thumbnail",
+  );
+}
+export function openUploadInWeb(projectId: string, uploadId: string) {
+  if (!isResourceId(projectId) || !isResourceId(uploadId))
+    return Promise.reject(new FigmaExportError("WEB_UNAVAILABLE"));
+  return request(
+    {
+      type: "open-upload-web",
+      requestId: createRequestId(),
+      projectId,
+      uploadId,
+    },
+    "upload-web-opened",
+  );
 }
 export function prepareFrameUpload(selectionVersion: number) {
   return request(

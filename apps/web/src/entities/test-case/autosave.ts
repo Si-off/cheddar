@@ -177,7 +177,7 @@ export class TestScenarioSession {
         if (attempt === this.storageAttempt && record.key === this.key)
           this.store.setState({
             storageError:
-              "브라우저에 초안을 보관하지 못했습니다. 이 화면을 닫으면 미저장 입력을 잃을 수 있습니다.",
+              "브라우저에 초안을 보관하지 못했습니다. 새로고침 전 입력을 복사해주세요.",
           });
       });
   }
@@ -453,7 +453,7 @@ export class TestScenarioSession {
       status: conflict ? "conflict" : "dirty",
       latest: conflict && !inFlight ? current : undefined,
       message: conflict
-        ? "보관한 입력 이후 시나리오가 변경되었습니다. 최신 내용과 비교해주세요."
+        ? "초안 보관 이후 시나리오가 변경되었습니다. 최신 내용과 비교해주세요."
         : undefined,
     });
     if (!conflict) this.schedule();

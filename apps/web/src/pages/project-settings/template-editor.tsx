@@ -30,7 +30,7 @@ export function TemplateEditor({
   return (
     <div className="workspace-template-editor">
       <p className="text-label text-muted">
-        변경한 양식은 새 시나리오에만 적용됩니다.
+        기본 양식은 새 시나리오에만 적용됩니다.
       </p>
       <ColumnSettings
         columns={value.columns}

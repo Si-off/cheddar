@@ -1,3 +1,10 @@
+export const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
+export const isResourceId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 export const MAX_FRAME_DATA_BYTES = 5 * 1024 * 1024;
 
@@ -22,10 +29,24 @@ export type ExportErrorCode =
   | "EXPORT_FAILED"
   | "IMAGE_TOO_LARGE"
   | "DATA_TOO_LARGE"
-  | "SESSION_EXPIRED";
+  | "SESSION_EXPIRED"
+  | "WEB_UNAVAILABLE";
 
 export type UiToMainMessage =
   | { type: "ui-ready" }
+  | {
+      type: "thumbnail-frame";
+      requestId: string;
+      selectionVersion: number;
+      nodeId: string;
+      size: "thumbnail" | "preview";
+    }
+  | {
+      type: "open-upload-web";
+      requestId: string;
+      projectId: string;
+      uploadId: string;
+    }
   | { type: "prepare-upload"; requestId: string; selectionVersion: number }
   | {
       type: "export-frame";
@@ -38,6 +59,14 @@ export type UiToMainMessage =
 
 export type MainToUiMessage =
   | { type: "selection-changed"; selection: FrameSelection }
+  | {
+      type: "frame-thumbnail";
+      requestId: string;
+      selectionVersion: number;
+      nodeId: string;
+      image: Uint8Array;
+    }
+  | { type: "upload-web-opened"; requestId: string }
   | {
       type: "upload-prepared";
       requestId: string;
@@ -86,6 +115,15 @@ export function isUiToMainMessage(value: unknown): value is UiToMainMessage {
   if (value.type === "ui-ready") return true;
   if (value.type === "release-upload") return text(value.sessionId, 100);
   if (!text(value.requestId, 100)) return false;
+  if (value.type === "open-upload-web")
+    return isResourceId(value.projectId) && isResourceId(value.uploadId);
+  if (value.type === "thumbnail-frame")
+    return (
+      Number.isSafeInteger(value.selectionVersion) &&
+      Number(value.selectionVersion) >= 0 &&
+      text(value.nodeId, 200) &&
+      ["thumbnail", "preview"].includes(String(value.size))
+    );
   if (value.type === "prepare-upload")
     return (
       Number.isSafeInteger(value.selectionVersion) &&
@@ -124,7 +162,18 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
       "IMAGE_TOO_LARGE",
       "DATA_TOO_LARGE",
       "SESSION_EXPIRED",
+      "WEB_UNAVAILABLE",
     ].includes(String(value.code));
+  if (value.type === "upload-web-opened") return true;
+  if (value.type === "frame-thumbnail")
+    return (
+      Number.isSafeInteger(value.selectionVersion) &&
+      Number(value.selectionVersion) >= 0 &&
+      text(value.nodeId, 200) &&
+      value.image instanceof Uint8Array &&
+      value.image.length > 0 &&
+      value.image.length <= MAX_THUMBNAIL_BYTES
+    );
   if (!text(value.sessionId, 100)) return false;
   if (value.type === "upload-prepared")
     return (

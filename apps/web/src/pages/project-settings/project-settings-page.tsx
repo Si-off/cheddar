@@ -9,6 +9,8 @@ import {
   Surface,
   Tabs,
   TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
@@ -429,7 +431,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       if (issue?.kind === "uncertain") {
         if (lastAction === "delete" && !next) {
           chooseIa(null);
-          setNotice("삭제된 것을 확인했습니다.");
+          setNotice("삭제를 확인했습니다.");
           return;
         }
         const expected =
@@ -465,8 +467,8 @@ function SettingsEditor({ projectId }: { projectId: string }) {
             kind: "validation",
             message:
               lastAction === "delete"
-                ? "아직 삭제되지 않았습니다. 다시 삭제할 수 있습니다."
-                : "입력한 내용이 저장되지 않았습니다. 다시 저장해주세요.",
+                ? "아직 삭제되지 않았습니다. 다시 삭제해주세요."
+                : "입력 내용이 저장되지 않았습니다. 다시 저장해주세요.",
           });
         } else
           setIssue({
@@ -481,7 +483,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       setIssue({
         kind: "uncertain",
         message:
-          "저장 내용을 불러오지 못했습니다. 연결을 확인한 뒤 다시 확인해주세요.",
+          "저장 내용을 불러오지 못했습니다. 연결 확인 후 다시 확인해주세요.",
       });
     } finally {
       setSaving(false);
@@ -516,11 +518,10 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       </Surface>
     );
 
-  if (loading || !draft)
-    return <p role="status">프로젝트 설정을 불러오는 중…</p>;
+  if (loading || !draft) return <p role="status">프로젝트 설정 조회 중</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="workspace-settings-page space-y-6">
       <div>
         <p className="text-label text-muted">{project.data?.name}</p>
         <h1 className="text-title font-heading">프로젝트 설정</h1>
@@ -528,7 +529,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       {(project.isError || ia.isError || template.isError) && (
         <div className="space-y-3 rounded-panel border border-border bg-warning-subtle p-4">
           <p role="alert" className="text-label">
-            설정을 갱신하지 못해 이전에 불러온 내용을 표시하고 있습니다.
+            설정 갱신에 실패했습니다. 이전 조회 결과를 표시합니다.
           </p>
           <Button
             variant="outline"
@@ -543,31 +544,24 @@ function SettingsEditor({ projectId }: { projectId: string }) {
         </div>
       )}
       <Tabs
+        className="workspace-settings-layout"
         value={draft.kind}
         onValueChange={(value) => transition(() => selectTab(value as Tab))}
       >
-        <div className="workspace-settings-selector">
-          <label htmlFor="settings-section" className="sr-only">
-            설정 항목
-          </label>
-          <select
-            id="settings-section"
-            className="test-scenario-select"
-            value={draft.kind}
-            disabled={saving}
-            onChange={(event) => {
-              const next = event.target.value as Tab;
-              transition(() => selectTab(next));
-            }}
-          >
-            <option value="project">기본 정보</option>
-            <option value="ia">IA 관리</option>
-            <option value="template">기본 양식</option>
-          </select>
-        </div>
+        <TabsList className="workspace-settings-nav" aria-label="설정 항목">
+          <TabsTrigger value="project" disabled={saving}>
+            기본 정보
+          </TabsTrigger>
+          <TabsTrigger value="ia" disabled={saving}>
+            화면 구조
+          </TabsTrigger>
+          <TabsTrigger value="template" disabled={saving}>
+            기본 양식
+          </TabsTrigger>
+        </TabsList>
         <form
           ref={form}
-          className="mt-6 space-y-5"
+          className="workspace-settings-form space-y-5"
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
@@ -649,7 +643,7 @@ function SettingsEditor({ projectId }: { projectId: string }) {
               {saving
                 ? "저장 중…"
                 : dirty
-                  ? "저장하지 않은 변경사항이 있습니다"
+                  ? "미저장 변경사항"
                   : notice ||
                     (draft.kind === "ia" && !draft.base ? "" : "저장됨")}
             </p>
@@ -682,9 +676,9 @@ function SettingsEditor({ projectId }: { projectId: string }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>변경사항을 저장할까요?</DialogTitle>
+            <DialogTitle>변경사항 저장</DialogTitle>
             <DialogDescription>
-              저장하지 않고 이동하면 편집 중인 내용이 사라집니다.
+              저장하지 않고 이동하면 현재 입력이 사라집니다.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -728,14 +722,14 @@ function SettingsEditor({ projectId }: { projectId: string }) {
           <DialogHeader>
             <DialogTitle>
               {confirmation?.kind === "delete"
-                ? `${draft.kind === "ia" ? draft.base?.screenId : ""}을(를) 삭제할까요?`
+                ? `${draft.kind === "ia" ? draft.base?.screenId : ""} 삭제`
                 : confirmation?.kind === "column"
-                  ? `‘${draft.kind === "template" ? draft.value.columns.find((column) => column.id === confirmation.id)?.name : ""}’ 열을 삭제할까요?`
-                  : "편집 중인 내용을 버릴까요?"}
+                  ? `‘${draft.kind === "template" ? draft.value.columns.find((column) => column.id === confirmation.id)?.name : ""}’ 열 삭제`
+                  : "입력 내용 삭제"}
             </DialogTitle>
             <DialogDescription>
               {confirmation?.kind === "delete"
-                ? "IA 항목을 삭제합니다. 저장하지 않은 편집 내용도 사라집니다."
+                ? "화면을 삭제합니다. 현재 입력도 사라집니다."
                 : confirmation?.kind === "column"
                   ? "기본 양식에서 열을 삭제합니다. 기존 시나리오에는 영향을 주지 않습니다."
                   : "최신 저장 내용을 불러옵니다. 현재 입력은 사라집니다."}
@@ -790,8 +784,7 @@ function Snapshot({
   draft: SettingsDraft | null;
   items: IaItemDto[];
 }) {
-  if (!draft)
-    return <p className="text-label">해당 IA 항목을 찾을 수 없습니다.</p>;
+  if (!draft) return <p className="text-label">화면이 없습니다.</p>;
   if (draft.kind === "template")
     return (
       <ol className="space-y-2 text-label">
@@ -801,7 +794,7 @@ function Snapshot({
               draft.value.columns.find((column) => column.id === entry.columnId)
                 ?.name
             }{" "}
-            · {entry.width}px
+            <span className="text-muted">{entry.width}px</span>
           </li>
         ))}
       </ol>

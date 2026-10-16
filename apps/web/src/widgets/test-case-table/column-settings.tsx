@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   Input,
   Label,
   Popover,
@@ -9,6 +10,7 @@ import {
 } from "@cheddar/ui";
 import { useState } from "react";
 import type { Column, Snapshot } from "@/entities/test-case";
+import { WorkspaceSelect } from "@/shared/ui/workspace";
 export function ColumnSettings({
   columns,
   view,
@@ -35,11 +37,10 @@ export function ColumnSettings({
         return (
           <div className="workspace-column" key={column.id}>
             {onVisibility && (
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={`${column.name} 표시`}
                 checked={!hidden?.has(column.id)}
-                onChange={() => onVisibility(column.id)}
+                onCheckedChange={() => onVisibility(column.id)}
                 disabled={
                   !hidden?.has(column.id) &&
                   columns.filter((column) => !hidden?.has(column.id)).length <=
@@ -81,23 +82,20 @@ export function ColumnSettings({
                     }
                   />
                   <Label htmlFor={`column-order-${column.id}`}>순서</Label>
-                  <select
+                  <WorkspaceSelect
                     id={`column-order-${column.id}`}
-                    className="test-scenario-select"
-                    value={index}
+                    value={String(index)}
                     disabled={disabled}
-                    onChange={(e) => {
+                    onValueChange={(value) => {
                       const next = view.filter((v) => v.columnId !== column.id);
-                      next.splice(Number(e.target.value), 0, entry);
+                      next.splice(Number(value), 0, entry);
                       onChange(columns, next);
                     }}
-                  >
-                    {view.map((v, i) => (
-                      <option key={v.columnId} value={i}>
-                        {i + 1}번째
-                      </option>
-                    ))}
-                  </select>
+                    options={view.map((_, i) => ({
+                      value: String(i),
+                      label: `${i + 1}번째`,
+                    }))}
+                  />
                   {column.kind === "custom" && (
                     <Button
                       variant="ghost"

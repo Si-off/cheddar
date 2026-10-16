@@ -1,4 +1,14 @@
-import { Button, Checkbox, Textarea, WorkspaceIcon } from "@cheddar/ui";
+import {
+  Button,
+  Checkbox,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  WorkspaceIcon,
+} from "@cheddar/ui";
 import {
   type ColumnDef,
   flexRender,
@@ -8,6 +18,7 @@ import {
 import {
   type KeyboardEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -56,6 +67,21 @@ export function TestCaseTable({
   onError,
 }: Props) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const previousRows = useRef(new Set(snapshot.cases.map((item) => item.id)));
+  const [recentRows, setRecentRows] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const next = new Set(snapshot.cases.map((item) => item.id));
+    const added = new Set(
+      [...next].filter((id) => !previousRows.current.has(id)),
+    );
+    previousRows.current = next;
+    if (added.size) setRecentRows(added);
+  }, [snapshot.cases]);
+  useEffect(() => {
+    if (!recentRows.size) return;
+    const timer = setTimeout(() => setRecentRows(new Set()), 1400);
+    return () => clearTimeout(timer);
+  }, [recentRows]);
   const columns = useMemo(
     () =>
       snapshot.view
@@ -339,7 +365,7 @@ export function TestCaseTable({
         <thead>
           {table.getHeaderGroups().map((group) => (
             <tr key={group.id}>
-              <th scope="col">
+              <th scope="col" className="test-scenario-row-selection">
                 <span className="sr-only">행 선택</span>
               </th>
               {group.headers.map((header) => (
@@ -398,6 +424,7 @@ export function TestCaseTable({
           {table.getRowModel().rows.map((row, rowIndex) => (
             <tr
               key={row.id}
+              className={recentRows.has(row.id) ? "is-recent" : undefined}
               aria-rowindex={rowIndex + 2}
               style={{ height: rowHeights[row.id] }}
             >
@@ -423,7 +450,7 @@ export function TestCaseTable({
                     setRowHeights((current) => ({
                       ...current,
                       [row.id]: Math.max(
-                        40,
+                        48,
                         height + (e.key === "ArrowDown" ? 16 : -16),
                       ),
                     }));
@@ -439,7 +466,7 @@ export function TestCaseTable({
                       setRowHeights((current) => ({
                         ...current,
                         [row.id]: Math.max(
-                          40,
+                          48,
                           Math.min(800, height + ev.clientY - start),
                         ),
                       }));
@@ -544,20 +571,41 @@ export function TestCaseTable({
                       </span>
                       {edit &&
                         (column.field === "priority" ? (
-                          <select
-                            ref={(node) => node?.focus()}
-                            aria-label="우선순위 편집"
+                          <Select
+                            defaultOpen
                             value={row.original.priority ?? ""}
-                            onChange={(e) =>
-                              changeCell(row.id, column, e.target.value)
-                            }
-                            onBlur={() => setEditing(undefined)}
+                            items={[
+                              { value: "", label: "미지정" },
+                              { value: "high", label: "높음" },
+                              { value: "medium", label: "보통" },
+                              { value: "low", label: "낮음" },
+                            ]}
+                            onValueChange={(next) => {
+                              if (next !== null)
+                                changeCell(row.id, column, next);
+                            }}
+                            onOpenChange={(open) => {
+                              if (!open) {
+                                setEditing(undefined);
+                                focus(position);
+                              }
+                            }}
                           >
-                            <option value="">미지정</option>
-                            <option value="high">높음</option>
-                            <option value="medium">보통</option>
-                            <option value="low">낮음</option>
-                          </select>
+                            <SelectTrigger
+                              aria-label="우선순위 편집"
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
+                              <SelectItem value="">미지정</SelectItem>
+                              <SelectItem value="high">높음</SelectItem>
+                              <SelectItem value="medium">보통</SelectItem>
+                              <SelectItem value="low">낮음</SelectItem>
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <Textarea
                             ref={focusEditor}

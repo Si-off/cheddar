@@ -93,7 +93,7 @@ export function validate(snapshot: Snapshot): string | undefined {
     return "열 이름은 1~100자로 입력해주세요.";
   const codes = snapshot.cases.map((c) => c.caseCode).filter(Boolean);
   if (new Set(codes).size !== codes.length)
-    return "중복된 테스트 케이스 번호를 수정해주세요.";
+    return "테스트 케이스 번호가 중복됩니다. 번호를 변경해주세요.";
   if (snapshot.cases.some((c) => c.caseCode.length > 100))
     return "테스트 케이스 번호는 100자 이내로 입력해주세요.";
   if (
@@ -119,14 +119,14 @@ export function displayValue(
     return item.relatedFrameIds
       .map((id) => {
         const f = snapshot.references.frames.find((v) => v.id === id);
-        return f ? f.name : "연결된 프레임";
+        return f ? f.name : "프레임";
       })
       .join("\n");
   if (column.field === "screens")
     return item.screenIds
       .map((id) => {
         const i = snapshot.references.iaItems.find((v) => v.id === id);
-        return i ? `${i.screenId} ${i.name}` : "연결된 IA 화면";
+        return i ? `${i.screenId} ${i.name}` : "화면";
       })
       .join("\n");
   return column.field ? item[column.field] : "";
@@ -153,10 +153,10 @@ export function setValue(
               ? "low"
               : undefined;
     if (priority === undefined)
-      throw new Error("우선순위는 높음·보통·낮음 또는 빈 값으로 입력해주세요.");
+      throw new Error("우선순위 셀에서 값을 선택하거나 비워주세요.");
     return { ...item, priority };
   }
   if (column.field === "relatedFrames" || column.field === "screens")
-    throw new Error("프레임과 IA 연결은 상세 편집에서 변경해주세요.");
+    throw new Error("프레임과 화면 구조 연결은 상세 편집에서 변경해주세요.");
   return column.field ? { ...item, [column.field]: value } : item;
 }
