@@ -2,7 +2,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogTitle,
   Input,
@@ -17,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { env } from "@/shared/config/env";
-import { LoadingSkeleton } from "@/shared/ui/workspace";
+import { LoadingSkeleton, WorkspaceSelect } from "@/shared/ui/workspace";
 import { TestScenarioEditor } from "./editor";
 import {
   createEmptyTestScenario,
@@ -194,7 +193,7 @@ export function TestCaseEditorPage({
         />
         {snapshot.isError && (
           <p role="alert">
-            시나리오의 최신 저장 내용을 확인하지 못했습니다. 편집 중인 입력은
+            시나리오의 최신 저장 내용을 확인하지 못했습니다. 현재 입력은
             유지됩니다.{" "}
             <Button
               variant="link"
@@ -207,7 +206,7 @@ export function TestCaseEditorPage({
         )}
         {references.isError && (
           <p role="alert">
-            프레임·IA 목록을 불러오지 못했습니다.{" "}
+            화면 자료와 화면 구조를 불러오지 못했습니다.{" "}
             <Button variant="link" onClick={() => void references.refetch()}>
               목록 다시 불러오기
             </Button>
@@ -220,8 +219,7 @@ export function TestCaseEditorPage({
       <div className="workspace-page-heading">
         <h1>{activeProject ? "테스트 시나리오" : "프로젝트"}</h1>
         <Button
-          size="icon"
-          variant={activeProject ? "default" : "ghost"}
+          variant="default"
           aria-label={activeProject ? "새 시나리오" : "새 프로젝트"}
           onClick={() => {
             if (activeProject) {
@@ -234,6 +232,7 @@ export function TestCaseEditorPage({
           }}
         >
           <WorkspaceIcon name="plus" />
+          {activeProject ? "새 시나리오" : "새 프로젝트"}
         </Button>
       </div>
       <Dialog
@@ -279,7 +278,7 @@ export function TestCaseEditorPage({
                 type="submit"
                 disabled={!projectName.trim() || createProject.isPending}
               >
-                {createProject.isPending ? "만드는 중" : "프로젝트 만들기"}
+                {createProject.isPending ? "생성 중" : "프로젝트 만들기"}
               </Button>
             </DialogFooter>
           </form>
@@ -317,6 +316,9 @@ export function TestCaseEditorPage({
                       <strong>{p.name}</strong>
                       {p.description && <small>{p.description}</small>}
                     </span>
+                    <time className="workspace-row-date" dateTime={p.updatedAt}>
+                      {new Date(p.updatedAt).toLocaleDateString("ko-KR")}
+                    </time>
                     <WorkspaceIcon name="chevron" />
                   </button>
                 ))}
@@ -384,6 +386,14 @@ export function TestCaseEditorPage({
                               : "통합 테스트"}
                           </small>
                         </span>
+                        <time
+                          className="workspace-row-date"
+                          dateTime={testScenario.updatedAt}
+                        >
+                          {new Date(testScenario.updatedAt).toLocaleDateString(
+                            "ko-KR",
+                          )}
+                        </time>
                         <WorkspaceIcon name="arrow" />
                       </Button>
                     </li>
@@ -419,11 +429,8 @@ export function TestCaseEditorPage({
           if (!create.isPending) setCreating(open);
         }}
       >
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogTitle>새 시나리오</DialogTitle>
-          <DialogDescription>
-            프로젝트 기본 양식으로 빈 시나리오를 만듭니다.
-          </DialogDescription>
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -442,18 +449,18 @@ export function TestCaseEditorPage({
             <Label htmlFor="new-test-scenario-kind" className="mt-4">
               테스트 범위
             </Label>
-            <select
+            <WorkspaceSelect
               id="new-test-scenario-kind"
-              className="test-scenario-select"
               value={kind}
               disabled={create.isPending}
-              onChange={(e) =>
-                setKind(e.target.value as "unit" | "integration")
+              onValueChange={(value) =>
+                setKind(value as "unit" | "integration")
               }
-            >
-              <option value="unit">단위 테스트</option>
-              <option value="integration">통합 테스트</option>
-            </select>
+              options={[
+                { value: "unit", label: "단위 테스트" },
+                { value: "integration", label: "통합 테스트" },
+              ]}
+            />
             {create.isError && (
               <p className="mt-3 text-danger" role="alert">
                 {create.error.message} 생성 결과가 불명확하면 목록을 먼저
@@ -470,7 +477,7 @@ export function TestCaseEditorPage({
                 취소
               </Button>
               <Button type="submit" disabled={!name.trim() || create.isPending}>
-                {create.isPending ? "만드는 중" : "시나리오 만들기"}
+                {create.isPending ? "생성 중" : "시나리오 만들기"}
               </Button>
             </DialogFooter>
           </form>

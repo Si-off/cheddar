@@ -81,17 +81,17 @@ export function parseTsv(text: string): string[][] {
       field = "";
       closed = false;
     } else {
-      if (closed) throw new Error("붙여넣을 표의 따옴표 구분을 확인해주세요.");
+      if (closed) throw new Error("표의 따옴표 구분을 확인해주세요.");
       field += c;
     }
   }
-  if (quoting) throw new Error("붙여넣을 표의 따옴표 구분을 확인해주세요.");
+  if (quoting) throw new Error("표의 따옴표 구분을 확인해주세요.");
   if (field || row.length || !rows.length || closed) {
     row.push(field);
     rows.push(row);
   }
   if (!rows.length || rows.some((r) => r.length !== rows[0].length))
-    throw new Error("붙여넣을 표의 행마다 열 수가 같아야 합니다.");
+    throw new Error("표의 행마다 열 수가 같아야 합니다.");
   return rows;
 }
 export function pasteRange(
@@ -107,7 +107,7 @@ export function pasteRange(
     rowIds,
     columns.map((c) => c.id),
   );
-  if (!rect) throw new Error("붙여넣을 셀을 선택해주세요.");
+  if (!rect) throw new Error("셀을 선택해주세요.");
   let values = parseTsv(text);
   const selectedRows = rect.lastRow - rect.firstRow + 1,
     selectedColumns = rect.lastColumn - rect.firstColumn + 1;
@@ -120,11 +120,11 @@ export function pasteRange(
     (selectedRows !== 1 || selectedColumns !== 1) &&
     (selectedRows !== values.length || selectedColumns !== values[0].length)
   )
-    throw new Error("선택한 범위와 붙여넣을 표의 크기를 맞춰주세요.");
+    throw new Error("선택 범위와 표 크기를 맞춰주세요.");
   if (rect.firstColumn + values[0].length > columns.length)
-    throw new Error("붙여넣을 열이 부족합니다. 필요한 열을 먼저 추가해주세요.");
+    throw new Error("열이 부족합니다. 열을 먼저 추가해주세요.");
   if (filtered && rect.firstRow + values.length > rowIds.length)
-    throw new Error("검색 중에는 보이는 기존 행에만 붙여넣을 수 있습니다.");
+    throw new Error("검색 중에는 현재 행 범위에만 붙여넣어주세요.");
   const cases = [...snapshot.cases],
     targetIds = [...rowIds];
   while (targetIds.length < rect.firstRow + values.length) {

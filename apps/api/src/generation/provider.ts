@@ -123,7 +123,7 @@ export async function generate(
         ? "AI 인증에 실패했습니다. 서버의 API 키와 모델 사용 권한을 확인해주세요."
         : response.status === 429
           ? "AI 사용 한도에 도달했습니다. 사용 한도를 확인하거나 잠시 후 다시 생성해주세요."
-          : "AI 요청을 처리하지 못했습니다. 모델 설정과 입력 크기를 확인한 뒤 다시 생성해주세요.",
+          : "AI 요청을 처리하지 못했습니다. 모델 설정과 입력 크기 확인 후 다시 생성해주세요.",
       { provider, status: response.status, category },
     );
   }
@@ -141,7 +141,7 @@ export async function generate(
     throw new ApiError(
       502,
       "AI_INCOMPLETE",
-      "AI 응답이 완료되지 않았습니다. 기존 시나리오는 유지됩니다. 입력 범위를 줄인 뒤 다시 생성해주세요.",
+      "AI 응답이 완료되지 않았습니다. 기존 시나리오는 유지됩니다. 입력 범위를 줄여서 다시 생성해주세요.",
     );
   const parts = anthropic
     ? result.content

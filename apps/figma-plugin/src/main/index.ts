@@ -4,10 +4,13 @@ import {
   isUiToMainMessage,
   MAX_FRAME_DATA_BYTES,
   MAX_IMAGE_BYTES,
+  MAX_THUMBNAIL_BYTES,
   type MainToUiMessage,
   type SelectedFrame,
   type UiToMainMessage,
 } from "../protocol/messages";
+
+declare const __WEB_BASE_URL__: string;
 
 figma.showUI(__html__, { width: 400, height: 640, themeColors: true });
 type Session = {
@@ -125,6 +128,51 @@ async function handle(
     { type: "ui-ready" } | { type: "release-upload" }
   >,
 ) {
+  if (message.type === "open-upload-web") {
+    if (!__WEB_BASE_URL__) throw new Error("WEB_UNAVAILABLE");
+    figma.openExternal(
+      `${__WEB_BASE_URL__}/projects/${message.projectId}/uploads/${message.uploadId}`,
+    );
+    send({ type: "upload-web-opened", requestId: message.requestId });
+    return;
+  }
+  if (message.type === "thumbnail-frame") {
+    const selected = selection();
+    const expected = selected.frames.find(
+      (frame) => frame.nodeId === message.nodeId,
+    );
+    if (message.selectionVersion !== selected.version || !expected)
+      throw new Error("INVALID_SELECTION");
+    const node = await figma.getNodeByIdAsync(message.nodeId);
+    if (node?.type !== "FRAME" || node.removed)
+      throw new Error("FRAME_CHANGED");
+    const image = await node.exportAsync({
+      format: "PNG",
+      constraint: {
+        type: "SCALE",
+        value: Math.min(
+          1,
+          (message.size === "preview" ? 960 : 240) /
+            Math.max(node.width, node.height),
+        ),
+      },
+    });
+    if (!image.length || image.length > MAX_THUMBNAIL_BYTES)
+      throw new Error("IMAGE_TOO_LARGE");
+    if (
+      selectionVersion !== message.selectionVersion ||
+      JSON.stringify(metadata(node)) !== JSON.stringify(expected)
+    )
+      throw new Error("FRAME_CHANGED");
+    send({
+      type: "frame-thumbnail",
+      requestId: message.requestId,
+      selectionVersion: message.selectionVersion,
+      nodeId: message.nodeId,
+      image,
+    });
+    return;
+  }
   if (message.type === "prepare-upload") {
     const selected = selection();
     if (
@@ -207,6 +255,7 @@ async function handle(
 figma.on("selectionchange", publishSelection);
 figma.on("stylechange", () => {
   if (session) session.changed = true;
+  publishSelection();
 });
 figma.on("close", () => {
   if (!observedPage.removed) observedPage.off("nodechange", publishSelection);
@@ -230,6 +279,7 @@ figma.ui.onmessage = (message: unknown) => {
       "IMAGE_TOO_LARGE",
       "DATA_TOO_LARGE",
       "SESSION_EXPIRED",
+      "WEB_UNAVAILABLE",
     ];
     const code =
       error instanceof Error && known.includes(error.message as ExportErrorCode)

@@ -35,7 +35,7 @@ export function displayValue(
           throw new ApiError(
             409,
             "REFERENCE_IN_USE",
-            "연결된 프레임을 확인한 뒤 다시 내보내주세요.",
+            "프레임 연결 확인 후 다시 내보내주세요.",
           );
         const duplicate = snapshot.references.frames.some(
           (f) => f.id !== id && f.name === frame.name,
@@ -54,7 +54,7 @@ export function displayValue(
           throw new ApiError(
             409,
             "REFERENCE_IN_USE",
-            "연결된 IA 화면을 확인한 뒤 다시 내보내주세요.",
+            "화면 구조 연결 확인 후 다시 내보내주세요.",
           );
         return `${screen.screenId} ${screen.name}`;
       })

@@ -154,7 +154,7 @@ export class TestScenariosRepository {
         throw new ApiError(
           409,
           "REFERENCE_IN_USE",
-          "연결된 항목이 변경되어 저장하지 못했습니다. 연결을 확인해주세요.",
+          "연결 항목이 변경되어 저장하지 못했습니다. 연결을 확인해주세요.",
         );
       throw error;
     }

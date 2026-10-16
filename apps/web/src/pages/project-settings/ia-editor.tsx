@@ -44,26 +44,26 @@ export function IaEditor({
       .filter(({ item }) => !blocked.has(item.id))
       .map(({ item }) => ({
         value: item.id,
-        label: `${item.screenId} · ${item.name}`,
+        label: `${item.screenId} ${item.name}`,
       })),
   ];
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="workspace-screen-structure grid gap-6 md:grid-cols-2">
       <Surface className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-heading font-heading">IA 목록</h2>
+          <h2 className="text-heading font-heading">화면 목록</h2>
           <Button
             variant="outline"
             disabled={disabled}
             onClick={() => onSelect(null)}
           >
-            IA 추가
+            화면 추가
           </Button>
         </div>
         {items.length === 0 ? (
-          <p className="text-label text-muted">등록된 IA가 없습니다.</p>
+          <p className="text-label text-muted">화면이 없습니다.</p>
         ) : (
-          <ul className="space-y-2" aria-label="IA 목록">
+          <ul className="space-y-2" aria-label="화면 목록">
             {orderedIa(items).map(({ item, depth }) => (
               <li key={item.id}>
                 <Button
@@ -102,7 +102,7 @@ export function IaEditor({
       <Surface className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-heading font-heading">
-            {selected ? "IA 편집" : "IA 추가"}
+            {selected ? "화면 편집" : "화면 추가"}
           </h2>
           {selected && (
             <Button
@@ -110,7 +110,7 @@ export function IaEditor({
               disabled={disabled}
               onClick={onDelete}
             >
-              IA 삭제
+              화면 삭제
             </Button>
           )}
         </div>

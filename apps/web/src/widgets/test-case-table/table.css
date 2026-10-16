@@ -1,7 +1,9 @@
 .test-scenario-table-scroll {
   max-width: 100%;
   overflow: auto;
-  max-height: calc(100dvh - var(--spacing-control-lg) * 5);
+  max-height: none;
+  min-height: 0;
+  flex: 1;
   border: var(--border-width-default) solid var(--color-border);
   border-radius: var(--radius-panel);
   background: var(--color-surface);
@@ -56,7 +58,7 @@
   font: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  min-height: var(--spacing-control-lg);
+  min-height: var(--size-toolbar);
 }
 .test-scenario-cell-text {
   display: block;
@@ -66,13 +68,13 @@
   visibility: hidden;
 }
 /* The text mirror keeps row height stable when entering and leaving editing. */
-.test-scenario-cell-content :is(.cd-textarea, select) {
+.test-scenario-cell-content :is(.cd-textarea, .cd-select-trigger) {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  min-height: var(--spacing-control-lg);
+  min-height: var(--size-toolbar);
   resize: none;
   overflow: hidden;
 }
@@ -104,7 +106,7 @@
 .test-scenario-table-scroll {
   border: 0;
   border-radius: 0;
-  max-height: calc(100dvh - 300px);
+  max-height: none;
 }
 .test-scenario-table {
   border-top: var(--border-width-default) solid var(--color-border);
@@ -121,10 +123,10 @@
 }
 .test-scenario-resize {
   position: absolute;
-  right: -3px;
+  right: calc(var(--size-resize-target) / -2);
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: var(--size-resize-target);
   min-height: 0;
   border: 0;
   border-radius: 0;
@@ -141,9 +143,9 @@
 .test-scenario-row-resize {
   position: absolute;
   left: 0;
-  bottom: -3px;
+  bottom: calc(var(--size-resize-target) / -2);
   width: 100%;
-  height: 6px;
+  height: var(--size-resize-target);
   background: transparent;
   border: 0;
   padding: 0;
@@ -173,14 +175,46 @@
 }
 @media (max-width: 700px) {
   .test-scenario-table-scroll {
-    max-height: calc(100dvh - 260px);
+    max-height: none;
   }
   .test-scenario-open-detail {
     opacity: 1;
   }
 }
 
-.test-scenario-cell-content[style] :is(.cd-textarea, select) {
+.test-scenario-cell-content[style] :is(.cd-textarea, .cd-select-trigger) {
   min-height: 0;
   overflow: auto;
+}
+
+.test-scenario-table thead {
+  background: var(--color-background);
+}
+.test-scenario-table tbody tr {
+  transition: background-color var(--duration-feedback);
+}
+.test-scenario-table tbody tr:hover {
+  background: var(--color-surface-selected);
+}
+.test-scenario-table tr.is-recent {
+  animation: test-case-added var(--duration-highlight) var(--ease-standard);
+}
+.test-scenario-row-selection {
+  width: var(--size-row-min);
+  text-align: center;
+  vertical-align: top;
+}
+@keyframes test-case-added {
+  from {
+    background: var(--color-secondary-subtle);
+  }
+  to {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .test-scenario-table tr.is-recent {
+    animation: none;
+    background: var(--color-secondary-subtle);
+  }
 }

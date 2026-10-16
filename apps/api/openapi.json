@@ -4277,7 +4277,8 @@
             "type": "string",
             "enum": [
               "replace",
-              "review"
+              "review",
+              "append"
             ]
           },
           "id": {
@@ -4363,7 +4364,8 @@
             "type": "string",
             "enum": [
               "replace",
-              "review"
+              "review",
+              "append"
             ]
           },
           "frameIds": {
@@ -4442,6 +4444,28 @@
         ],
         "additionalProperties": false
       },
+      "GenerationQuestionAnswerDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "useAsRule": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "answer",
+          "useAsRule"
+        ],
+        "additionalProperties": false
+      },
       "ReviewGenerationResultDto": {
         "type": "object",
         "properties": {
@@ -4460,6 +4484,9 @@
           },
           "content": {
             "$ref": "#/components/schemas/CaseContentDto"
+          },
+          "question": {
+            "$ref": "#/components/schemas/GenerationQuestionAnswerDto"
           }
         },
         "required": [

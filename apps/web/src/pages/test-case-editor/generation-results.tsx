@@ -1,11 +1,32 @@
-import { Button, Checkbox, Input, Label, Textarea } from "@cheddar/ui";
-import { useEffect, useState } from "react";
+import {
+  Button,
+  Checkbox,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from "@cheddar/ui";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/entities/test-case";
+import { readAnalysis } from "@/pages/project-uploads/analysis-api";
+import { SourceImage } from "@/pages/project-uploads/source-viewer";
 import type {
   GenerationDto,
   GenerationResultItemDto,
   ReviewGenerationResultDto,
 } from "@/shared/api/generated";
+import {
+  type ResultDraft,
+  type ResultDrafts,
+  readResultDrafts,
+  resultDraftId,
+  writeResultDrafts,
+} from "./generation-drafts";
 
 const fields = [
   ["preconditions", "사전 조건"],
@@ -17,7 +38,7 @@ export function similarCases(title: string, snapshot: Snapshot) {
     title
       .toLowerCase()
       .split(/\s+/)
-      .filter((w) => w.length > 1),
+      .filter((word) => word.length > 1),
   );
   return snapshot.cases
     .map((item) => ({
@@ -28,324 +49,568 @@ export function similarCases(title: string, snapshot: Snapshot) {
           : item.title
               .toLowerCase()
               .split(/\s+/)
-              .filter((w) => words.has(w)).length / Math.max(words.size, 1),
+              .filter((word) => words.has(word)).length /
+            Math.max(words.size, 1),
     }))
-    .filter((x) => x.score >= 0.5)
+    .filter((entry) => entry.score >= 0.5)
     .sort((a, b) => b.score - a.score)
-    .map((x) => x.item);
+    .map((entry) => entry.item);
 }
 export function GenerationResults({
   jobs,
   snapshot,
   disabled,
   onReview,
-  onAdd,
+  onDraftSafety,
 }: {
   jobs: GenerationDto[];
   snapshot: Snapshot;
   disabled: boolean;
   onReview: (
     job: GenerationDto,
-    c: GenerationResultItemDto,
+    item: GenerationResultItemDto,
     action: ReviewGenerationResultDto["action"],
     content?: GenerationResultItemDto["content"],
     revision?: number,
+    question?: ReviewGenerationResultDto["question"],
   ) => Promise<void>;
-  onAdd: (job: GenerationDto, ids: string[]) => Promise<void>;
+  onDraftSafety: (safe: boolean) => void;
 }) {
-  const [jobId, setJobId] = useState("");
-  const [tab, setTab] = useState<"case" | "candidate">("case");
-  const [id, setId] = useState("");
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [drafts, setDrafts] = useState<
-    Record<
-      string,
-      { content: GenerationResultItemDto["content"]; revision: number }
-    >
-  >({});
-  const [compareId, setCompareId] = useState("");
+  const [selected, setSelected] = useState("");
   const [excluded, setExcluded] = useState(false);
-  const job =
-    jobs.find((j) => j.id === jobId) ??
-    jobs.find((j) => j.status === "succeeded");
-  const hasGenerated = job?.results.some((c) => c.kind === "case") ?? false;
-  useEffect(() => {
-    setTab(hasGenerated ? "case" : "candidate");
-  }, [hasGenerated]);
-  const results =
-    job?.results.filter(
-      (c) =>
-        (c.kind ?? "candidate") === tab &&
-        (excluded || c.status !== "excluded"),
-    ) ?? [];
-  const item = results.find((c) => c.id === id) ?? results[0];
-  const draft = item ? drafts[item.id] : undefined;
-  const content = draft?.content ?? item?.content;
-  const similar = content ? similarCases(content.title, snapshot) : [];
-  const comparison = similar.find((c) => c.id === compareId) ?? similar[0];
-  const selection =
-    job?.results
-      .filter((c) => chosen.has(c.id) && c.status === "pending")
-      .map((c) => c.id) ?? [];
-  const edit = (patch: Partial<GenerationResultItemDto["content"]>) => {
-    if (!item || !job) return;
-    setDrafts((old) => ({
-      ...old,
-      [item.id]: {
-        content: { ...(old[item.id]?.content ?? item.content), ...patch },
-        revision: old[item.id]?.revision ?? job.revision,
-      },
-    }));
-  };
-  async function save() {
-    if (!job || !item || !draft) return;
+  const [compareId, setCompareId] = useState("");
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [safe, setSafe] = useState(true);
+  const [readFailed, setReadFailed] = useState(false);
+  const [drafts, setDrafts] = useState<ResultDrafts>(() => {
     try {
-      await onReview(job, item, "edit", draft.content, draft.revision);
-      setDrafts((old) => {
-        const next = { ...old };
-        delete next[item.id];
-        return next;
-      });
+      return readResultDrafts(snapshot.projectId, snapshot.id);
     } catch {
-      /* Parent retains the error and this draft. */
+      return {};
+    }
+  });
+  const draftsRef = useRef(drafts);
+  useEffect(() => {
+    try {
+      const saved = readResultDrafts(snapshot.projectId, snapshot.id);
+      setDrafts(saved);
+      draftsRef.current = saved;
+    } catch {
+      setReadFailed(true);
+      setError(
+        "확인 항목의 초안을 읽지 못했습니다. 브라우저 저장 공간을 확인해주세요.",
+      );
+    }
+  }, [snapshot.projectId, snapshot.id]);
+  useEffect(() => {
+    onDraftSafety(safe);
+    return () => onDraftSafety(true);
+  }, [safe, onDraftSafety]);
+  useEffect(() => {
+    if (safe) return;
+    const preventLoss = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", preventLoss);
+    return () => window.removeEventListener("beforeunload", preventLoss);
+  }, [safe]);
+  const analysis = useQuery({
+    queryKey: ["analysis", snapshot.projectId],
+    queryFn: () => readAnalysis(snapshot.projectId),
+    retry: false,
+  });
+  const entries = jobs
+    .filter((job) => job.status === "succeeded")
+    .flatMap((job) =>
+      job.results
+        .filter(
+          (item) =>
+            item.status === "pending" ||
+            (excluded && item.status === "excluded"),
+        )
+        .map((item) => ({ job, item, key: resultDraftId(job.id, item.id) })),
+    );
+  const entry =
+    entries.find((candidate) => candidate.key === selected) ?? entries[0];
+  const { job, item, key } = entry ?? {};
+  const draft = key ? drafts[key] : undefined;
+  const content = draft?.content ?? item?.content;
+  const question = analysis.data?.items.find(
+    (source) => source.id === item?.id && source.kind === "question",
+  );
+  const questionDraft = draft?.question;
+  const similar = content ? similarCases(content.title, snapshot) : [];
+  const comparison =
+    similar.find((candidate) => candidate.id === compareId) ?? similar[0];
+  const stale =
+    !!draft &&
+    !!job &&
+    (draft.revision !== job.revision ||
+      (!!draft.question &&
+        draft.question.expectedRevision !== analysis.data?.revision));
+  const sources =
+    analysis.data?.items.filter((source) =>
+      item?.requirementIds?.includes(source.id),
+    ) ?? [];
+  const frameIds = [
+    ...new Set([
+      ...(content?.relatedFrameIds ?? []),
+      ...sources.flatMap((source) => (source.frameId ? [source.frameId] : [])),
+      ...(question?.frameId ? [question.frameId] : []),
+    ]),
+  ];
+  const locked = disabled || busy || readFailed;
+  function persist(next: ResultDrafts) {
+    draftsRef.current = next;
+    setDrafts(next);
+    try {
+      writeResultDrafts(snapshot.projectId, snapshot.id, next);
+      setSafe(true);
+    } catch {
+      setSafe(false);
+    }
+  }
+  function edit(
+    patch: Partial<ResultDraft["content"]>,
+    answerPatch?: Partial<NonNullable<ResultDraft["question"]>>,
+  ) {
+    if (!key || !job || !item) return;
+    const existing = draftsRef.current[key];
+    persist({
+      ...draftsRef.current,
+      [key]: {
+        ...existing,
+        content: { ...(existing?.content ?? item.content), ...patch },
+        revision: existing?.revision ?? job.revision,
+        ...(answerPatch && question && analysis.data
+          ? {
+              question: {
+                answer: question.answer ?? "",
+                useAsRule: question.useAsRule ?? false,
+                expectedRevision: analysis.data.revision,
+                ...existing?.question,
+                ...answerPatch,
+              },
+            }
+          : {}),
+      },
+    });
+  }
+  async function act(action: ReviewGenerationResultDto["action"]) {
+    if (!job || !item || !key || !content) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await onReview(
+        job,
+        item,
+        action,
+        action === "add" ? content : undefined,
+        draft?.revision ?? job.revision,
+        action === "add" ? draft?.question : undefined,
+      );
+      if (action === "add") {
+        const next = { ...draftsRef.current };
+        delete next[key];
+        persist(next);
+      }
+    } catch (cause) {
+      void analysis.refetch();
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "확인 항목을 반영하지 못했습니다. 다시 시도해주세요.",
+      );
+    } finally {
+      setBusy(false);
     }
   }
   return (
     <div className="generation-results">
-      <div className="source-toolbar">
-        <Label htmlFor="result-job">생성 기록</Label>
-        <select
-          id="result-job"
-          className="test-scenario-select"
-          value={job?.id ?? ""}
-          onChange={(e) => {
-            setJobId(e.target.value);
-            setChosen(new Set());
-          }}
-        >
-          {jobs
-            .filter((j) => j.status === "succeeded")
-            .map((j) => (
-              <option key={j.id} value={j.id}>
-                {new Date(j.createdAt).toLocaleString("ko-KR")}
-              </option>
-            ))}
-        </select>
-        <Button variant="outline" onClick={() => setTab("case")}>
-          생성된 테스트 케이스
-        </Button>
-        <Button variant="outline" onClick={() => setTab("candidate")}>
-          검토 후보
-        </Button>
+      <div className="source-toolbar confirmation-toolbar">
+        <span>{entries.length}개</span>
         <Label>
-          <Checkbox checked={excluded} onCheckedChange={setExcluded} />
+          <Checkbox
+            checked={excluded}
+            onCheckedChange={(value) => setExcluded(value === true)}
+          />
           제외 항목
         </Label>
       </div>
+      {(error || !safe || readFailed) && (
+        <div className="confirmation-error" role="alert">
+          {readFailed
+            ? "확인 항목의 초안을 읽지 못했습니다. 브라우저 저장 공간을 확인해주세요."
+            : !safe
+              ? "초안을 보관하지 못했습니다. 이 창을 닫기 전에 초안 보관을 다시 시도해주세요."
+              : error}
+          {readFailed && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                try {
+                  const saved = readResultDrafts(
+                    snapshot.projectId,
+                    snapshot.id,
+                  );
+                  draftsRef.current = saved;
+                  setDrafts(saved);
+                  setReadFailed(false);
+                  setError(undefined);
+                } catch {
+                  setError(
+                    "확인 항목의 초안을 읽지 못했습니다. 브라우저 저장 공간을 확인해주세요.",
+                  );
+                }
+              }}
+            >
+              초안 다시 불러오기
+            </Button>
+          )}
+          {!safe && (
+            <Button
+              variant="outline"
+              onClick={() => persist(draftsRef.current)}
+            >
+              초안 보관 다시 시도
+            </Button>
+          )}
+        </div>
+      )}
+      {analysis.isError && (
+        <p role="alert">
+          확인 질문을 불러오지 못했습니다.{" "}
+          <Button variant="link" onClick={() => void analysis.refetch()}>
+            다시 불러오기
+          </Button>
+        </p>
+      )}
       <div className="result-workbench">
-        <section className="result-list">
-          {results.map((c) => (
+        <section className="result-list" aria-label="확인 항목 목록">
+          {entries.map((candidate) => (
             <div
-              key={c.id}
+              key={candidate.key}
               className={
-                item?.id === c.id ? "result-item is-selected" : "result-item"
+                candidate.key === entry?.key
+                  ? "result-item is-selected"
+                  : "result-item"
               }
             >
-              <Checkbox
-                aria-label={`${c.content.title} 선택`}
-                disabled={disabled || c.status !== "pending"}
-                checked={chosen.has(c.id)}
-                onCheckedChange={(checked) =>
-                  setChosen((old) => {
-                    const next = new Set(old);
-                    if (checked) next.add(c.id);
-                    else next.delete(c.id);
-                    return next;
-                  })
-                }
-              />
               <Button
                 variant="ghost"
                 onClick={() => {
-                  setId(c.id);
+                  setSelected(candidate.key);
                   setCompareId("");
+                  setError(undefined);
                 }}
               >
-                {c.content.title}
+                <span>
+                  {drafts[candidate.key]?.content.title ??
+                    candidate.item.content.title}
+                </span>
+                <small>
+                  {candidate.item.status === "excluded"
+                    ? "제외"
+                    : candidate.item.kind === "case"
+                      ? "추가 대기"
+                      : "확인 대기"}
+                </small>
               </Button>
-              <small>
-                {c.status === "added"
-                  ? "추가됨"
-                  : c.status === "excluded"
-                    ? "제외됨"
-                    : similarCases(c.content.title, snapshot).length
-                      ? "유사 테스트 케이스 있음"
-                      : ""}
-              </small>
+              <time dateTime={candidate.job.createdAt}>
+                {new Date(candidate.job.createdAt).toLocaleDateString("ko-KR")}
+              </time>
             </div>
           ))}
-          {!results.length && (
-            <p>
-              {tab === "case"
-                ? "생성된 테스트 케이스가 없습니다."
-                : "검토 후보가 없습니다."}
-            </p>
+          {!entries.length && (
+            <p className="confirmation-empty">확인 항목이 없습니다.</p>
           )}
         </section>
         {item && content && job && (
           <section className="result-content">
-            {item.reason && (
-              <p className="workspace-candidate-reason">{item.reason}</p>
-            )}
-            <div className="source-toolbar">
-              <h3>유사 테스트 케이스 비교</h3>
-              {similar.length > 0 && (
-                <select
-                  aria-label="비교 테스트 케이스"
-                  className="test-scenario-select"
-                  value={comparison?.id ?? ""}
-                  onChange={(e) => setCompareId(e.target.value)}
-                >
-                  {similar.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.caseCode} {c.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div className="result-comparison">
-              <section>
-                <h4>기존 테스트 케이스</h4>
-                {comparison ? (
-                  <>
-                    <strong>{comparison.title}</strong>
+            <div className="confirmation-scroll">
+              <header className="confirmation-header">
+                <h3>{content.title || "테스트 항목"}</h3>
+                {item.reason && (
+                  <p className="workspace-candidate-reason">{item.reason}</p>
+                )}
+              </header>
+              {stale && (
+                <div className="confirmation-conflict" role="alert">
+                  <p>
+                    확인 항목이나 질문이 변경되었습니다. 최신 내용과 초안을 비교
+                    후 반영해주세요.
+                  </p>
+                  <details>
+                    <summary>최신 내용 비교</summary>
+                    <h4>{item.content.title}</h4>
                     {fields.map(([field, label]) => (
                       <div key={field}>
-                        <h5>{label}</h5>
-                        <p className="whitespace-pre-wrap">
-                          {comparison[field]}
-                        </p>
+                        <strong>{label}</strong>
+                        <p>{item.content[field]}</p>
                       </div>
                     ))}
-                  </>
-                ) : (
-                  <p>유사 테스트 케이스가 없습니다.</p>
-                )}
-              </section>
-              <section>
-                <h4>새 테스트 케이스</h4>
-                <Label htmlFor="result-title">테스트 항목</Label>
-                <Input
-                  id="result-title"
-                  value={content.title}
-                  disabled={disabled || item.status === "added"}
-                  onValueChange={(title) => edit({ title })}
-                />
-                {fields.map(([field, label]) => (
-                  <div
-                    key={field}
-                    className={
-                      comparison && comparison[field] !== content[field]
-                        ? "result-difference"
-                        : ""
-                    }
+                    <p>
+                      우선순위:{" "}
+                      {
+                        {
+                          high: "높음",
+                          medium: "보통",
+                          low: "낮음",
+                          none: "미지정",
+                        }[item.content.priority ?? "none"]
+                      }
+                    </p>
+                    {snapshot.columns
+                      .filter((column) => column.kind === "custom")
+                      .map((column) => (
+                        <div key={column.id}>
+                          <strong>{column.name}</strong>
+                          <p>
+                            {item.content.customValues[column.id] || "미입력"}
+                          </p>
+                        </div>
+                      ))}
+                    {question && (
+                      <>
+                        <p>확인 답변: {question.answer || "미입력"}</p>
+                        <p>
+                          프로젝트 규칙:{" "}
+                          {question.useAsRule ? "사용" : "미사용"}
+                        </p>
+                      </>
+                    )}
+                  </details>
+                  <Button
+                    variant="ghost"
+                    disabled={locked}
+                    onClick={() => {
+                      if (key) {
+                        const next = { ...draftsRef.current };
+                        delete next[key];
+                        persist(next);
+                      }
+                    }}
                   >
-                    <Label htmlFor={`result-${field}`}>{label}</Label>
+                    최신 내용 사용
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={locked || (!!draft?.question && !analysis.data)}
+                    onClick={() => {
+                      if (key && draft)
+                        persist({
+                          ...draftsRef.current,
+                          [key]: {
+                            ...draft,
+                            revision: job.revision,
+                            ...(draft.question && analysis.data
+                              ? {
+                                  question: {
+                                    ...draft.question,
+                                    expectedRevision: analysis.data.revision,
+                                  },
+                                }
+                              : {}),
+                          },
+                        });
+                    }}
+                  >
+                    최신 내용 확인 후 초안 유지
+                  </Button>
+                </div>
+              )}
+              {question && (
+                <section className="confirmation-question">
+                  <h4>확인 질문</h4>
+                  <p>{question.text}</p>
+                  <Label htmlFor="confirmation-answer">확인 답변</Label>
+                  <Textarea
+                    id="confirmation-answer"
+                    maxLength={20000}
+                    value={questionDraft?.answer ?? question.answer ?? ""}
+                    disabled={locked}
+                    onChange={(event) =>
+                      edit({}, { answer: event.target.value })
+                    }
+                  />
+                  <Label>
+                    <Checkbox
+                      checked={
+                        questionDraft?.useAsRule ?? question.useAsRule ?? false
+                      }
+                      disabled={locked}
+                      onCheckedChange={(value) =>
+                        edit({}, { useAsRule: value === true })
+                      }
+                    />
+                    프로젝트 규칙으로 저장
+                  </Label>
+                </section>
+              )}
+              <div className="confirmation-fields">
+                <div>
+                  <Label htmlFor="result-title">테스트 항목</Label>
+                  <Input
+                    id="result-title"
+                    value={content.title}
+                    disabled={locked}
+                    maxLength={1000}
+                    onValueChange={(title) => edit({ title })}
+                  />
+                </div>
+                {fields.map(([field, label]) => (
+                  <div key={field}>
+                    <Label htmlFor={`result-${field}`}>
+                      {snapshot.columns.find((column) => column.field === field)
+                        ?.name ?? label}
+                    </Label>
                     <Textarea
                       id={`result-${field}`}
                       value={content[field]}
-                      disabled={disabled || item.status === "added"}
-                      onChange={(e) => edit({ [field]: e.target.value })}
+                      disabled={locked}
+                      onChange={(event) =>
+                        edit({ [field]: event.target.value })
+                      }
                     />
                   </div>
                 ))}
-              </section>
-            </div>
-            <Label htmlFor="result-priority">우선순위</Label>
-            <select
-              id="result-priority"
-              className="test-scenario-select"
-              disabled={disabled || item.status === "added"}
-              value={content.priority ?? ""}
-              onChange={(e) =>
-                edit({
-                  priority: (e.target.value ||
-                    null) as GenerationResultItemDto["content"]["priority"],
-                })
-              }
-            >
-              <option value="">미지정</option>
-              <option value="high">높음</option>
-              <option value="medium">보통</option>
-              <option value="low">낮음</option>
-            </select>
-            {snapshot.columns
-              .filter((c) => c.kind === "custom")
-              .map((column) => (
-                <Label key={column.id}>
-                  {column.name}
-                  <Input
-                    value={content.customValues[column.id] ?? ""}
-                    disabled={disabled || item.status === "added"}
-                    onValueChange={(value) =>
-                      edit({
-                        customValues: {
-                          ...content.customValues,
-                          [column.id]: value,
-                        },
-                      })
-                    }
-                  />
-                </Label>
-              ))}
-            {item.status !== "added" && (
-              <div className="source-toolbar">
-                <Button
-                  variant="outline"
-                  disabled={disabled || !draft}
-                  onClick={() => void save()}
-                >
-                  수정 저장
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={disabled}
-                  onClick={() =>
-                    void onReview(
-                      job,
-                      item,
-                      item.status === "excluded" ? "restore" : "exclude",
-                    ).catch(() => {})
-                  }
-                >
-                  {item.status === "excluded" ? "복원" : "제외"}
-                </Button>
               </div>
-            )}
+              <Label htmlFor="result-priority">우선순위</Label>
+              <Select
+                value={content.priority ?? "none"}
+                disabled={locked}
+                onValueChange={(value) =>
+                  edit({
+                    priority:
+                      value === "none"
+                        ? null
+                        : (value as ResultDraft["content"]["priority"]),
+                  })
+                }
+              >
+                <SelectTrigger id="result-priority">
+                  <SelectValue>
+                    {
+                      {
+                        high: "높음",
+                        medium: "보통",
+                        low: "낮음",
+                        none: "미지정",
+                      }[content.priority ?? "none"]
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">미지정</SelectItem>
+                  <SelectItem value="high">높음</SelectItem>
+                  <SelectItem value="medium">보통</SelectItem>
+                  <SelectItem value="low">낮음</SelectItem>
+                </SelectContent>
+              </Select>
+              {snapshot.columns
+                .filter((column) => column.kind === "custom")
+                .map((column) => (
+                  <Label key={column.id}>
+                    {column.name}
+                    <Input
+                      value={content.customValues[column.id] ?? ""}
+                      disabled={locked}
+                      onValueChange={(value) =>
+                        edit({
+                          customValues: {
+                            ...content.customValues,
+                            [column.id]: value,
+                          },
+                        })
+                      }
+                    />
+                  </Label>
+                ))}
+              <details className="confirmation-evidence">
+                <summary>근거 자료</summary>
+                {sources.map((source) => (
+                  <div key={source.id}>
+                    <h4>{source.title}</h4>
+                    <p>{source.text}</p>
+                  </div>
+                ))}
+                {snapshot.references.frames
+                  .filter((frame) => frameIds.includes(frame.id))
+                  .map((frame) => (
+                    <figure key={frame.id}>
+                      <SourceImage
+                        projectId={snapshot.projectId}
+                        frame={frame}
+                      />
+                      <figcaption>{frame.name}</figcaption>
+                    </figure>
+                  ))}
+                {!sources.length && !frameIds.length && (
+                  <p>근거 자료가 없습니다.</p>
+                )}
+              </details>
+              {similar.length > 0 && (
+                <details className="confirmation-comparison">
+                  <summary>유사 테스트 케이스 {similar.length}개</summary>
+                  <Select
+                    value={comparison?.id ?? ""}
+                    onValueChange={(value) => setCompareId(value ?? "")}
+                  >
+                    <SelectTrigger aria-label="비교 테스트 케이스">
+                      <SelectValue>
+                        {comparison?.caseCode} {comparison?.title}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {similar.map((candidate) => (
+                        <SelectItem key={candidate.id} value={candidate.id}>
+                          {candidate.caseCode} {candidate.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {comparison && (
+                    <div className="result-comparison">
+                      {fields.map(([field, label]) => (
+                        <div key={field}>
+                          <h4>{label}</h4>
+                          <p className="whitespace-pre-wrap">
+                            {comparison[field]}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </details>
+              )}
+            </div>
+            <footer className="source-toolbar confirmation-actions">
+              <Button
+                disabled={
+                  locked ||
+                  stale ||
+                  analysis.isPending ||
+                  analysis.isError ||
+                  item.status === "excluded"
+                }
+                onClick={() => void act("add")}
+              >
+                시나리오에 추가
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={locked || stale}
+                onClick={() =>
+                  void act(item.status === "excluded" ? "restore" : "exclude")
+                }
+              >
+                {item.status === "excluded" ? "복원" : "제외"}
+              </Button>
+            </footer>
           </section>
         )}
       </div>
-      <footer className="source-toolbar">
-        <Button
-          disabled={
-            disabled ||
-            !job ||
-            !selection.length ||
-            selection.some((i) => !!drafts[i])
-          }
-          onClick={() => {
-            if (job)
-              void onAdd(job, selection)
-                .then(() => setChosen(new Set()))
-                .catch(() => {});
-          }}
-        >
-          {selection.length
-            ? `${selection.length}개 시나리오에 추가`
-            : "시나리오에 추가"}
-        </Button>
-      </footer>
     </div>
   );
 }

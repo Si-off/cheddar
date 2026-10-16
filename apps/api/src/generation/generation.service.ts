@@ -72,7 +72,7 @@ export class GenerationService implements OnModuleDestroy {
       throw new ApiError(
         503,
         "AI_KEY_MISSING",
-        "선택한 AI의 API 키가 설정되지 않았습니다. 서버 설정 후 다시 시도해주세요.",
+        "AI의 API 키가 설정되지 않았습니다. 서버 설정 후 다시 시도해주세요.",
       );
     const { job, created } = await this.repository.start(
       projectId.toLowerCase(),
@@ -149,7 +149,7 @@ export class GenerationService implements OnModuleDestroy {
             throw new ApiError(
               413,
               "AI_INPUT_TOO_LARGE",
-              "업로드 자료가 한 번에 생성할 수 있는 크기를 초과했습니다. 프레임을 나누어 업로드한 뒤 다시 생성해주세요.",
+              "Figma 자료가 생성 입력 크기 제한을 초과했습니다. 프레임 분할 업로드 후 다시 생성해주세요.",
             );
           parts.push(Buffer.from(part));
         }
@@ -157,7 +157,7 @@ export class GenerationService implements OnModuleDestroy {
       }
       const raw = JSON.parse(buffers[0].toString("utf8"));
       if (
-        job.request.mode === "review" &&
+        (job.request.mode === "review" || job.request.mode === "append") &&
         !context.analysis?.items.some((i) => i.frameId === frame.id)
       )
         sourceCandidates.push(...extractAnalysis(raw, frame.id));
@@ -276,7 +276,7 @@ export class GenerationService implements OnModuleDestroy {
             state.input.screenIds,
             state.input.requirementIds,
           );
-          if (job.request.mode === "review") {
+          if (job.request.mode === "review" || job.request.mode === "append") {
             result.sources = [
               ...(state.input.sourceItems ?? []),
               ...result.candidates.map((c) => ({
@@ -317,7 +317,7 @@ export class GenerationService implements OnModuleDestroy {
       const message =
         error instanceof ApiError
           ? error.message
-          : "생성을 완료하지 못했습니다. 기존 시나리오는 유지됩니다. 입력과 서버 연결을 확인한 뒤 다시 생성해주세요.";
+          : "생성을 완료하지 못했습니다. 기존 시나리오는 유지됩니다. 입력과 서버 연결 확인 후 다시 생성해주세요.";
       await this.repository.fail(job, message).catch(() => {
         process.stderr.write(
           "Generation failure status could not be saved; lease will expire.\n",

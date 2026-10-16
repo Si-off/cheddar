@@ -50,10 +50,10 @@ type Props = {
   origin: string;
 };
 const statusLabels = {
-  saved: "저장됨",
+  saved: "저장 완료",
   dirty: "저장 대기",
   saving: "저장 중",
-  error: "저장하지 못함",
+  error: "저장 실패",
   conflict: "변경 충돌",
   invalid: "입력 확인 필요",
 };
@@ -91,9 +91,6 @@ export function TestScenarioEditor({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [detailId, setDetailId] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsDepth, setSettingsDepth] = useState<
-    "root" | "layout" | "columns"
-  >("root");
   const [layout, setLayout] = useState<"table" | "qa">("table");
   const [hidden, setHidden] = useState<Set<string>>(
     () =>
@@ -103,12 +100,22 @@ export function TestScenarioEditor({
           .map((c) => c.id),
       ),
   );
-  const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [generationPanel, setGenerationPanel] = useState<
     "generate" | "results" | null
   >(null);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [confirmationUnsafe, setConfirmationUnsafe] = useState(false);
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia("(max-width: 60rem)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 60rem)");
+    const update = () => setNarrow(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [generationSeed, setGenerationSeed] = useState<{
     requirementIds: string[];
@@ -128,9 +135,10 @@ export function TestScenarioEditor({
         allowLeave.current = false;
         return false;
       }
-      return !(await session.settle());
+      return confirmationUnsafe || !(await session.settle());
     },
-    enableBeforeUnload: () => session.store.getState().status !== "saved",
+    enableBeforeUnload: () =>
+      confirmationUnsafe || session.store.getState().status !== "saved",
     withResolver: true,
   });
   const [recovery, setRecovery] = useState<StoredDraft[]>([]);
@@ -155,7 +163,7 @@ export function TestScenarioEditor({
         if (live) setRecovery(drafts);
       })
       .catch(() => {
-        if (live) setMessage("보관한 초안을 불러오지 못했습니다.");
+        if (live) setMessage("초안을 불러오지 못했습니다.");
       });
     return () => {
       live = false;
@@ -174,7 +182,7 @@ export function TestScenarioEditor({
       .catch(() => {
         if (live)
           setMessage(
-            "프레임 목록을 불러오지 못했습니다. 업로드 묶음을 다시 선택해주세요.",
+            "프레임 목록을 불러오지 못했습니다. Figma 자료를 다시 선택해주세요.",
           );
       });
     return () => {
@@ -207,20 +215,18 @@ export function TestScenarioEditor({
   const item = state.draft.cases.find((c) => c.id === detailId);
   const disabled = busy || generationLocked;
   function details(id: string) {
-    if (sourceOpen) {
-      setSelected(new Set([id]));
-      return;
-    }
     returnFocus.current = document.activeElement as HTMLElement;
     setDetailId(id);
+    setSourceOpen(false);
   }
   function closeDetails() {
     setDetailId(undefined);
+    setSourceOpen(false);
     queueMicrotask(() => returnFocus.current?.focus());
   }
   async function back() {
     const saved = await session.settle();
-    if (saved) onBack();
+    if (saved && !confirmationUnsafe) onBack();
     else setPendingLeave(() => onBack);
   }
   function cancelLeave() {
@@ -242,20 +248,18 @@ export function TestScenarioEditor({
     let live = true;
     setRetained(undefined);
     void session.retain().then((ok) => {
-      if (live) setRetained(ok);
+      if (live) setRetained(ok && !confirmationUnsafe);
     });
     return () => {
       live = false;
     };
-  }, [leaving, session]);
+  }, [leaving, session, confirmationUnsafe]);
   async function download() {
     setMessage(undefined);
     setBusy(true);
     try {
       if (!(await session.settle())) {
-        setMessage(
-          "저장을 마친 뒤 내보낼 수 있습니다. 저장 상태를 확인해주세요.",
-        );
+        setMessage("시나리오 저장 후 다시 내보내주세요.");
         return;
       }
       await onDownload(session.store.getState().base);
@@ -273,7 +277,7 @@ export function TestScenarioEditor({
     const count = state.draft.cases.filter((c) => selected.has(c.id)).length;
     setConfirm({
       title: "테스트 케이스 삭제",
-      description: `선택한 테스트 케이스 ${count}개를 삭제할까요?`,
+      description: `테스트 케이스 ${count}개를 삭제할까요?`,
       action: () => {
         session.edit((current) => ({
           ...current,
@@ -289,7 +293,7 @@ export function TestScenarioEditor({
     const count = state.draft.cases.filter((c) => !!c.customValues[id]).length;
     setConfirm({
       title: "사용자 열 삭제",
-      description: `${column?.name} 열과 테스트 케이스 ${count}개에 입력된 값을 삭제할까요?`,
+      description: `${column?.name} 열과 테스트 케이스 ${count}개의 값을 삭제할까요?`,
       action: () =>
         session.edit((current) => ({
           ...current,
@@ -304,93 +308,210 @@ export function TestScenarioEditor({
         })),
     });
   }
-  return (
-    <section className="test-scenario-editor" aria-label="시나리오 편집">
-      <div className="workspace-test-scenario-topline">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="시나리오 목록"
-          onClick={() => void back()}
-          disabled={busy}
-        >
-          <WorkspaceIcon name="back" />
-        </Button>
-        <span className="test-scenario-status" role="status">
-          {statusLabels[state.status]}
-        </span>
-        {state.status === "error" && (
+  const inspectedCase =
+    item ?? state.draft.cases.find((c) => c.id === [...selected][0]);
+  const inspectorContent = (
+    <>
+      <div className="workspace-inspector-heading">
+        <fieldset className="workspace-view-switch" aria-label="케이스 패널">
+          {inspectedCase && (
+            <Button
+              variant="ghost"
+              aria-pressed={!sourceOpen}
+              onClick={() => {
+                setDetailId(inspectedCase.id);
+                setSourceOpen(false);
+              }}
+            >
+              케이스 편집
+            </Button>
+          )}
           <Button
-            variant="link"
-            disabled={disabled}
-            onClick={() => void session.retry()}
+            variant="ghost"
+            aria-pressed={sourceOpen}
+            onClick={() => setSourceOpen(true)}
           >
-            저장 다시 시도
+            관련 자료
+          </Button>
+        </fieldset>
+        {!narrow && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="패널 닫기"
+            onClick={closeDetails}
+          >
+            <WorkspaceIcon name="close" />
           </Button>
         )}
-        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-          <PopoverTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="시나리오 메뉴"
-                className="workspace-test-scenario-menu"
-              />
-            }
-          >
-            <WorkspaceIcon name="more" />
-          </PopoverTrigger>
-          <PopoverContent aria-label="시나리오 메뉴">
-            <MenuAction
-              icon="generate"
+      </div>
+      <div className="workspace-inspector-content">
+        {sourceOpen ? (
+          <SourceViewer
+            embedded
+            key={inspectedCase?.id ?? "source"}
+            projectId={snapshot.projectId}
+            caseId={inspectedCase?.id}
+            frames={[
+              ...new Map(
+                [...frames, ...state.draft.references.frames].map((f) => [
+                  f.id,
+                  f,
+                ]),
+              ).values(),
+            ].filter(
+              (f) =>
+                !inspectedCase || inspectedCase.relatedFrameIds.includes(f.id),
+            )}
+          />
+        ) : (
+          item && (
+            <DetailPanel
+              embedded
+              snapshot={state.draft}
+              item={item}
               disabled={disabled}
-              onClick={() => {
-                setMenuOpen(false);
-                setGenerationPanel("generate");
-              }}
-            >
-              테스트 케이스 생성
-            </MenuAction>
-            <MenuAction
-              icon="qa"
-              disabled={disabled}
-              onClick={() => {
-                setMenuOpen(false);
-                setGenerationPanel("results");
-              }}
-            >
-              생성 결과 검토
-            </MenuAction>
-            <MenuAction
-              icon="download"
-              disabled={
-                disabled ||
-                ["conflict", "error", "invalid"].includes(state.status)
+              frames={frames.filter(
+                (f) =>
+                  f.uploadId === uploadId ||
+                  item.relatedFrameIds.includes(f.id),
+              )}
+              iaItems={iaItems}
+              uploads={uploads}
+              uploadId={uploadId}
+              onUpload={setUploadId}
+              onComposition={(active) => session.composition(active)}
+              onClose={closeDetails}
+              onChange={(next) =>
+                session.edit((current) => ({
+                  ...current,
+                  cases: current.cases.map((c) =>
+                    c.id === next.id ? next : c,
+                  ),
+                  references: {
+                    frames: [
+                      ...new Map(
+                        [...current.references.frames, ...frames].map((f) => [
+                          f.id,
+                          f,
+                        ]),
+                      ).values(),
+                    ],
+                    iaItems: [
+                      ...new Map(
+                        [...current.references.iaItems, ...iaItems].map((i) => [
+                          i.id,
+                          i,
+                        ]),
+                      ).values(),
+                    ],
+                  },
+                }))
               }
-              onClick={() => {
-                setMenuOpen(false);
-                void download();
-              }}
-            >
-              XLSX 내보내기
-            </MenuAction>
-            <MenuAction
-              icon="share"
-              onClick={() => {
-                setMenuOpen(false);
-                setShareOpen(true);
-              }}
-            >
-              공유 시나리오 미리보기
-            </MenuAction>
-          </PopoverContent>
-        </Popover>
+            />
+          )
+        )}
       </div>
-      <div className="workspace-test-scenario-title">
-        <WorkspaceIcon name="file" />
-        <h1>{state.draft.name}</h1>
-      </div>
+    </>
+  );
+  return (
+    <section className="test-scenario-editor" aria-label="시나리오 편집">
+      <header className="workspace-editor-heading">
+        <div className="workspace-editor-identity">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="시나리오 목록"
+            onClick={() => void back()}
+            disabled={busy}
+          >
+            <WorkspaceIcon name="back" />
+          </Button>
+          <h1>{state.draft.name}</h1>
+          <span className="workspace-kind">
+            {state.draft.kind === "unit" ? "단위 테스트" : "통합 테스트"}
+          </span>
+        </div>
+        <div className="workspace-editor-primary">
+          <span
+            className={`test-scenario-status is-${state.status}`}
+            role="status"
+          >
+            {state.status === "saved" && <WorkspaceIcon name="check" />}
+            {statusLabels[state.status]}
+          </span>
+          {state.status === "error" && (
+            <Button
+              variant="link"
+              disabled={disabled}
+              onClick={() => void session.retry()}
+            >
+              저장 재시도
+            </Button>
+          )}
+          <Button
+            disabled={disabled}
+            onClick={() => setGenerationPanel("generate")}
+          >
+            <WorkspaceIcon name="generate" />
+            테스트 케이스 생성
+          </Button>
+          <Button
+            variant="outline"
+            disabled={
+              disabled ||
+              ["conflict", "error", "invalid"].includes(state.status)
+            }
+            aria-label="XLSX 내보내기"
+            onClick={() => void download()}
+          >
+            <WorkspaceIcon name="download" />
+            <span>XLSX 내보내기</span>
+          </Button>
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="시나리오 메뉴"
+                />
+              }
+            >
+              <WorkspaceIcon name="more" />
+            </PopoverTrigger>
+            <PopoverContent aria-label="시나리오 메뉴">
+              <MenuAction
+                icon="share"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShareOpen(true);
+                }}
+              >
+                시나리오 미리보기
+              </MenuAction>
+              <MenuAction
+                icon="settings"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setAnalysisOpen(true);
+                }}
+              >
+                화면 분석
+              </MenuAction>
+              <MenuAction
+                icon="qa"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setGenerationPanel("results");
+                }}
+              >
+                확인 항목
+              </MenuAction>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </header>
       <GenerationPanel
         snapshot={state.draft}
         session={session}
@@ -398,6 +519,8 @@ export function TestScenarioEditor({
         seed={generationSeed}
         onResults={() => setGenerationPanel("results")}
         onLock={setGenerationLocked}
+        onPendingCount={setPendingCount}
+        onUnsafeDraftChange={setConfirmationUnsafe}
         panel={generationPanel}
         onClose={() => setGenerationPanel(null)}
       />
@@ -435,7 +558,7 @@ export function TestScenarioEditor({
       )}
       {recovery.length > 0 && (
         <div className="test-scenario-notice">
-          <h2 className="text-label font-label">보관한 미저장 입력</h2>
+          <h2 className="text-label font-label">미저장 초안</h2>
           {recovery.map((record) => (
             <div
               key={record.key}
@@ -456,9 +579,8 @@ export function TestScenarioEditor({
                 variant="ghost"
                 onClick={() =>
                   setConfirm({
-                    title: "보관한 초안 삭제",
-                    description:
-                      "이 브라우저에 보관한 미저장 입력을 삭제할까요?",
+                    title: "초안 삭제",
+                    description: "이 브라우저에 미저장 초안을 삭제할까요?",
                     action: () => {
                       void clearDraft(record.key)
                         .then(() =>
@@ -482,135 +604,97 @@ export function TestScenarioEditor({
         </div>
       )}
       <div className="workspace-table-toolbar">
-        <span className="workspace-current-view">
-          <WorkspaceIcon name={layout === "table" ? "columns" : "qa"} />
-          {layout === "table" ? "표" : "상세 목록"}
-        </span>
+        <div className="workspace-search">
+          <WorkspaceIcon name="search" />
+          <Input
+            id="case-search"
+            aria-label="테스트 케이스 검색"
+            placeholder="테스트 검색"
+            value={query}
+            onValueChange={setQuery}
+          />
+        </div>
+        <fieldset className="workspace-view-switch" aria-label="보기 방식">
+          {(["table", "qa"] as const).map((value) => (
+            <Button
+              key={value}
+              variant="ghost"
+              aria-pressed={layout === value}
+              onClick={() => setLayout(value)}
+            >
+              <WorkspaceIcon name={value === "table" ? "columns" : "qa"} />
+              {value === "table" ? "표" : "상세 보기"}
+            </Button>
+          ))}
+        </fieldset>
         <span className="workspace-count">{state.draft.cases.length}개</span>
         <div className="workspace-table-actions">
-          {searchOpen && (
-            <Input
-              id="case-search"
-              aria-label="테스트 케이스 검색"
-              value={query}
-              onValueChange={setQuery}
-              autoFocus
-            />
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="검색"
-            onClick={() => {
-              setSearchOpen(!searchOpen);
-              setQuery("");
-            }}
-          >
-            <WorkspaceIcon name="search" />
-          </Button>
-          <Popover
-            open={settingsOpen}
-            onOpenChange={(open) => {
-              setSettingsOpen(open);
-              if (open) setSettingsDepth("root");
-            }}
-          >
+          <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
             <PopoverTrigger
-              render={
-                <Button variant="ghost" size="icon" aria-label="보기 설정" />
-              }
+              render={<Button variant="ghost" aria-label="열 설정" />}
             >
-              <WorkspaceIcon name="settings" />
+              <WorkspaceIcon name="settings" />열 설정
             </PopoverTrigger>
-            <PopoverContent aria-label="보기 설정">
+            <PopoverContent aria-label="열 설정">
               <div className="workspace-popover-heading">
-                {settingsDepth !== "root" && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="이전 설정"
-                    onClick={() => setSettingsDepth("root")}
-                  >
-                    <WorkspaceIcon name="back" />
-                  </Button>
-                )}
-                <strong>
-                  {settingsDepth === "root"
-                    ? "보기 설정"
-                    : settingsDepth === "layout"
-                      ? "레이아웃"
-                      : "열"}
-                </strong>
+                <strong>열 설정</strong>
               </div>
-              {settingsDepth === "root" ? (
-                <>
-                  <MenuAction
-                    icon="columns"
-                    onClick={() => setSettingsDepth("layout")}
-                  >
-                    레이아웃
-                  </MenuAction>
-                  <MenuAction
-                    icon="settings"
-                    onClick={() => setSettingsDepth("columns")}
-                  >
-                    열
-                  </MenuAction>
-                </>
-              ) : settingsDepth === "layout" ? (
-                <div className="workspace-layout-options">
-                  {(["table", "qa"] as const).map((value) => (
-                    <button
-                      type="button"
-                      key={value}
-                      aria-pressed={layout === value}
-                      onClick={() => {
-                        setLayout(value);
-                        setSettingsOpen(false);
-                      }}
-                    >
-                      <WorkspaceIcon
-                        name={value === "table" ? "columns" : "qa"}
-                      />
-                      <span>{value === "table" ? "표" : "상세 목록"}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <ColumnSettings
-                  columns={state.draft.columns}
-                  view={state.draft.view}
-                  disabled={disabled}
-                  hidden={hidden}
-                  onVisibility={(id) =>
-                    setHidden((old) => {
-                      const next = new Set(old);
-                      if (next.has(id)) next.delete(id);
-                      else next.add(id);
-                      return next;
-                    })
-                  }
-                  onChange={(columns, view) =>
-                    session.edit((s) => ({ ...s, columns, view }))
-                  }
-                  onRemove={removeColumn}
-                />
-              )}
+              <ColumnSettings
+                columns={state.draft.columns}
+                view={state.draft.view}
+                disabled={disabled}
+                hidden={hidden}
+                onVisibility={(id) =>
+                  setHidden((old) => {
+                    const next = new Set(old);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  })
+                }
+                onChange={(columns, view) =>
+                  session.edit((s) => ({ ...s, columns, view }))
+                }
+                onRemove={removeColumn}
+              />
             </PopoverContent>
           </Popover>
           <Button
-            size="icon"
+            variant="outline"
             aria-label="테스트 케이스 추가"
             disabled={disabled}
             onClick={() =>
-              session.edit((current) => {
-                const added = newCase();
-                return { ...current, cases: [...current.cases, added] };
-              })
+              session.edit((current) => ({
+                ...current,
+                cases: [...current.cases, newCase()],
+              }))
             }
           >
             <WorkspaceIcon name="plus" />
+            케이스 추가
           </Button>
+          <Button
+            variant="ghost"
+            aria-label="관련 자료 보기"
+            aria-pressed={sourceOpen}
+            onClick={() => {
+              returnFocus.current = document.activeElement as HTMLElement;
+              setSourceOpen(!sourceOpen);
+            }}
+          >
+            <WorkspaceIcon name="image" />
+            <span>관련 자료</span>
+          </Button>
+          {pendingCount > 0 && (
+            <Button
+              variant="outline"
+              className="workspace-confirmation-trigger"
+              onClick={() => setGenerationPanel("results")}
+            >
+              <WorkspaceIcon name="warning" />
+              확인 항목 <span>{pendingCount}</span>
+            </Button>
+          )}
         </div>
       </div>
       {selected.size > 0 && (
@@ -649,32 +733,6 @@ export function TestScenarioEditor({
           </Button>
         </div>
       )}
-      <div className="source-toolbar authoring-actions">
-        {!state.draft.cases.length && (
-          <Button
-            disabled={disabled}
-            onClick={() => setGenerationPanel("generate")}
-          >
-            테스트 케이스 생성
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="관련 자료 보기"
-          onClick={() => setSourceOpen((open) => !open)}
-        >
-          <WorkspaceIcon name="image" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="분석 결과 편집"
-          onClick={() => setAnalysisOpen(true)}
-        >
-          <WorkspaceIcon name="settings" />
-        </Button>
-      </div>
       <AnalysisPanel
         open={analysisOpen}
         onClose={() => setAnalysisOpen(false)}
@@ -691,11 +749,7 @@ export function TestScenarioEditor({
         }}
       />
       <div
-        className={
-          sourceOpen
-            ? "test-scenario-editor-body has-source"
-            : "test-scenario-editor-body"
-        }
+        className={`test-scenario-editor-body${item || sourceOpen ? " has-inspector" : ""}`}
       >
         <div className="test-scenario-editor-table">
           <TestCaseTable
@@ -713,90 +767,43 @@ export function TestScenarioEditor({
             onError={setMessage}
           />
         </div>
-        {sourceOpen && (
-          <SourceViewer
-            key={[...selected][0] ?? "source"}
-            projectId={snapshot.projectId}
-            caseId={[...selected][0]}
-            frames={[
-              ...new Map(
-                [...frames, ...state.draft.references.frames].map((f) => [
-                  f.id,
-                  f,
-                ]),
-              ).values(),
-            ].filter((f) => {
-              const active = state.draft.cases.find(
-                (c) => c.id === [...selected][0],
-              );
-              return !active || active.relatedFrameIds.includes(f.id);
-            })}
-            onClose={() => setSourceOpen(false)}
-          />
-        )}
-        <Dialog
-          open={!!item}
-          onOpenChange={(open) => {
-            if (!open) closeDetails();
-          }}
-        >
-          <DialogContent
-            className="workspace-detail-dialog"
-            aria-describedby={undefined}
+        {!narrow && (item || sourceOpen) && (
+          <aside
+            className="workspace-inspector"
+            aria-label={sourceOpen ? "관련 자료" : "테스트 케이스 편집"}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                closeDetails();
+              }
+            }}
           >
-            <DialogTitle>테스트 케이스 편집</DialogTitle>
-            {item && (
-              <DetailPanel
-                snapshot={state.draft}
-                item={item}
-                disabled={disabled}
-                frames={frames.filter(
-                  (f) =>
-                    f.uploadId === uploadId ||
-                    item.relatedFrameIds.includes(f.id),
-                )}
-                iaItems={iaItems}
-                uploads={uploads}
-                uploadId={uploadId}
-                onUpload={setUploadId}
-                onComposition={(active) => session.composition(active)}
-                onClose={closeDetails}
-                onChange={(next) =>
-                  session.edit((current) => ({
-                    ...current,
-                    cases: current.cases.map((c) =>
-                      c.id === next.id ? next : c,
-                    ),
-                    references: {
-                      frames: [
-                        ...new Map(
-                          [...current.references.frames, ...frames].map((f) => [
-                            f.id,
-                            f,
-                          ]),
-                        ).values(),
-                      ],
-                      iaItems: [
-                        ...new Map(
-                          [...current.references.iaItems, ...iaItems].map(
-                            (i) => [i.id, i],
-                          ),
-                        ).values(),
-                      ],
-                    },
-                  }))
-                }
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+            {inspectorContent}
+          </aside>
+        )}
       </div>
+      <Dialog
+        open={narrow && (!!item || sourceOpen)}
+        onOpenChange={(open) => {
+          if (!open) closeDetails();
+        }}
+      >
+        <DialogContent
+          className="workspace-detail-dialog"
+          aria-describedby={undefined}
+        >
+          <DialogTitle>
+            {sourceOpen ? "관련 자료" : "테스트 케이스 편집"}
+          </DialogTitle>
+          {inspectorContent}
+        </DialogContent>
+      </Dialog>
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent
           className="workspace-share-dialog"
           aria-describedby={undefined}
         >
-          <DialogTitle>공유 시나리오 미리보기</DialogTitle>
+          <DialogTitle>시나리오 미리보기</DialogTitle>
           <SharedTestScenarioView snapshot={state.draft} hidden={hidden} />
         </DialogContent>
       </Dialog>
@@ -807,13 +814,13 @@ export function TestScenarioEditor({
         }}
       >
         <DialogContent>
-          <DialogTitle>저장되지 않은 입력이 있습니다</DialogTitle>
+          <DialogTitle>미저장 입력</DialogTitle>
           <DialogDescription>
             {retained === undefined
-              ? "입력을 보관하는 중입니다."
+              ? "입력을 보관 중입니다."
               : retained
-                ? "입력을 이 브라우저에 보관했습니다. 이동한 뒤 시나리오를 열어 초안을 복원할 수 있습니다."
-                : "입력을 이 브라우저에 보관하지 못했습니다. 이 화면에서 저장을 마친 뒤 이동해주세요."}
+                ? "입력을 이 브라우저에 보관했습니다. 이동 후 시나리오를 열어 초안을 복원해주세요."
+                : "입력을 이 브라우저에 보관하지 못했습니다. 이 화면에서 저장 후 이동해주세요."}
           </DialogDescription>
           <DialogFooter>
             <Button variant="outline" onClick={cancelLeave}>
@@ -823,9 +830,15 @@ export function TestScenarioEditor({
               variant="outline"
               onClick={() => {
                 void session.retry().then(async () => {
-                  if (session.store.getState().status === "saved")
+                  if (
+                    session.store.getState().status === "saved" &&
+                    !confirmationUnsafe
+                  )
                     proceedLeave();
-                  else setRetained(await session.retain());
+                  else
+                    setRetained(
+                      (await session.retain()) && !confirmationUnsafe,
+                    );
                 });
               }}
             >
@@ -868,8 +881,8 @@ export function TestScenarioEditor({
         <DialogContent>
           <DialogTitle>내 입력과 최신 내용</DialogTitle>
           <DialogDescription>
-            내 입력을 복사해 최신 내용에 다시 반영할 수 있습니다. 최신 내용으로
-            편집을 시작해도 이전 입력은 초안으로 보관됩니다.
+            내 입력을 복사해 최신 내용에 다시 반영해주세요. 최신 내용으로 편집을
+            시작해도 이전 입력은 초안으로 보관됩니다.
           </DialogDescription>
           <div className="test-scenario-comparison">
             <div>
@@ -882,9 +895,7 @@ export function TestScenarioEditor({
                 id="latest-draft"
                 readOnly
                 value={
-                  state.latest
-                    ? draftText(state.latest)
-                    : "최신 내용을 불러오는 중"
+                  state.latest ? draftText(state.latest) : "최신 내용 조회 중"
                 }
               />
             </div>

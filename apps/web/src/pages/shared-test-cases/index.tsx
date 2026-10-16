@@ -25,7 +25,7 @@ export function SharedTestScenarioView({
   return (
     <section
       className="workspace-shared-testScenario"
-      aria-label="공유 시나리오"
+      aria-label="시나리오 미리보기"
     >
       <div className="workspace-page-heading">
         <h2>{snapshot.name}</h2>
@@ -103,7 +103,7 @@ export function SharedTestCasesPage() {
   return (
     <div className="workspace-empty">
       <WorkspaceIcon name="file" />
-      <h1>공유 시나리오를 찾을 수 없습니다</h1>
+      <h1>시나리오 미리보기가 없습니다</h1>
       <Button variant="outline" onClick={() => location.assign("/")}>
         프로젝트 목록
       </Button>

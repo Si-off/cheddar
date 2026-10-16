@@ -99,7 +99,7 @@ export class AnalysisService {
         throw new ApiError(
           409,
           "ANALYSIS_CONFLICT",
-          "다른 곳에서 자료를 변경했습니다. 입력을 복사한 뒤 최신 자료를 불러와주세요.",
+          "다른 곳에서 자료를 변경했습니다. 입력 복사 후 최신 자료를 불러와주세요.",
         );
       const ids = new Set(input.items.map((i) => i.id));
       const frames = [

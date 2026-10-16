@@ -18,7 +18,7 @@ export class ApiError extends HttpException {
   }
 }
 export const notFound = () =>
-  new ApiError(404, "NOT_FOUND", "요청한 항목을 찾을 수 없습니다.");
+  new ApiError(404, "NOT_FOUND", "요청 항목을 찾지 못했습니다.");
 export const invalid = (details?: unknown) =>
   new ApiError(400, "VALIDATION_ERROR", "입력 내용을 확인해주세요.", details);
 export const unavailable = () =>
@@ -56,7 +56,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
               : new ApiError(
                   status,
                   "REQUEST_REJECTED",
-                  "요청을 처리할 수 없습니다.",
+                  "요청을 처리하지 못했습니다.",
                 );
     } else if (
       typeof exception === "object" &&
@@ -80,7 +80,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       error = new ApiError(
         500,
         "INTERNAL_ERROR",
-        "요청을 처리하지 못했습니다. 결과를 확인한 뒤 다시 시도해주세요.",
+        "요청을 처리하지 못했습니다. 결과 확인 후 다시 시도해주세요.",
       );
     const requestId =
       (res.getHeader("X-Request-Id") as string | undefined) ?? randomUUID();

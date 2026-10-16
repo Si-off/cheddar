@@ -28,7 +28,7 @@ Codex에서 이 저장소를 프로젝트 작업 위치로 연다. 루트 `AGENT
 - `packages/ui/`: 기본 UI
 - `packages/design-tokens/`: 디자인 토큰
 
-상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다. 구현·검증 이력은 [기반 구성](docs/changes/2026-10-15-workspace-setup/change.md), [AI 생성](docs/changes/2026-10-15-mvp-generation/change.md), [화면 개편](docs/changes/2026-10-16-workspace-redesign/change.md)에 있다. 기록은 당시 코드·환경의 결과이며 현재 실행 상태를 보장하지 않는다.
+상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다. 구현·검증 이력은 [기반 구성](docs/changes/2026-10-15-workspace-setup/change.md), [AI 생성](docs/changes/2026-10-15-mvp-generation/change.md), [화면 개편](docs/changes/2026-10-16-workspace-redesign/change.md), [전체 UI/UX 리디자인](docs/changes/2026-10-16-complete-ux-redesign/change.md)에 있다. 기록은 당시 코드·환경의 결과이며 현재 실행 상태를 보장하지 않는다.
 
 ## 개발 환경
 
@@ -54,17 +54,17 @@ pnpm install --frozen-lockfile
 pnpm dev:web
 ```
 
-웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시나리오를 선택하고 `/projects/<projectId>/test-scenarios/<testScenarioId>`에서 편집한다. 프로젝트별 `/uploads`, `/test-scenarios`, `/settings` 경로와 AI 생성·생성 결과 검토를 제공한다. 실제 공유 링크 발급·외부 열람은 후속이다. 실제 모델 권한·응답 품질은 사용하는 환경에서 별도로 확인한다.
+웹은 `http://127.0.0.1:5173/`에서 실행한다. `/`에서 프로젝트·시나리오를 선택하고 `/projects/<projectId>/test-scenarios/<testScenarioId>`에서 편집한다. 접이식 사이드바에서 프로젝트별 `/uploads`, `/test-scenarios`, `/settings`를 이동한다. 시트에서 생성·확인 항목·화면 분석을 모달로 열고, 케이스 편집과 관련 자료는 하나의 상세 패널에서 전환한다. 명확한 생성 결과는 기존 시나리오에 자동 추가·저장한다. 실제 공유 링크 발급·외부 열람은 후속이다. 실제 모델 권한·응답 품질은 사용하는 환경에서 별도로 확인한다.
 
 ```sh
-pnpm dev:plugin
+VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm dev:plugin
 ```
 
 플러그인 UI와 main을 각각 감시 빌드하여 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. UI는 CSS·폰트를 포함한 단일 HTML이다. 브라우저에서 UI만 확인하려면 `pnpm --filter @cheddar/figma-plugin dev:ui`를 사용한다 (`http://127.0.0.1:5174/`).
 
 Figma 플러그인 ID는 `1692417282897261384`다. [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 개발용 manifest를 가져온다. 플러그인의 개발 API 기본 주소는 `http://localhost:3102`다. 실제 Figma의 origin·네트워크 접근·업로드 결과는 [프레임 업로드 작업 기록](docs/changes/2026-10-15-stage-2a-frame-upload/change.md)의 환경과 구분해 현재 환경에서 확인한다.
 
-업로드할 Frame 또는 Section을 선택한다. Section을 선택하면 내부의 최상위 Frame들을 목록에 표시하며, 각 Frame 안의 중첩 프레임은 별도 항목으로 추가하지 않는다. 섹션과 그 안의 프레임을 함께 선택해도 중복 없이 포함한다. 업로드 전에 목록과 개수를 확인한다.
+업로드할 Frame 또는 Section을 선택한다. Section을 선택하면 내부의 최상위 Frame들을 목록에 표시하며, 각 Frame 안의 중첩 프레임은 별도 항목으로 추가하지 않는다. 섹션과 그 안의 프레임을 함께 선택해도 중복 없이 포함한다. 경량 썸네일과 큰 미리보기로 화면을 확인하고 프로젝트를 검색한다. 프레임 추출·이미지 전송·데이터 전송·업로드 등록의 진행 상태를 구분한다. 완료 후 `웹에서 열기`는 main의 `figma.openExternal`로 해당 자료 상세를 연다. `VITE_WEB_BASE_URL`은 main 빌드 기준 웹 주소이며 HTTP(S)만 허용한다. build/watch에서는 값을 명시해야 하며 미설정이면 웹 열기를 오류로 처리한다. API 주소와 별도 설정이다.
 
 ## 검증과 API 코드 생성
 
@@ -77,7 +77,7 @@ Figma 플러그인 ID는 `1692417282897261384`다. [공식 안내](https://devel
 | API 동작·계약 | `pnpm test:api` | 아래 전용 PostgreSQL 설정과 `apps/api/.env.local`. 실제 DB·HTTP·SDK·XLSX 및 합성 AI 응답 검증. 실제 AI 호출·품질은 제외 |
 | API 명세 일치 | `pnpm --filter @cheddar/api openapi:check` | DB·서버 없이 DTO에서 생성한 명세와 `apps/api/openapi.json` 비교 |
 | 플러그인 로직 | 아래 Node 명령 | 메시지·선택·업로드 세션의 합성 환경 검증. 실제 Figma 실행은 제외 |
-| 웹 편집기 | 아래 `editor.spec.ts` 명령 | 웹 서버와 Chromium. HTTP 합성 응답으로 저장·충돌·생성·편집 검증 |
+| 웹 편집기·생성·자료 | 아래 웹 테스트 명령 | 웹 서버와 Chromium. HTTP 합성 응답으로 저장·충돌·자동 추가·확인 초안·이미지 확대·오류 복구 검증 |
 | 프로젝트 설정 | 아래 `project-settings.spec.ts` 명령 | 웹 서버·Chromium·전용 테스트 DB. 테스트가 API를 시작해 실제 저장·조회 검증 |
 | 플러그인 UI | 아래 `plugin-redesign.spec.ts` 명령 | 플러그인 UI 서버와 Chromium. Figma 메시지·HTTP 합성 환경 검증 |
 
@@ -98,26 +98,26 @@ pnpm --filter @cheddar/web test:e2e --list
 편집기 검증은 별도 터미널에서 `pnpm --filter @cheddar/web dev --port 5176`으로 웹을 실행한 뒤 다음을 수행한다. 기존 서버를 사용할 때는 그 코드 기준과 포트를 확인해 `PLAYWRIGHT_BASE_URL`에 지정한다.
 
 ```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:5176 pnpm --filter @cheddar/web test:e2e src/pages/test-case-editor/editor.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5176 pnpm --filter @cheddar/web test:e2e src/pages/test-case-editor/editor.spec.ts src/pages/test-case-editor/authoring.spec.ts src/pages/project-uploads/uploads.spec.ts --output="${TMPDIR:-/tmp}/cheddar-editor-results"
 ```
 
-프로젝트 설정 검증은 [백엔드 실행](#백엔드-실행)의 전용 테스트 DB와 환경 파일을 먼저 준비한다. 웹은 별도 터미널에서 아래 주소로 실행하며, 테스트가 API 포트 `3104`를 사용한다. 포트를 바꾸면 `VITE_API_BASE_URL`과 `SETTINGS_TEST_API_PORT`를 함께 맞춘다. 아래 Node 명령은 웹 패키지에서 API 환경 파일을 읽어 테스트 프로세스에 전달한다. API 테스트와 달리 일반 `test:e2e` 명령은 이 파일을 자동으로 읽지 않는다.
+프로젝트 설정 검증은 [백엔드 실행](#백엔드-실행)의 전용 테스트 DB와 환경 파일을 먼저 준비한다. 웹은 별도 터미널에서 아래 주소로 실행하며, 테스트가 API 포트 `3104`를 사용한다. 포트를 바꾸면 `VITE_API_BASE_URL`과 `SETTINGS_TEST_API_PORT`를 함께 맞춘다. `TEST_DATABASE_URL`은 환경 파일 또는 프로세스 환경변수에 명시한다. 아래 Node 명령은 웹 패키지에서 API 환경 파일을 읽어 테스트 프로세스에 전달한다. API 테스트와 달리 일반 `test:e2e` 명령은 이 파일을 자동으로 읽지 않는다.
 
 ```sh
 VITE_API_BASE_URL=http://127.0.0.1:3104 pnpm --filter @cheddar/web dev --port 5177
 ```
 
 ```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:5177 SETTINGS_TEST_API_PORT=3104 pnpm --filter @cheddar/web exec node --env-file=../api/.env.local node_modules/@playwright/test/cli.js test src/pages/project-settings/project-settings.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5177 SETTINGS_TEST_API_PORT=3104 pnpm --filter @cheddar/web exec node --env-file=../api/.env.local node_modules/@playwright/test/cli.js test src/pages/project-settings/project-settings.spec.ts --output="${TMPDIR:-/tmp}/cheddar-settings-results"
 ```
 
 플러그인 UI 검증은 별도 터미널에서 `pnpm --filter @cheddar/figma-plugin dev:ui --port 5174`를 실행한다. 현재 테스트의 iframe 주소가 `http://127.0.0.1:5174/`로 고정돼 있으므로 이 테스트에는 해당 포트가 필요하다.
 
 ```sh
-pnpm --filter @cheddar/web test:e2e src/pages/test-case-editor/plugin-redesign.spec.ts
+pnpm --filter @cheddar/web test:e2e src/pages/test-case-editor/plugin-redesign.spec.ts --output="${TMPDIR:-/tmp}/cheddar-plugin-results"
 ```
 
-세 브라우저 테스트 전체를 실행하려면 위 설정 화면용 웹·DB·API 환경과 플러그인 UI 서버를 준비하고 설정 화면 명령의 마지막 파일 선택 인자만 생략한다. 실제 Figma, macOS IME, Excel 앱, 외부 AI 호출은 이 검사와 구분해 필요한 경우 별도로 확인한다.
+브라우저 테스트 전체를 실행하려면 위 설정 화면용 웹·DB·API 환경과 플러그인 UI 서버를 준비하고 설정 화면 명령에서 테스트 파일 선택 인자만 생략한다. 병렬 프로세스는 서로 다른 `--output` 경로를 사용하고, 같은 테스트 DB의 API·설정 테스트는 동시에 실행하지 않는다. 실제 Figma, macOS IME, Excel 앱, 외부 AI 호출은 이 검사와 구분해 필요한 경우 별도로 확인한다.
 
 ### API 코드 생성
 
@@ -144,7 +144,7 @@ UI 디자인 기준과 토큰 사용 규칙은 [공통 디자인 기준](docs/ar
 
 프로젝트의 디자인 방향을 비교·결정하기 위한 미리보기다. 합의한 표현은 [DESIGN.md](DESIGN.md)의 공통 원칙으로, 반복해서 사용할 값은 공통 토큰으로 관리한다. 실제 화면은 이 원칙과 토큰을 맥락에 맞게 적용하며, 미리보기의 개별 구현 기법이나 샘플 구성을 제품 컴포넌트 명세로 삼지 않는다.
 
-토큰 원본은 `packages/design-tokens/src/theme.css`, 미리보기 원본은 `packages/design-tokens/preview.template.html`이다. 원본 변경 후 아래 명령으로 HTML을 다시 생성한다.
+토큰 원본은 `packages/design-tokens/src/theme.css`, 미리보기 원본은 `packages/design-tokens/preview.template.html`이다. 툴바 32px·폼 40px·표 최소 행 48px와 전환 120/180/240ms를 공통 토큰으로 관리하며 시스템 동작 줄이기를 반영한다. 원본 변경 후 아래 명령으로 HTML을 다시 생성한다.
 
 ```sh
 node packages/design-tokens/build-preview.mjs
@@ -223,11 +223,11 @@ AI 생성에는 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블이 �
 
 1. 웹에서 프로젝트를 선택하거나 만든다.
 2. 새 시나리오를 만들고 단위/통합을 선택하거나 기존 시나리오를 연다.
-3. 시나리오 메뉴의 `테스트 케이스 생성`에서 모델과 업로드 묶음 또는 설명을 지정한다.
-4. 생성 후 `생성 결과 검토`에서 결과를 편집하고 선택한 항목을 `시나리오에 추가`한다. 기존 케이스는 작성 예시로도 사용하며 유지한다.
-5. 검토 후보를 편집·추가·제외한다. 제외한 검토 후보는 다시 표시하고 복원할 수 있다.
+3. 시트의 `테스트 케이스 생성`에서 모델과 업로드·개별 화면 또는 설명을 지정한다.
+4. `append` 모드가 명확한 케이스와 근거 연결을 서버에서 한 번에 추가·저장한다. 기존 케이스·사용자 양식·번호를 보존하고 완료 후 같은 시트의 일반 행으로 편집한다.
+5. 불확실한 결과만 `확인 항목` 모달에서 답변·수정·추가·제외한다. 중간 저장 버튼 없이 초안을 localStorage에 보관하며 충돌 시 최신 내용과 비교한다. 제외 항목은 다시 표시하고 복원할 수 있다.
 
-생성 중 대상 시나리오는 잠기며 다른 시나리오는 계속 편집할 수 있다. 작업 상태는 새로고침 후 다시 읽는다. AI 호출이 중단되면 자동 재호출하지 않는다. 서버 중단으로 상태가 남은 작업은 10분 후 조회할 때 실패 처리하며, 사용자가 다시 생성할 수 있다. 같은 요청 ID를 다시 보내도 AI 작업은 중복 생성하지 않는다. 입력 크기 초과·출력 잘림·참조 오류는 기존 시나리오를 교체하지 않는다.
+생성 중 대상 시나리오는 잠기며 다른 시나리오는 계속 편집할 수 있다. 작업 상태는 새로고침 후 다시 읽는다. AI 호출이 중단되면 자동 재호출하지 않는다. 서버 중단으로 상태가 남은 작업은 10분 후 조회할 때 실패 처리하며, 사용자가 다시 생성할 수 있다. 같은 요청 ID를 다시 보내도 AI 작업은 중복 생성하지 않는다. 입력 크기 초과·출력 잘림·참조 오류는 기존 시나리오를 교체하지 않는다. 기존 `replace`·`review` API도 유지하며 웹 기본 흐름과 구분한다. `화면 분석` 모달은 화면 분석·확인 질문·요구사항 연결을 편집한다. 실제 AI 품질, QA 결과 기록, 인증과 실제 공유 링크는 이번 화면 개편의 구현·검증 범위에 포함하지 않는다.
 
 AI 호출은 공식 [Claude structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)와 [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) 형식을 사용한다. 실제 키 권한·응답 품질은 각 환경에서 확인한다.
 

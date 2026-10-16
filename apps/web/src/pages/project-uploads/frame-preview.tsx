@@ -18,6 +18,8 @@ export function FramePreview({
     staleTime: Infinity,
   });
   const [url, setUrl] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
+  const [actualSize, setActualSize] = useState(false);
   useEffect(() => {
     if (!file.data) return;
     const next = URL.createObjectURL(file.data);
@@ -25,10 +27,12 @@ export function FramePreview({
     return () => URL.revokeObjectURL(next);
   }, [file.data]);
   return (
-    <div className="workspace-frame-preview">
+    <div
+      className={`workspace-frame-preview${expanded ? " workspace-frame-preview-expanded" : ""}`}
+    >
       {file.isPending && (
         <p role="status" className="text-label text-muted">
-          이미지 불러오는 중
+          이미지 조회 중
         </p>
       )}
       {file.isError && (
@@ -40,19 +44,40 @@ export function FramePreview({
         </div>
       )}
       {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`${name} 이미지 크게 보기`}
-          className="block rounded-control border border-transparent outline-none focus-visible:border-focus-border"
-        >
-          <img
-            src={url}
-            alt={`${name} 프레임`}
-            className="mx-auto h-auto max-w-full object-contain"
-          />
-        </a>
+        <>
+          <button
+            type="button"
+            aria-label={`${name} 이미지 ${expanded ? "축소" : "확대"}`}
+            aria-expanded={expanded}
+            className={`workspace-frame-image-button${actualSize ? " workspace-frame-image-actual" : ""}`}
+            onClick={() => {
+              setExpanded((value) => !value);
+              setActualSize(false);
+            }}
+          >
+            <img src={url} alt={name} loading="lazy" />
+          </button>
+          {expanded && (
+            <div className="workspace-frame-image-toolbar">
+              <Button
+                variant="outline"
+                aria-pressed={actualSize}
+                onClick={() => setActualSize((value) => !value)}
+              >
+                {actualSize ? "너비 맞춤" : "원본 크기"}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setExpanded(false);
+                  setActualSize(false);
+                }}
+              >
+                이미지 접기
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

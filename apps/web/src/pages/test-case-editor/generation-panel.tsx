@@ -4,10 +4,13 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
-  WorkspaceIcon,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -27,7 +30,6 @@ import type {
 import { getUpload } from "@/shared/api/generated";
 import { GenerationResults } from "./generation-results";
 import {
-  addGenerationSelection,
   beginGeneration,
   generationList,
   generationProviders,
@@ -37,6 +39,8 @@ import {
 type Props = {
   seed?: { requirementIds: string[]; description: string };
   onResults?: () => void;
+  onPendingCount?: (count: number) => void;
+  onUnsafeDraftChange?: (unsafe: boolean) => void;
   snapshot: Snapshot;
   session: TestScenarioSession;
   uploads: { id: string; name: string }[];
@@ -46,7 +50,8 @@ type Props = {
 };
 export function GenerationPanel({
   seed,
-  onResults,
+  onPendingCount,
+  onUnsafeDraftChange,
   snapshot,
   session,
   uploads,
@@ -95,7 +100,13 @@ export function GenerationPanel({
   const [message, setMessage] = useState<string>();
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [pending, setPending] = useState<StartGenerationDto>();
-  const [showExcluded, setShowExcluded] = useState(false);
+  const [draftSafe, setDraftSafe] = useState(true);
+  useEffect(() => {
+    onUnsafeDraftChange?.(!draftSafe);
+  }, [draftSafe, onUnsafeDraftChange]);
+  const close = () => {
+    if (draftSafe) onClose();
+  };
   const refreshing = useRef(false);
   const seen = useRef(new Set<string>());
   const running =
@@ -147,16 +158,14 @@ export function GenerationPanel({
       let request = pending;
       if (!request) {
         if (!(await session.settle()))
-          throw new Error(
-            "시나리오 저장을 마친 뒤 생성할 수 있습니다. 저장 상태를 확인해주세요.",
-          );
+          throw new Error("생성 전 시나리오를 저장해주세요.");
         request = {
           clientRequestId: crypto.randomUUID(),
           provider,
           expectedRevision: session.store.getState().base.contentRevision,
           uploadId: uploadId || null,
           description,
-          mode: "review",
+          mode: "append",
           ...(uploadId ? { frameIds: selectedFrames } : {}),
           ...(seed?.requirementIds.length
             ? { requirementIds: seed.requirementIds }
@@ -202,18 +211,24 @@ export function GenerationPanel({
     action: ReviewGenerationResultDto["action"],
     content?: GenerationResultItemDto["content"],
     expectedRevision = job.revision,
+    question?: ReviewGenerationResultDto["question"],
   ) {
     setBusy(true);
     setMessage(undefined);
     try {
       if (action === "add" && !(await session.settle()))
-        throw new Error("시나리오 저장을 마친 뒤 검토 후보를 추가해주세요.");
+        throw new Error("시나리오 저장 후 확인 항목을 추가해주세요.");
       const updated = await updateCandidate(
         snapshot.projectId,
         snapshot.id,
         job.id,
         candidate.id,
-        { expectedRevision, action, ...(content ? { content } : {}) },
+        {
+          expectedRevision,
+          action,
+          ...(content ? { content } : {}),
+          ...(question ? { question } : {}),
+        },
       );
       client.setQueryData(
         key,
@@ -223,7 +238,12 @@ export function GenerationPanel({
           ),
         }),
       );
-      if (action === "add") await refreshTestScenario();
+      if (action === "add") {
+        await refreshTestScenario();
+        void client.invalidateQueries({
+          queryKey: ["analysis", snapshot.projectId],
+        });
+      }
     } catch (error) {
       setMessage(errorText(error));
       void jobs.refetch();
@@ -232,58 +252,27 @@ export function GenerationPanel({
       setBusy(false);
     }
   }
-  async function add(job: GenerationDto, ids: string[]) {
-    setBusy(true);
-    setMessage(undefined);
-    try {
-      if (!(await session.settle()))
-        throw new Error("시나리오 저장을 완료해주세요.");
-      const updated = await addGenerationSelection(
-        snapshot.projectId,
-        snapshot.id,
-        job.id,
-        {
-          expectedRevision: job.revision,
-          testScenarioRevision: session.store.getState().base.contentRevision,
-          resultIds: ids,
-        },
-      );
-      client.setQueryData(
-        key,
-        (old: { items: GenerationDto[] } | undefined) => ({
-          items: (old?.items ?? []).map((j) =>
-            j.id === updated.id ? updated : j,
-          ),
-        }),
-      );
-      await refreshTestScenario();
-      void client.invalidateQueries({
-        queryKey: ["analysis", snapshot.projectId],
-      });
-    } catch (error) {
-      setMessage(errorText(error));
-      void jobs.refetch();
-      throw error;
-    } finally {
-      setBusy(false);
-    }
-  }
+  const pendingCount =
+    jobs.data?.items.reduce(
+      (count, job) =>
+        count + job.results.filter((item) => item.status === "pending").length,
+      0,
+    ) ?? 0;
+  useEffect(
+    () => onPendingCount?.(pendingCount),
+    [pendingCount, onPendingCount],
+  );
   return (
     <section
       className="workspace-generation"
       aria-label="테스트 케이스 생성 상태"
     >
-      {jobs.isPending && <p role="status">생성 상태를 확인하는 중입니다.</p>}
+      {jobs.isPending && <p role="status">생성 상태 확인 중</p>}
       {running && (
         <div className="workspace-generation-progress" role="status">
           <span className="workspace-spinner" />
           <span>테스트 케이스 생성 중</span>
         </div>
-      )}
-      {latest?.status === "succeeded" && onResults && (
-        <Button variant="outline" onClick={onResults}>
-          결과 검토
-        </Button>
       )}
       {latest?.status === "failed" && <p role="alert">{latest.error}</p>}
       {jobs.isError && (
@@ -297,13 +286,13 @@ export function GenerationPanel({
       {needsRefresh && (
         <p role="alert">
           시나리오의 최신 결과를 불러와주세요. 미저장 입력이 있으면 저장하거나
-          최신 내용과 비교한 뒤 다시 확인해주세요.{" "}
+          최신 내용과 비교 후 다시 확인해주세요.{" "}
           <Button variant="link" onClick={() => void refreshTestScenario()}>
             결과 불러오기
           </Button>
         </p>
       )}
-      {message && <p role="alert">{message}</p>}
+      {message && !panel && <p role="alert">{message}</p>}
       {pending && !running && (
         <Button disabled={busy} onClick={() => void start()}>
           생성 요청 다시 확인
@@ -312,7 +301,7 @@ export function GenerationPanel({
       <Dialog
         open={!!panel}
         onOpenChange={(open) => {
-          if (!open) onClose();
+          if (!open) close();
         }}
       >
         <DialogContent
@@ -324,8 +313,9 @@ export function GenerationPanel({
           aria-describedby={undefined}
         >
           <DialogTitle>
-            {panel === "results" ? "생성 결과 검토" : "테스트 케이스 생성"}
+            {panel === "results" ? "확인 항목" : "테스트 케이스 생성"}
           </DialogTitle>
+          {message && panel === "generate" && <p role="alert">{message}</p>}
           {panel === "generate" && (
             <form
               className="mt-3 flex flex-col gap-3"
@@ -335,18 +325,23 @@ export function GenerationPanel({
               }}
             >
               <Label htmlFor="ai-provider">AI 모델</Label>
-              <select
-                id="ai-provider"
-                className="test-scenario-select"
+              <Select
                 value={provider}
-                onChange={(event) =>
-                  setProvider(event.target.value as typeof provider)
+                onValueChange={(value) =>
+                  value && setProvider(value as typeof provider)
                 }
                 disabled={locked}
               >
-                <option value="anthropic">Claude Haiku</option>
-                <option value="openai">OpenAI Luna</option>
-              </select>
+                <SelectTrigger id="ai-provider">
+                  <SelectValue>
+                    {provider === "anthropic" ? "Claude Haiku" : "OpenAI Luna"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="anthropic">Claude Haiku</SelectItem>
+                  <SelectItem value="openai">OpenAI Luna</SelectItem>
+                </SelectContent>
+              </Select>
               {providers.isError ? (
                 <p role="alert">
                   AI 설정을 불러오지 못했습니다.{" "}
@@ -362,8 +357,7 @@ export function GenerationPanel({
                 providers.data &&
                 !configured && (
                   <p>
-                    선택한 AI의 API 키가 설정되지 않았습니다. 서버 설정 후 다시
-                    확인해주세요.{" "}
+                    AI API 키가 없습니다. 서버 설정 후 다시 확인해주세요.{" "}
                     <Button
                       type="button"
                       variant="link"
@@ -374,27 +368,35 @@ export function GenerationPanel({
                   </p>
                 )
               )}
-              <Label htmlFor="ai-upload">업로드 묶음</Label>
-              <select
-                id="ai-upload"
-                className="test-scenario-select"
-                value={uploadId}
-                onChange={(event) => setUploadId(event.target.value)}
+              <Label htmlFor="ai-upload">Figma 자료</Label>
+              <Select
+                value={uploadId || "description"}
+                onValueChange={(value) =>
+                  setUploadId(value === "description" ? "" : (value ?? ""))
+                }
                 disabled={locked}
               >
-                <option value="">설명만 사용</option>
-                {uploads.map((upload) => (
-                  <option key={upload.id} value={upload.id}>
-                    {upload.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="ai-upload">
+                  <SelectValue>
+                    {uploads.find((item) => item.id === uploadId)?.name ??
+                      "설명만 사용"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="description">설명만 사용</SelectItem>
+                  {uploads.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {uploadId && (
                 <section
                   className="generation-frame-picker"
                   aria-label="생성 화면 선택"
                 >
-                  {upload.isPending && <p role="status">화면 불러오는 중</p>}
+                  {upload.isPending && <p role="status">화면 조회 중</p>}
                   {upload.isError && (
                     <p role="alert">
                       화면을 불러오지 못했습니다.
@@ -439,7 +441,7 @@ export function GenerationPanel({
                 disabled={locked}
               />
               {!uploadId && !description.trim() && (
-                <p>업로드 묶음을 선택하거나 테스트할 내용을 입력해주세요.</p>
+                <p>Figma 자료를 선택하거나 테스트 내용을 입력해주세요.</p>
               )}
               <Button
                 type="submit"
@@ -458,259 +460,28 @@ export function GenerationPanel({
               </Button>
             </form>
           )}
-          {panel === "results" &&
-          jobs.data?.items.some((j) => j.mode === "review") ? (
+          {panel === "results" && jobs.isPending && (
+            <p role="status">확인 항목 조회 중</p>
+          )}
+          {panel === "results" && jobs.isError && (
+            <p role="alert">
+              확인 항목을 불러오지 못했습니다.{" "}
+              <Button variant="link" onClick={() => void jobs.refetch()}>
+                다시 불러오기
+              </Button>
+            </p>
+          )}
+          {panel === "results" && !jobs.isPending && (
             <GenerationResults
-              jobs={jobs.data.items}
+              jobs={jobs.data?.items ?? []}
               snapshot={snapshot}
               disabled={locked || jobs.isError}
               onReview={review}
-              onAdd={add}
+              onDraftSafety={setDraftSafe}
             />
-          ) : (
-            panel === "results" && (
-              <div className="mt-4 flex flex-col gap-3">
-                <Label>
-                  <input
-                    type="checkbox"
-                    checked={showExcluded}
-                    onChange={(event) => setShowExcluded(event.target.checked)}
-                  />{" "}
-                  제외한 검토 후보 보기
-                </Label>
-                {jobs.data?.items.flatMap((job) =>
-                  job.results
-                    .filter(
-                      (candidate) =>
-                        showExcluded || candidate.status !== "excluded",
-                    )
-                    .map((candidate) => (
-                      <CandidateCard
-                        key={candidate.id}
-                        candidate={candidate}
-                        job={job}
-                        snapshot={snapshot}
-                        disabled={locked || jobs.isError}
-                        review={review}
-                      />
-                    )),
-                )}
-                {jobs.data &&
-                  !jobs.data.items.some((job) =>
-                    job.results.some(
-                      (candidate) =>
-                        showExcluded || candidate.status !== "excluded",
-                    ),
-                  ) && <p>검토 후보가 없습니다.</p>}
-              </div>
-            )
           )}
         </DialogContent>
       </Dialog>
     </section>
-  );
-}
-function CandidateCard({
-  candidate,
-  job,
-  snapshot,
-  disabled,
-  review,
-}: {
-  candidate: GenerationResultItemDto;
-  job: GenerationDto;
-  snapshot: Snapshot;
-  disabled: boolean;
-  review: (
-    job: GenerationDto,
-    candidate: GenerationResultItemDto,
-    action: ReviewGenerationResultDto["action"],
-    content?: GenerationResultItemDto["content"],
-    revision?: number,
-  ) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState<{
-    content: GenerationResultItemDto["content"];
-    revision: number;
-  }>();
-  const fields = [
-    ["title", "테스트 항목"],
-    ["preconditions", "사전 조건"],
-    ["steps", "수행 절차"],
-    ["expectedResult", "예상 결과"],
-  ] as const;
-  const act = (action: ReviewGenerationResultDto["action"]) => {
-    void review(job, candidate, action).catch(() => {});
-  };
-  return (
-    <details className="workspace-candidate">
-      <summary>
-        <WorkspaceIcon name="chevron" />
-        <strong>{candidate.content.title}</strong>
-        <span className="workspace-candidate-status text-label text-muted">
-          {candidate.status === "added"
-            ? "추가됨"
-            : candidate.status === "excluded"
-              ? "제외됨"
-              : "검토 대기"}
-        </span>
-      </summary>
-      <div className="workspace-candidate-body">
-        <p className="workspace-candidate-reason">{candidate.reason}</p>
-        <div className="workspace-candidate-meta text-label text-muted">
-          <time dateTime={job.createdAt}>
-            {new Date(job.createdAt).toLocaleString("ko-KR")}
-          </time>
-          <span>{job.provider === "anthropic" ? "Haiku" : "Luna"}</span>
-        </div>
-        {editing ? (
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void review(
-                job,
-                candidate,
-                "edit",
-                editing.content,
-                editing.revision,
-              )
-                .then(() => setEditing(undefined))
-                .catch(() => {});
-            }}
-          >
-            {fields.map(([field, label]) => (
-              <div key={field}>
-                <Label htmlFor={`${candidate.id}-${field}`}>
-                  {snapshot.columns.find((c) => c.field === field)?.name ??
-                    label}
-                </Label>
-                <Textarea
-                  id={`${candidate.id}-${field}`}
-                  value={editing.content[field]}
-                  disabled={disabled}
-                  onChange={(event) =>
-                    setEditing({
-                      ...editing,
-                      content: {
-                        ...editing.content,
-                        [field]: event.target.value,
-                      },
-                    })
-                  }
-                />
-              </div>
-            ))}
-            <Label htmlFor={`${candidate.id}-priority`}>우선순위</Label>
-            <select
-              id={`${candidate.id}-priority`}
-              className="test-scenario-select"
-              value={editing.content.priority ?? ""}
-              disabled={disabled}
-              onChange={(event) =>
-                setEditing({
-                  ...editing,
-                  content: {
-                    ...editing.content,
-                    priority: (event.target.value ||
-                      null) as GenerationResultItemDto["content"]["priority"],
-                  },
-                })
-              }
-            >
-              <option value="">미지정</option>
-              <option value="high">높음</option>
-              <option value="medium">보통</option>
-              <option value="low">낮음</option>
-            </select>
-            {snapshot.columns
-              .filter((column) => column.kind === "custom")
-              .map((column) => (
-                <div key={column.id}>
-                  <Label htmlFor={`${candidate.id}-${column.id}`}>
-                    {column.name}
-                  </Label>
-                  <Input
-                    id={`${candidate.id}-${column.id}`}
-                    disabled={disabled}
-                    value={editing.content.customValues[column.id] ?? ""}
-                    onValueChange={(value) =>
-                      setEditing({
-                        ...editing,
-                        content: {
-                          ...editing.content,
-                          customValues: {
-                            ...editing.content.customValues,
-                            [column.id]: value,
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-              ))}
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={disabled}>
-                검토 후보 저장
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={disabled}
-                onClick={() => setEditing(undefined)}
-              >
-                취소
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <>
-            <dl>
-              {fields.slice(1).map(([field, label]) => (
-                <div key={field}>
-                  <dt className="font-label">
-                    {snapshot.columns.find((c) => c.field === field)?.name ??
-                      label}
-                  </dt>
-                  <dd className="whitespace-pre-wrap">
-                    {candidate.content[field] || "—"}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            {candidate.status !== "added" && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button disabled={disabled} onClick={() => act("add")}>
-                  시나리오에 추가
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={disabled}
-                  onClick={() =>
-                    setEditing({
-                      content: structuredClone(candidate.content),
-                      revision: job.revision,
-                    })
-                  }
-                >
-                  검토 후보 편집
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={disabled}
-                  onClick={() =>
-                    act(candidate.status === "excluded" ? "restore" : "exclude")
-                  }
-                >
-                  {candidate.status === "excluded"
-                    ? "검토 대기로 복원"
-                    : "검토 후보 제외"}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </details>
   );
 }

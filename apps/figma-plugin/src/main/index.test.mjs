@@ -21,9 +21,12 @@ function setup({
   fileKey = "file-key",
   nodes,
   failPng = false,
+  webBaseUrl = "http://127.0.0.1:5176",
   json = { document: { type: "FRAME", children: [] } },
 } = {}) {
   const messages = [];
+  const exported = [];
+  const opened = [];
   const events = new Map();
   const pageEvents = new Set();
   const frame = {
@@ -33,7 +36,9 @@ function setup({
     width: 390,
     height: 844,
     removed: false,
-    exportAsync: async ({ format }) => {
+    exportAsync: async (options) => {
+      exported.push(options);
+      const { format } = options;
       if (format === "PNG" && failPng) throw new Error("private detail");
       return format === "PNG" ? new Uint8Array([137, 80, 78, 71]) : json;
     },
@@ -57,6 +62,7 @@ function setup({
     fileKey,
     currentPage: page,
     showUI() {},
+    openExternal: (url) => opened.push(url),
     ui: { postMessage: (message) => messages.push(message) },
     on: (event, callback) => events.set(event, callback),
     getNodeByIdAsync: async (id) => lookup.get(id) ?? null,
@@ -70,6 +76,7 @@ function setup({
   vm.runInNewContext(mainCode, {
     figma,
     __html__: "",
+    __WEB_BASE_URL__: webBaseUrl,
     exports: {},
     require: () => protocol.exports,
     Uint8Array,
@@ -78,6 +85,8 @@ function setup({
   });
   return {
     messages,
+    exported,
+    opened,
     frame,
     page,
     events,
@@ -379,4 +388,97 @@ test("oversized UTF-8 JSON and failed exports produce safe actionable codes", as
     }),
     false,
   );
+});
+
+test("thumbnails are bounded PNG exports independent of upload sessions and reject stale selection", async () => {
+  const subject = setup();
+  const ready = await subject.send({ type: "ui-ready" });
+  const image = await subject.send({
+    type: "thumbnail-frame",
+    requestId: "thumb",
+    selectionVersion: ready.selection.version,
+    nodeId: "1:2",
+    size: "thumbnail",
+  });
+  assert.equal(image.type, "frame-thumbnail");
+  assert.equal(subject.exported.length, 1);
+  assert.equal(subject.exported[0].format, "PNG");
+  assert.equal(subject.exported[0].constraint.value, 240 / 844);
+  await prepare(subject);
+  await subject.send({
+    type: "thumbnail-frame",
+    requestId: "preview",
+    selectionVersion: subject.messages.findLast(
+      (message) => message.type === "selection-changed",
+    ).selection.version,
+    nodeId: "1:2",
+    size: "preview",
+  });
+  assert.equal(
+    (
+      await subject.send({
+        type: "validate-upload",
+        requestId: "valid-after-preview",
+        sessionId: "session",
+      })
+    ).type,
+    "upload-validated",
+  );
+  subject.events.get("selectionchange")();
+  assert.equal(
+    (
+      await subject.send({
+        type: "thumbnail-frame",
+        requestId: "stale",
+        selectionVersion: ready.selection.version,
+        nodeId: "1:2",
+        size: "thumbnail",
+      })
+    ).code,
+    "INVALID_SELECTION",
+  );
+});
+test("thumbnail failure leaves upload preparation available", async () => {
+  const subject = setup({ failPng: true });
+  const ready = await subject.send({ type: "ui-ready" });
+  assert.equal(
+    (
+      await subject.send({
+        type: "thumbnail-frame",
+        requestId: "thumb-fail",
+        selectionVersion: ready.selection.version,
+        nodeId: "1:2",
+        size: "thumbnail",
+      })
+    ).code,
+    "EXPORT_FAILED",
+  );
+  assert.equal((await prepare(subject)).type, "upload-prepared");
+});
+test("web open accepts resource IDs only and uses the configured web base", async () => {
+  const subject = setup();
+  const message = {
+    type: "open-upload-web",
+    requestId: "open",
+    projectId: "10000000-0000-4000-8000-000000000001",
+    uploadId: "20000000-0000-4000-8000-000000000002",
+  };
+  assert.equal((await subject.send(message)).type, "upload-web-opened");
+  assert.deepEqual(subject.opened, [
+    "http://127.0.0.1:5176/projects/10000000-0000-4000-8000-000000000001/uploads/20000000-0000-4000-8000-000000000002",
+  ]);
+  assert.equal(
+    subject.protocol.isUiToMainMessage({ ...message, projectId: "../evil" }),
+    false,
+  );
+  assert.equal(
+    subject.protocol.isUiToMainMessage({
+      ...message,
+      uploadId: "https://evil.test",
+    }),
+    false,
+  );
+  const missing = setup({ webBaseUrl: "" });
+  assert.equal((await missing.send(message)).code, "WEB_UNAVAILABLE");
+  assert.equal(missing.opened.length, 0);
 });

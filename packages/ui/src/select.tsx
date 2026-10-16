@@ -14,12 +14,14 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
 }
 function SelectTrigger({
   className,
+  density = "form",
   children,
   ...props
-}: SelectPrimitive.Trigger.Props) {
+}: SelectPrimitive.Trigger.Props & { density?: "toolbar" | "form" }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
+      data-density={density}
       className={withClassName("cd-input cd-select-trigger", className)}
       {...props}
     >

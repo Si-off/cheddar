@@ -15,7 +15,10 @@ import {
   setValue,
 } from "@/entities/test-case";
 
+import { WorkspaceSelect } from "@/shared/ui/workspace";
+
 type Props = {
+  embedded?: boolean;
   snapshot: Snapshot;
   item: CaseDraft;
   disabled?: boolean;
@@ -29,6 +32,7 @@ type Props = {
   onClose: () => void;
 };
 export function DetailPanel({
+  embedded = false,
   snapshot,
   item,
   disabled,
@@ -44,23 +48,26 @@ export function DetailPanel({
   const columns = snapshot.view
     .map((v) => snapshot.columns.find((c) => c.id === v.columnId))
     .filter((c) => !!c);
+  const Container = embedded ? "section" : "aside";
   return (
-    <aside
-      className="test-scenario-detail"
+    <Container
+      className={`test-scenario-detail${embedded ? " is-embedded" : ""}`}
       aria-label="테스트 케이스 상세 편집"
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-heading font-heading">
           {item.caseCode || "새 테스트 케이스"}
         </h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          aria-label="상세 닫기"
-        >
-          <WorkspaceIcon name="close" />
-        </Button>
+        {!embedded && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="상세 닫기"
+          >
+            <WorkspaceIcon name="close" />
+          </Button>
+        )}
       </div>
       {columns
         .filter((c) => c.field !== "relatedFrames" && c.field !== "screens")
@@ -71,20 +78,20 @@ export function DetailPanel({
             <div className="mt-4" key={column.id}>
               <Label htmlFor={inputId}>{column.name}</Label>
               {column.field === "priority" ? (
-                <select
-                  className="test-scenario-select"
+                <WorkspaceSelect
                   id={inputId}
                   disabled={disabled}
                   value={item.priority ?? ""}
-                  onChange={(e) =>
-                    onChange(setValue(item, column, e.target.value))
+                  onValueChange={(value) =>
+                    onChange(setValue(item, column, value))
                   }
-                >
-                  <option value="">미지정</option>
-                  <option value="high">높음</option>
-                  <option value="medium">보통</option>
-                  <option value="low">낮음</option>
-                </select>
+                  options={[
+                    { value: "", label: "미지정" },
+                    { value: "high", label: "높음" },
+                    { value: "medium", label: "보통" },
+                    { value: "low", label: "낮음" },
+                  ]}
+                />
               ) : column.field === "caseCode" || column.field === "title" ? (
                 <Input
                   id={inputId}
@@ -118,20 +125,17 @@ export function DetailPanel({
           {snapshot.columns.find((c) => c.field === "relatedFrames")?.name ??
             "관련 화면"}
         </legend>
-        <Label htmlFor="frame-upload">업로드 묶음</Label>
-        <select
-          className="test-scenario-select"
+        <Label htmlFor="frame-upload">Figma 자료</Label>
+        <WorkspaceSelect
           id="frame-upload"
           value={uploadId}
-          onChange={(e) => onUpload(e.target.value)}
-        >
-          <option value="">선택</option>
-          {uploads.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </select>
+          disabled={disabled}
+          onValueChange={onUpload}
+          options={[
+            { value: "", label: "자료 선택" },
+            ...uploads.map((u) => ({ value: u.id, label: u.name })),
+          ]}
+        />
         <div className="mt-3 flex flex-col gap-2">
           {frames.map((f) => (
             <Label key={f.id}>
@@ -176,6 +180,6 @@ export function DetailPanel({
           ))}
         </div>
       </fieldset>
-    </aside>
+    </Container>
   );
 }

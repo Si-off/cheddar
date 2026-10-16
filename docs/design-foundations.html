@@ -1591,10 +1591,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   --color-info-subtle: #edf4ff;
   --color-overlay: #1d243352;
 
-  --radius-small: 0.25rem;
-  --radius-control: 0.5rem;
-  --radius-panel: 0.75rem;
-  --radius-dialog: 1rem;
+  --radius-small: 0.375rem;
+  --radius-control: 0.75rem;
+  --radius-panel: 1rem;
+  --radius-dialog: 1.25rem;
   --radius-full: 9999px;
   --spacing: 0.25rem;
   --spacing-1: 0.25rem;
@@ -1629,6 +1629,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 :root {
   color-scheme: light;
+  --size-sidebar: 12.5rem;
+  --size-sidebar-collapsed: 3.5rem;
+  --size-inspector: 24rem;
+  --size-workspace-header: 3rem;
+  --size-resize-target: 0.375rem;
+  --motion-panel-offset: 1rem;
+  --duration-highlight: 1200ms;
+  --size-toolbar: 2rem;
+  --size-form: 2.5rem;
+  --size-row-min: 3rem;
   --border-width-default: 1px;
   --opacity-disabled: 0.5;
   --size-textarea-min: 6rem;
@@ -1649,6 +1659,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   --layer-tooltip: 50;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-highlight: 0ms;
+    --duration-feedback: 0ms;
+    --duration-state: 0ms;
+    --duration-selection: 0ms;
+    --duration-enter: 0ms;
+  }
+}
+
     </style>
     <style>
       * { box-sizing: border-box; }
@@ -1658,7 +1678,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       button { cursor: pointer; }
       button, input, select, a { -webkit-tap-highlight-color: transparent; }
       button, input, select { transition: background-color var(--duration-feedback) var(--ease-standard), border-color var(--duration-feedback) var(--ease-standard), box-shadow var(--duration-feedback) var(--ease-standard); }
-      :focus-visible { outline: var(--focus-width) solid var(--color-focus); outline-offset: var(--focus-offset); }
+      :focus-visible { outline: none; border-color: var(--color-focus-border); }
       button:disabled { cursor: not-allowed; background: var(--color-disabled); color: var(--color-disabled-foreground); border-color: var(--color-border); }
       h1, h2, h3, p { margin: 0; }
       h1 { font-size: var(--text-title); line-height: var(--text-title--line-height); font-weight: var(--font-weight-heading); }
@@ -1696,7 +1716,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       .row { display: flex; align-items: center; gap: var(--spacing-3); flex-wrap: wrap; }
       .muted { color: var(--color-muted); }
       .small { font-size: var(--text-caption); }
-      .button { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-2); min-height: var(--spacing-control-md); padding: var(--spacing-control-y) var(--spacing-control-x); border-radius: var(--radius-control); border: var(--border-width-default) solid var(--color-border-control); background: var(--color-surface); color: var(--color-foreground); font-weight: var(--font-weight-label); white-space: nowrap; }
+      .button { display: inline-flex; align-items: center; justify-content: center; gap: var(--spacing-2); min-height: var(--size-form); padding: var(--spacing-control-y) var(--spacing-control-x); border-radius: var(--radius-control); border: var(--border-width-default) solid var(--color-border-control); background: var(--color-surface); color: var(--color-foreground); font-weight: var(--font-weight-label); white-space: nowrap; }
       .button:hover { background: var(--color-surface-hover); }
       .button:active { background: var(--color-border); }
       .button.primary { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-foreground); }
@@ -1706,7 +1726,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       .button.secondary:hover { background: var(--color-secondary-hover); }
       .button.secondary:active { background: var(--color-secondary-active); }
       .secondary-palette { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-      .button.small-button { min-height: var(--spacing-control-sm); padding: var(--spacing-1) var(--spacing-3); font-size: var(--text-caption); }
+      .button.small-button { min-height: var(--size-toolbar); padding: var(--spacing-1) var(--spacing-3); font-size: var(--text-caption); }
+      .row-size-demo { display: flex; align-items: center; justify-content: space-between; min-height: var(--size-row-min); padding: 0 var(--spacing-3); border-bottom: var(--border-width-default) solid var(--color-border); }
       .button.large-button { min-height: var(--spacing-control-lg); }
       .button:disabled { background: var(--color-disabled); color: var(--color-disabled-foreground); border-color: var(--color-border); }
       .palette { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: var(--spacing-2); }
@@ -1750,7 +1771,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       .selection-control input[type="radio"] + .control-indicator::after { content: ""; position: relative; width: var(--spacing-radio-dot); height: var(--spacing-radio-dot); border-radius: var(--radius-full); background: var(--color-primary); clip-path: circle(0% at 50% 50%); transition: clip-path var(--duration-selection) var(--ease-standard); }
       .selection-control input[type="radio"]:checked + .control-indicator::after { clip-path: circle(50% at 50% 50%); }
       .selection-control input:disabled + .control-indicator { opacity: 0.5; }
-      .selection-control input:focus-visible + .control-indicator { outline: var(--focus-width) solid var(--color-focus); outline-offset: var(--focus-offset); }
+      .selection-control input:focus-visible + .control-indicator { outline: none; border-color: var(--color-focus-border); background: var(--color-focus-surface); }
       .selection-control input:hover:not(:disabled) + .control-indicator { border-color: var(--color-primary); }
       .selection-control input:disabled { cursor: not-allowed; }
       label:has(.selection-control) { min-height: var(--spacing-control-md); cursor: pointer; }
@@ -1837,7 +1858,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           </section>
           <section id="spacing" aria-labelledby="page-title" class="stack" hidden>
             <div class="grid2"><div class="card"><div class="section-heading"><h2>간격 단계</h2><code>4px base</code></div><div id="spacing-scale"></div></div><div class="stack"><div class="card stack"><h2>여백 비교</h2><label class="field" for="space-select">내부 여백<select id="space-select"><option value="3">12px</option><option value="4">16px</option><option value="6" selected>24px</option><option value="8">32px</option></select></label><div class="spacing-demo" id="spacing-demo"><div>내용 영역</div><div>내용 영역</div></div><code id="spacing-code">spacing-6 / 24px</code></div><div class="card stack"><h2>기본 여백</h2><div class="layer-row"><span>화면 / 패널</span><code>24px</code></div><div class="layer-row"><span>컨트롤 좌우 / 상하</span><code>16px / 8px</code></div><div class="layer-row"><span>콘텐츠 최대 너비</span><code>1152px</code></div></div></div></div>
-            <div class="card stack"><h2>컨트롤 높이</h2><div class="row"><button type="button" class="button small-button size-demo">Small 32</button><button type="button" class="button size-demo">Medium 40</button><button type="button" class="button large-button size-demo">Large 48</button></div><div class="row muted"><span>아이콘</span><code>16px</code><code>20px</code><code>24px</code></div></div>
+            <div class="card stack"><h2>작업 공간 크기</h2><div class="row"><button type="button" class="button small-button size-demo">툴바 32px</button><code>size-toolbar</code><button type="button" class="button size-demo">폼 40px</button><code>size-form</code></div><div class="row-size-demo"><span>표 최소 행 48px</span><code>size-row-min</code></div><div class="row muted"><span>아이콘</span><code>16px</code><code>20px</code><code>24px</code></div></div>
           </section>
           <section id="shape" aria-labelledby="page-title" class="stack" hidden>
             <div class="card"><div class="section-heading"><h2>모서리</h2><code>radius</code></div><div id="radius-scale" class="shape-grid"></div></div>
@@ -1858,7 +1879,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <dialog id="color-dialog" aria-labelledby="dialog-title"><div class="stack"><h2 id="dialog-title">Primary</h2><div class="selected-sample">Aa</div><code>#515299</code><div class="row"><span class="pill">brand-600</span><span class="pill">라이트 모드</span></div></div><form method="dialog" class="dialog-footer"><button type="submit" class="button primary">닫기</button></form></dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script>
-      const tokenSource = ":root {\n  --font-sans: \"Noto Sans Variable\", \"Noto Sans KR Variable\", sans-serif;\n  --font-weight-label: 500;\n  --font-weight-heading: 600;\n  --font-weight-body: 400;\n  --text-display: 2.5rem;\n  --text-display--line-height: 1.2;\n  --text-heading: 1.25rem;\n  --text-heading--line-height: 1.4;\n  --text-caption: 0.75rem;\n  --text-caption--line-height: 1.5;\n  --text-body: 1rem;\n  --text-body--line-height: 1.6;\n  --text-label: 0.875rem;\n  --text-label--line-height: 1.5;\n  --text-title: 1.5rem;\n  --text-title--line-height: 1.4;\n  --text-brand: 1.125rem;\n  --text-brand--line-height: 1.5;\n\n  --color-brand-50: #f5f5fb;\n  --color-brand-100: #ededf8;\n  --color-brand-200: #d9daf0;\n  --color-brand-300: #b8b9df;\n  --color-brand-400: #9293c9;\n  --color-brand-500: #7071b3;\n  --color-brand-600: #515299;\n  --color-brand-700: #454682;\n  --color-brand-800: #38396b;\n  --color-brand-900: #2b2c52;\n\n  --color-neutral-0: #ffffff;\n  --color-neutral-50: #f8f9fb;\n  --color-neutral-100: #f1f2f6;\n  --color-neutral-200: #e2e4eb;\n  --color-neutral-300: #c8ccd7;\n  --color-neutral-400: #8b91a3;\n  --color-neutral-500: #686f83;\n  --color-neutral-600: #50586b;\n  --color-neutral-700: #3d4557;\n  --color-neutral-800: #2b3242;\n  --color-neutral-900: #1d2433;\n\n  --color-primary: var(--color-brand-600);\n  --color-primary-hover: var(--color-brand-700);\n  --color-primary-active: var(--color-brand-800);\n  --color-primary-foreground: #ffffff;\n  --color-primary-subtle: var(--color-brand-100);\n  --color-secondary: #2f746f;\n  --color-secondary-hover: #265f5b;\n  --color-secondary-active: #1f4d4a;\n  --color-secondary-foreground: #ffffff;\n  --color-secondary-subtle: #eaf4f2;\n  --color-background: var(--color-neutral-50);\n  --color-surface: var(--color-neutral-0);\n  --color-surface-hover: var(--color-neutral-100);\n  --color-surface-selected: var(--color-brand-50);\n  --color-foreground: var(--color-neutral-900);\n  --color-muted: var(--color-neutral-500);\n  --color-border: var(--color-neutral-200);\n  --color-border-control: var(--color-neutral-400);\n  --color-focus: var(--color-brand-600);\n  --color-focus-border: var(--color-neutral-900);\n  --color-focus-surface: var(--color-brand-100);\n  --color-disabled: var(--color-neutral-100);\n  --color-disabled-foreground: var(--color-neutral-500);\n  --color-success: #216e4e;\n  --color-success-subtle: #edf7f0;\n  --color-warning: #8a5800;\n  --color-warning-subtle: #fff6df;\n  --color-danger: #b33745;\n  --color-danger-subtle: #fff0f1;\n  --color-info: #255eab;\n  --color-info-subtle: #edf4ff;\n  --color-overlay: #1d243352;\n\n  --radius-small: 0.25rem;\n  --radius-control: 0.5rem;\n  --radius-panel: 0.75rem;\n  --radius-dialog: 1rem;\n  --radius-full: 9999px;\n  --spacing: 0.25rem;\n  --spacing-1: 0.25rem;\n  --spacing-2: 0.5rem;\n  --spacing-3: 0.75rem;\n  --spacing-4: 1rem;\n  --spacing-5: 1.25rem;\n  --spacing-6: 1.5rem;\n  --spacing-8: 2rem;\n  --spacing-10: 2.5rem;\n  --spacing-12: 3rem;\n  --spacing-16: 4rem;\n  --spacing-page: 1.5rem;\n  --spacing-panel: 1.5rem;\n  --spacing-control-x: 1rem;\n  --spacing-control-y: 0.5rem;\n  --spacing-control-sm: 2rem;\n  --spacing-control-md: 2.5rem;\n  --spacing-control-lg: 3rem;\n  --spacing-icon-sm: 1rem;\n  --spacing-icon-md: 1.25rem;\n  --spacing-icon-lg: 1.5rem;\n  --spacing-radio-dot: 0.625rem;\n  --container-content: 72rem;\n\n  --shadow-low: 0 1px 3px #1d24330a, 0 1px 2px #1d243306;\n  --shadow-raised: 0 4px 16px #1d24330d, 0 1px 4px #1d243308;\n  --shadow-floating: 0 12px 36px #1d243314, 0 2px 8px #1d24330a;\n  --ease-standard: cubic-bezier(0.2, 0, 0, 1);\n  --ease-enter: cubic-bezier(0, 0, 0, 1);\n}\n\n:root {\n  color-scheme: light;\n  --border-width-default: 1px;\n  --opacity-disabled: 0.5;\n  --size-textarea-min: 6rem;\n  --size-dialog-max: 28rem;\n  --size-tooltip-max: 20rem;\n  --focus-width: 2px;\n  --focus-offset: 3px;\n  --duration-feedback: 120ms;\n  --duration-state: 180ms;\n  --duration-selection: 240ms;\n  --duration-enter: 240ms;\n  --layer-base: 0;\n  --layer-sticky: 10;\n  --layer-popover: 20;\n  --layer-dialog: 30;\n  --layer-toast: 40;\n  --layer-select: 35;\n  --layer-tooltip: 50;\n}\n";
+      const tokenSource = ":root {\n  --font-sans: \"Noto Sans Variable\", \"Noto Sans KR Variable\", sans-serif;\n  --font-weight-label: 500;\n  --font-weight-heading: 600;\n  --font-weight-body: 400;\n  --text-display: 2.5rem;\n  --text-display--line-height: 1.2;\n  --text-heading: 1.25rem;\n  --text-heading--line-height: 1.4;\n  --text-caption: 0.75rem;\n  --text-caption--line-height: 1.5;\n  --text-body: 1rem;\n  --text-body--line-height: 1.6;\n  --text-label: 0.875rem;\n  --text-label--line-height: 1.5;\n  --text-title: 1.5rem;\n  --text-title--line-height: 1.4;\n  --text-brand: 1.125rem;\n  --text-brand--line-height: 1.5;\n\n  --color-brand-50: #f5f5fb;\n  --color-brand-100: #ededf8;\n  --color-brand-200: #d9daf0;\n  --color-brand-300: #b8b9df;\n  --color-brand-400: #9293c9;\n  --color-brand-500: #7071b3;\n  --color-brand-600: #515299;\n  --color-brand-700: #454682;\n  --color-brand-800: #38396b;\n  --color-brand-900: #2b2c52;\n\n  --color-neutral-0: #ffffff;\n  --color-neutral-50: #f8f9fb;\n  --color-neutral-100: #f1f2f6;\n  --color-neutral-200: #e2e4eb;\n  --color-neutral-300: #c8ccd7;\n  --color-neutral-400: #8b91a3;\n  --color-neutral-500: #686f83;\n  --color-neutral-600: #50586b;\n  --color-neutral-700: #3d4557;\n  --color-neutral-800: #2b3242;\n  --color-neutral-900: #1d2433;\n\n  --color-primary: var(--color-brand-600);\n  --color-primary-hover: var(--color-brand-700);\n  --color-primary-active: var(--color-brand-800);\n  --color-primary-foreground: #ffffff;\n  --color-primary-subtle: var(--color-brand-100);\n  --color-secondary: #2f746f;\n  --color-secondary-hover: #265f5b;\n  --color-secondary-active: #1f4d4a;\n  --color-secondary-foreground: #ffffff;\n  --color-secondary-subtle: #eaf4f2;\n  --color-background: var(--color-neutral-50);\n  --color-surface: var(--color-neutral-0);\n  --color-surface-hover: var(--color-neutral-100);\n  --color-surface-selected: var(--color-brand-50);\n  --color-foreground: var(--color-neutral-900);\n  --color-muted: var(--color-neutral-500);\n  --color-border: var(--color-neutral-200);\n  --color-border-control: var(--color-neutral-400);\n  --color-focus: var(--color-brand-600);\n  --color-focus-border: var(--color-neutral-900);\n  --color-focus-surface: var(--color-brand-100);\n  --color-disabled: var(--color-neutral-100);\n  --color-disabled-foreground: var(--color-neutral-500);\n  --color-success: #216e4e;\n  --color-success-subtle: #edf7f0;\n  --color-warning: #8a5800;\n  --color-warning-subtle: #fff6df;\n  --color-danger: #b33745;\n  --color-danger-subtle: #fff0f1;\n  --color-info: #255eab;\n  --color-info-subtle: #edf4ff;\n  --color-overlay: #1d243352;\n\n  --radius-small: 0.375rem;\n  --radius-control: 0.75rem;\n  --radius-panel: 1rem;\n  --radius-dialog: 1.25rem;\n  --radius-full: 9999px;\n  --spacing: 0.25rem;\n  --spacing-1: 0.25rem;\n  --spacing-2: 0.5rem;\n  --spacing-3: 0.75rem;\n  --spacing-4: 1rem;\n  --spacing-5: 1.25rem;\n  --spacing-6: 1.5rem;\n  --spacing-8: 2rem;\n  --spacing-10: 2.5rem;\n  --spacing-12: 3rem;\n  --spacing-16: 4rem;\n  --spacing-page: 1.5rem;\n  --spacing-panel: 1.5rem;\n  --spacing-control-x: 1rem;\n  --spacing-control-y: 0.5rem;\n  --spacing-control-sm: 2rem;\n  --spacing-control-md: 2.5rem;\n  --spacing-control-lg: 3rem;\n  --spacing-icon-sm: 1rem;\n  --spacing-icon-md: 1.25rem;\n  --spacing-icon-lg: 1.5rem;\n  --spacing-radio-dot: 0.625rem;\n  --container-content: 72rem;\n\n  --shadow-low: 0 1px 3px #1d24330a, 0 1px 2px #1d243306;\n  --shadow-raised: 0 4px 16px #1d24330d, 0 1px 4px #1d243308;\n  --shadow-floating: 0 12px 36px #1d243314, 0 2px 8px #1d24330a;\n  --ease-standard: cubic-bezier(0.2, 0, 0, 1);\n  --ease-enter: cubic-bezier(0, 0, 0, 1);\n}\n\n:root {\n  color-scheme: light;\n  --size-sidebar: 12.5rem;\n  --size-sidebar-collapsed: 3.5rem;\n  --size-inspector: 24rem;\n  --size-workspace-header: 3rem;\n  --size-resize-target: 0.375rem;\n  --motion-panel-offset: 1rem;\n  --duration-highlight: 1200ms;\n  --size-toolbar: 2rem;\n  --size-form: 2.5rem;\n  --size-row-min: 3rem;\n  --border-width-default: 1px;\n  --opacity-disabled: 0.5;\n  --size-textarea-min: 6rem;\n  --size-dialog-max: 28rem;\n  --size-tooltip-max: 20rem;\n  --focus-width: 2px;\n  --focus-offset: 3px;\n  --duration-feedback: 120ms;\n  --duration-state: 180ms;\n  --duration-selection: 240ms;\n  --duration-enter: 240ms;\n  --layer-base: 0;\n  --layer-sticky: 10;\n  --layer-popover: 20;\n  --layer-dialog: 30;\n  --layer-toast: 40;\n  --layer-select: 35;\n  --layer-tooltip: 50;\n}\n\n@media (prefers-reduced-motion: reduce) {\n  :root {\n    --duration-highlight: 0ms;\n    --duration-feedback: 0ms;\n    --duration-state: 0ms;\n    --duration-selection: 0ms;\n    --duration-enter: 0ms;\n  }\n}\n";
       const $ = (selector) => document.querySelector(selector);
       const styles = getComputedStyle(document.documentElement);
       const token = (name) => styles.getPropertyValue(`--${name}`).trim();
@@ -1898,11 +1919,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       $("#open-dialog").addEventListener("click", () => $("#color-dialog").showModal());
       document.querySelectorAll('[role="switch"]').forEach((button) => { button.addEventListener("click", () => { const enabled = button.getAttribute("aria-checked") !== "true"; button.setAttribute("aria-checked",String(enabled)); }); });
       let motionAnimations = [];
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+      reducedMotion.addEventListener("change", () => { if (reducedMotion.matches) for (const animation of motionAnimations) animation.cancel(); });
       $("#play-motion").addEventListener("click", () => {
+        for (const animation of motionAnimations) animation.cancel();
+        if (reducedMotion.matches) return;
         const kind = $('input[name="duration"]:checked').value;
         const duration = parseFloat(token(`duration-${kind}`));
         const timing = { duration, easing: token("ease-standard") };
-        for (const animation of motionAnimations) animation.cancel();
         motionAnimations = [
           $(".motion-fill").animate([{ clipPath: "circle(0% at 50% 50%)" }, { clipPath: "circle(75% at 50% 50%)" }], timing),
           $(".motion-drawing path").animate([{ strokeDashoffset: "1" }, { strokeDashoffset: "0" }], timing),

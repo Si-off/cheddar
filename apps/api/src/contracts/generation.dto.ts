@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsString,
@@ -17,10 +18,10 @@ import {
 import { CaseContentDto } from "./test-scenarios.dto";
 
 export class StartGenerationDto {
-  @ApiPropertyOptional({ enum: ["replace", "review"] })
+  @ApiPropertyOptional({ enum: ["replace", "review", "append"] })
   @ValidateIf((_o, v) => v !== undefined)
-  @IsIn(["replace", "review"])
-  mode?: "replace" | "review";
+  @IsIn(["replace", "review", "append"])
+  mode?: "replace" | "review" | "append";
   @ApiPropertyOptional({
     type: "array",
     items: { type: "string", format: "uuid" },
@@ -83,9 +84,10 @@ export class GenerationResultItemDto {
   @ApiProperty({ type: CaseContentDto }) content!: CaseContentDto;
 }
 export class GenerationDto {
-  @ApiPropertyOptional({ enum: ["replace", "review"] }) mode?:
+  @ApiPropertyOptional({ enum: ["replace", "review", "append"] }) mode?:
     | "replace"
-    | "review";
+    | "review"
+    | "append";
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty({ format: "uuid" }) testScenarioId!: string;
   @ApiProperty({ enum: ["anthropic", "openai"] }) provider!:
@@ -106,6 +108,19 @@ export class GenerationDto {
 export class GenerationListDto {
   @ApiProperty({ type: [GenerationDto] }) items!: GenerationDto[];
 }
+export class GenerationQuestionAnswerDto {
+  @ApiProperty({ type: "integer", minimum: 0 })
+  @IsInt()
+  @Min(0)
+  expectedRevision!: number;
+  @ApiProperty({ maxLength: 20000 })
+  @IsString()
+  @MaxLength(20000)
+  answer!: string;
+  @ApiProperty()
+  @IsBoolean()
+  useAsRule!: boolean;
+}
 export class ReviewGenerationResultDto {
   @ApiProperty({ type: "integer", minimum: 1 })
   @IsInt()
@@ -119,6 +134,11 @@ export class ReviewGenerationResultDto {
   @Type(() => CaseContentDto)
   @ValidateNested()
   content?: CaseContentDto;
+  @ApiPropertyOptional({ type: GenerationQuestionAnswerDto })
+  @ValidateIf((_o, v) => v !== undefined)
+  @Type(() => GenerationQuestionAnswerDto)
+  @ValidateNested()
+  question?: GenerationQuestionAnswerDto;
 }
 export class GenerationProviderDto {
   @ApiProperty({ enum: ["anthropic", "openai"] }) id!: "anthropic" | "openai";

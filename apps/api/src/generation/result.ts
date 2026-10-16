@@ -67,7 +67,7 @@ export const invalidResult = (reason = "invalid_structure") =>
   new ApiError(
     422,
     "INVALID_AI_RESULT",
-    "생성 결과의 형식이나 연결된 화면 정보를 확인하지 못했습니다. 기존 시나리오는 유지됩니다. 입력을 확인한 뒤 다시 생성해주세요.",
+    "생성 결과의 형식이나 화면 연결 정보를 확인하지 못했습니다. 기존 시나리오는 유지됩니다. 입력 확인 후 다시 생성해주세요.",
     { reason },
   );
 export type GenerationResult = {

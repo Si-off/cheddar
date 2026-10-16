@@ -11,7 +11,7 @@ export function uploadError(error: unknown, fallback: string) {
       ? error.error.code
       : undefined;
   if (code === "NOT_FOUND")
-    return "프로젝트나 업로드를 찾을 수 없습니다. 목록에서 다시 선택해주세요.";
+    return "프로젝트나 Figma 자료가 없습니다. 목록에서 다시 선택해주세요.";
   if (code === "VALIDATION_ERROR") return "입력 내용을 확인해주세요.";
   return fallback;
 }

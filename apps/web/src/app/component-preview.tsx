@@ -1,6 +1,12 @@
 import {
   Button,
   Checkbox,
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
   Dialog,
   DialogClose,
   DialogContent,
@@ -34,6 +40,14 @@ import { createRoot } from "react-dom/client";
 import "./styles/global.css";
 
 function ComponentPreview() {
+  const [project, setProject] = useState<{
+    value: string;
+    label: string;
+  } | null>(null);
+  const projects = [
+    { value: "commerce", label: "커머스 QA" },
+    { value: "account", label: "계정 QA" },
+  ];
   const [checked, setChecked] = useState(true);
   const [mixed, setMixed] = useState(true);
   const [enabled, setEnabled] = useState(false);
@@ -47,6 +61,31 @@ function ComponentPreview() {
       <main className="mx-auto min-h-screen max-w-content bg-background p-page text-foreground">
         <h1 className="mb-8 text-title font-heading">컴포넌트</h1>
         <div className="grid items-start gap-6 md:grid-cols-2">
+          <Surface className="grid gap-4">
+            <h2 className="text-heading font-heading">프로젝트 검색</h2>
+            <Label htmlFor="preview-project">프로젝트</Label>
+            <Combobox
+              items={projects}
+              value={project}
+              onValueChange={setProject}
+            >
+              <ComboboxInput id="preview-project" placeholder="프로젝트 검색" />
+              <ComboboxContent>
+                <ComboboxEmpty>검색 결과 없음</ComboboxEmpty>
+                <ComboboxList>
+                  {(item) => (
+                    <ComboboxItem key={item.value} value={item}>
+                      {item.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="sm">툴바 32</Button>
+              <Input aria-label="폼 40" placeholder="폼 40" />
+            </div>
+          </Surface>
           <Surface className="grid gap-4">
             <h2 className="text-heading font-heading">Button</h2>
             <div className="flex flex-wrap gap-3">
@@ -90,11 +129,7 @@ function ComponentPreview() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="preview-disabled">비활성 입력</Label>
-              <Input
-                id="preview-disabled"
-                disabled
-                defaultValue="편집할 수 없음"
-              />
+              <Input id="preview-disabled" disabled defaultValue="편집 불가" />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="preview-notes">내용</Label>
@@ -195,13 +230,13 @@ function ComponentPreview() {
             <Select
               disabled
               defaultValue="disabled"
-              items={{ disabled: "선택할 수 없음" }}
+              items={{ disabled: "선택 불가" }}
             >
               <SelectTrigger aria-label="비활성 정렬">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="disabled">선택할 수 없음</SelectItem>
+                <SelectItem value="disabled">선택 불가</SelectItem>
               </SelectContent>
             </Select>
           </Surface>
@@ -216,7 +251,7 @@ function ComponentPreview() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="all">전체 항목이 없습니다.</TabsContent>
-              <TabsContent value="done">완료된 항목이 없습니다.</TabsContent>
+              <TabsContent value="done">완료 항목이 없습니다.</TabsContent>
             </Tabs>
           </Surface>
           <Surface className="grid gap-4">
