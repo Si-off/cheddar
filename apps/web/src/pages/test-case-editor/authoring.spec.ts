@@ -43,8 +43,22 @@ const frames = [0, 1].map((n) => ({
 function fixture(): TestScenarioSnapshotDto {
   const columns = fields.map((field, index) => ({
     id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-    kind: "system" as const,
-    field,
+    ...(field === "caseCode" || field === "title"
+      ? { kind: "system" as const, field }
+      : {
+          kind: "custom" as const,
+          valueType:
+            field === "priority" ? ("select" as const) : ("text" as const),
+          ...(field === "priority"
+            ? {
+                options: [
+                  { id: "00000000-0000-4000-8000-000000000001", name: "높음" },
+                  { id: "00000000-0000-4000-8000-000000000002", name: "보통" },
+                  { id: "00000000-0000-4000-8000-000000000003", name: "낮음" },
+                ],
+              }
+            : {}),
+        }),
     name: [
       "테스트 ID",
       "테스트 항목",
@@ -74,13 +88,13 @@ function fixture(): TestScenarioSnapshotDto {
         id: "40000000-0000-4000-8000-000000000001",
         caseCode: "TC-001",
         title: "쿠폰 적용",
-        preconditions: "",
-        steps: "쿠폰을 선택한다.",
-        expectedResult: "기존 예상 결과",
-        priority: null,
+
         relatedFrameIds: [frames[0].id],
         screenIds: [],
-        customValues: {},
+        customValues: {
+          "30000000-0000-4000-8000-000000000004": "쿠폰을 선택한다.",
+          "30000000-0000-4000-8000-000000000005": "기존 예상 결과",
+        },
       },
     ],
     references: { frames, iaItems: [] },
@@ -184,16 +198,22 @@ async function setup(page: Page) {
             reason: "",
             requirementIds: [requirementId],
             content: {
-              ...state.snapshot.cases[0],
+              ...structuredClone(state.snapshot.cases[0]),
               id: "50000000-0000-4000-8000-000000000001",
               caseCode: "",
-              expectedResult: "쿠폰 금액이 차감된다.",
+              customValues: {
+                ...state.snapshot.cases[0].customValues,
+                "30000000-0000-4000-8000-000000000005": "쿠폰 금액이 차감된다.",
+              },
             },
           },
         ],
       };
       const clear = job.results[0];
-      state.snapshot.cases.push({ ...clear.content, caseCode: "TC-002" });
+      state.snapshot.cases.push({
+        ...structuredClone(clear.content),
+        caseCode: "TC-002",
+      });
       state.snapshot.contentRevision++;
       state.analysis.links.push({
         requirementId,
@@ -207,7 +227,7 @@ async function setup(page: Page) {
         status: "pending",
         reason: "결제 실패 시 쿠폰 처리 정책을 확인한다.",
         content: {
-          ...clear.content,
+          ...structuredClone(clear.content),
           id: questionId,
           caseCode: "",
           title: "결제 실패 후 쿠폰 처리",
@@ -358,7 +378,11 @@ test("명확한 케이스는 자동 추가하고 확인 항목은 답변과 수�
   expect(state.starts[0].mode).toBe("append");
   expect(state.starts[0].frameIds).toEqual([frames[0].id]);
   expect(state.snapshot.cases).toHaveLength(2);
-  expect(state.snapshot.cases[0].expectedResult).toBe("기존 예상 결과");
+  expect(
+    state.snapshot.cases[0].customValues[
+      "30000000-0000-4000-8000-000000000005"
+    ],
+  ).toBe("기존 예상 결과");
   await confirmations(page);
   await page.getByText("근거 자료", { exact: true }).click();
   await expect(
@@ -391,9 +415,11 @@ test("명확한 케이스는 자동 추가하고 확인 항목은 답변과 수�
   await expect.poll(() => state.snapshot.cases.length).toBe(3);
   expect(state.reviews).toHaveLength(1);
   expect(state.reviews[0].action).toBe("add");
-  expect(state.snapshot.cases[2].expectedResult).toBe(
-    "쿠폰을 다시 사용할 수 있다.",
-  );
+  expect(
+    state.snapshot.cases[2].customValues[
+      "30000000-0000-4000-8000-000000000005"
+    ],
+  ).toBe("쿠폰을 다시 사용할 수 있다.");
   expect(state.analysis.items[1].answer).toBe("결제 실패 시 쿠폰을 복원한다.");
   expect(state.analysis.items[1].useAsRule).toBe(true);
   await expect(
@@ -450,7 +476,9 @@ test("확인 항목 초안은 닫기와 새로고침 후 복원하고 다른 수
     .getByRole("button", { name: "닫기", exact: true })
     .click();
   state.jobs[0].revision++;
-  state.jobs[0].results[1].content.expectedResult = "다른 곳 수정";
+  state.jobs[0].results[1].content.customValues[
+    "30000000-0000-4000-8000-000000000005"
+  ] = "다른 곳 수정";
   await page.reload();
   await confirmations(page);
   await expect(page.getByLabel("예상 결과", { exact: true })).toHaveValue(
@@ -471,7 +499,11 @@ test("확인 항목 초안은 닫기와 새로고침 후 복원하고 다른 수
     .getByRole("button", { name: "시나리오에 추가", exact: true })
     .click();
   await expect.poll(() => state.snapshot.cases.length).toBe(3);
-  expect(state.snapshot.cases[2].expectedResult).toBe("초안 예상 결과");
+  expect(
+    state.snapshot.cases[2].customValues[
+      "30000000-0000-4000-8000-000000000005"
+    ],
+  ).toBe("초안 예상 결과");
   expect(state.reviews[0].expectedRevision).toBe(state.jobs[0].revision - 1);
 });
 test("초안 보관 실패 시 항목을 전환해도 오류와 재시도를 유지하고 보관 후 닫는다", async ({
@@ -490,7 +522,7 @@ test("초안 보관 실패 시 항목을 전환해도 오류와 재시도를 유
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key.startsWith("cheddar-confirmation-drafts:"))
+      if (key.startsWith("cheddar-confirmation-drafts-v2:"))
         throw new DOMException("Full", "QuotaExceededError");
       return original.call(this, key, value);
     };

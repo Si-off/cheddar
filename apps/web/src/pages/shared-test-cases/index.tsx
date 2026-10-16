@@ -17,10 +17,7 @@ export function SharedTestScenarioView({
   const [detail, setDetail] = useState<string>();
   const columns = snapshot.view
     .map((v) => snapshot.columns.find((c) => c.id === v.columnId))
-    .filter(
-      (c): c is Column =>
-        !!c && c.field !== "relatedFrames" && !hidden.has(c.id),
-    );
+    .filter((c): c is Column => !!c && !hidden.has(c.id));
   const item = snapshot.cases.find((c) => c.id === detail);
   return (
     <section

@@ -8,6 +8,7 @@ export { clearDraft, listDrafts, type StoredDraft } from "./draft-storage";
 export {
   type CaseDraft,
   type Column,
+  type ColumnValue,
   content,
   displayValue,
   equal,
@@ -15,7 +16,6 @@ export {
   fromSnapshot,
   type IaReference,
   newCase,
-  priorityLabels,
   type Snapshot,
   setValue,
   validate,

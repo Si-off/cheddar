@@ -41,8 +41,22 @@ function fixture(): TestScenarioSnapshotDto {
   ];
   const columns = fields.map((field, index) => ({
     id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-    kind: "system" as const,
-    field,
+    ...(field === "caseCode" || field === "title"
+      ? { kind: "system" as const, field }
+      : {
+          kind: "custom" as const,
+          valueType:
+            field === "priority" ? ("select" as const) : ("text" as const),
+          ...(field === "priority"
+            ? {
+                options: [
+                  { id: "00000000-0000-4000-8000-000000000001", name: "높음" },
+                  { id: "00000000-0000-4000-8000-000000000002", name: "보통" },
+                  { id: "00000000-0000-4000-8000-000000000003", name: "낮음" },
+                ],
+              }
+            : {}),
+        }),
     name: names[index],
   }));
   return {
@@ -63,10 +77,7 @@ function fixture(): TestScenarioSnapshotDto {
         id: "40000000-0000-4000-8000-000000000001",
         caseCode: "TC-001",
         title: "기존 제목",
-        preconditions: "",
-        steps: "",
-        expectedResult: "",
-        priority: null,
+
         relatedFrameIds: [],
         screenIds: [],
         customValues: {},
@@ -159,6 +170,14 @@ async function mockApi(page: Page) {
       control.saved.contentRevision++;
       return json(control.generation, 201);
     }
+    if (path.endsWith("/canvas"))
+      return json({
+        flowRevision: 1,
+        layoutRevision: 1,
+        flow: { steps: [], edges: [] },
+        layout: { groupBy: null, positions: [], collapsed: [] },
+        previous: null,
+      });
     if (path.endsWith("/analysis"))
       return json({ revision: 0, items: [], links: [] });
     if (path.includes("/results/") && control.generation) {
@@ -419,7 +438,8 @@ test("long cell text remains readable and editing retains its expanded row", asy
   const control = await mockApi(page);
   const text =
     "여러 줄의 테스트 수행 내용을 읽고 편집할 수 있어야 합니다. ".repeat(12);
-  control.saved.cases[0].steps = text;
+  control.saved.cases[0].customValues["30000000-0000-4000-8000-000000000004"] =
+    text;
   await open(page);
   await expect(
     page.getByRole("button", { name: "테스트 케이스 추가", exact: true }),
@@ -442,7 +462,14 @@ test("long cell text remains readable and editing retains its expanded row", asy
   const expanded = `${text}\n새로운 수행 단계`;
   await editor.fill(expanded);
   await editor.press("Control+Enter");
-  await expect.poll(() => control.saved.cases[0].steps).toBe(expanded);
+  await expect
+    .poll(
+      () =>
+        control.saved.cases[0].customValues[
+          "30000000-0000-4000-8000-000000000004"
+        ],
+    )
+    .toBe(expanded);
   await expect(cell).toContainText("새로운 수행 단계");
   const heightHandle = page.getByRole("button", {
     name: "1행 높이 조절",
@@ -584,7 +611,9 @@ test("multi-cell paste, search, keyboard navigation and atomic rejection preserv
   await paste(page, "1행 제목", '"여러\n줄"\t준비\n두 번째\t다른 준비');
   await expect.poll(() => control.saved.cases.length).toBe(2);
   expect(control.saved.cases[0].title).toBe("여러\n줄");
-  expect(control.saved.cases[1].preconditions).toBe("다른 준비");
+  expect(
+    control.saved.cases[1].customValues["30000000-0000-4000-8000-000000000003"],
+  ).toBe("다른 준비");
   await search(page, "두 번째");
   await expect(
     page.getByRole("gridcell", { name: "1행 제목", exact: true }),
@@ -880,7 +909,7 @@ test("reload offers unsaved draft recovery without silently sending it", async (
   await page.waitForFunction(
     () =>
       new Promise<boolean>((resolve) => {
-        const open = indexedDB.open("cheddar-test-scenario-drafts", 1);
+        const open = indexedDB.open("cheddar-test-scenario-drafts-v2", 1);
         open.onsuccess = () => {
           const tx = open.result.transaction("drafts");
           const request = tx.objectStore("drafts").count();
@@ -1019,11 +1048,18 @@ test("detail fields share the grid draft, explicit reference selection uses UUID
   await panel.getByRole("checkbox", { name: /ORDER-1 주문/ }).click();
   await page.clock.runFor(600);
   await expect
-    .poll(() => control.saved.cases[0].steps)
+    .poll(
+      () =>
+        control.saved.cases[0].customValues[
+          "30000000-0000-4000-8000-000000000004"
+        ],
+    )
     .toBe("상세 패널의 긴 내용\n두 번째 단계");
   expect(control.saved.cases[0].relatedFrameIds).toEqual([frameId]);
   expect(control.saved.cases[0].screenIds).toEqual([iaId]);
-  expect(control.saved.cases[0].priority).toBe("high");
+  expect(
+    control.saved.cases[0].customValues["30000000-0000-4000-8000-000000000006"],
+  ).toBe("00000000-0000-4000-8000-000000000001");
   if (process.env.EDITOR_CAPTURE_PATH) {
     await panel.evaluate((element) => {
       element.scrollTop = 0;
@@ -1365,13 +1401,19 @@ test("표와 상세 보기 전환, 시나리오 미리보기와 모바일 스크
   const names: Record<string, string> = {
     caseCode: "테스트 ID",
     title: "테스트 항목",
-    preconditions: "사전 조건",
-    steps: "수행 절차",
-    expectedResult: "예상 결과",
+
     screens: "화면 ID",
   };
   control.saved.columns.forEach((column) => {
     if (column.field && names[column.field]) column.name = names[column.field];
+    const labels: Record<string, string> = {
+      "3": "사전 조건",
+      "4": "수행 절차",
+      "5": "예상 결과",
+      "8": "화면 ID",
+    };
+    const label = labels[String(Number(column.id.slice(-12)))];
+    if (label) column.name = label;
   });
   for (const [offset, name] of [
     [9, "기능 구분"],
@@ -1412,21 +1454,31 @@ test("표와 상세 보기 전환, 시나리오 미리보기와 모바일 스크
       "배송지 입력",
       "결제 수단 선택",
     ][i % 4],
-    preconditions: "구매 가능한 상품이 있다.",
-    steps: "1. 상품을 선택한다.\n2. 주문 화면으로 이동한다.",
-    expectedResult: "선택한 상품으로 주문을 진행할 수 있다.",
+
     customValues: Object.fromEntries(
       control.saved.columns
         .filter((c) => c.kind === "custom")
         .map((c) => [
           c.id,
-          c.name === "기능 구분" ? "주문·결제" : "상품 1개, 수량 2",
+          c.valueType === "select"
+            ? null
+            : c.name === "기능 구분"
+              ? "주문·결제"
+              : c.name === "사전 조건"
+                ? "구매 가능한 상품이 있다."
+                : c.name === "수행 절차"
+                  ? "1. 상품을 선택한다.\n2. 주문 화면으로 이동한다."
+                  : c.name === "예상 결과"
+                    ? "선택한 상품으로 주문을 진행할 수 있다."
+                    : "상품 1개, 수량 2",
         ]),
     ),
   }));
   await open(page);
   await expect(page.getByRole("grid").getByRole("row")).toHaveCount(13);
-  await expect(page.getByRole("grid").getByRole("columnheader")).toHaveCount(9);
+  await expect(page.getByRole("grid").getByRole("columnheader")).toHaveCount(
+    11,
+  );
   await page.screenshot({
     path: testInfo.outputPath("redesign-table.png"),
     fullPage: true,
@@ -1625,4 +1677,51 @@ test("mobile inspector supports reduced motion, traps focus and returns to its t
       () => document.documentElement.scrollWidth <= innerWidth + 1,
     ),
   ).toBe(true);
+});
+
+test("미체크 값도 형식 변경 전에 명시적으로 비우고 삭제 개수에 포함한다", async ({
+  page,
+}) => {
+  const control = await mockApi(page);
+  const id = "30000000-0000-4000-8000-000000000003";
+  const column = control.saved.columns.find((column) => column.id === id);
+  if (!column) throw new Error("검증할 열이 없습니다.");
+  column.name = "검토 완료";
+  column.valueType = "checkbox";
+  control.saved.cases[0].customValues[id] = false;
+  await open(page);
+  await columns(page);
+  await page
+    .getByRole("button", { name: "검토 완료 설정", exact: true })
+    .click();
+  await expect(page.getByLabel("형식", { exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "열 삭제", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "사용자 열 삭제", exact: true }),
+  ).toContainText("테스트 케이스 1개의 값");
+  await page.getByRole("button", { name: "취소", exact: true }).click();
+  await columns(page);
+  await page
+    .getByRole("button", { name: "검토 완료 설정", exact: true })
+    .click();
+  await page.getByRole("button", { name: "값 비우기", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "열 값 비우기", exact: true }),
+  ).toContainText("테스트 케이스 1개 값");
+  await page.getByRole("button", { name: "확인", exact: true }).click();
+  await expect
+    .poll(() => Object.hasOwn(control.saved.cases[0].customValues, id))
+    .toBe(false);
+  await columns(page);
+  await page
+    .getByRole("button", { name: "검토 완료 설정", exact: true })
+    .click();
+  await expect(page.getByLabel("형식", { exact: true })).toBeEnabled();
+  await page.getByLabel("형식", { exact: true }).click();
+  await page.getByRole("option", { name: "텍스트", exact: true }).click();
+  await expect
+    .poll(
+      () => control.saved.columns.find((column) => column.id === id)?.valueType,
+    )
+    .toBe("text");
 });

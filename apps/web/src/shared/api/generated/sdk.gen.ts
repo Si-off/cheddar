@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddGeneratedCasesData, AddGeneratedCasesErrors, AddGeneratedCasesResponses, CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateTestScenarioData, CreateTestScenarioErrors, CreateTestScenarioResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportTestScenarioXlsxData, ExportTestScenarioXlsxErrors, ExportTestScenarioXlsxResponses, ExtractAnalysisData, ExtractAnalysisErrors, ExtractAnalysisResponses, GetAnalysisData, GetAnalysisErrors, GetAnalysisResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetTestScenarioData, GetTestScenarioErrors, GetTestScenarioResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListTestScenariosData, ListTestScenariosErrors, ListTestScenariosResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReviewGenerationResultData, ReviewGenerationResultErrors, ReviewGenerationResultResponses, SaveAnalysisData, SaveAnalysisErrors, SaveAnalysisResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateTestScenarioContentData, UpdateTestScenarioContentErrors, UpdateTestScenarioContentResponses, UpdateTestScenarioViewData, UpdateTestScenarioViewErrors, UpdateTestScenarioViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
+import type { AddGeneratedCasesData, AddGeneratedCasesErrors, AddGeneratedCasesResponses, CreateIaItemData, CreateIaItemErrors, CreateIaItemResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateTestScenarioData, CreateTestScenarioErrors, CreateTestScenarioResponses, CreateUploadData, CreateUploadErrors, CreateUploadResponses, DeleteIaItemData, DeleteIaItemErrors, DeleteIaItemResponses, DownloadFileData, DownloadFileErrors, DownloadFileResponses, ExportTestScenarioXlsxData, ExportTestScenarioXlsxErrors, ExportTestScenarioXlsxResponses, ExtractAnalysisData, ExtractAnalysisErrors, ExtractAnalysisResponses, GetAnalysisData, GetAnalysisErrors, GetAnalysisResponses, GetFileData, GetFileErrors, GetFileResponses, GetLivenessData, GetLivenessResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetScenarioCanvasData, GetScenarioCanvasErrors, GetScenarioCanvasResponses, GetTestScenarioData, GetTestScenarioErrors, GetTestScenarioResponses, GetUploadData, GetUploadErrors, GetUploadResponses, ListFilesData, ListFilesErrors, ListFilesResponses, ListGenerationProvidersData, ListGenerationProvidersResponses, ListGenerationsData, ListGenerationsErrors, ListGenerationsResponses, ListIaItemsData, ListIaItemsErrors, ListIaItemsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListScenarioFlowGenerationsData, ListScenarioFlowGenerationsErrors, ListScenarioFlowGenerationsResponses, ListTestScenariosData, ListTestScenariosErrors, ListTestScenariosResponses, ListUploadsData, ListUploadsErrors, ListUploadsResponses, ReplaceScenarioFlowData, ReplaceScenarioFlowErrors, ReplaceScenarioFlowResponses, RestoreScenarioFlowData, RestoreScenarioFlowErrors, RestoreScenarioFlowResponses, ReviewGenerationResultData, ReviewGenerationResultErrors, ReviewGenerationResultResponses, SaveAnalysisData, SaveAnalysisErrors, SaveAnalysisResponses, SaveScenarioCanvasLayoutData, SaveScenarioCanvasLayoutErrors, SaveScenarioCanvasLayoutResponses, SaveScenarioFlowData, SaveScenarioFlowErrors, SaveScenarioFlowResponses, StartGenerationData, StartGenerationErrors, StartGenerationResponses, StartScenarioFlowGenerationData, StartScenarioFlowGenerationErrors, StartScenarioFlowGenerationResponses, UpdateIaItemData, UpdateIaItemErrors, UpdateIaItemResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateTestScenarioContentData, UpdateTestScenarioContentErrors, UpdateTestScenarioContentResponses, UpdateTestScenarioViewData, UpdateTestScenarioViewErrors, UpdateTestScenarioViewResponses, UploadFileData, UploadFileErrors, UploadFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -150,6 +150,55 @@ export const updateTestScenarioContent = <ThrowOnError extends boolean = false>(
 
 export const updateTestScenarioView = <ThrowOnError extends boolean = false>(options: Options<UpdateTestScenarioViewData, ThrowOnError>): RequestResult<UpdateTestScenarioViewResponses, UpdateTestScenarioViewErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestScenarioViewResponses, UpdateTestScenarioViewErrors, ThrowOnError>({
     url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/view',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getScenarioCanvas = <ThrowOnError extends boolean = false>(options: Options<GetScenarioCanvasData, ThrowOnError>): RequestResult<GetScenarioCanvasResponses, GetScenarioCanvasErrors, ThrowOnError> => (options.client ?? client).get<GetScenarioCanvasResponses, GetScenarioCanvasErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/canvas', ...options });
+
+export const saveScenarioFlow = <ThrowOnError extends boolean = false>(options: Options<SaveScenarioFlowData, ThrowOnError>): RequestResult<SaveScenarioFlowResponses, SaveScenarioFlowErrors, ThrowOnError> => (options.client ?? client).put<SaveScenarioFlowResponses, SaveScenarioFlowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const saveScenarioCanvasLayout = <ThrowOnError extends boolean = false>(options: Options<SaveScenarioCanvasLayoutData, ThrowOnError>): RequestResult<SaveScenarioCanvasLayoutResponses, SaveScenarioCanvasLayoutErrors, ThrowOnError> => (options.client ?? client).put<SaveScenarioCanvasLayoutResponses, SaveScenarioCanvasLayoutErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/canvas-layout',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const replaceScenarioFlow = <ThrowOnError extends boolean = false>(options: Options<ReplaceScenarioFlowData, ThrowOnError>): RequestResult<ReplaceScenarioFlowResponses, ReplaceScenarioFlowErrors, ThrowOnError> => (options.client ?? client).post<ReplaceScenarioFlowResponses, ReplaceScenarioFlowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow/replace',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const restoreScenarioFlow = <ThrowOnError extends boolean = false>(options: Options<RestoreScenarioFlowData, ThrowOnError>): RequestResult<RestoreScenarioFlowResponses, RestoreScenarioFlowErrors, ThrowOnError> => (options.client ?? client).post<RestoreScenarioFlowResponses, RestoreScenarioFlowErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow/restore',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listScenarioFlowGenerations = <ThrowOnError extends boolean = false>(options: Options<ListScenarioFlowGenerationsData, ThrowOnError>): RequestResult<ListScenarioFlowGenerationsResponses, ListScenarioFlowGenerationsErrors, ThrowOnError> => (options.client ?? client).get<ListScenarioFlowGenerationsResponses, ListScenarioFlowGenerationsErrors, ThrowOnError>({ url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow-generations', ...options });
+
+export const startScenarioFlowGeneration = <ThrowOnError extends boolean = false>(options: Options<StartScenarioFlowGenerationData, ThrowOnError>): RequestResult<StartScenarioFlowGenerationResponses, StartScenarioFlowGenerationErrors, ThrowOnError> => (options.client ?? client).post<StartScenarioFlowGenerationResponses, StartScenarioFlowGenerationErrors, ThrowOnError>({
+    url: '/api/v1/projects/{projectId}/test-scenarios/{testScenarioId}/flow-generations',
     ...options,
     headers: {
         'Content-Type': 'application/json',

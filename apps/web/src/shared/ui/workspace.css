@@ -1035,3 +1035,171 @@
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+/* Project template composition: independent panels, readable column metadata. */
+.workspace-template-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.workspace-template-form > * {
+  margin-block: 0;
+}
+.workspace-template-form > .workspace-settings-actions {
+  order: -1;
+}
+.workspace-template-editor {
+  display: grid;
+  gap: var(--spacing-6);
+}
+.template-section {
+  min-width: 0;
+  padding: var(--spacing-6);
+  background: var(--color-surface);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+.template-section-heading {
+  margin-bottom: var(--spacing-5);
+}
+.template-section-heading h2 {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--font-weight-heading);
+  line-height: var(--text-heading--line-height);
+}
+.template-section-heading p {
+  margin: var(--spacing-2) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-label);
+}
+.template-columns {
+  gap: var(--spacing-2);
+  max-height: none;
+  overflow: visible;
+}
+.template-columns .workspace-column {
+  padding: 0;
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.template-columns .workspace-column[data-editing] {
+  background: var(--color-primary-subtle);
+  border-color: var(--color-brand-200);
+}
+.template-columns .workspace-column-trigger {
+  min-height: var(--size-row-min);
+  gap: var(--spacing-4);
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--text-label);
+  text-align: left;
+}
+.template-columns .template-column-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.template-column-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-6);
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: var(--text-body);
+}
+.template-column-type {
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-body);
+  white-space: nowrap;
+}
+.template-columns .template-column-add {
+  min-height: var(--size-row-min);
+  justify-content: flex-start;
+  padding-inline: var(--spacing-4);
+  margin-top: var(--spacing-2);
+  border: var(--border-width-default) dashed var(--color-brand-200);
+  color: var(--color-primary);
+}
+.template-column-popover {
+  width: min(var(--size-inspector), calc(100vw - var(--spacing-8)));
+  max-height: calc(100dvh - var(--spacing-8));
+  padding: var(--spacing-5);
+}
+.template-column-popover > .workspace-form-stack {
+  padding: 0;
+  gap: var(--spacing-2);
+}
+.template-column-popover .cd-label:not(:first-child) {
+  margin-top: var(--spacing-2);
+}
+.template-column-popover textarea {
+  min-height: calc(var(--spacing-10) * 2);
+}
+.template-column-popover .template-column-options {
+  margin: var(--spacing-2) 0;
+  padding: 0;
+  border: 0;
+  gap: var(--spacing-2);
+}
+.template-column-options legend {
+  padding: 0;
+  font-weight: var(--font-weight-label);
+  margin-bottom: var(--spacing-2);
+}
+.template-column-popover .template-column-delete {
+  justify-content: flex-start;
+  color: var(--color-danger);
+  margin-top: var(--spacing-4);
+  border-top: var(--border-width-default) solid var(--color-border);
+  border-radius: 0;
+  padding-top: var(--spacing-4);
+}
+.template-preview-section .workspace-template-preview {
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-control);
+  min-height: calc(var(--size-row-min) * 3);
+}
+.template-preview-section .test-scenario-table {
+  min-width: 100%;
+}
+.template-preview-section .template-preview-empty {
+  height: calc(var(--size-row-min) * 2);
+  text-align: center;
+  color: var(--color-muted);
+  font-weight: var(--font-weight-body);
+}
+@media (max-width: 640px) {
+  .workspace-template-form {
+    padding: 0;
+  }
+  .template-section {
+    padding: var(--spacing-4);
+  }
+  .template-columns .workspace-column-trigger {
+    gap: var(--spacing-2);
+    padding-inline: var(--spacing-3);
+  }
+  .template-column-type {
+    max-width: 5em;
+  }
+}
+
+.workspace-settings-layout:has(.workspace-template-form) {
+  position: relative;
+}
+.workspace-template-form > .workspace-settings-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+@media (max-width: 760px) {
+  .workspace-template-form > .workspace-settings-actions {
+    position: static;
+  }
+}

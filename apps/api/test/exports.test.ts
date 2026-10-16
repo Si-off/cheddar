@@ -39,10 +39,7 @@ test("XLSX exports saved order and literal multiline text without formulas or UU
     id: randomUUID(),
     caseCode: "TC-001",
     title: "",
-    preconditions: "",
-    steps: "",
-    expectedResult: "",
-    priority: null,
+
     relatedFrameIds: [],
     screenIds: [],
     customValues: { [field]: text },
@@ -70,10 +67,7 @@ test("XLSX rejects unrepresentable text instead of truncating, including headers
     id: randomUUID(),
     caseCode: "",
     title: "",
-    preconditions: "",
-    steps: "",
-    expectedResult: "",
-    priority: null,
+
     relatedFrameIds: [],
     screenIds: [],
     customValues: {},

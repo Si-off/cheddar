@@ -261,9 +261,6 @@ test("IA HTTP preserves identity, hierarchy and references under concurrent chan
           position: 0,
           caseCode: "",
           title: "",
-          preconditions: "",
-          steps: "",
-          expectedResult: "",
         });
         await lease.database.db
           .insert(testCaseIaLinks)
@@ -331,9 +328,6 @@ test("IA HTTP preserves identity, hierarchy and references under concurrent chan
           position: 0,
           caseCode: "",
           title: "",
-          preconditions: "",
-          steps: "",
-          expectedResult: "",
         });
         let ready!: () => void, release!: () => void;
         const locked = new Promise<void>((resolve) => {

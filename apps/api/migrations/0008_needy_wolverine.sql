@@ -1,0 +1,1 @@
+ALTER TABLE "scenario_flow_jobs" ADD COLUMN "source_hash" text DEFAULT '' NOT NULL;

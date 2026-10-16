@@ -196,7 +196,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
   await page.getByRole("button", { name: "새 열 설정", exact: true }).click();
   await page.getByLabel("열 이름", { exact: true }).fill("품질 메모");
   await page.getByLabel("순서", { exact: true }).click();
-  await page.getByRole("option", { name: "10번째", exact: true }).click();
+  await page.getByRole("option", { name: "2번째", exact: true }).click();
   await page.keyboard.press("Escape");
   for (let i = 0; i < 8; i++)
     await page
@@ -212,7 +212,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
     (column: { name: string }) => column.name === "품질 메모",
   );
   expect(custom.valueType).toBe("text");
-  expect(stored.view[9]).toEqual({ columnId: custom.id, width: 260 });
+  expect(stored.view[1]).toEqual({ columnId: custom.id, width: 260 });
   const existing = await (
     await request.get(
       `${apiBase}/api/v1/projects/${projectId}/test-scenarios/${before.id}`,
@@ -249,7 +249,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
     page
       .getByRole("table", { name: "양식 미리보기" })
       .getByRole("columnheader")
-      .nth(9),
+      .nth(1),
   ).toContainText("품질 메모");
   await page.screenshot({
     path: testInfo.outputPath("settings-template.png"),
@@ -267,7 +267,7 @@ test("기본 양식의 이름·너비·순서·텍스트 열은 저장 후 유�
     page
       .getByRole("table", { name: "양식 미리보기" })
       .getByRole("columnheader"),
-  ).toHaveCount(10);
+  ).toHaveCount(2);
 });
 
 test("동시 수정 충돌에서 초안과 최신 저장 내용을 각각 확인한다", async ({
@@ -577,4 +577,109 @@ test("기본 양식 경계선에서 조절한 너비는 저장 후 새 시나리
   );
   expect(created.status()).toBe(201);
   expect((await created.json()).view[0].width).toBe(stored.view[0].width);
+});
+
+test("사용자 양식의 네 형식과 선택 항목을 저장하고 새 시나리오에 복사한다", async ({
+  page,
+  request,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const projectId = new URL(page.url()).pathname.split("/")[2];
+  await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
+  for (const [name, type] of [
+    ["설명", "텍스트"],
+    ["결과", "선택"],
+    ["확인", "체크박스"],
+    ["분류", "태그"],
+  ]) {
+    await page.getByRole("button", { name: "열 추가", exact: true }).click();
+    await page.getByRole("button", { name: "새 열 설정", exact: true }).click();
+    await page.getByLabel("열 이름", { exact: true }).fill(name);
+    await page.getByLabel("형식", { exact: true }).click();
+    await page.getByRole("option", { name: type, exact: true }).click();
+    await page
+      .getByLabel("작성 기준", { exact: true })
+      .fill(`${name} 작성 기준`);
+    if (type === "선택" || type === "태그") {
+      await page
+        .getByRole("button", { name: "항목 추가", exact: true })
+        .click();
+      await page.getByLabel("항목 1 이름", { exact: true }).fill("성공");
+      await page
+        .getByRole("button", { name: "항목 추가", exact: true })
+        .click();
+      await page.getByLabel("항목 1 이름", { exact: true }).fill("실패");
+    }
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("열 이름", { exact: true })).toHaveCount(0);
+  }
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("저장됨");
+  await page.reload();
+  await page.getByRole("tab", { name: "기본 양식", exact: true }).click();
+  await page.screenshot({
+    path: testInfo.outputPath("configurable-template-overview.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "결과 설정", exact: true }).click();
+  await expect(page.getByLabel("성공 이름", { exact: true })).toHaveValue(
+    "성공",
+  );
+  await expect(page.getByLabel("실패 이름", { exact: true })).toHaveValue(
+    "실패",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("configurable-template.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  const stored = await (
+    await request.get(`${apiBase}/api/v1/projects/${projectId}/template`)
+  ).json();
+  expect(
+    stored.columns
+      .filter((column: { kind: string }) => column.kind === "system")
+      .map((column: { field: string }) => column.field),
+  ).toEqual(["caseCode", "title"]);
+  expect(
+    stored.columns
+      .filter((column: { kind: string }) => column.kind === "custom")
+      .map((column: { valueType: string }) => column.valueType),
+  ).toEqual(["text", "select", "checkbox", "tags"]);
+  const response = await request.post(
+    `${apiBase}/api/v1/projects/${projectId}/test-scenarios`,
+    { data: { name: "사용자 양식", kind: "unit" } },
+  );
+  expect(response.status()).toBe(201);
+  const snapshot = await response.json();
+  expect(
+    snapshot.columns.map(({ id: _id, ...column }: { id: string }) => column),
+  ).toEqual(
+    expect.arrayContaining(
+      stored.columns.map(({ id: _id, ...column }: { id: string }) => column),
+    ),
+  );
+  expect(snapshot.columns).toHaveLength(stored.columns.length);
+  const namesInView = (data: {
+    view: { columnId: string }[];
+    columns: { id: string; name: string }[];
+  }) =>
+    data.view.map(
+      (entry) =>
+        data.columns.find((column) => column.id === entry.columnId)?.name,
+    );
+  expect(namesInView(snapshot)).toEqual(namesInView(stored));
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("열 이름", { exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "분류 설정", exact: true }).click();
+  await page
+    .getByRole("button", { name: "열 삭제", exact: true })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath("configurable-template-mobile.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
 });

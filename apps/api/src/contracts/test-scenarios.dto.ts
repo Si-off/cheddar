@@ -21,16 +21,17 @@ import {
 
 import { PageQueryDto } from "./common.dto";
 
-export const SYSTEM_FIELDS = [
-  "caseCode",
-  "title",
-  "preconditions",
-  "steps",
-  "expectedResult",
-  "priority",
-  "relatedFrames",
-  "screens",
-] as const;
+export const SYSTEM_FIELDS = ["caseCode", "title"] as const;
+export const VALUE_TYPES = ["text", "select", "checkbox", "tags"] as const;
+export type ColumnValue = string | boolean | string[] | null;
+export class ColumnOptionDto {
+  @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
+  @ApiProperty({ minLength: 1, maxLength: 100 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name!: string;
+}
 export class TestScenarioColumnDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
   @ApiProperty({ enum: ["system", "custom"] })
@@ -46,10 +47,44 @@ export class TestScenarioColumnDto {
   @ValidateIf((_o, v) => v !== undefined)
   @IsIn(SYSTEM_FIELDS)
   field?: (typeof SYSTEM_FIELDS)[number];
-  @ApiPropertyOptional({ enum: ["text"] })
+  @ApiPropertyOptional({ enum: VALUE_TYPES })
   @ValidateIf((_o, v) => v !== undefined)
-  @IsIn(["text"])
-  valueType?: "text";
+  @IsIn(VALUE_TYPES)
+  valueType?: (typeof VALUE_TYPES)[number];
+  @ApiPropertyOptional({ maxLength: 2000 })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+  @ApiPropertyOptional({ type: [ColumnOptionDto] })
+  @ValidateIf((_o, v) => v !== undefined)
+  @IsArray()
+  @ArrayUnique((option: ColumnOptionDto) => option?.id)
+  @Type(() => ColumnOptionDto)
+  @ValidateNested({ each: true })
+  options?: ColumnOptionDto[];
+}
+export function validColumnValue(
+  column: TestScenarioColumnDto,
+  value: unknown,
+): boolean {
+  const ids = new Set(column.options?.map((option) => option.id));
+  switch (column.valueType) {
+    case "text":
+      return typeof value === "string";
+    case "checkbox":
+      return typeof value === "boolean";
+    case "select":
+      return value === null || (typeof value === "string" && ids.has(value));
+    case "tags":
+      return (
+        Array.isArray(value) &&
+        new Set(value).size === value.length &&
+        value.every((id) => typeof id === "string" && ids.has(id))
+      );
+    default:
+      return false;
+  }
 }
 export class CaseContentDto {
   @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
@@ -58,17 +93,6 @@ export class CaseContentDto {
   @MaxLength(100)
   caseCode!: string;
   @ApiProperty() @IsString() title!: string;
-  @ApiProperty() @IsString() preconditions!: string;
-  @ApiProperty() @IsString() steps!: string;
-  @ApiProperty() @IsString() expectedResult!: string;
-  @ApiProperty({
-    type: String,
-    enum: ["high", "medium", "low", null],
-    nullable: true,
-  })
-  @ValidateIf((_o, v) => v !== null)
-  @IsIn(["high", "medium", "low"])
-  priority!: "high" | "medium" | "low" | null;
   @ApiProperty({ type: "array", items: { type: "string", format: "uuid" } })
   @IsArray()
   @ArrayUnique()
@@ -81,11 +105,17 @@ export class CaseContentDto {
   screenIds!: string[];
   @ApiProperty({
     type: "object",
-    additionalProperties: { type: "string" },
+    additionalProperties: {
+      oneOf: [
+        { type: "string", nullable: true },
+        { type: "boolean" },
+        { type: "array", items: { type: "string" } },
+      ],
+    },
     description: "Keys are custom column UUIDs, not labels or positions.",
   })
   @IsObject()
-  customValues!: Record<string, string>;
+  customValues!: Record<string, ColumnValue>;
 }
 
 export function validColumns(
@@ -106,10 +136,25 @@ export function validColumns(
       (c) =>
         c &&
         (c.kind === "system"
-          ? c.valueType === undefined
+          ? c.valueType === undefined && c.options === undefined
           : c.kind === "custom" &&
             c.field === undefined &&
-            c.valueType === "text"),
+            VALUE_TYPES.includes(c.valueType) &&
+            (["select", "tags"].includes(c.valueType)
+              ? Array.isArray(c.options) &&
+                c.options.every(
+                  (o: ColumnOptionDto) =>
+                    o &&
+                    typeof o.id === "string" &&
+                    typeof o.name === "string" &&
+                    !!o.name.trim(),
+                ) &&
+                new Set(c.options.map((o: ColumnOptionDto) => o.id)).size ===
+                  c.options.length &&
+                new Set(c.options.map((o: ColumnOptionDto) => o.name.trim()))
+                  .size === c.options.length &&
+                c.options.every((o: ColumnOptionDto) => !!o.name.trim())
+              : c.options === undefined)),
     )
   );
 }
@@ -131,7 +176,14 @@ export class TestScenarioContentRules implements ValidatorConstraintInterface {
           c?.customValues &&
           typeof c.customValues === "object" &&
           Object.entries(c.customValues).every(
-            ([key, value]) => columnIds.has(key) && typeof value === "string",
+            ([key, value]) =>
+              columnIds.has(key) &&
+              validColumnValue(
+                content.columns.find(
+                  (column) => column.id === key,
+                ) as TestScenarioColumnDto,
+                value,
+              ),
           ),
       )
     );
@@ -147,7 +199,8 @@ export class TestScenarioContentDto {
   expectedRevision!: number;
   @ApiProperty({
     type: [TestScenarioColumnDto],
-    description: "All system fields once; custom columns have valueType text.",
+    description:
+      "ID and title once; other columns use text, select, checkbox or tags.",
   })
   @IsArray()
   @ArrayUnique((c: TestScenarioColumnDto) => c?.id)

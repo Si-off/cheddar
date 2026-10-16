@@ -29,22 +29,11 @@ test("shared testScenario and IA storage preserves project boundaries and templa
         assert.equal(original.revision, 1);
         assert.deepEqual(
           original.columns.map((c: { name: string }) => c.name),
-          [
-            "테스트 ID",
-            "기능 구분",
-            "테스트 항목",
-            "화면 ID",
-            "사전 조건",
-            "테스트 데이터",
-            "수행 절차",
-            "예상 결과",
-            "우선순위",
-            "관련 화면",
-          ],
+          ["테스트 ID", "테스트 항목"],
         );
         assert.equal(
           new Set(original.columns.map((c: { id: string }) => c.id)).size,
-          10,
+          2,
         );
         assert.deepEqual(
           original.view.map((v: { columnId: string }) => v.columnId),
@@ -168,7 +157,7 @@ test("shared testScenario and IA storage preserves project boundaries and templa
           const a = randomUUID(),
             b = randomUUID();
           const caseSql =
-            "INSERT INTO test_cases(id,project_id,test_scenario_id,position,case_code,title,preconditions,steps,expected_result) VALUES ($1,$2,$3,$4,$5,'','','','')";
+            "INSERT INTO test_cases(id,project_id,test_scenario_id,position,case_code,title) VALUES ($1,$2,$3,$4,$5,'')";
           await lock.query(caseSql, [a, p, s, 0, "TC-001"]);
           await lock.query(caseSql, [b, p, s, 1, "TC-002"]);
           await failures(
@@ -200,7 +189,7 @@ test("shared testScenario and IA storage preserves project boundaries and templa
             [b, a],
           );
           const valueSql =
-            "INSERT INTO test_case_values(test_scenario_id,case_id,column_id,value) VALUES ($1,$2,$3,'메모')";
+            "INSERT INTO test_case_values(test_scenario_id,case_id,column_id,value) VALUES ($1,$2,$3,to_jsonb('메모'::text))";
           await lock.query(valueSql, [s, a, custom]);
           for (const column of [system, foreignColumn, otherColumn])
             await failures(valueSql, [s, b, column], "23503");

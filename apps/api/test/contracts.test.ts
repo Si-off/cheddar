@@ -39,10 +39,7 @@ const caseValue = {
   id: randomUUID(),
   caseCode: "TC-001",
   title: "",
-  preconditions: "",
-  steps: "",
-  expectedResult: "",
-  priority: null,
+
   relatedFrameIds: [],
   screenIds: [],
   customValues: { [custom.id]: "검토 예정" },

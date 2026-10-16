@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addGeneratedCases, createIaItem, createProject, createTestScenario, createUpload, deleteIaItem, downloadFile, exportTestScenarioXlsx, extractAnalysis, getAnalysis, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getTestScenario, getUpload, listFiles, listGenerationProviders, listGenerations, listIaItems, listProjects, listTestScenarios, listUploads, type Options, reviewGenerationResult, saveAnalysis, startGeneration, updateIaItem, updateProject, updateProjectTemplate, updateTestScenarioContent, updateTestScenarioView, uploadFile } from '../sdk.gen';
-import type { AddGeneratedCasesData, AddGeneratedCasesError, AddGeneratedCasesResponse, CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateTestScenarioData, CreateTestScenarioError, CreateTestScenarioResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportTestScenarioXlsxData, ExportTestScenarioXlsxError, ExportTestScenarioXlsxResponse, ExtractAnalysisData, ExtractAnalysisError, ExtractAnalysisResponse, GetAnalysisData, GetAnalysisError, GetAnalysisResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetTestScenarioData, GetTestScenarioError, GetTestScenarioResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListGenerationProvidersData, ListGenerationProvidersResponse, ListGenerationsData, ListGenerationsError, ListGenerationsResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListTestScenariosData, ListTestScenariosError, ListTestScenariosResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, ReviewGenerationResultData, ReviewGenerationResultError, ReviewGenerationResultResponse, SaveAnalysisData, SaveAnalysisError, SaveAnalysisResponse, StartGenerationData, StartGenerationError, StartGenerationResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateTestScenarioContentData, UpdateTestScenarioContentError, UpdateTestScenarioContentResponse, UpdateTestScenarioViewData, UpdateTestScenarioViewError, UpdateTestScenarioViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
+import { addGeneratedCases, createIaItem, createProject, createTestScenario, createUpload, deleteIaItem, downloadFile, exportTestScenarioXlsx, extractAnalysis, getAnalysis, getFile, getLiveness, getProject, getProjectTemplate, getReadiness, getScenarioCanvas, getTestScenario, getUpload, listFiles, listGenerationProviders, listGenerations, listIaItems, listProjects, listScenarioFlowGenerations, listTestScenarios, listUploads, type Options, replaceScenarioFlow, restoreScenarioFlow, reviewGenerationResult, saveAnalysis, saveScenarioCanvasLayout, saveScenarioFlow, startGeneration, startScenarioFlowGeneration, updateIaItem, updateProject, updateProjectTemplate, updateTestScenarioContent, updateTestScenarioView, uploadFile } from '../sdk.gen';
+import type { AddGeneratedCasesData, AddGeneratedCasesError, AddGeneratedCasesResponse, CreateIaItemData, CreateIaItemError, CreateIaItemResponse, CreateProjectData, CreateProjectError, CreateProjectResponse, CreateTestScenarioData, CreateTestScenarioError, CreateTestScenarioResponse, CreateUploadData, CreateUploadError, CreateUploadResponse, DeleteIaItemData, DeleteIaItemError, DeleteIaItemResponse, DownloadFileData, DownloadFileError, DownloadFileResponse, ExportTestScenarioXlsxData, ExportTestScenarioXlsxError, ExportTestScenarioXlsxResponse, ExtractAnalysisData, ExtractAnalysisError, ExtractAnalysisResponse, GetAnalysisData, GetAnalysisError, GetAnalysisResponse, GetFileData, GetFileError, GetFileResponse, GetLivenessData, GetLivenessResponse, GetProjectData, GetProjectError, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetScenarioCanvasData, GetScenarioCanvasError, GetScenarioCanvasResponse, GetTestScenarioData, GetTestScenarioError, GetTestScenarioResponse, GetUploadData, GetUploadError, GetUploadResponse, ListFilesData, ListFilesError, ListFilesResponse, ListGenerationProvidersData, ListGenerationProvidersResponse, ListGenerationsData, ListGenerationsError, ListGenerationsResponse, ListIaItemsData, ListIaItemsError, ListIaItemsResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListScenarioFlowGenerationsData, ListScenarioFlowGenerationsError, ListScenarioFlowGenerationsResponse, ListTestScenariosData, ListTestScenariosError, ListTestScenariosResponse, ListUploadsData, ListUploadsError, ListUploadsResponse, ReplaceScenarioFlowData, ReplaceScenarioFlowError, ReplaceScenarioFlowResponse, RestoreScenarioFlowData, RestoreScenarioFlowError, RestoreScenarioFlowResponse, ReviewGenerationResultData, ReviewGenerationResultError, ReviewGenerationResultResponse, SaveAnalysisData, SaveAnalysisError, SaveAnalysisResponse, SaveScenarioCanvasLayoutData, SaveScenarioCanvasLayoutError, SaveScenarioCanvasLayoutResponse, SaveScenarioFlowData, SaveScenarioFlowError, SaveScenarioFlowResponse, StartGenerationData, StartGenerationError, StartGenerationResponse, StartScenarioFlowGenerationData, StartScenarioFlowGenerationError, StartScenarioFlowGenerationResponse, UpdateIaItemData, UpdateIaItemError, UpdateIaItemResponse, UpdateProjectData, UpdateProjectError, UpdateProjectResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateTestScenarioContentData, UpdateTestScenarioContentError, UpdateTestScenarioContentResponse, UpdateTestScenarioViewData, UpdateTestScenarioViewError, UpdateTestScenarioViewResponse, UploadFileData, UploadFileError, UploadFileResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -558,6 +558,106 @@ export const updateTestScenarioViewMutation = (options?: Partial<Options<UpdateT
     const mutationOptions: UseMutationOptions<UpdateTestScenarioViewResponse, UpdateTestScenarioViewError, Options<UpdateTestScenarioViewData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateTestScenarioView({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getScenarioCanvasQueryKey = (options: Options<GetScenarioCanvasData>) => createQueryKey('getScenarioCanvas', options);
+
+export const getScenarioCanvasOptions = (options: Options<GetScenarioCanvasData>) => queryOptions<GetScenarioCanvasResponse, GetScenarioCanvasError, GetScenarioCanvasResponse, ReturnType<typeof getScenarioCanvasQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getScenarioCanvas({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getScenarioCanvasQueryKey(options)
+});
+
+export const saveScenarioFlowMutation = (options?: Partial<Options<SaveScenarioFlowData>>): UseMutationOptions<SaveScenarioFlowResponse, SaveScenarioFlowError, Options<SaveScenarioFlowData>> => {
+    const mutationOptions: UseMutationOptions<SaveScenarioFlowResponse, SaveScenarioFlowError, Options<SaveScenarioFlowData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveScenarioFlow({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const saveScenarioCanvasLayoutMutation = (options?: Partial<Options<SaveScenarioCanvasLayoutData>>): UseMutationOptions<SaveScenarioCanvasLayoutResponse, SaveScenarioCanvasLayoutError, Options<SaveScenarioCanvasLayoutData>> => {
+    const mutationOptions: UseMutationOptions<SaveScenarioCanvasLayoutResponse, SaveScenarioCanvasLayoutError, Options<SaveScenarioCanvasLayoutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveScenarioCanvasLayout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const replaceScenarioFlowMutation = (options?: Partial<Options<ReplaceScenarioFlowData>>): UseMutationOptions<ReplaceScenarioFlowResponse, ReplaceScenarioFlowError, Options<ReplaceScenarioFlowData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceScenarioFlowResponse, ReplaceScenarioFlowError, Options<ReplaceScenarioFlowData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceScenarioFlow({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const restoreScenarioFlowMutation = (options?: Partial<Options<RestoreScenarioFlowData>>): UseMutationOptions<RestoreScenarioFlowResponse, RestoreScenarioFlowError, Options<RestoreScenarioFlowData>> => {
+    const mutationOptions: UseMutationOptions<RestoreScenarioFlowResponse, RestoreScenarioFlowError, Options<RestoreScenarioFlowData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await restoreScenarioFlow({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listScenarioFlowGenerationsQueryKey = (options: Options<ListScenarioFlowGenerationsData>) => createQueryKey('listScenarioFlowGenerations', options);
+
+export const listScenarioFlowGenerationsOptions = (options: Options<ListScenarioFlowGenerationsData>) => queryOptions<ListScenarioFlowGenerationsResponse, ListScenarioFlowGenerationsError, ListScenarioFlowGenerationsResponse, ReturnType<typeof listScenarioFlowGenerationsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listScenarioFlowGenerations({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listScenarioFlowGenerationsQueryKey(options)
+});
+
+export const startScenarioFlowGenerationMutation = (options?: Partial<Options<StartScenarioFlowGenerationData>>): UseMutationOptions<StartScenarioFlowGenerationResponse, StartScenarioFlowGenerationError, Options<StartScenarioFlowGenerationData>> => {
+    const mutationOptions: UseMutationOptions<StartScenarioFlowGenerationResponse, StartScenarioFlowGenerationError, Options<StartScenarioFlowGenerationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startScenarioFlowGeneration({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

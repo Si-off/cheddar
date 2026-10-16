@@ -231,11 +231,11 @@ AI 생성에는 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블이 �
 
 AI 호출은 공식 [Claude structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)와 [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) 형식을 사용한다. 실제 키 권한·응답 품질은 각 환경에서 확인한다.
 
-## 기능 명칭 전환과 로컬 초기화
+## 사용자 양식·기능 명칭 전환과 로컬 초기화
 
 프로젝트 → 테스트 시나리오 → 테스트 케이스 구조를 사용한다. API는 `/api/v1/projects/{projectId}/test-scenarios`, 분석 결과는 `.../analysis`다. 생성 결과 응답은 `results`, 결과 수정은 `.../generations/{jobId}/results/{resultId}`를 사용한다. 이전 경로·필드의 호환 별칭은 제공하지 않으며 웹·플러그인·API를 함께 갱신한다.
 
-`0005_feature-terminology` 적용 전에는 로컬 API와 테스트 실행을 중지하고 아래 명령으로 업무 데이터를 명시적으로 초기화한다. 스크립트는 loopback의 Cheddar 전용 DB 이름·role·소유권을 확인하고 업무 테이블만 비운다. 다른 브랜치의 테이블이 섞여 있으면 초기화를 중단하므로 전용 DB 환경을 준비한다. 마이그레이션 이력과 저장 파일 바이트는 보존한다. 서버 시작과 마이그레이션은 초기화를 자동 실행하지 않는다.
+`0005_feature-terminology`와 `0006_futuristic_mordo` 적용 전에는 로컬 API와 테스트 실행을 중지하고 아래 명령으로 업무 데이터를 명시적으로 초기화한다. 스크립트는 loopback의 Cheddar 전용 DB 이름·role·소유권을 확인하고 업무 테이블만 비운다. 다른 브랜치의 테이블이 섞여 있으면 초기화를 중단하므로 전용 DB 환경을 준비한다. 마이그레이션 이력과 저장 파일 바이트는 보존한다. 서버 시작과 마이그레이션은 초기화를 자동 실행하지 않는다.
 
 ```sh
 pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-data.mjs runtime --confirm-reset
@@ -243,4 +243,6 @@ pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-d
 pnpm db:migrate
 ```
 
-브라우저 초안은 새 `cheddar-test-scenario-drafts` 저장소에서 시작하며 이전 `cheddar-sheet-drafts`의 초안을 가져오지 않는다. 이전 초안 삭제가 필요하면 해당 웹 origin의 개발자 도구에서 이전 IndexedDB 저장소만 삭제한다. 다른 앱의 브라우저 데이터는 삭제하지 않는다.
+사용자 양식 전환 후 필수 열은 ID·테스트 항목만 남고, 텍스트·선택·체크박스·태그 열을 사용자가 설정한다. AI는 이 양식과 미리 정한 선택 항목에 맞춰 생성한다. 구형 고정 본문·우선순위 데이터의 변환은 제공하지 않는다.
+
+브라우저 초안은 새 `cheddar-test-scenario-drafts-v2` IndexedDB와 `cheddar-confirmation-drafts-v2:` localStorage 키에서 시작하며 이전 초안을 가져오지 않는다. 이전 초안 삭제가 필요하면 해당 웹 origin의 개발자 도구에서 이전 IndexedDB 저장소만 삭제한다. 다른 앱의 브라우저 데이터는 삭제하지 않는다.

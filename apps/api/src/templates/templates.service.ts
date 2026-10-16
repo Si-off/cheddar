@@ -29,8 +29,7 @@ export class TemplatesService {
         if (
           original.kind === "system"
             ? next?.kind !== "system" || next.field !== original.field
-            : next &&
-              (next.kind !== "custom" || next.valueType !== original.valueType)
+            : next && next.kind !== "custom"
         ) {
           throw invalid([
             { field: "columns", code: "immutableColumnIdentity" },
