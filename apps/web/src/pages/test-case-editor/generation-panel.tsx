@@ -305,7 +305,7 @@ export function GenerationPanel({
                   </option>
                 ))}
               </select>
-              <Label htmlFor="ai-description">테스트할 내용 · 선택 사항</Label>
+              <Label htmlFor="ai-description">테스트 내용</Label>
               <Textarea
                 id="ai-description"
                 value={description}
@@ -313,10 +313,6 @@ export function GenerationPanel({
                 maxLength={10000}
                 disabled={locked}
               />
-              <p>
-                선택한 프레임의 이미지·데이터, 프로젝트 IA, 이 시트의
-                양식·케이스와 설명을 선택한 AI 서비스로 전송합니다.
-              </p>
               {!uploadId && !description.trim() && (
                 <p>업로드 묶음을 선택하거나 테스트할 내용을 입력해주세요.</p>
               )}
@@ -423,21 +419,23 @@ function CandidateCard({
     <details className="workspace-candidate">
       <summary>
         <WorkspaceIcon name="chevron" />
-        <strong>
-          {candidate.content.title} ·{" "}
+        <strong>{candidate.content.title}</strong>
+        <span className="workspace-candidate-status text-label text-muted">
           {candidate.status === "added"
             ? "추가됨"
             : candidate.status === "excluded"
               ? "제외됨"
               : "검토 대기"}
-        </strong>
+        </span>
       </summary>
       <div className="workspace-candidate-body">
         <p className="workspace-candidate-reason">{candidate.reason}</p>
-        <p className="text-muted">
-          {new Date(job.createdAt).toLocaleString("ko-KR")} ·{" "}
-          {job.provider === "anthropic" ? "Haiku" : "Luna"}
-        </p>
+        <div className="workspace-candidate-meta text-label text-muted">
+          <time dateTime={job.createdAt}>
+            {new Date(job.createdAt).toLocaleString("ko-KR")}
+          </time>
+          <span>{job.provider === "anthropic" ? "Haiku" : "Luna"}</span>
+        </div>
         {editing ? (
           <form
             className="flex flex-col gap-3"
@@ -524,7 +522,7 @@ function CandidateCard({
                   />
                 </div>
               ))}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={disabled}>
                 후보 저장
               </Button>
@@ -554,7 +552,7 @@ function CandidateCard({
               ))}
             </dl>
             {candidate.status !== "added" && (
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <Button disabled={disabled} onClick={() => act("add")}>
                   시트에 추가
                 </Button>

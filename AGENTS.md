@@ -7,7 +7,7 @@
 | 구성요소 책임·의존 관계·기술 선택 판단 또는 변경 | [프로젝트 구조](docs/architecture.md) |
 | 파일·폴더 생성, 폴더 이동·이름 변경 | [파일 생성과 폴더 변경](docs/architecture.md#파일-생성과-폴더-변경), [허용된 폴더 구조](docs/architecture.md#허용된-폴더-구조) |
 | 도구 실행, 임시 파일·캐시·빌드·의존성 산출물 처리 | [임시 파일과 도구 산출물](docs/architecture.md#임시-파일과-도구-산출물) |
-| UI 구현·수정·리뷰, 디자인 토큰 추가·변경 | [공통 디자인 기준](docs/architecture.md#공통-디자인-기준) |
+| UI 구현·수정·리뷰, 디자인 토큰 추가·변경 | [레퍼런스 이미지 생성과 구현 순서](docs/workflow.md#3-설계와-실행), [공통 디자인 기준](docs/architecture.md#공통-디자인-기준) |
 | 사용자 노출 문구·툴팁 추가·변경·삭제, 문구 의미에 영향을 주는 표시 조건 변경 | [UX 문구 정책](docs/ux-writing.md), [UX 문구 검수 흐름](docs/workflow.md#ux-문구-검수-흐름) |
 | 작업 계획·기록 작성 | [작업 규모와 기록](docs/workflow.md#2-작업-규모와-기록), [작업 기록 안내](docs/changes/README.md) |
 | 설계·구현, 범위·미정 사항 판단 | [설계와 실행](docs/workflow.md#3-설계와-실행) |

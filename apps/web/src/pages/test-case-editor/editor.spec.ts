@@ -448,9 +448,7 @@ test("generation confirms replacement, locks editing and loads generated cases a
   await open(page);
   await page.getByRole("button", { name: "시트 메뉴", exact: true }).click();
   await page.getByRole("button", { name: "테스트 생성", exact: true }).click();
-  await page
-    .getByLabel("테스트할 내용 · 선택 사항", { exact: true })
-    .fill("로그인 흐름");
+  await page.getByLabel("테스트 내용", { exact: true }).fill("로그인 흐름");
   const generate = page.getByRole("button", {
     name: "케이스 다시 생성",
     exact: true,
