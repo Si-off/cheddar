@@ -443,6 +443,7 @@
   max-width: calc(var(--container-content) * 0.75);
 }
 .workspace-candidates-dialog.cd-dialog-content {
+  grid-template-columns: minmax(0, 1fr);
   width: min(
     calc(100vw - var(--spacing-8)),
     calc(var(--container-content) * 0.75)
@@ -452,7 +453,25 @@
 .workspace-candidate-body {
   padding: var(--spacing-4) var(--spacing-8);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-5);
+  overflow-wrap: anywhere;
+}
+.workspace-candidate > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.workspace-candidate > summary > strong {
+  overflow-wrap: anywhere;
+}
+.workspace-candidate-status {
+  white-space: nowrap;
+}
+.workspace-candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--spacing-3);
 }
 .workspace-candidate-reason {
   background: var(--color-warning-subtle);
@@ -465,6 +484,15 @@
   }
 }
 @media (max-width: 700px) {
+  .workspace-candidate > summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .workspace-candidate-status {
+    grid-column: 2;
+  }
+  .workspace-candidate-body {
+    padding-inline: var(--spacing-3);
+  }
   .workspace-table-actions .cd-input {
     width: calc(var(--spacing-12) * 2);
   }
