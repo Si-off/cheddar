@@ -11,7 +11,7 @@
 | 사용자 노출 문구·툴팁 추가·변경·삭제, 문구 의미에 영향을 주는 표시 조건 변경 | [UX 문구 정책](docs/ux-writing.md), [UX 문구 검수 흐름](docs/workflow.md#ux-문구-검수-흐름) |
 | 작업 계획·기록 작성 | [작업 규모와 기록](docs/workflow.md#2-작업-규모와-기록), [작업 기록 안내](docs/changes/README.md) |
 | 설계·구현, 범위·미정 사항 판단 | [설계와 실행](docs/workflow.md#3-설계와-실행) |
-| 검증, 코드 리뷰 | [검증](docs/workflow.md#4-검증), [코드 리뷰](docs/workflow.md#8-코드-리뷰) |
+| 검증, 코드 리뷰 | [검증과 테스트 작성 기준](docs/workflow.md#4-검증) |
 | 커밋·푸시, PR·병합·배포 범위 판단 | [커밋과 푸시](docs/workflow.md#5-커밋과-푸시) |
 | 작업 재개, 이전 작업 기록 참조 | [작업 기록: 재개와 종료](docs/changes/README.md#재개와-종료) |
 | 작업 완료·중단·세션 인계 | [완료와 인계](docs/workflow.md#6-완료와-인계) |
