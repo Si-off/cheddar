@@ -65,11 +65,11 @@ export class LocalStorage implements FileStorage {
       await handle.close();
     }
   }
-  async publish(projectId: string, fileId: string) {
-    this.uuid(projectId);
+  async publish(uploadId: string, fileId: string) {
+    this.uuid(uploadId);
     this.uuid(fileId);
     await this.check();
-    const parent = join(this.root, projectId);
+    const parent = join(this.root, uploadId);
     await mkdir(parent, { recursive: true, mode: 0o700 });
     await this.directory(parent);
     // fileId is a fresh UUID backed by a unique DB primary key; never overwrite an existing blob.
@@ -99,12 +99,12 @@ export class LocalStorage implements FileStorage {
   async open(storageKey: string) {
     const parts = storageKey.split("/");
     if (parts.length !== 2) throw new Error("Invalid storage key.");
-    const [projectId, fileId] = parts;
-    this.uuid(projectId);
+    const [uploadId, fileId] = parts;
+    this.uuid(uploadId);
     this.uuid(fileId);
     await this.check();
-    await this.directory(join(this.root, projectId));
-    const path = join(this.root, projectId, fileId);
+    await this.directory(join(this.root, uploadId));
+    const path = join(this.root, uploadId, fileId);
     // O_NOFOLLOW is not enforced on Windows; inspect the directory entry too.
     const entry = await lstat(path);
     if (!entry.isFile() || entry.isSymbolicLink())

@@ -15,6 +15,8 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
     const requestId = randomUUID();
     res.setHeader("X-Request-Id", requestId);
     res.setHeader("X-Content-Type-Options", "nosniff");
+    if (req.path.startsWith("/api/"))
+      res.setHeader("Cache-Control", "no-store");
     const origin = req.headers.origin;
     if (
       origin &&
@@ -35,7 +37,7 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
   (app as NestExpressApplication).useBodyParser("json", { limit: "5mb" });
   app.enableCors({
     origin: config.corsOrigins,
-    credentials: false,
+    credentials: true,
     exposedHeaders: ["X-Request-Id", "Content-Disposition"],
   });
   app.useGlobalPipes(validationPipe());

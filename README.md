@@ -144,87 +144,53 @@ HTML 안의 CSS 다운로드는 일반 CSS 변수를 내보낸다. 다운로드�
 
 ## 백엔드 실행
 
-명령은 저장소 루트 기준이다. 먼저 로컬 PostgreSQL 17에 전용 role `cheddar_stage1`과 해당 role이 소유하는 `cheddar_stage1`, `cheddar_stage1_test` DB를 준비한다. role은 superuser·다른 DB 생성 권한 없이 사용한다. 기존 이름이 있다면 소유와 사용 목적부터 확인하며 기존 DB를 초기화하지 않는다. 비밀번호는 대화나 명령 로그에 붙여넣지 않고 PostgreSQL의 대화형 `\password` 등 안전한 입력 방식으로 설정한다.
+현재 백엔드는 전면 개편 2단계의 인증·계정·역할·소속 API다. 프로젝트·테스트 세트·생성·공유·플러그인 연결은 스키마만 준비되어 있으며 이전 업무 API는 제거했다. 저장 모델과 세부 판단은 [백엔드 구조](docs/architecture.md#백엔드-구조)를 따른다.
 
-`apps/api/.env.example`을 참고해 Git 제외 파일 `apps/api/.env.local`에 실제 연결 값을 설정한다. 전용 DB·role과 환경 파일의 준비 여부는 현재 환경에서 확인한다. 환경 파일은 다른 worktree로 자동 복사하지 않는다.
+로컬 PostgreSQL 17에 실행 DB와 별도의 테스트 DB를 준비한다. 기존 환경의 사용 목적을 확인한 뒤 새 기준용 DB를 사용한다. 이전 0000~0008 마이그레이션과의 호환·데이터 변환·자동 초기화는 제공하지 않는다.
+
+`apps/api/.env.example`을 참고해 Git 제외 파일 `apps/api/.env.local`에 실제 연결 값을 설정한다. 비밀번호는 대화나 명령 로그에 붙여넣지 않는다. 기존 환경 파일은 덮어쓰지 않는다.
 
 | 변수 | 의미 |
 | --- | --- |
-| `DATABASE_URL` | 전용 실행 DB 연결 |
-| `TEST_DATABASE_URL` | 전용 테스트 DB 연결. 실행 DB와 달라야 함 |
-| `FILE_STORAGE_ROOT` | Git 밖의 전용 영속 파일 루트. 현재 승인 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files` |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI 제공자 키. 서버 전용, 사용할 제공자의 키만 설정 |
-| `ANTHROPIC_MODEL` / `OPENAI_MODEL` | 기본 `claude-haiku-5-5` / `gpt-6-luna` |
-| `API_PORT` | 기본 `3101`, loopback에만 listen |
-| `CORS_ORIGINS` | 기본 `http://127.0.0.1:5173`. 쉼표로 구분한 정확한 origin |
-| `ALLOW_FIGMA_NULL_ORIGIN` | 기본 `false`. `true`는 `NODE_ENV=development`에서만 허용하며 Figma iframe의 `Origin: null`을 허용 |
+| `DATABASE_URL` | 실행 DB 연결 |
+| `TEST_DATABASE_URL` | loopback의 `cheddar_stage1_test`, 소유 role `cheddar_stage1` 연결. role은 superuser가 아니어야 하며 실행 DB와 달라야 함 |
+| `FILE_STORAGE_ROOT` | 저장소 밖의 전용 절대 경로. 임시 업로드 저장소의 후속 구현에도 사용 |
+| `API_PORT` | 기본 3101, loopback으로만 listen |
+| `CORS_ORIGINS` | 웹 origin을 쉼표로 구분. 정확한 HTTP origin만 허용하며 쿠키 자격 증명을 허용 |
+| `NODE_ENV` | 운영에서 `production`을 지정하면 세션 쿠키에 Secure 적용 |
+| `ALLOW_FIGMA_NULL_ORIGIN` | 기본 false. true는 development에서만 허용 |
 
 ```sh
-pnpm install --store-dir "$HOME/Library/pnpm/store/v11" --package-import-method copy
 pnpm db:migrate
+pnpm --filter @cheddar/api admin:create --email admin@example.com --name "첫 관리자"
 pnpm dev:api
 ```
 
-pnpm 저장소는 저장소 밖에 둔다. `@scarf/scarf` 설치 스크립트는 실행하지 않도록 설정했다. API 앱의 `dev`는 빌드 후 실행이며 파일 변경 시 다시 실행한다. 서버 시작 자체는 migration을 실행하지 않는다.
+마이그레이션은 새 스키마와 기본 역할·소속을 설치한다. 기본 데이터를 다시 실행해도 변경한 역할 이름·권한을 덮어쓰지 않는다. 첫 관리자 CLI는 계정이 없는 DB에서만 실행되며 관리자 역할 전체 범위의 초대됨 계정을 만든다. 출력된 토큰을 웹 초대 화면의 token 값으로 전달한다. 초대 수락으로 비밀번호를 설정한 뒤 로그인한다. 메일 발송과 공용 회원가입은 없다.
 
-- `http://127.0.0.1:3101/health/live`: 프로세스 응답
-- `http://127.0.0.1:3101/health/ready`: DB migration·테이블·파일 루트 상태
-- `http://127.0.0.1:3101/openapi.json`: 실제 제공 API 명세
-- `/api/v1/projects`: 프로젝트 생성·목록, `/{projectId}`에서 조회·수정
-- `/api/v1/projects/{projectId}/files`: 파일 등록·목록, `/{fileId}`와 `/{fileId}/content`에서 메타데이터·다운로드
+인증 경로는 `/api/v1/auth`, 관리 경로는 `/api/v1/accounts`, `/api/v1/roles`, `/api/v1/affiliations`다. 정확한 메서드·요청·응답은 [OpenAPI](apps/api/openapi.json)에 있다. 계정 관리는 전체 `account.manage`, 역할과 소속 관리는 전체 `role.manage`가 필요하다. 상태 전환, 토큰 발급, 역할 할당 교체도 관리 API에서 수행한다.
 
-파일 업로드는 multipart `file` 필드 하나다. PNG/JPEG/WebP는 20 MiB, UTF-8 JSON은 5 MiB까지이며 선언된 MIME과 내용을 검사한다. 성공한 파일만 노출한다. 생성 요청은 자동 재시도하지 않으며 응답 유실 시 목록에서 처리 결과부터 확인한다. 다운로드 SDK 호출은 원본 바이트가 필요하면 `parseAs: "arrayBuffer"` 또는 `"blob"`을 지정한다.
+웹은 요청에 `credentials: "include"`를 사용하고 API와 쿠키의 SameSite 조건을 만족하는 주소로 접속해야 한다. 로그인 응답은 내 정보이며 세션 토큰은 httpOnly 쿠키로만 전달한다. `GET /api/v1/auth/me`의 permissions를 사용해 권한과 프로젝트 범위를 판단한다. 역할 이름으로 분기하지 않는다. 계정 생성·초대 재발급·재설정 발급 응답의 token은 링크를 만드는 용도이며 다시 조회할 수 없다.
 
-프로젝트 PATCH는 `expectedRevision`을 요구한다. 충돌 시 409와 현재 revision을 반환하며 클라이언트는 미저장 입력을 보존한다. API는 로그인 없는 로컬 환경이며 CORS·프로젝트 소속 검사를 인증으로 간주하지 않는다.
+- `/health/live`: 프로세스 응답, 인증 불필요
+- `/health/ready`: 마이그레이션 이력·27개 테이블·저장소 검사, 인증 불필요
+- `/openapi.json`: 현재 런타임 API 명세
+- 세션 쿠키: HttpOnly, SameSite=Lax, 운영 Secure, 유효기간 30일
+- 초대·재설정 토큰: 7일, 재발급 시 이전 링크 폐기, 한 번만 사용
+- 비밀번호 설정·재설정: 12~128자, Node scrypt 해시
+
+서버 시작은 마이그레이션이나 DB 초기화를 실행하지 않는다. 저장소는 프로젝트 대신 임시 업로드 UUID/파일 UUID 경로를 사용하도록 준비했으며 업로드 API와 자동 삭제 작업은 아직 없다.
 
 ## 백엔드 검증과 계약 갱신
 
-실행 명령과 범위는 [검증 안내](#검증과-api-코드-생성)를 따른다.
-
-테스트는 `TEST_DATABASE_URL`의 이름·로컬 host·role·DB 소유권·superuser 여부를 확인하고 같은 테스트 DB의 동시 실행을 막는다. 실행 DB와 같거나 테스트 설정이 없으면 실패하며 건너뛰지 않는다. 테스트는 자신이 만든 UUID 행과 OS 임시 파일만 정리한다. 실제 DB로 임의 전환하거나 truncate/drop하지 않는다. 실패 주입 테스트의 503 로그는 의도한 검증 결과다.
-
-스키마를 바꾸면 `pnpm --filter @cheddar/api db:generate`로 SQL을 만들고 검토한 뒤 `pnpm db:migrate`로 적용한다. `migrations/`의 SQL·도구 meta를 함께 커밋하며 자동 schema push를 사용하지 않는다.
-
-명세·SDK 갱신은 [API 코드 생성](#api-코드-생성)을 따른다.
-
-명세 export/check는 DB 연결·포트 listen·파일 저장 루트 생성 없이 실행한다. DTO와 실제 응답을 계약 테스트로 검증하고 두 생성 SDK의 프로젝트·multipart·다운로드 호출도 HTTP로 확인한다. 생성 코드는 직접 편집하지 않는다. 업로드·시나리오·IA·기본 양식은 실제 API와 양쪽 생성 SDK에 연결되어 있다.
-
-DB 백업과 `FILE_STORAGE_ROOT` 전체를 함께 옮기면 저장 키를 바꾸지 않고 새 루트로 연결할 수 있다. 실제 이전·클라우드 배포는 후속 검증 대상이다. 중단된 업로드는 시작 시 개수만 보고하며 자동 삭제하지 않는다. 프로젝트·파일 삭제와 보관 만료도 아직 제공하지 않는다.
-
-Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이 설정은 Figma 신원을 인증하지 않으며 같은 `null` origin을 보내는 다른 opaque origin에도 적용된다. 일반 웹 origin은 계속 `CORS_ORIGINS`에 정확히 나열한다.
-
-업로드 묶음 API는 `POST/GET /api/v1/projects/{projectId}/uploads`와 `GET .../uploads/{uploadId}`다. `clientRequestId`는 같은 묶음 재시도에 유지한다. 신규 등록은201, 동일 요청의 재시도는200, 같은 ID의 다른 내용은409다. IA 목록·생성·수정·삭제는 `/api/v1/projects/{projectId}/ia`, 기본 양식 조회·저장은 `.../template`에서 제공한다. 시나리오 생성·목록·조회는 `.../test-scenarios`, 내용·보기 저장은 `.../test-scenarios/{testScenarioId}/content`·`.../view`, XLSX 내보내기는 `.../test-scenarios/{testScenarioId}/export.xlsx`에서 제공한다. 내보내기는 서버에 저장된 전체 시나리오를 대상으로 하며 내용·보기 revision을 지정해 최신 저장본과 일치하는지 검사할 수 있다.
-
-두 앱의 공통 API client는 빌드 시 `VITE_API_BASE_URL`을 사용한다. 웹 기본값은 `http://127.0.0.1:3101`, 플러그인 개발 기본값은 `http://localhost:3102`다. 2A 웹 검증 시 웹에는 `http://127.0.0.1:3102`를 지정할 수 있다. Figma 플러그인 주소는 manifest의 `networkAccess.devAllowedDomains`와 일치시킨다. Figma import에서 숫자 IP 주소가 거부되어 [공식 manifest 문서](https://developers.figma.com/docs/plugins/manifest/)의 개발 서버 패턴인 `http://localhost:3102`를 사용한다. 값을 바꾸면 UI를 다시 빌드하며 기존 로컬 환경 설정이 기본값을 덮어쓸 수 있다. API listen은 loopback으로 제한한다. POST mutation 자동 재시도는 비활성화한다. Playwright는 `PLAYWRIGHT_BASE_URL`로 이미 실행된 웹에 연결하며 브라우저 캐시는 `PLAYWRIGHT_BROWSERS_PATH`로 OS 임시 경로에 지정한다.
-
-## MVP AI 생성 실행
-
-`apps/api/.env.local`에 키를 입력한다. 기존 파일을 예제 파일로 덮어쓰지 않는다. 이 파일의 키를 웹 `VITE_` 환경변수에 넣지 않는다. 새 체크아웃에서 실행한다면 `DATABASE_URL`, `FILE_STORAGE_ROOT`와 포트·CORS 설정도 기존 로컬 환경에 맞게 준비해야 한다. 환경 파일은 worktree마다 별개다.
-
-AI 생성에는 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블이 필요하다. 기존 서버에서 새 기능을 사용하려면 연결 설정과 migration 상태를 확인하고, 필요한 migration 적용과 이 체크아웃의 API 재시작을 수행한다. 기존 서버의 경로·사용 목적과 현재 작업의 실행 범위를 확인한 뒤 진행한다.
-
-1. 웹에서 프로젝트를 선택하거나 만든다.
-2. 새 시나리오를 만들고 단위/통합을 선택하거나 기존 시나리오를 연다.
-3. 시트의 `테스트 케이스 생성`에서 모델과 업로드·개별 화면 또는 설명을 지정한다.
-4. `append` 모드가 명확한 케이스와 근거 연결을 서버에서 한 번에 추가·저장한다. 기존 케이스·사용자 양식·번호를 보존하고 완료 후 같은 시트의 일반 행으로 편집한다.
-5. 불확실한 결과만 `확인 항목` 모달에서 답변·수정·추가·제외한다. 중간 저장 버튼 없이 초안을 localStorage에 보관하며 충돌 시 최신 내용과 비교한다. 제외 항목은 다시 표시하고 복원할 수 있다.
-
-생성 중 대상 시나리오는 잠기며 다른 시나리오는 계속 편집할 수 있다. 작업 상태는 새로고침 후 다시 읽는다. AI 호출이 중단되면 자동 재호출하지 않는다. 서버 중단으로 상태가 남은 작업은 10분 후 조회할 때 실패 처리하며, 사용자가 다시 생성할 수 있다. 같은 요청 ID를 다시 보내도 AI 작업은 중복 생성하지 않는다. 입력 크기 초과·출력 잘림·참조 오류는 기존 시나리오를 교체하지 않는다. 기존 `replace`·`review` API도 유지하며 웹 기본 흐름과 구분한다. `화면 분석` 모달은 화면 분석·확인 질문·요구사항 연결을 편집한다. 실제 AI 품질, QA 결과 기록, 인증과 실제 공유 링크는 이번 화면 개편의 구현·검증 범위에 포함하지 않는다.
-
-AI 호출은 공식 [Claude structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)와 [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) 형식을 사용한다. 실제 키 권한·응답 품질은 각 환경에서 확인한다.
-
-## 사용자 양식·기능 명칭 전환과 로컬 초기화
-
-프로젝트 → 테스트 시나리오 → 테스트 케이스 구조를 사용한다. API는 `/api/v1/projects/{projectId}/test-scenarios`, 분석 결과는 `.../analysis`다. 생성 결과 응답은 `results`, 결과 수정은 `.../generations/{jobId}/results/{resultId}`를 사용한다. 이전 경로·필드의 호환 별칭은 제공하지 않으며 웹·플러그인·API를 함께 갱신한다.
-
-`0005_feature-terminology`와 `0006_futuristic_mordo` 적용 전에는 로컬 API와 테스트 실행을 중지하고 아래 명령으로 업무 데이터를 명시적으로 초기화한다. 스크립트는 loopback의 Cheddar 전용 DB 이름·role·소유권을 확인하고 업무 테이블만 비운다. 다른 브랜치의 테이블이 섞여 있으면 초기화를 중단하므로 전용 DB 환경을 준비한다. 마이그레이션 이력과 저장 파일 바이트는 보존한다. 서버 시작과 마이그레이션은 초기화를 자동 실행하지 않는다.
-
 ```sh
-pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-data.mjs runtime --confirm-reset
-pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-data.mjs test --confirm-reset
-pnpm db:migrate
+pnpm --filter @cheddar/api build
+pnpm --filter @cheddar/api typecheck
+pnpm --filter @cheddar/api openapi:export
+pnpm --filter @cheddar/api openapi:check
+pnpm test:api
 ```
 
-사용자 양식 전환 후 필수 열은 ID·테스트 항목만 남고, 텍스트·선택·체크박스·태그 열을 사용자가 설정한다. AI는 이 양식과 미리 정한 선택 항목에 맞춰 생성한다. 구형 고정 본문·우선순위 데이터의 변환은 제공하지 않는다.
+API 테스트는 node:test와 실제 PostgreSQL을 사용한다. TEST_DATABASE_URL이 없으면 DB 검증은 실패하며 성공이나 skip으로 처리하지 않는다. 전용 DB 이름·host·role·소유권·superuser 여부와 기존 마이그레이션 이력을 확인하고 동시 테스트 실행을 막는다. 첫 관리자 테스트를 위해 계정이 없는 새 기준 테스트 DB가 필요하다. 테스트가 만든 UUID 행과 OS 임시 파일만 정리하며 다른 데이터를 지우거나 DB를 drop/truncate하지 않는다. 이미 구형 마이그레이션이 있으면 새 기준용 별도 테스트 DB를 준비한다.
 
-브라우저 초안은 새 `cheddar-test-scenario-drafts-v2` IndexedDB와 `cheddar-confirmation-drafts-v2:` localStorage 키에서 시작하며 이전 초안을 가져오지 않는다. 이전 초안 삭제가 필요하면 해당 웹 origin의 개발자 도구에서 이전 IndexedDB 저장소만 삭제한다. 다른 앱의 브라우저 데이터는 삭제하지 않는다.
+명세 export/check는 DB 연결·포트 listen·저장소 생성 없이 실행한다. 스키마 변경은 `pnpm --filter @cheddar/api db:generate`로 생성한 SQL과 meta를 검토한 뒤 명시적으로 적용한다. 이번 2단계에서는 `apps/api/openapi.json`만 갱신한다. 웹과 플러그인의 기존 생성 SDK와 업무 화면은 이전 계약을 사용하므로 후속 단계에서 새 화면과 함께 갱신해야 한다.

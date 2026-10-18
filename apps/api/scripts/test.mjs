@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const output = await mkdtemp(
-  join(await realpath(tmpdir()), "cheddar-stage-1-tests-"),
+  join(await realpath(tmpdir()), "cheddar-foundation-tests-"),
 );
 try {
   const compile = spawnSync(
