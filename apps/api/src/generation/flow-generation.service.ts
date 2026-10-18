@@ -77,34 +77,36 @@ export class FlowGenerationService implements OnModuleDestroy {
     for (const controller of this.running.values()) controller.abort();
   }
   private async expire(id: string) {
-    const expired = await this.database.db
-      .update(scenarioFlowJobs)
-      .set({
-        status: "failed",
-        error: "흐름 생성이 중단되었습니다. 다시 생성해주세요.",
-      })
-      .where(
-        and(
-          eq(scenarioFlowJobs.testScenarioId, id),
-          eq(scenarioFlowJobs.status, "running"),
-          lt(scenarioFlowJobs.createdAt, new Date(Date.now() - 10 * 60_000)),
-        ),
-      )
-      .returning({ id: scenarioFlowJobs.id });
-    // Calls of an interrupted job never reported back; their usage stays unknown.
-    if (expired.length)
-      await this.database.db
-        .update(aiCallUsage)
-        .set({ status: "unknown" })
+    await this.database.db.transaction(async (tx) => {
+      const expired = await tx
+        .update(scenarioFlowJobs)
+        .set({
+          status: "failed",
+          error: "흐름 생성이 중단되었습니다. 다시 생성해주세요.",
+        })
         .where(
           and(
-            inArray(
-              aiCallUsage.flowJobId,
-              expired.map((job) => job.id),
-            ),
-            eq(aiCallUsage.status, "running"),
+            eq(scenarioFlowJobs.testScenarioId, id),
+            eq(scenarioFlowJobs.status, "running"),
+            lt(scenarioFlowJobs.createdAt, new Date(Date.now() - 10 * 60_000)),
           ),
-        );
+        )
+        .returning({ id: scenarioFlowJobs.id });
+      // Calls of an interrupted job never reported back; their usage stays unknown.
+      if (expired.length)
+        await tx
+          .update(aiCallUsage)
+          .set({ status: "unknown" })
+          .where(
+            and(
+              inArray(
+                aiCallUsage.flowJobId,
+                expired.map((job) => job.id),
+              ),
+              eq(aiCallUsage.status, "running"),
+            ),
+          );
+    });
   }
   async list(projectId: string, id: string) {
     await this.canvas.get(projectId, id);

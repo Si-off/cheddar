@@ -274,6 +274,22 @@ test("authoring HTTP flow preserves existing cases, scopes AI sources, stores an
     assert.ok(result);
     assert.equal(result.mode, "review");
     assert.equal(requests.length, 2);
+    const usage = (
+      await lease.lock.query(
+        "SELECT job_id, flow_job_id, status FROM ai_call_usage WHERE job_id=$1",
+        [job.id],
+      )
+    ).rows;
+    assert.equal(
+      usage.length,
+      2,
+      "Source structuring and generation calls are both recorded",
+    );
+    assert.ok(
+      usage.every(
+        (row) => row.flow_job_id === null && row.status === "succeeded",
+      ),
+    );
     assert.equal(
       requests.every((r) => r.images === 1),
       true,

@@ -222,7 +222,7 @@ AI 호출은 공식 [Claude structured outputs](https://platform.claude.com/docs
 
 프로젝트 → 테스트 시나리오 → 테스트 케이스 구조를 사용한다. API는 `/api/v1/projects/{projectId}/test-scenarios`, 분석 결과는 `.../analysis`다. 생성 결과 응답은 `results`, 결과 수정은 `.../generations/{jobId}/results/{resultId}`를 사용한다. 이전 경로·필드의 호환 별칭은 제공하지 않으며 웹·플러그인·API를 함께 갱신한다.
 
-`0005_feature-terminology`와 `0006_futuristic_mordo` 적용 전에는 로컬 API와 테스트 실행을 중지하고 아래 명령으로 업무 데이터를 명시적으로 초기화한다. 스크립트는 loopback의 Cheddar 전용 DB 이름·role·소유권을 확인하고 업무 테이블만 비운다. 다른 브랜치의 테이블이 섞여 있으면 초기화를 중단하므로 전용 DB 환경을 준비한다. 마이그레이션 이력과 저장 파일 바이트는 보존한다. 서버 시작과 마이그레이션은 초기화를 자동 실행하지 않는다.
+`0005_feature-terminology`와 `0006_futuristic_mordo` 적용 전에는 로컬 API와 테스트 실행을 중지하고 아래 명령으로 업무 데이터를 명시적으로 초기화한다. 스크립트는 loopback의 Cheddar 전용 DB 이름·role·소유권을 확인하고 업무 테이블만 비운다. 다른 브랜치의 테이블이 섞여 있으면 초기화를 중단하므로 전용 DB 환경을 준비한다. 마이그레이션 이력과 저장 파일 바이트는 보존한다. 서버 시작과 마이그레이션은 초기화를 자동 실행하지 않는다. AI 사용량 기록과 동기화한 공급자 비용도 함께 비우며, 공급자 비용은 자동 동기화가 최근 7일만 다시 가져오므로 이전 기간은 수동 동기화로 복원한다.
 
 ```sh
 pnpm --filter @cheddar/api exec node --env-file=.env.local scripts/reset-local-data.mjs runtime --confirm-reset

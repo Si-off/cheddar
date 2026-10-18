@@ -24,6 +24,13 @@ import {
 } from "./structure-sources";
 import { AiUsageService } from "./usage.service";
 
+const usageTarget = (job: Job) => ({
+  kind: "generation" as const,
+  id: job.id,
+  projectId: job.projectId,
+  provider: job.provider,
+  model: job.model,
+});
 const State = Annotation.Root({
   input: Annotation<PreparedInput>(),
   raw: Annotation<string>(),
@@ -219,7 +226,7 @@ export class GenerationService implements OnModuleDestroy {
         { ...input, text },
         AbortSignal.any([signal, AbortSignal.timeout(240_000)]),
         { schema: structureSchema, instructions: structureInstructions },
-        this.usage.hooks({ kind: "generation", ...job }),
+        this.usage.hooks(usageTarget(job)),
       );
       sources = [...sources, ...parseSources(raw, input.sourceCandidates)];
     }
@@ -270,7 +277,7 @@ export class GenerationService implements OnModuleDestroy {
             state.input,
             AbortSignal.any([signal, AbortSignal.timeout(240_000)]),
             undefined,
-            this.usage.hooks({ kind: "generation", ...job }),
+            this.usage.hooks(usageTarget(job)),
           ),
         }))
         .addNode("validate", (state) => {
