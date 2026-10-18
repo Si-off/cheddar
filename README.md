@@ -1,24 +1,6 @@
 # Cheddar
 
-사람이 수행하는 QA 테스트 케이스를 AI로 생성하고 편집·공유·XLSX 내보내기 하는 제품이다. Figma 플러그인은 선택한 프레임의 데이터·이미지 업로드를 담당하고, 생성·편집은 웹에서 수행한다. pnpm workspace 모노레포로 관리하며 Codex를 사용해 개발한다.
-
-## 작업 시작
-
-Codex에서 이 저장소를 프로젝트 작업 위치로 연다. 루트 `AGENTS.md`에서 작업에 맞는 문서를 찾는다. 세부 규칙은 `docs/`에서 관리한다. 다른 폴더에서 시작한 채팅은 이 저장소의 지침을 자동으로 읽는다고 가정하지 않는다.
-
-설정을 처음 적용하거나 바꾼 뒤에는 새 세션에서 실제 적용된 지침의 경로와 주요 규칙을 확인한다. 문서가 존재하는 것과 세션에 로드된 것은 구분한다.
-
-## 문서 안내
-
-| 문서 | 용도 |
-| --- | --- |
-| [작업별 문서 안내](AGENTS.md) | 작업 조건에 따라 읽을 문서를 찾는 진입점 |
-| [제품 정의](docs/product.md) | 현재 확정된 제품 내용과 미정 사항 |
-| [구조](docs/architecture.md) | 구성요소·기술 선택의 확정 상태 |
-| [작업 절차](docs/workflow.md) | 계획·실행·검증·완료의 기준 |
-| [결정 기록 안내](docs/decisions/README.md) | 중요한 선택의 이유를 남기는 방법 |
-| [작업 기록 안내](docs/changes/README.md) | 특정 작업을 기록하고 재개하는 방법 |
-| [작업 템플릿](docs/templates/change.md) | 필요한 작업에서 사용하는 양식 |
+사람이 수행하는 QA 테스트 케이스를 AI로 생성하고 편집·공유·XLSX 내보내기 하는 제품이다. Figma 플러그인은 선택한 프레임의 데이터·이미지 업로드를 담당하고, 생성·편집은 웹에서 수행한다. pnpm workspace 모노레포로 관리하며 Claude Code와 Codex를 함께 사용해 개발한다. 에이전트 지침은 루트 `AGENTS.md`에 있다.
 
 ## 소스 위치
 
@@ -28,7 +10,7 @@ Codex에서 이 저장소를 프로젝트 작업 위치로 연다. 루트 `AGENT
 - `packages/ui/`: 기본 UI
 - `packages/design-tokens/`: 디자인 토큰
 
-상세 경로와 허용 범위는 [구조 문서](docs/architecture.md)를 따른다. 구현·검증 이력은 [기반 구성](docs/changes/2026-10-15-workspace-setup/change.md), [AI 생성](docs/changes/2026-10-15-mvp-generation/change.md), [화면 개편](docs/changes/2026-10-16-workspace-redesign/change.md), [전체 UI/UX 리디자인](docs/changes/2026-10-16-complete-ux-redesign/change.md)에 있다. 기록은 당시 코드·환경의 결과이며 현재 실행 상태를 보장하지 않는다.
+상세 경로와 구성요소 경계는 [구조 문서](docs/architecture.md)를 따른다.
 
 ## 개발 환경
 
@@ -62,7 +44,7 @@ VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm dev:plugin
 
 플러그인 UI와 main을 각각 감시 빌드하여 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. UI는 CSS·폰트를 포함한 단일 HTML이다. 브라우저에서 UI만 확인하려면 `pnpm --filter @cheddar/figma-plugin dev:ui`를 사용한다 (`http://127.0.0.1:5174/`).
 
-Figma 플러그인 ID는 `1692417282897261384`다. [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 개발용 manifest를 가져온다. 플러그인의 개발 API 기본 주소는 `http://localhost:3102`다. 실제 Figma의 origin·네트워크 접근·업로드 결과는 [프레임 업로드 작업 기록](docs/changes/2026-10-15-stage-2a-frame-upload/change.md)의 환경과 구분해 현재 환경에서 확인한다.
+Figma 플러그인 ID는 `1692417282897261384`다. [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 개발용 manifest를 가져온다. 플러그인의 개발 API 기본 주소는 `http://localhost:3102`다. 실제 Figma의 origin·네트워크 접근·업로드 결과는 현재 환경에서 확인한다.
 
 업로드할 Frame 또는 Section을 선택한다. Section을 선택하면 내부의 최상위 Frame들을 목록에 표시하며, 각 Frame 안의 중첩 프레임은 별도 항목으로 추가하지 않는다. 섹션과 그 안의 프레임을 함께 선택해도 중복 없이 포함한다. 경량 썸네일과 큰 미리보기로 화면을 확인하고 프로젝트를 검색한다. 프레임 추출·이미지 전송·데이터 전송·업로드 등록의 진행 상태를 구분한다. 완료 후 `웹에서 열기`는 main의 `figma.openExternal`로 해당 자료 상세를 연다. `VITE_WEB_BASE_URL`은 main 빌드 기준 웹 주소이며 HTTP(S)만 허용한다. build/watch에서는 값을 명시해야 하며 미설정이면 웹 열기를 오류로 처리한다. API 주소와 별도 설정이다.
 

@@ -90,4 +90,3 @@ Cheddar는 사용자의 조작에 명확하고 경쾌하게 반응하는 밝은 
 - 시각적 일관성: 같은 역할과 관계에 색상, 타이포그래피, 간격과 형태를 일관되게 적용하는가.
 - 반응의 안정성: 조작 영역을 유지하며 상태와 구조의 변화를 전달하고, 연속 조작과 시스템 동작 줄이기 설정에도 대응하는가.
 
-작성 형식은 [DESIGN.md 방법론](https://github.com/google-labs-code/design.md/blob/main/PHILOSOPHY.md)과 [형식 명세](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md)를 참고한다.
