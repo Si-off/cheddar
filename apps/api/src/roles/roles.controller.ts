@@ -34,6 +34,8 @@ import { RolesService } from "./roles.service";
 export class RolesController {
   constructor(@Inject(RolesService) private readonly service: RolesService) {}
   @Get()
+  // 계정을 만들고 고칠 때 역할과 소속을 골라야 하므로 계정 관리 권한으로도 읽을 수 있다
+  @RequirePermission(["role.manage", "account.manage"])
   @ApiOperation({ operationId: "listRoles", summary: "역할 목록" })
   @ApiOkResponse({ type: RoleDto, isArray: true })
   list() {
@@ -47,6 +49,8 @@ export class RolesController {
     return this.service.create(dto);
   }
   @Get(":roleId")
+  // 계정을 만들고 고칠 때 역할과 소속을 골라야 하므로 계정 관리 권한으로도 읽을 수 있다
+  @RequirePermission(["role.manage", "account.manage"])
   @ApiOperation({ operationId: "getRole", summary: "역할 상세" })
   @ApiOkResponse({ type: RoleDto })
   detail(@Param("roleId", ParseUUIDPipe) id: string) {

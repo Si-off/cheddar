@@ -31,12 +31,16 @@ export class AffiliationsController {
     @Inject(AffiliationsService) private readonly service: AffiliationsService,
   ) {}
   @Get()
+  // 계정을 만들고 고칠 때 역할과 소속을 골라야 하므로 계정 관리 권한으로도 읽을 수 있다
+  @RequirePermission(["role.manage", "account.manage"])
   @ApiOperation({ operationId: "listAffiliations", summary: "소속 목록" })
   @ApiOkResponse({ type: AffiliationDto, isArray: true })
   list() {
     return this.service.list();
   }
   @Get(":affiliationId")
+  // 계정을 만들고 고칠 때 역할과 소속을 골라야 하므로 계정 관리 권한으로도 읽을 수 있다
+  @RequirePermission(["role.manage", "account.manage"])
   @ApiOperation({ operationId: "getAffiliation", summary: "소속 상세" })
   @ApiOkResponse({ type: AffiliationDto })
   detail(@Param("affiliationId", ParseUUIDPipe) id: string) {

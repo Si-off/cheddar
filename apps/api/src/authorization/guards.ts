@@ -17,12 +17,13 @@ import type { Permission } from "./permissions";
 const PUBLIC = Symbol("public");
 const REQUIRED = Symbol("permission");
 type Requirement = {
-  permission: Permission;
+  /** 여러 개면 그중 하나만 있어도 된다 */
+  permission: Permission | readonly Permission[];
   project?: { source: "params" | "body"; key: string };
 };
 export const Public = () => SetMetadata(PUBLIC, true);
 export const RequirePermission = (
-  permission: Permission,
+  permission: Permission | readonly Permission[],
   project?: Requirement["project"],
 ) => SetMetadata(REQUIRED, { permission, project } satisfies Requirement);
 export type AuthenticatedRequest = Request & { accountId: string };
@@ -63,13 +64,24 @@ export class AccessGuard implements CanActivate {
         (typeof projectId !== "string" || !isUUID(projectId))
       )
         throw invalid();
-      if (
-        !(await this.authorization.can(
-          request.accountId,
-          required.permission,
-          projectId as string | undefined,
-        ))
-      )
+      const permissions: readonly Permission[] =
+        typeof required.permission === "string"
+          ? [required.permission]
+          : required.permission;
+      let allowed = false;
+      for (const permission of permissions) {
+        if (
+          await this.authorization.can(
+            request.accountId,
+            permission,
+            projectId as string | undefined,
+          )
+        ) {
+          allowed = true;
+          break;
+        }
+      }
+      if (!allowed)
         throw new ApiError(403, "FORBIDDEN", "접근 권한이 없습니다.");
     }
     return true;
