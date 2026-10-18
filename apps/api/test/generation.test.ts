@@ -259,6 +259,14 @@ test("generation HTTP lifecycle preserves testScenarios on failure and serialize
       await gate;
       return new Response(
         JSON.stringify({
+          id: "msg_synthetic",
+          model: "claude-haiku-5-5",
+          usage: {
+            input_tokens: 100,
+            output_tokens: 40,
+            cache_read_input_tokens: 20,
+            cache_creation_input_tokens: 50,
+          },
           stop_reason: "end_turn",
           content: [
             {
@@ -386,6 +394,27 @@ test("generation HTTP lifecycle preserves testScenarios on failure and serialize
     let completed = await finished(job.id);
     assert.equal(completed.status, "succeeded", completed.error ?? "");
     assert.equal(calls, 1, "Repeated request must not call the provider again");
+    const callRecords = async (jobId: string) =>
+      (
+        await lease.lock.query("SELECT * FROM ai_call_usage WHERE job_id=$1", [
+          jobId,
+        ])
+      ).rows;
+    const [call] = await callRecords(job.id);
+    assert.equal((await callRecords(job.id)).length, 1);
+    assert.equal(call.input_tokens, "170");
+    assert.equal(call.output_tokens, "40");
+    assert.equal(call.calculated_cost_usd, "0.000036450000");
+    assert.equal(call.status, "succeeded");
+    assert.equal(call.usage_known, true);
+    const timing = (
+      await lease.lock.query(
+        "SELECT finished_at,duration_ms FROM generation_jobs WHERE id=$1",
+        [job.id],
+      )
+    ).rows[0];
+    assert.ok(timing.finished_at instanceof Date);
+    assert.ok(Number(timing.duration_ms) >= Number(call.duration_ms));
     const generated = (await (
       await request(path)
     ).json()) as TestScenarioSnapshotDto;
@@ -441,6 +470,14 @@ test("generation HTTP lifecycle preserves testScenarios on failure and serialize
     assert.equal(failedResponse.status, 202);
     const failedJob = (await failedResponse.json()) as GenerationDto;
     assert.equal((await finished(failedJob.id)).status, "failed");
+    const [failedCall] = await callRecords(failedJob.id);
+    assert.equal(failedCall.usage_known, true);
+    assert.equal(failedCall.calculated_cost_usd, call.calculated_cost_usd);
+    assert.equal(
+      failedCall.status,
+      "succeeded",
+      "Provider success remains recorded when result validation fails",
+    );
     const preserved = (await (
       await request(path)
     ).json()) as TestScenarioSnapshotDto;
@@ -456,6 +493,28 @@ test("generation HTTP lifecycle preserves testScenarios on failure and serialize
       ).status,
       200,
       "Failed generation must release the testScenario lock",
+    );
+    const interruptedCallId = randomUUID();
+    await lease.lock.query(
+      "UPDATE generation_jobs SET status='running',finished_at=NULL,duration_ms=NULL,expires_at=now()-interval '1 second' WHERE id=$1",
+      [failedJob.id],
+    );
+    await lease.lock.query(
+      "INSERT INTO ai_call_usage(id,job_id,project_id,provider,requested_model,started_at) VALUES ($1,$2,$3,'anthropic','synthetic-model',now())",
+      [interruptedCallId, failedJob.id, project.id],
+    );
+    await request(jobsPath);
+    const interrupted = (await callRecords(failedJob.id)).find(
+      (row) => row.id === interruptedCallId,
+    );
+    assert.equal(interrupted.status, "unknown");
+    assert.equal(interrupted.usage_known, false);
+    assert.equal(interrupted.duration_ms, null);
+    assert.equal(interrupted.calculated_cost_usd, null);
+    assert.equal(
+      (await callRecords(failedJob.id)).find((row) => row.id === failedCall.id)
+        .status,
+      "succeeded",
     );
   } finally {
     release?.();

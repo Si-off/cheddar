@@ -40,6 +40,10 @@ try {
   await client.query("BEGIN");
   // Fixed allowlist and child-first order, supporting either side of the rename.
   const tables = [
+    "ai_call_usage",
+    "ai_provider_costs",
+    "scenario_flow_jobs",
+    "scenario_canvases",
     "test_case_frame_links",
     "test_case_ia_links",
     "test_case_values",

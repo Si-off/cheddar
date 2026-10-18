@@ -1,6 +1,6 @@
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import type { DatabaseTransaction } from "../database/database.service";
-import { generationJobs } from "../database/schema";
+import { aiCallUsage, generationJobs } from "../database/schema";
 import { ApiError } from "./errors";
 
 // Call after taking the project's write lock, as all testScenario writes do.
@@ -8,10 +8,11 @@ export async function expireGeneration(
   tx: DatabaseTransaction,
   testScenarioId: string,
 ) {
-  await tx
+  const expired = await tx
     .update(generationJobs)
     .set({
       status: "failed",
+      finishedAt: new Date(),
       error:
         "생성 제한 시간이 지났습니다. 기존 시나리오는 유지됩니다. 다시 생성해주세요.",
     })
@@ -21,7 +22,21 @@ export async function expireGeneration(
         eq(generationJobs.status, "running"),
         lte(generationJobs.expiresAt, new Date()),
       ),
-    );
+    )
+    .returning({ id: generationJobs.id });
+  if (expired.length)
+    await tx
+      .update(aiCallUsage)
+      .set({ status: "unknown" })
+      .where(
+        and(
+          inArray(
+            aiCallUsage.jobId,
+            expired.map((job) => job.id),
+          ),
+          eq(aiCallUsage.status, "running"),
+        ),
+      );
 }
 export async function assertTestScenarioEditable(
   tx: DatabaseTransaction,

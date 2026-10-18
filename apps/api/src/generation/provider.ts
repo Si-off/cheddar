@@ -1,5 +1,6 @@
 import { ApiError } from "../common/errors";
 import { createResultSchema } from "./result";
+import type { CallHooks, CallObservation } from "./usage";
 export type PreparedInput = {
   text: string;
   images: { id: string; data: string }[];
@@ -19,6 +20,7 @@ export async function generate(
   input: PreparedInput,
   signal: AbortSignal,
   output?: { schema: Record<string, unknown>; instructions: string },
+  hooks?: CallHooks,
 ): Promise<string> {
   const resultSchema =
     output?.schema ??
@@ -80,74 +82,123 @@ export async function generate(
           },
         },
       };
-  const response = await fetch(
-    anthropic
-      ? "https://api.anthropic.com/v1/messages"
-      : "https://api.openai.com/v1/responses",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(anthropic
-          ? { "x-api-key": key, "anthropic-version": "2023-06-01" }
-          : { Authorization: `Bearer ${key}` }),
-      },
-      body: JSON.stringify(body),
-      signal,
-    },
-  );
-  if (!response.ok) {
-    // Only classified metadata leaves this boundary, never provider messages or input.
-    const errorBody = (await response.json().catch(() => undefined)) as
-      | { error?: { message?: unknown } }
-      | undefined;
-    const message =
-      typeof errorBody?.error?.message === "string"
-        ? errorBody.error.message
-        : "";
-    const category = /schema|output_config|text.format/i.test(message)
-      ? "schema"
-      : /credit balance|billing|insufficient_quota/i.test(message)
-        ? "billing"
-        : /image|pixel|dimension/i.test(message)
-          ? "image"
-          : /context|token/i.test(message)
-            ? "context"
-            : /model/i.test(message)
-              ? "model"
-              : "request";
-    throw new ApiError(
-      502,
-      "AI_REQUEST_FAILED",
-      response.status === 401 || response.status === 403
-        ? "AI 인증에 실패했습니다. 서버의 API 키와 모델 사용 권한을 확인해주세요."
-        : response.status === 429
-          ? "AI 사용 한도에 도달했습니다. 사용 한도를 확인하거나 잠시 후 다시 생성해주세요."
-          : "AI 요청을 처리하지 못했습니다. 모델 설정과 입력 크기 확인 후 다시 생성해주세요.",
-      { provider, status: response.status, category },
-    );
-  }
-  const result = (await response.json()) as {
-    stop_reason?: string;
-    status?: string;
-    content?: { type: string; text?: string }[];
-    output?: { content?: { type: string; text?: string }[] }[];
+  const notify = async (action: (() => Promise<void>) | undefined) => {
+    try {
+      await action?.();
+    } catch {
+      process.stderr.write("AI usage hook failed.\n");
+    }
   };
-  if (
-    anthropic
-      ? result.stop_reason !== "end_turn"
-      : result.status !== "completed"
-  )
-    throw new ApiError(
-      502,
-      "AI_INCOMPLETE",
-      "AI 응답이 완료되지 않았습니다. 기존 시나리오는 유지됩니다. 입력 범위를 줄여서 다시 생성해주세요.",
+  await notify(hooks ? () => hooks.onStart() : undefined);
+  const started = performance.now();
+  const observation: CallObservation = {
+    finishedAt: new Date(),
+    durationMs: 0,
+    status: "failed",
+  };
+  try {
+    const response = await fetch(
+      anthropic
+        ? "https://api.anthropic.com/v1/messages"
+        : "https://api.openai.com/v1/responses",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(anthropic
+            ? { "x-api-key": key, "anthropic-version": "2023-06-01" }
+            : { Authorization: `Bearer ${key}` }),
+        },
+        body: JSON.stringify(body),
+        signal,
+      },
     );
-  const parts = anthropic
-    ? result.content
-    : result.output?.flatMap((item) => item.content ?? []);
-  return (parts ?? [])
-    .filter((part) => part.type === (anthropic ? "text" : "output_text"))
-    .map((part) => part.text ?? "")
-    .join("");
+    observation.httpStatus = response.status;
+    const safeId = (value: unknown) =>
+      typeof value === "string" && /^[a-zA-Z0-9_.:-]{1,200}$/.test(value)
+        ? value
+        : undefined;
+    observation.requestId = safeId(
+      response.headers.get(anthropic ? "request-id" : "x-request-id"),
+    );
+    if (!response.ok) {
+      // Only classified metadata leaves this boundary, never provider messages or input.
+      const errorBody = (await response.json().catch(() => undefined)) as
+        | { error?: { message?: unknown } }
+        | undefined;
+      const message =
+        typeof errorBody?.error?.message === "string"
+          ? errorBody.error.message
+          : "";
+      const category = /schema|output_config|text.format/i.test(message)
+        ? "schema"
+        : /credit balance|billing|insufficient_quota/i.test(message)
+          ? "billing"
+          : /image|pixel|dimension/i.test(message)
+            ? "image"
+            : /context|token/i.test(message)
+              ? "context"
+              : /model/i.test(message)
+                ? "model"
+                : "request";
+      throw new ApiError(
+        502,
+        "AI_REQUEST_FAILED",
+        response.status === 401 || response.status === 403
+          ? "AI 인증에 실패했습니다. 서버의 API 키와 모델 사용 권한을 확인해주세요."
+          : response.status === 429
+            ? "AI 사용 한도에 도달했습니다. 사용 한도를 확인하거나 잠시 후 다시 생성해주세요."
+            : "AI 요청을 처리하지 못했습니다. 모델 설정과 입력 크기 확인 후 다시 생성해주세요.",
+        { provider, status: response.status, category },
+      );
+    }
+    const result = (await response.json()) as {
+      id?: string;
+      model?: string;
+      usage?: unknown;
+      service_tier?: string;
+      stop_reason?: string;
+      status?: string;
+      content?: { type: string; text?: string }[];
+      output?: { content?: { type: string; text?: string }[] }[];
+    };
+    observation.responseId = safeId(result.id);
+    observation.responseModel = safeId(result.model);
+    observation.serviceTier = safeId(result.service_tier);
+    observation.usage = result.usage;
+    if (
+      anthropic
+        ? result.stop_reason !== "end_turn"
+        : result.status !== "completed"
+    )
+      throw new ApiError(
+        502,
+        "AI_INCOMPLETE",
+        "AI 응답이 완료되지 않았습니다. 기존 시나리오는 유지됩니다. 입력 범위를 줄여서 다시 생성해주세요.",
+      );
+    const parts = anthropic
+      ? result.content
+      : result.output?.flatMap((item) => item.content ?? []);
+    const text = (parts ?? [])
+      .filter((part) => part.type === (anthropic ? "text" : "output_text"))
+      .map((part) => part.text ?? "")
+      .join("");
+    observation.status = "succeeded";
+    return text;
+  } catch (error) {
+    observation.errorCode =
+      error instanceof ApiError
+        ? error.code
+        : signal.aborted
+          ? "ABORTED_OR_TIMEOUT"
+          : "TRANSPORT_OR_RESPONSE_ERROR";
+    throw error;
+  } finally {
+    observation.finishedAt = new Date();
+    observation.durationMs = Math.max(
+      0,
+      Math.round(performance.now() - started),
+    );
+    await notify(hooks ? () => hooks.onFinish(observation) : undefined);
+  }
 }

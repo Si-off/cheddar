@@ -1,5 +1,6 @@
 import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
+import type { CostSource } from "../generation/provider-costs";
 
 export const API_ENV = Symbol("API_ENV");
 export interface ApiEnv {
@@ -7,6 +8,12 @@ export interface ApiEnv {
   storageRoot: string;
   port: number;
   corsOrigins: string[];
+  generationConcurrency?: number;
+  costSync?: {
+    openai?: CostSource;
+    anthropic?: CostSource;
+    intervalMs: number;
+  };
   ai?: {
     anthropicKey?: string;
     openaiKey?: string;
@@ -61,11 +68,38 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       throw new Error("ALLOW_FIGMA_NULL_ORIGIN requires NODE_ENV=development.");
     corsOrigins.push("null");
   }
+  const costSource = (key: string, scope: string): CostSource | undefined => {
+    const adminKey = env[key]?.trim();
+    const scopeId = env[scope]?.trim();
+    if (!adminKey && !scopeId) return undefined;
+    if (!adminKey || !scopeId || !/^[a-zA-Z0-9_-]{1,200}$/.test(scopeId))
+      throw new Error(`${key} and ${scope} must be configured together.`);
+    return { adminKey, scopeId };
+  };
+  const interval = Number(env.AI_COST_SYNC_INTERVAL_SECONDS ?? 3600);
+  const generationConcurrency = Number(env.AI_GENERATION_CONCURRENCY ?? 2);
+  if (
+    !Number.isInteger(generationConcurrency) ||
+    generationConcurrency < 1 ||
+    generationConcurrency > 8
+  )
+    throw new Error("AI_GENERATION_CONCURRENCY must be 1-8.");
+  if (!Number.isInteger(interval) || interval < 60 || interval > 86400)
+    throw new Error("AI_COST_SYNC_INTERVAL_SECONDS must be 60-86400.");
   return {
     databaseUrl: databaseUrl as string,
     storageRoot: resolve(storageRoot),
     port,
     corsOrigins,
+    generationConcurrency,
+    costSync: {
+      openai: costSource("OPENAI_ADMIN_KEY", "OPENAI_COST_PROJECT_ID"),
+      anthropic: costSource(
+        "ANTHROPIC_ADMIN_KEY",
+        "ANTHROPIC_COST_WORKSPACE_ID",
+      ),
+      intervalMs: interval * 1000,
+    },
     ai: {
       anthropicKey: env.ANTHROPIC_API_KEY?.trim() || undefined,
       openaiKey: env.OPENAI_API_KEY?.trim() || undefined,

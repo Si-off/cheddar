@@ -62,6 +62,7 @@ export class GenerationController {
     return this.service.list(projectId, testScenarioId);
   }
   @Post()
+  @ApiResponse({ status: 429, type: ErrorResponseDto })
   @HttpCode(202)
   @ApiOperation({ operationId: "startGeneration" })
   @ApiBody({ type: StartGenerationDto })

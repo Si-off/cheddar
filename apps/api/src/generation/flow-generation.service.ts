@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { ApiError, invalid } from "../common/errors";
 import { API_ENV, type ApiEnv } from "../config/env";
 import {
@@ -12,7 +12,7 @@ import {
 } from "../contracts/canvas.dto";
 import type { TestScenarioSnapshotDto } from "../contracts/test-scenarios.dto";
 import { DatabaseService } from "../database/database.service";
-import { scenarioFlowJobs } from "../database/schema";
+import { aiCallUsage, scenarioFlowJobs } from "../database/schema";
 import { FilesService } from "../files/files.service";
 import {
   CanvasRepository,
@@ -21,6 +21,7 @@ import {
 import { flowSources, validateFlow } from "../test-scenarios/canvas-state";
 import { prepareFrame } from "./prepare-frame";
 import { generate, type PreparedInput } from "./provider";
+import { AiUsageService } from "./usage.service";
 
 const object = (properties: Record<string, unknown>) => ({
   type: "object",
@@ -70,12 +71,13 @@ export class FlowGenerationService implements OnModuleDestroy {
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(CanvasRepository) private readonly canvas: CanvasRepository,
     @Inject(FilesService) private readonly files: FilesService,
+    @Inject(AiUsageService) private readonly usage: AiUsageService,
   ) {}
   onModuleDestroy() {
     for (const controller of this.running.values()) controller.abort();
   }
   private async expire(id: string) {
-    await this.database.db
+    const expired = await this.database.db
       .update(scenarioFlowJobs)
       .set({
         status: "failed",
@@ -87,7 +89,22 @@ export class FlowGenerationService implements OnModuleDestroy {
           eq(scenarioFlowJobs.status, "running"),
           lt(scenarioFlowJobs.createdAt, new Date(Date.now() - 10 * 60_000)),
         ),
-      );
+      )
+      .returning({ id: scenarioFlowJobs.id });
+    // Calls of an interrupted job never reported back; their usage stays unknown.
+    if (expired.length)
+      await this.database.db
+        .update(aiCallUsage)
+        .set({ status: "unknown" })
+        .where(
+          and(
+            inArray(
+              aiCallUsage.flowJobId,
+              expired.map((job) => job.id),
+            ),
+            eq(aiCallUsage.status, "running"),
+          ),
+        );
   }
   async list(projectId: string, id: string) {
     await this.canvas.get(projectId, id);
@@ -247,10 +264,15 @@ export class FlowGenerationService implements OnModuleDestroy {
       });
       if (input.text.length > 350_000) throw invalid();
       const raw: unknown = JSON.parse(
-        await generate(provider, model, key, input, controller.signal, {
-          schema,
-          instructions,
-        }),
+        await generate(
+          provider,
+          model,
+          key,
+          input,
+          controller.signal,
+          { schema, instructions },
+          this.usage.hooks({ kind: "flow", id, projectId, provider, model }),
+        ),
       );
       // Convert provider-local IDs only after checking the complete graph shape.
       if (

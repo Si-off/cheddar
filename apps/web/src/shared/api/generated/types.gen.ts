@@ -1498,6 +1498,7 @@ export type StartGenerationErrors = {
     403: ErrorResponseDto;
     404: ErrorResponseDto;
     409: ErrorResponseDto;
+    429: ErrorResponseDto;
     503: ErrorResponseDto;
 };
 

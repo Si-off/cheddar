@@ -18,6 +18,13 @@ export async function checkMigrations(
   await database.pool.query("SELECT id FROM projects LIMIT 0");
   await database.pool.query("SELECT project_id FROM project_analysis LIMIT 0");
   await database.pool.query("SELECT id FROM files LIMIT 0");
+  await database.pool.query(
+    "SELECT finished_at, duration_ms FROM generation_jobs LIMIT 0",
+  );
+  await database.pool.query(
+    "SELECT id, flow_job_id FROM ai_call_usage LIMIT 0",
+  );
+  await database.pool.query("SELECT provider FROM ai_provider_costs LIMIT 0");
   await database.pool.query("SELECT id FROM uploads LIMIT 0");
   await database.pool.query("SELECT id FROM upload_frames LIMIT 0");
   await database.pool.query("SELECT id FROM ia_items LIMIT 0");

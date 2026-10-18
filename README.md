@@ -155,6 +155,9 @@ HTML 안의 CSS 다운로드는 일반 CSS 변수를 내보낸다. 다운로드�
 | `FILE_STORAGE_ROOT` | Git 밖의 전용 영속 파일 루트. 현재 승인 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files` |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI 제공자 키. 서버 전용, 사용할 제공자의 키만 설정 |
 | `ANTHROPIC_MODEL` / `OPENAI_MODEL` | 기본 `claude-haiku-5-5` / `gpt-6-luna` |
+| `OPENAI_ADMIN_KEY` / `OPENAI_COST_PROJECT_ID` | 선택: OpenAI 비용 동기화용 관리자 키와 공급자 프로젝트 ID. 둘 다 설정 |
+| `ANTHROPIC_ADMIN_KEY` / `ANTHROPIC_COST_WORKSPACE_ID` | 선택: Anthropic 비용 동기화용 관리자 키와 공급자 워크스페이스 ID. 기본 워크스페이스는 `default`. 둘 다 설정 |
+| `AI_COST_SYNC_INTERVAL_SECONDS` | 비용 동기화 간격. 기본 `3600`, 허용 `60`~`86400`초 |
 | `API_PORT` | 기본 `3101`, loopback에만 listen |
 | `CORS_ORIGINS` | 기본 `http://127.0.0.1:5173`. 쉼표로 구분한 정확한 origin |
 | `ALLOW_FIGMA_NULL_ORIGIN` | 기본 `false`. `true`는 `NODE_ENV=development`에서만 허용하며 Figma iframe의 `Origin: null`을 허용 |
@@ -201,7 +204,9 @@ Figma 로컬 개발에서만 `ALLOW_FIGMA_NULL_ORIGIN=true`를 명시한다. 이
 
 `apps/api/.env.local`에 키를 입력한다. 기존 파일을 예제 파일로 덮어쓰지 않는다. 이 파일의 키를 웹 `VITE_` 환경변수에 넣지 않는다. 새 체크아웃에서 실행한다면 `DATABASE_URL`, `FILE_STORAGE_ROOT`와 포트·CORS 설정도 기존 로컬 환경에 맞게 준비해야 한다. 환경 파일은 worktree마다 별개다.
 
-AI 생성에는 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블이 필요하다. 기존 서버에서 새 기능을 사용하려면 연결 설정과 migration 상태를 확인하고, 필요한 migration 적용과 이 체크아웃의 API 재시작을 수행한다. 기존 서버의 경로·사용 목적과 현재 작업의 실행 범위를 확인한 뒤 진행한다.
+AI 생성에는 `0003_youthful_sister_grimm.sql`의 생성 작업 테이블, 사용량·비용 기록에는 `0009_ai_usage_accounting.sql`이 필요하다. 기존 서버에서 새 기능을 사용하려면 연결 설정과 migration 상태를 확인하고, 필요한 migration 적용과 이 체크아웃의 API 재시작을 수행한다. 기존 서버의 경로·사용 목적과 현재 작업의 실행 범위를 확인한 뒤 진행한다.
+
+테스트 케이스 생성은 DB를 공유하는 모든 API 프로세스를 합쳐 동시에 `AI_GENERATION_CONCURRENCY`개(기본 2, 1~8)까지 시작한다. 한도를 넘는 요청은 입력을 읽기 전에 429로 거절하며 대기열에 쌓지 않는다. 같은 요청 ID의 재요청은 한도와 관계없이 기존 작업을 돌려준다. 여러 API 프로세스는 같은 값을 사용한다.
 
 1. 웹에서 프로젝트를 선택하거나 만든다.
 2. 새 시나리오를 만들고 단위/통합을 선택하거나 기존 시나리오를 연다.
@@ -228,3 +233,51 @@ pnpm db:migrate
 사용자 양식 전환 후 필수 열은 ID·테스트 항목만 남고, 텍스트·선택·체크박스·태그 열을 사용자가 설정한다. AI는 이 양식과 미리 정한 선택 항목에 맞춰 생성한다. 구형 고정 본문·우선순위 데이터의 변환은 제공하지 않는다.
 
 브라우저 초안은 새 `cheddar-test-scenario-drafts-v2` IndexedDB와 `cheddar-confirmation-drafts-v2:` localStorage 키에서 시작하며 이전 초안을 가져오지 않는다. 이전 초안 삭제가 필요하면 해당 웹 origin의 개발자 도구에서 이전 IndexedDB 저장소만 삭제한다. 다른 앱의 브라우저 데이터는 삭제하지 않는다.
+
+## AI 사용량과 비용 기록
+
+Migration 적용 후 API에서 생성하면 서버 훅이 자동 기록한다. 테스트 케이스 생성의 자료 정리·생성 호출과 캔버스 흐름 생성 호출이 모두 대상이다. 에이전트 지시나 브라우저 설정은 필요하지 않다.
+
+| 저장 위치 | 내용 |
+| --- | --- |
+| `generation_jobs` | 작업 결과, 종료 관찰 시각 `finished_at`, 전체 실행 시간 `duration_ms` |
+| `ai_call_usage` | 호출별 실제 토큰, 응답·요청 ID, 모델, 시간, 상태, 계산 비용과 적용 단가. `job_id`(테스트 케이스 생성) 또는 `flow_job_id`(흐름 생성) 중 하나로 작업을 가리킨다 |
+| `ai_provider_costs` | 공급자가 보고한 UTC 일별 비용, 공급자 scope, 청구 항목, 동기화 시각 |
+
+사용량은 시나리오 결과 저장과 별도로 기록하므로 생성 결과 검증 실패에도 남는다. 응답이 없거나 사용량을 확인할 수 없으면 `usage_known=false`, 확인되지 않은 숫자와 비용은 `NULL`이다. 과거 생성 작업은 사용량을 복원하지 않는다. 계측 저장이 실패하면 `ai_usage_write_failed`를 남기며 재호출하거나 생성 결과를 실패로 바꾸지 않는다. 강제 종료 뒤 남은 호출은 해당 생성 작업의 만료가 확인될 때 `unknown`이 된다.
+
+계산 비용은 기본 `claude-haiku-5-5`·`gpt-6-luna`의 2026-10-15 공식 단가를 사용한 USD 값이다. 캐시와 Haiku 장문 요금을 구분하고 reasoning은 출력에 중복 가산하지 않는다. 다른 응답 모델이나 별도 tier는 실제 토큰만 기록하고 비용은 `NULL`로 둔다. 모델·가격 정책이 바뀌면 `generation/usage.ts`의 단가 버전과 조건을 갱신한다. 과거 기록의 단가는 유지한다. [OpenAI Luna 가격](https://developers.openai.com/api/docs/models/gpt-6-luna), [Anthropic 가격](https://platform.claude.com/docs/en/about-claude/pricing).
+
+공급자 비용 동기화는 선택 사항이다. 서버 환경에 사용할 공급자의 관리자 키와 전용 프로젝트/워크스페이스 ID를 함께 설정한다. 이 ID는 Cheddar 프로젝트 UUID와 별개이며 **모델 호출 키가 소속된 공급자 scope**를 지정해야 비교할 수 있다. 관리자 키를 프런트엔드에 넣지 않는다. 설정하지 않아도 호출별 사용량 기록은 동작한다.
+
+설정된 공급자는 API 시작 시와 기본 1시간마다 최근 7 UTC 일(오늘 포함)을 다시 가져온다. 오늘 값은 진행 중인 집계이며 공급자 반영 지연이 있을 수 있다. 동기화는 실패한 공급자의 기존 데이터를 유지한다. 공급자 집계와 호출별 계산 비용을 합산하거나 개별 작업의 확정 청구액으로 취급하지 않는다. 관리자 권한과 API 제공 조건은 [OpenAI 비용 API](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs), [Anthropic Usage and Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api)를 따른다. Anthropic 개인 계정에서는 Admin API가 제공되지 않으며 Priority Tier 비용은 해당 비용 API 범위에 포함되지 않는다.
+
+수동 동기화는 다음과 같다. 날짜는 UTC이며 종료일은 제외한다. 한 번에 최대 31일을 지정한다.
+
+```sh
+pnpm --filter @cheddar/api ai:costs:sync
+pnpm --filter @cheddar/api ai:costs:sync 2026-10-01 2026-10-15
+```
+
+DB에서 날짜·Cheddar 프로젝트·모델별 사용량을 조회하는 예시다. 미확인 건수와 비용 미계산 건수를 함께 확인한다.
+
+```sql
+SELECT (started_at AT TIME ZONE 'UTC')::date AS day,
+       project_id, provider, COALESCE(response_model, requested_model) AS model,
+       count(*) AS calls,
+       count(*) FILTER (WHERE NOT usage_known) AS unknown_usage_calls,
+       count(*) FILTER (WHERE calculated_cost_usd IS NULL) AS unpriced_calls,
+       sum(input_tokens) FILTER (WHERE usage_known) AS input_tokens,
+       sum(output_tokens) FILTER (WHERE usage_known) AS output_tokens,
+       sum(calculated_cost_usd) AS calculated_cost_usd,
+       avg(duration_ms) AS average_call_ms
+FROM ai_call_usage
+GROUP BY 1, 2, 3, 4
+ORDER BY 1 DESC;
+
+SELECT bucket_start, provider, scope_id, sum(amount_usd) AS reported_cost_usd,
+       min(synced_at) AS synced_at
+FROM ai_provider_costs
+GROUP BY 1, 2, 3
+ORDER BY 1 DESC;
+```

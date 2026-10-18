@@ -56,6 +56,7 @@ export async function openTestDatabase() {
           [projects],
         );
         for (const table of [
+          "ai_call_usage",
           "generation_jobs",
           "project_analysis",
           "test_cases",

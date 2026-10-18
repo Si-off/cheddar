@@ -7,9 +7,10 @@ import {
 } from "./generation.controller";
 import { GenerationRepository } from "./generation.repository";
 import { GenerationService } from "./generation.service";
+import { ProviderCostsService } from "./provider-costs.service";
 @Module({
   imports: [TestScenariosModule, FilesModule],
   controllers: [GenerationController, GenerationProvidersController],
-  providers: [GenerationRepository, GenerationService],
+  providers: [GenerationRepository, GenerationService, ProviderCostsService],
 })
 export class GenerationModule {}

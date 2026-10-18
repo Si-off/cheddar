@@ -22,6 +22,7 @@ import {
   structureInstructions,
   structureSchema,
 } from "./structure-sources";
+import { AiUsageService } from "./usage.service";
 
 const State = Annotation.Root({
   input: Annotation<PreparedInput>(),
@@ -39,6 +40,7 @@ export class GenerationService implements OnModuleDestroy {
     @Inject(GenerationRepository)
     private readonly repository: GenerationRepository,
     @Inject(FilesService) private readonly files: FilesService,
+    @Inject(AiUsageService) private readonly usage: AiUsageService,
   ) {}
   providers() {
     return {
@@ -87,6 +89,7 @@ export class GenerationService implements OnModuleDestroy {
         exampleTestScenarioId: request.exampleTestScenarioId?.toLowerCase(),
       },
       provider.model,
+      this.env.generationConcurrency ?? 2,
     );
     if (created) {
       const abort = new AbortController();
@@ -216,6 +219,7 @@ export class GenerationService implements OnModuleDestroy {
         { ...input, text },
         AbortSignal.any([signal, AbortSignal.timeout(240_000)]),
         { schema: structureSchema, instructions: structureInstructions },
+        this.usage.hooks({ kind: "generation", ...job }),
       );
       sources = [...sources, ...parseSources(raw, input.sourceCandidates)];
     }
@@ -250,6 +254,7 @@ export class GenerationService implements OnModuleDestroy {
     };
   }
   private async run(job: Job, key: string, abort: AbortSignal) {
+    const started = performance.now();
     try {
       const signal = AbortSignal.any([abort, AbortSignal.timeout(480_000)]);
       const graph = new StateGraph(State)
@@ -264,6 +269,8 @@ export class GenerationService implements OnModuleDestroy {
             key,
             state.input,
             AbortSignal.any([signal, AbortSignal.timeout(240_000)]),
+            undefined,
+            this.usage.hooks({ kind: "generation", ...job }),
           ),
         }))
         .addNode("validate", (state) => {
@@ -292,7 +299,7 @@ export class GenerationService implements OnModuleDestroy {
         })
         .addNode("save", async (state) => {
           signal.throwIfAborted();
-          await this.repository.succeed(job, state.result);
+          await this.repository.succeed(job, state.result, started);
           return {};
         })
         .addEdge(START, "prepare")
@@ -316,7 +323,7 @@ export class GenerationService implements OnModuleDestroy {
         error instanceof ApiError
           ? error.message
           : "생성을 완료하지 못했습니다. 기존 시나리오는 유지됩니다. 입력과 서버 연결 확인 후 다시 생성해주세요.";
-      await this.repository.fail(job, message).catch(() => {
+      await this.repository.fail(job, message, started).catch(() => {
         process.stderr.write(
           "Generation failure status could not be saved; lease will expire.\n",
         );

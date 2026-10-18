@@ -37,6 +37,7 @@ test("canvas stores independent flow/layout revisions, references, backups and A
         input.includes("anthropic")
           ? {
               stop_reason: "end_turn",
+              usage: { input_tokens: 120, output_tokens: 30 },
               content: [{ type: "text", text: JSON.stringify(providerResult) }],
             }
           : {
@@ -351,6 +352,18 @@ test("canvas stores independent flow/layout revisions, references, backups and A
         job = await waitJob(job.id);
         assert.equal(job.status, "succeeded");
         assert.equal(calls, 1);
+        const usage = (
+          await lease.lock.query(
+            "SELECT job_id, flow_job_id, status, usage_known, input_tokens, output_tokens FROM ai_call_usage WHERE flow_job_id=$1",
+            [job.id],
+          )
+        ).rows;
+        assert.equal(usage.length, 1, "Flow generation call is recorded once");
+        assert.equal(usage[0].job_id, null);
+        assert.equal(usage[0].status, "succeeded");
+        assert.equal(usage[0].usage_known, true);
+        assert.equal(usage[0].input_tokens, "120");
+        assert.equal(usage[0].output_tokens, "30");
         assert.ok(job.result);
         assert.deepEqual(
           (await ok<CanvasSnapshotDto>(`${path}/canvas`)).flow,

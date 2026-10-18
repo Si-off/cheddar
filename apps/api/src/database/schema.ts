@@ -1,12 +1,14 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   doublePrecision,
   foreignKey,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -21,6 +23,11 @@ import type {
   StartGenerationDto,
 } from "../contracts/generation.dto";
 import type { TestScenarioSnapshotDto } from "../contracts/test-scenarios.dto";
+import type {
+  AiProvider,
+  NumericUsage,
+  PriceSnapshot,
+} from "../generation/usage";
 
 export const projects = pgTable(
   "projects",
@@ -496,6 +503,8 @@ export const generationJobs = pgTable(
     revision: integer("revision").notNull().default(1),
     error: text("error"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    durationMs: bigint("duration_ms", { mode: "number" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -595,5 +604,93 @@ export const scenarioFlowJobs = pgTable(
     }).onDelete("cascade"),
     unique("flow_generation_request_unique").on(t.projectId, t.clientRequestId),
     index("flow_generation_scenario_idx").on(t.testScenarioId, t.createdAt),
+  ],
+);
+
+export const aiCallUsage = pgTable(
+  "ai_call_usage",
+  {
+    id: uuid("id").primaryKey(),
+    // Exactly one of a test case generation job or a flow generation job.
+    jobId: uuid("job_id").references(() => generationJobs.id, {
+      onDelete: "restrict",
+    }),
+    flowJobId: uuid("flow_job_id").references(() => scenarioFlowJobs.id, {
+      onDelete: "restrict",
+    }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "restrict" }),
+    provider: text("provider").$type<AiProvider>().notNull(),
+    requestedModel: text("requested_model").notNull(),
+    responseModel: text("response_model"),
+    requestId: text("request_id"),
+    responseId: text("response_id"),
+    serviceTier: text("service_tier"),
+    status: text("status")
+      .$type<"running" | "succeeded" | "failed" | "unknown">()
+      .notNull()
+      .default("running"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    durationMs: bigint("duration_ms", { mode: "number" }),
+    httpStatus: integer("http_status"),
+    errorCode: text("error_code"),
+    usageKnown: boolean("usage_known").notNull().default(false),
+    inputTokens: bigint("input_tokens", { mode: "number" }),
+    outputTokens: bigint("output_tokens", { mode: "number" }),
+    cachedInputTokens: bigint("cached_input_tokens", { mode: "number" }),
+    cacheWriteTokens: bigint("cache_write_tokens", { mode: "number" }),
+    reasoningTokens: bigint("reasoning_tokens", { mode: "number" }),
+    rawUsage: jsonb("raw_usage").$type<NumericUsage>(),
+    calculatedCostUsd: numeric("calculated_cost_usd", {
+      precision: 24,
+      scale: 12,
+    }),
+    pricing: jsonb("pricing").$type<PriceSnapshot>(),
+  },
+  (t) => [
+    index("ai_call_usage_job_idx").on(t.jobId),
+    index("ai_call_usage_flow_job_idx").on(t.flowJobId),
+    check(
+      "ai_call_usage_owner_check",
+      sql`num_nonnulls(${t.jobId}, ${t.flowJobId}) = 1`,
+    ),
+    index("ai_call_usage_project_time_idx").on(t.projectId, t.startedAt),
+    index("ai_call_usage_provider_time_idx").on(t.provider, t.startedAt),
+    check(
+      "ai_call_usage_status_check",
+      sql`${t.status} in ('running','succeeded','failed','unknown')`,
+    ),
+    check(
+      "ai_call_usage_provider_check",
+      sql`${t.provider} in ('openai','anthropic')`,
+    ),
+  ],
+);
+
+export const aiProviderCosts = pgTable(
+  "ai_provider_costs",
+  {
+    provider: text("provider").$type<AiProvider>().notNull(),
+    scopeId: text("scope_id").notNull(),
+    bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
+    bucketEnd: timestamp("bucket_end", { withTimezone: true }).notNull(),
+    itemKey: text("item_key").notNull(),
+    dimensions: jsonb("dimensions")
+      .$type<Record<string, string | null>>()
+      .notNull(),
+    amountUsd: numeric("amount_usd").notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.scopeId, t.bucketStart, t.itemKey] }),
+    index("ai_provider_costs_time_idx").on(t.provider, t.bucketStart),
+    check(
+      "ai_provider_costs_provider_check",
+      sql`${t.provider} in ('openai','anthropic')`,
+    ),
   ],
 );

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { FilesModule } from "../files/files.module";
 import { FlowGenerationService } from "../generation/flow-generation.service";
+import { AiUsageService } from "../generation/usage.service";
 import { TemplatesModule } from "../templates/templates.module";
 import { CanvasController } from "./canvas.controller";
 import { CanvasRepository } from "./canvas.repository";
@@ -16,7 +17,8 @@ import { TestScenariosService } from "./test-scenarios.service";
     TestScenariosService,
     CanvasRepository,
     FlowGenerationService,
+    AiUsageService,
   ],
-  exports: [TestScenariosRepository, TestScenariosService],
+  exports: [TestScenariosRepository, TestScenariosService, AiUsageService],
 })
 export class TestScenariosModule {}

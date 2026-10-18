@@ -11,6 +11,7 @@
     "test": "node --env-file-if-exists=.env.local scripts/test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/migrate.js",
+    "ai:costs:sync": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/sync-ai-costs.js",
     "openapi:export": "pnpm build && node dist/scripts/export-openapi.js",
     "openapi:check": "pnpm build && node dist/scripts/export-openapi.js --check"
   },

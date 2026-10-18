@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { ApiError, invalid, notFound } from "../common/errors";
 import {
   assertTestScenarioEditable,
@@ -73,6 +73,7 @@ export class GenerationRepository {
     testScenarioId: string,
     request: StartGenerationDto,
     model: string,
+    concurrency = 2,
   ) {
     const requestHash = createHash("sha256")
       .update(
@@ -179,6 +180,24 @@ export class GenerationRepository {
           projectId,
           request.exampleTestScenarioId,
         );
+      // Short database-wide admission lock: multiple API processes share the
+      // same capacity, and no input files are loaded before admission.
+      await tx.execute(sql`select pg_advisory_xact_lock(31015433)`);
+      const [active] = await tx
+        .select({ count: count() })
+        .from(generationJobs)
+        .where(
+          and(
+            eq(generationJobs.status, "running"),
+            gt(generationJobs.expiresAt, new Date()),
+          ),
+        );
+      if (active.count >= concurrency)
+        throw new ApiError(
+          429,
+          "GENERATION_CAPACITY",
+          "현재 생성 요청이 많습니다. 잠시 후 다시 시도해주세요.",
+        );
       const [job] = await tx
         .insert(generationJobs)
         .values({
@@ -280,7 +299,7 @@ export class GenerationRepository {
       analysis,
     };
   }
-  async succeed(job: Job, result: GenerationResult) {
+  async succeed(job: Job, result: GenerationResult, started: number) {
     await this.write(job.projectId, async (tx) => {
       const [current] = await tx
         .select()
@@ -421,15 +440,22 @@ export class GenerationRepository {
           results,
           caseCount: result.cases.length,
           revision: current.revision + 1,
+          finishedAt: new Date(),
+          durationMs: Math.max(0, Math.round(performance.now() - started)),
         })
         .where(eq(generationJobs.id, job.id));
     });
   }
-  async fail(job: Job, message: string) {
+  async fail(job: Job, message: string, started: number) {
     await this.write(job.projectId, async (tx) => {
       await tx
         .update(generationJobs)
-        .set({ status: "failed", error: message })
+        .set({
+          status: "failed",
+          error: message,
+          finishedAt: new Date(),
+          durationMs: Math.max(0, Math.round(performance.now() - started)),
+        })
         .where(
           and(
             eq(generationJobs.id, job.id),
