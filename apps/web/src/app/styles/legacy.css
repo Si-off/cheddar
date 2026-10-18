@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "@cheddar/design-tokens/legacy-theme.css";
+@import "@cheddar/ui/legacy/styles.css";
+@import "../../shared/ui/workspace.css";
+@source "../../../../../packages/ui/src/legacy";
+
+html {
+  font-family: var(--font-sans);
+}
+body {
+  margin: 0;
+}

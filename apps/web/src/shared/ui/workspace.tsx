@@ -7,7 +7,7 @@ import {
   SelectValue,
   WorkspaceIcon,
   type WorkspaceIconName,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import type { ReactNode } from "react";
 export function MenuAction({
   icon,

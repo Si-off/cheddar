@@ -12,7 +12,7 @@ import {
   PopoverTrigger,
   Textarea,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useBlocker } from "@tanstack/react-router";
 import {
   lazy,

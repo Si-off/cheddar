@@ -1,4 +1,4 @@
-import { Button, Input, Textarea } from "@cheddar/ui";
+import { Button, Input, Textarea } from "@cheddar/ui/legacy";
 import { useState } from "react";
 import type { Snapshot } from "@/entities/test-case";
 import type { Flow } from "./canvas-session";

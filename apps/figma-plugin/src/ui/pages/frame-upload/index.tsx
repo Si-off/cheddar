@@ -13,7 +13,7 @@ import {
   Label,
   Surface,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {

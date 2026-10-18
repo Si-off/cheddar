@@ -9,7 +9,7 @@ import {
   SelectValue,
   Surface,
   Textarea,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import type { IaItemDto } from "@/shared/api/generated";
 import {
   type FieldErrors,

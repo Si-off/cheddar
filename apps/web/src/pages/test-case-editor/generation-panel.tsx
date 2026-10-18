@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {

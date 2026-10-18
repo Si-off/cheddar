@@ -1,42 +1,113 @@
-import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { withClassName } from "./utils";
+import { Tabs as BaseTabs } from "@base-ui/react/tabs";
+import type { LucideIcon } from "lucide-react";
+import { type ComponentProps, createContext, type ReactNode, use } from "react";
+import { Icon } from "./icon";
+import { cn } from "./utils";
 
-export function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
-  return (
-    <TabsPrimitive.Root
-      data-slot="tabs"
-      className={withClassName("cd-tabs", className)}
-      {...props}
-    />
-  );
+type TabsVariant = "line" | "pill";
+const VariantContext = createContext<TabsVariant>("line");
+
+interface TabsListProps
+  extends Omit<ComponentProps<typeof BaseTabs.List>, "children"> {
+  variant?: TabsVariant;
+  children: ReactNode;
 }
-export function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
-  return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      className={withClassName("cd-tabs-list", className)}
-      {...props}
-    />
-  );
-}
-export function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
-  return (
-    <TabsPrimitive.Tab
-      data-slot="tabs-trigger"
-      className={withClassName("cd-tabs-trigger", className)}
-      {...props}
-    />
-  );
-}
-export function TabsContent({
+
+/** 탭 목록. 선택 표시(밑줄 또는 배경)는 새 탭으로 미끄러진다. */
+function TabsList({
+  variant = "line",
   className,
-  ...props
-}: TabsPrimitive.Panel.Props) {
+  children,
+  ...rest
+}: TabsListProps) {
   return (
-    <TabsPrimitive.Panel
-      data-slot="tabs-content"
-      className={withClassName("cd-tabs-content", className)}
-      {...props}
-    />
+    <VariantContext value={variant}>
+      <BaseTabs.List
+        {...rest}
+        className={cn(
+          "relative flex items-center",
+          variant === "line"
+            ? "gap-5 border-b border-line"
+            : "gap-0.5 rounded-md bg-subtle p-0.5",
+          className,
+        )}
+      >
+        {children}
+        <BaseTabs.Indicator
+          className={cn(
+            "absolute transition-all duration-base ease-emphasized",
+            variant === "line"
+              ? "bottom-0 h-0.5 bg-accent"
+              : "top-0.5 bottom-0.5 z-0 rounded-sm bg-surface shadow-raised",
+          )}
+          style={{
+            left: "var(--active-tab-left)",
+            width: "var(--active-tab-width)",
+          }}
+        />
+      </BaseTabs.List>
+    </VariantContext>
   );
 }
+
+interface TabsTabProps extends ComponentProps<typeof BaseTabs.Tab> {
+  icon?: LucideIcon;
+  /** 개수 표시 */
+  count?: number;
+  /** 개수를 주의 색으로 */
+  attention?: boolean;
+}
+
+function TabsTab({
+  icon,
+  count,
+  attention,
+  className,
+  children,
+  ...rest
+}: TabsTabProps) {
+  const variant = use(VariantContext);
+  return (
+    <BaseTabs.Tab
+      {...rest}
+      className={cn(
+        "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap text-label text-fg-muted transition-colors duration-fast hover:text-fg data-selected:text-fg",
+        variant === "line" ? "h-10" : "h-7 rounded-sm px-2.5",
+        className,
+      )}
+    >
+      {icon && <Icon icon={icon} size="sm" />}
+      {children as ReactNode}
+      {count !== undefined && (
+        <span
+          className={cn(
+            "rounded-full px-1.5 text-caption tabular-nums",
+            attention
+              ? "bg-warning-soft text-warning"
+              : "bg-subtle text-fg-muted",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </BaseTabs.Tab>
+  );
+}
+
+function TabsPanel({
+  className,
+  ...rest
+}: ComponentProps<typeof BaseTabs.Panel>) {
+  return <BaseTabs.Panel {...rest} className={cn("outline-none", className)} />;
+}
+
+/**
+ * 탭. <Tabs.Root defaultValue="a"><Tabs.List><Tabs.Tab value="a">…</Tabs.Tab></Tabs.List><Tabs.Panel value="a">…</Tabs.Panel></Tabs.Root>
+ * 화면 이동용 탭이면 Tabs.Tab에 render로 링크를 넘긴다.
+ */
+export const Tabs = {
+  Root: BaseTabs.Root,
+  List: TabsList,
+  Tab: TabsTab,
+  Panel: TabsPanel,
+};

@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
   Textarea,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useState } from "react";
 import type { Column, Snapshot } from "@/entities/test-case";
 import { WorkspaceSelect } from "@/shared/ui/workspace";

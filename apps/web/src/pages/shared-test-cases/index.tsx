@@ -4,7 +4,7 @@ import {
   DialogContent,
   DialogTitle,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useState } from "react";
 import { type Column, displayValue, type Snapshot } from "@/entities/test-case";
 export function SharedTestScenarioView({

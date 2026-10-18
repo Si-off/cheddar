@@ -1,161 +1,143 @@
-import { Select as SelectPrimitive } from "@base-ui/react/select";
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { withClassName } from "./utils";
+import { Select as BaseSelect } from "@base-ui/react/select";
+import { ChevronDown, type LucideIcon } from "lucide-react";
+import { useId } from "react";
+import {
+  type ControlSize,
+  controlFrame,
+  controlHeight,
+  Field,
+  type FieldOwnProps,
+} from "./field";
+import { DrawnCheck, Icon } from "./icon";
+import { PopupHighlight, popupFrame, popupItem } from "./popup-list";
+import { cn } from "./utils";
 
-const Select = SelectPrimitive.Root;
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
-  return (
-    <SelectPrimitive.Value
-      data-slot="select-value"
-      className={withClassName("cd-select-value", className)}
-      {...props}
-    />
-  );
+export interface SelectItem {
+  value: string;
+  label: string;
+  description?: string;
+  icon?: LucideIcon;
+  disabled?: boolean;
 }
-function SelectTrigger({
-  className,
-  density = "form",
-  children,
-  ...props
-}: SelectPrimitive.Trigger.Props & { density?: "toolbar" | "form" }) {
-  return (
-    <SelectPrimitive.Trigger
-      data-slot="select-trigger"
-      data-density={density}
-      className={withClassName("cd-input cd-select-trigger", className)}
-      {...props}
-    >
-      {children}
-      <SelectPrimitive.Icon>
-        <ChevronDownIcon aria-hidden="true" />
-      </SelectPrimitive.Icon>
-    </SelectPrimitive.Trigger>
-  );
+
+export interface SelectProps extends FieldOwnProps {
+  items: SelectItem[];
+  value?: string | null;
+  defaultValue?: string | null;
+  onValueChange?: (value: string | null) => void;
+  placeholder?: string;
+  size?: ControlSize;
+  /** 폼 제출용 이름 */
+  name?: string;
+  className?: string;
+  "aria-label"?: string;
 }
-function SelectContent({
+
+/** 브라우저 기본 select 대신 직접 그린 목록 상자 */
+export function Select({
+  items,
+  value,
+  defaultValue,
+  onValueChange,
+  placeholder,
+  size = "md",
+  name,
   className,
-  children,
-  side = "bottom",
-  align = "start",
-  sideOffset = 0,
-  alignOffset = 0,
-  alignItemWithTrigger = false,
-  ...props
-}: SelectPrimitive.Popup.Props &
-  Pick<
-    SelectPrimitive.Positioner.Props,
-    "side" | "align" | "sideOffset" | "alignOffset" | "alignItemWithTrigger"
-  >) {
+  "aria-label": ariaLabel,
+  ...field
+}: SelectProps) {
+  const highlightId = useId();
+  const byValue = new Map(items.map((item) => [item.value, item]));
   return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Positioner
-        className="cd-select-positioner"
-        side={side}
-        align={align}
-        sideOffset={sideOffset}
-        alignOffset={alignOffset}
-        alignItemWithTrigger={alignItemWithTrigger}
+    <Field {...field} className={className}>
+      <BaseSelect.Root
+        items={items}
+        value={value}
+        defaultValue={defaultValue}
+        onValueChange={(next) => onValueChange?.(next as string | null)}
+        name={name}
+        disabled={field.disabled}
+        required={field.required}
       >
-        <SelectPrimitive.Popup
-          data-slot="select-content"
-          className={withClassName("cd-select-content", className)}
-          {...props}
+        <BaseSelect.Trigger
+          aria-label={ariaLabel}
+          className={cn(
+            "flex w-full items-center gap-2 px-2.5 text-left",
+            controlFrame,
+            controlHeight[size],
+          )}
         >
-          <SelectScrollUpButton />
-          <SelectPrimitive.List>{children}</SelectPrimitive.List>
-          <SelectScrollDownButton />
-        </SelectPrimitive.Popup>
-      </SelectPrimitive.Positioner>
-    </SelectPrimitive.Portal>
+          <BaseSelect.Value className="flex min-w-0 flex-1 items-center gap-2 truncate">
+            {(current: string | null) => {
+              const item = current == null ? undefined : byValue.get(current);
+              if (!item)
+                return <span className="text-fg-faint">{placeholder}</span>;
+              return (
+                <>
+                  {item.icon && (
+                    <Icon icon={item.icon} className="text-fg-muted" />
+                  )}
+                  <span className="truncate">{item.label}</span>
+                </>
+              );
+            }}
+          </BaseSelect.Value>
+          <BaseSelect.Icon className="text-fg-muted transition-transform duration-base data-popup-open:rotate-180">
+            <Icon icon={ChevronDown} size="sm" />
+          </BaseSelect.Icon>
+        </BaseSelect.Trigger>
+        <BaseSelect.Portal>
+          <BaseSelect.Positioner
+            sideOffset={4}
+            alignItemWithTrigger={false}
+            className="z-50"
+          >
+            <BaseSelect.Popup
+              className={popupFrame}
+              style={{ minWidth: "var(--anchor-width)" }}
+            >
+              <BaseSelect.List>
+                {items.map((item) => (
+                  <BaseSelect.Item
+                    key={item.value}
+                    value={item.value}
+                    disabled={item.disabled}
+                    className={popupItem}
+                    render={(props, state) => (
+                      <div {...props}>
+                        <PopupHighlight
+                          active={state.highlighted}
+                          layoutId={highlightId}
+                        />
+                        <span className="relative flex min-w-0 flex-1 items-center gap-2">
+                          {item.icon && (
+                            <Icon icon={item.icon} className="text-fg-muted" />
+                          )}
+                          <span className="flex min-w-0 flex-1 flex-col">
+                            <BaseSelect.ItemText className="truncate">
+                              {item.label}
+                            </BaseSelect.ItemText>
+                            {item.description && (
+                              <span className="text-caption text-fg-muted">
+                                {item.description}
+                              </span>
+                            )}
+                          </span>
+                          <DrawnCheck
+                            drawn={state.selected}
+                            size="sm"
+                            className="text-accent"
+                          />
+                        </span>
+                      </div>
+                    )}
+                  />
+                ))}
+              </BaseSelect.List>
+            </BaseSelect.Popup>
+          </BaseSelect.Positioner>
+        </BaseSelect.Portal>
+      </BaseSelect.Root>
+    </Field>
   );
 }
-function SelectItem({
-  className,
-  children,
-  ...props
-}: SelectPrimitive.Item.Props) {
-  return (
-    <SelectPrimitive.Item
-      data-slot="select-item"
-      className={withClassName("cd-select-item", className)}
-      {...props}
-    >
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-      <SelectPrimitive.ItemIndicator className="cd-select-indicator">
-        <CheckIcon aria-hidden="true" />
-      </SelectPrimitive.ItemIndicator>
-    </SelectPrimitive.Item>
-  );
-}
-function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
-  return (
-    <SelectPrimitive.Group
-      data-slot="select-group"
-      className={withClassName("cd-select-group", className)}
-      {...props}
-    />
-  );
-}
-function SelectLabel({
-  className,
-  ...props
-}: SelectPrimitive.GroupLabel.Props) {
-  return (
-    <SelectPrimitive.GroupLabel
-      data-slot="select-label"
-      className={withClassName("cd-select-label", className)}
-      {...props}
-    />
-  );
-}
-function SelectSeparator({
-  className,
-  ...props
-}: SelectPrimitive.Separator.Props) {
-  return (
-    <SelectPrimitive.Separator
-      data-slot="select-separator"
-      className={withClassName("cd-select-separator", className)}
-      {...props}
-    />
-  );
-}
-function SelectScrollUpButton({
-  className,
-  ...props
-}: SelectPrimitive.ScrollUpArrow.Props) {
-  return (
-    <SelectPrimitive.ScrollUpArrow
-      className={withClassName("cd-select-scroll", className)}
-      {...props}
-    >
-      <ChevronUpIcon aria-hidden="true" />
-    </SelectPrimitive.ScrollUpArrow>
-  );
-}
-function SelectScrollDownButton({
-  className,
-  ...props
-}: SelectPrimitive.ScrollDownArrow.Props) {
-  return (
-    <SelectPrimitive.ScrollDownArrow
-      className={withClassName("cd-select-scroll", className)}
-      {...props}
-    >
-      <ChevronDownIcon aria-hidden="true" />
-    </SelectPrimitive.ScrollDownArrow>
-  );
-}
-
-export {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-};

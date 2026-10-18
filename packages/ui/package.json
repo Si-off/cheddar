@@ -5,8 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles.css",
+    "./legacy": "./src/legacy/index.ts",
+    "./legacy/styles.css": "./src/legacy/styles.css",
     "./utils": "./src/utils.ts",
+    "./legacy/*": "./src/legacy/*.tsx",
     "./*": "./src/*.tsx"
   },
   "scripts": {
@@ -27,6 +29,7 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.56.0",
+    "motion": "14.2.0",
     "tailwind-merge": "3.7.0"
   }
 }

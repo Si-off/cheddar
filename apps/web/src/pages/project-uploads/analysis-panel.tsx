@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FrameReference, Snapshot } from "@/entities/test-case";

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Textarea, WorkspaceIcon } from "@cheddar/ui";
+import { Button, Checkbox, Textarea, WorkspaceIcon } from "@cheddar/ui/legacy";
 import {
   type ColumnDef,
   flexRender,

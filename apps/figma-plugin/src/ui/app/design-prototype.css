@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@cheddar/design-tokens/theme.css";
+@import "@cheddar/design-tokens/legacy-theme.css";
 :root {
   font-family: var(--font-sans);
   background: var(--color-surface);

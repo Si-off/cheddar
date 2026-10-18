@@ -7,7 +7,7 @@ import {
   Input,
   Label,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import {
   useInfiniteQuery,
   useMutation,

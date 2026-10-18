@@ -1,4 +1,4 @@
-import { Input, Label, Textarea } from "@cheddar/ui";
+import { Input, Label, Textarea } from "@cheddar/ui/legacy";
 import type { FieldErrors, ProjectForm } from "./model";
 
 export function ProjectInfoEditor({

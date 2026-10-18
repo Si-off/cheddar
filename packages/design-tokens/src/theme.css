@@ -1,156 +1,277 @@
+/*
+ * Cheddar 디자인 토큰. 원본은 Cheddar 디자인 시스템의 tokens.json이다.
+ * 값을 바꿀 때는 디자인 시스템을 먼저 고치고 이 파일을 다시 만든다.
+ * 라이트가 기본이고, data-theme="dark" 또는 시스템 다크 설정에서 다크 값을 쓴다.
+ */
 @import "@fontsource-variable/noto-sans";
 @import "@fontsource-variable/noto-sans-kr";
-
-@theme static {
-  --font-sans: "Noto Sans Variable", "Noto Sans KR Variable", sans-serif;
-  --font-weight-label: 500;
-  --font-weight-heading: 600;
-  --font-weight-body: 400;
-  --text-display: 2.5rem;
-  --text-display--line-height: 1.2;
-  --text-heading: 1.25rem;
-  --text-heading--line-height: 1.4;
-  --text-caption: 0.75rem;
-  --text-caption--line-height: 1.5;
-  --text-body: 1rem;
-  --text-body--line-height: 1.6;
-  --text-label: 0.875rem;
-  --text-label--line-height: 1.5;
-  --text-title: 1.5rem;
-  --text-title--line-height: 1.4;
-  --text-brand: 1.125rem;
-  --text-brand--line-height: 1.5;
-
-  --color-brand-50: #f5f5fb;
-  --color-brand-100: #ededf8;
-  --color-brand-200: #d9daf0;
-  --color-brand-300: #b8b9df;
-  --color-brand-400: #9293c9;
-  --color-brand-500: #7071b3;
-  --color-brand-600: #515299;
-  --color-brand-700: #454682;
-  --color-brand-800: #38396b;
-  --color-brand-900: #2b2c52;
-
-  --color-neutral-0: #ffffff;
-  --color-neutral-50: #f8f9fb;
-  --color-neutral-100: #f1f2f6;
-  --color-neutral-200: #e2e4eb;
-  --color-neutral-300: #c8ccd7;
-  --color-neutral-400: #8b91a3;
-  --color-neutral-500: #686f83;
-  --color-neutral-600: #50586b;
-  --color-neutral-700: #3d4557;
-  --color-neutral-800: #2b3242;
-  --color-neutral-900: #1d2433;
-
-  --color-primary: var(--color-brand-600);
-  --color-primary-hover: var(--color-brand-700);
-  --color-primary-active: var(--color-brand-800);
-  --color-primary-foreground: #ffffff;
-  --color-primary-subtle: var(--color-brand-100);
-  --color-secondary: #2f746f;
-  --color-secondary-hover: #265f5b;
-  --color-secondary-active: #1f4d4a;
-  --color-secondary-foreground: #ffffff;
-  --color-secondary-subtle: #eaf4f2;
-  --color-background: var(--color-neutral-50);
-  --color-surface: var(--color-neutral-0);
-  --color-surface-hover: var(--color-neutral-100);
-  --color-surface-selected: var(--color-brand-50);
-  --color-foreground: var(--color-neutral-900);
-  --color-muted: var(--color-neutral-500);
-  --color-border: var(--color-neutral-200);
-  --color-border-control: var(--color-neutral-400);
-  --color-focus: var(--color-brand-600);
-  --color-focus-border: var(--color-neutral-900);
-  --color-focus-surface: var(--color-brand-100);
-  --color-disabled: var(--color-neutral-100);
-  --color-disabled-foreground: var(--color-neutral-500);
-  --color-success: #216e4e;
-  --color-success-subtle: #edf7f0;
-  --color-warning: #8a5800;
-  --color-warning-subtle: #fff6df;
-  --color-danger: #b33745;
-  --color-danger-subtle: #fff0f1;
-  --color-info: #255eab;
-  --color-info-subtle: #edf4ff;
-  --color-overlay: #1d243352;
-
-  --radius-small: 0.375rem;
-  --radius-control: 0.75rem;
-  --radius-panel: 1rem;
-  --radius-dialog: 1.25rem;
-  --radius-full: 9999px;
-  --spacing: 0.25rem;
-  --spacing-1: 0.25rem;
-  --spacing-2: 0.5rem;
-  --spacing-3: 0.75rem;
-  --spacing-4: 1rem;
-  --spacing-5: 1.25rem;
-  --spacing-6: 1.5rem;
-  --spacing-8: 2rem;
-  --spacing-10: 2.5rem;
-  --spacing-12: 3rem;
-  --spacing-16: 4rem;
-  --spacing-page: 1.5rem;
-  --spacing-panel: 1.5rem;
-  --spacing-control-x: 1rem;
-  --spacing-control-y: 0.5rem;
-  --spacing-control-sm: 2rem;
-  --spacing-control-md: 2.5rem;
-  --spacing-control-lg: 3rem;
-  --spacing-icon-sm: 1rem;
-  --spacing-icon-md: 1.25rem;
-  --spacing-icon-lg: 1.5rem;
-  --spacing-radio-dot: 0.625rem;
-  --container-content: 72rem;
-
-  --shadow-low: 0 1px 3px #1d24330a, 0 1px 2px #1d243306;
-  --shadow-raised: 0 4px 16px #1d24330d, 0 1px 4px #1d243308;
-  --shadow-floating: 0 12px 36px #1d243314, 0 2px 8px #1d24330a;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-enter: cubic-bezier(0, 0, 0, 1);
-}
+@import "@fontsource-variable/noto-sans-mono";
 
 :root {
+  --bg-canvas: #f8f9fb;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f2f6;
+  --bg-selected: #f5f5fb;
+  --bg-inverse: #1d2433;
+  --fg-default: #1d2433;
+  --fg-muted: #686f83;
+  --fg-faint: #8b91a3;
+  --fg-inverse: #ffffff;
+  --line-default: #e2e4eb;
+  --line-strong: #8b91a3;
+  --accent: #515299;
+  --accent-hover: #454682;
+  --accent-active: #38396b;
+  --on-accent: #ffffff;
+  --accent-soft: #ededf8;
+  --accent-text: #454682;
+  --focus-ring: #515299;
+  --secondary: #2f746f;
+  --on-secondary: #ffffff;
+  --secondary-soft: #eaf4f2;
+  --secondary-text: #265f5b;
+  --success: #216e4e;
+  --success-soft: #edf7f0;
+  --warning: #8a5800;
+  --warning-soft: #fff6df;
+  --danger: #b33745;
+  --on-danger: #ffffff;
+  --danger-soft: #fff0f1;
+  --info: #255eab;
+  --info-soft: #edf4ff;
+  --overlay: #1d243352;
+  --presence-1: #c2410c;
+  --presence-2: #1d7a3a;
+  --presence-3: #1e66c5;
+  --presence-4: #a1338f;
+  --presence-5: #806600;
+  --presence-6: #0b7285;
+  --on-presence: #ffffff;
+  --scroll-thumb: #c8ccd7;
+  --scroll-thumb-hover: #8b91a3;
+  --elevation-raised: 0 1px 2px #1d243314;
+  --elevation-popover: 0 4px 16px #1d24331f, 0 1px 3px #1d243314;
+  --elevation-dialog: 0 16px 48px #1d243329, 0 2px 6px #1d243314;
   color-scheme: light;
-  --size-sidebar: 12.5rem;
-  --size-sidebar-collapsed: 3.5rem;
-  --size-inspector: 24rem;
-  --size-workspace-header: 3rem;
-  --size-resize-target: 0.375rem;
-  --motion-panel-offset: 1rem;
-  --duration-highlight: 1200ms;
-  --size-toolbar: 2rem;
-  --size-form: 2.5rem;
-  --size-row-min: 3rem;
-  --border-width-default: 1px;
-  --opacity-disabled: 0.5;
-  --size-textarea-min: 6rem;
-  --size-dialog-max: 28rem;
-  --size-tooltip-max: 20rem;
-  --focus-width: 2px;
-  --focus-offset: 3px;
-  --duration-feedback: 120ms;
-  --duration-state: 180ms;
-  --duration-selection: 240ms;
-  --duration-enter: 240ms;
-  --layer-base: 0;
-  --layer-sticky: 10;
-  --layer-popover: 20;
-  --layer-dialog: 30;
-  --layer-toast: 40;
-  --layer-select: 35;
-  --layer-tooltip: 50;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --duration-highlight: 0ms;
-    --duration-feedback: 0ms;
-    --duration-state: 0ms;
-    --duration-selection: 0ms;
-    --duration-enter: 0ms;
+:root[data-theme="dark"] {
+  --bg-canvas: #111318;
+  --bg-surface: #181b22;
+  --bg-subtle: #20242d;
+  --bg-selected: #24253d;
+  --bg-inverse: #e7e9ef;
+  --fg-default: #e7e9ef;
+  --fg-muted: #a0a6b5;
+  --fg-faint: #7d8494;
+  --fg-inverse: #111318;
+  --line-default: #2c313c;
+  --line-strong: #6b7283;
+  --accent: #a3a4e6;
+  --accent-hover: #b6b7ee;
+  --accent-active: #c8c9f3;
+  --on-accent: #17183a;
+  --accent-soft: #2a2b4d;
+  --accent-text: #c3c4f2;
+  --focus-ring: #a3a4e6;
+  --secondary: #67bdb4;
+  --on-secondary: #0f2624;
+  --secondary-soft: #15302d;
+  --secondary-text: #8ed3cb;
+  --success: #5bc28f;
+  --success-soft: #13291e;
+  --warning: #e6b04f;
+  --warning-soft: #2e2412;
+  --danger: #f08a93;
+  --on-danger: #2a0e12;
+  --danger-soft: #351a1e;
+  --info: #84b2f2;
+  --info-soft: #15253d;
+  --overlay: #000000a3;
+  --presence-1: #fb923c;
+  --presence-2: #4ade80;
+  --presence-3: #60a5fa;
+  --presence-4: #e879d9;
+  --presence-5: #e2b93b;
+  --presence-6: #22c3d6;
+  --on-presence: #111318;
+  --scroll-thumb: #3a404d;
+  --scroll-thumb-hover: #5d6478;
+  --elevation-raised: 0 1px 2px #00000066;
+  --elevation-popover: 0 4px 16px #00000080, 0 0 0 1px #2c313c;
+  --elevation-dialog: 0 16px 48px #000000a3, 0 0 0 1px #2c313c;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-canvas: #111318;
+    --bg-surface: #181b22;
+    --bg-subtle: #20242d;
+    --bg-selected: #24253d;
+    --bg-inverse: #e7e9ef;
+    --fg-default: #e7e9ef;
+    --fg-muted: #a0a6b5;
+    --fg-faint: #7d8494;
+    --fg-inverse: #111318;
+    --line-default: #2c313c;
+    --line-strong: #6b7283;
+    --accent: #a3a4e6;
+    --accent-hover: #b6b7ee;
+    --accent-active: #c8c9f3;
+    --on-accent: #17183a;
+    --accent-soft: #2a2b4d;
+    --accent-text: #c3c4f2;
+    --focus-ring: #a3a4e6;
+    --secondary: #67bdb4;
+    --on-secondary: #0f2624;
+    --secondary-soft: #15302d;
+    --secondary-text: #8ed3cb;
+    --success: #5bc28f;
+    --success-soft: #13291e;
+    --warning: #e6b04f;
+    --warning-soft: #2e2412;
+    --danger: #f08a93;
+    --on-danger: #2a0e12;
+    --danger-soft: #351a1e;
+    --info: #84b2f2;
+    --info-soft: #15253d;
+    --overlay: #000000a3;
+    --presence-1: #fb923c;
+    --presence-2: #4ade80;
+    --presence-3: #60a5fa;
+    --presence-4: #e879d9;
+    --presence-5: #e2b93b;
+    --presence-6: #22c3d6;
+    --on-presence: #111318;
+    --scroll-thumb: #3a404d;
+    --scroll-thumb-hover: #5d6478;
+    --elevation-raised: 0 1px 2px #00000066;
+    --elevation-popover: 0 4px 16px #00000080, 0 0 0 1px #2c313c;
+    --elevation-dialog: 0 16px 48px #000000a3, 0 0 0 1px #2c313c;
+    color-scheme: dark;
   }
+}
+
+/* 의미 토큰만 쓰도록 Tailwind 기본 색, 글자 크기, 그림자, 모서리를 비운다 */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-subtle: var(--bg-subtle);
+  --color-selected: var(--bg-selected);
+  --color-inverse: var(--bg-inverse);
+  --color-fg: var(--fg-default);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-fg-inverse: var(--fg-inverse);
+  --color-line: var(--line-default);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-focus-ring: var(--focus-ring);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-soft: var(--secondary-soft);
+  --color-secondary-text: var(--secondary-text);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-overlay: var(--overlay);
+  --color-presence-1: var(--presence-1);
+  --color-presence-2: var(--presence-2);
+  --color-presence-3: var(--presence-3);
+  --color-presence-4: var(--presence-4);
+  --color-presence-5: var(--presence-5);
+  --color-presence-6: var(--presence-6);
+  --color-on-presence: var(--on-presence);
+  --color-scroll-thumb: var(--scroll-thumb);
+  --color-scroll-thumb-hover: var(--scroll-thumb-hover);
+
+  --font-*: initial;
+  --font-sans:
+    "Noto Sans KR Variable", "Noto Sans Variable", system-ui, sans-serif;
+  --font-mono: "Noto Sans Mono Variable", ui-monospace, Consolas, monospace;
+
+  --text-*: initial;
+  --text-display: 28px;
+  --text-display--line-height: 36px;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.01em;
+  --text-title-lg: 20px;
+  --text-title-lg--line-height: 28px;
+  --text-title-lg--font-weight: 600;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-title--font-weight: 600;
+  --text-title-sm: 14px;
+  --text-title-sm--line-height: 20px;
+  --text-title-sm--font-weight: 600;
+  --text-body: 14px;
+  --text-body--line-height: 22px;
+  --text-body--font-weight: 400;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--font-weight: 400;
+  --text-label: 13px;
+  --text-label--line-height: 18px;
+  --text-label--font-weight: 500;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--font-weight: 400;
+  --text-overline: 11px;
+  --text-overline--line-height: 16px;
+  --text-overline--font-weight: 600;
+  --text-overline--letter-spacing: 0.04em;
+  --text-mono: 12px;
+  --text-mono--line-height: 18px;
+  --text-mono--font-weight: 450;
+
+  --radius-*: initial;
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  --shadow-*: initial;
+  --shadow-raised: var(--elevation-raised);
+  --shadow-popover: var(--elevation-popover);
+  --shadow-dialog: var(--elevation-dialog);
+
+  --ease-*: initial;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1.1);
+
+  --default-transition-duration: 120ms;
+  --default-transition-timing-function: var(--ease-standard);
+}
+
+/* 간격은 Tailwind 기본 4px 단위(p-1 = space-1)를 그대로 쓴다. 컨트롤 높이: sm h-7, md h-8, lg h-10. */
+:root {
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+@utility duration-base {
+  transition-duration: var(--duration-base);
+}
+@utility duration-slow {
+  transition-duration: var(--duration-slow);
 }

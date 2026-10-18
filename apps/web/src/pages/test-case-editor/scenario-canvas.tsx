@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTitle,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import {
   applyNodeChanges,
   Background,

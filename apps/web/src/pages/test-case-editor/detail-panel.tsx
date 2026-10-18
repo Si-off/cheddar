@@ -5,7 +5,7 @@ import {
   Label,
   Textarea,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import {
   type CaseDraft,
   displayValue,

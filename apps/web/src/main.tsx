@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProviders } from "./app/providers/app-providers";
 import { router } from "./app/routes";
-import "./app/styles/global.css";
+import "./app/styles/legacy.css";
 
 const element = document.getElementById("root");
 if (!element) throw new Error("Root element is missing.");

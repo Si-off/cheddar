@@ -4,7 +4,7 @@ import {
   DialogContent,
   DialogTitle,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useQuery } from "@tanstack/react-query";
 import {
   createRootRoute,

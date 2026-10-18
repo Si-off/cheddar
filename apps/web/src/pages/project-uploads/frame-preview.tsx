@@ -1,4 +1,4 @@
-import { Button, WorkspaceIcon } from "@cheddar/ui";
+import { Button, WorkspaceIcon } from "@cheddar/ui/legacy";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { frameFile } from "./uploads-api";

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Label, Textarea } from "@cheddar/ui";
+import { Button, Checkbox, Label, Textarea } from "@cheddar/ui/legacy";
 import type { Column, ColumnValue } from "@/entities/test-case";
 import { WorkspaceSelect } from "@/shared/ui/workspace";
 

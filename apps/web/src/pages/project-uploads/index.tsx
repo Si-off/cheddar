@@ -12,7 +12,7 @@ import {
   SelectValue,
   Surface,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import {
   useInfiniteQuery,
   useQuery,

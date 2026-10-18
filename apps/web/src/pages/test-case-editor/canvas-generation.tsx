@@ -1,4 +1,4 @@
-import { Button, Textarea } from "@cheddar/ui";
+import { Button, Textarea } from "@cheddar/ui/legacy";
 import { useEffect, useState } from "react";
 import type { FlowGenerationDto } from "@/shared/api/generated";
 import type { CanvasSession } from "./canvas-session";

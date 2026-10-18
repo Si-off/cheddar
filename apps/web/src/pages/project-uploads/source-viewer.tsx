@@ -8,7 +8,7 @@ import {
   ComboboxList,
   Label,
   WorkspaceIcon,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { FrameReference } from "@/entities/test-case";

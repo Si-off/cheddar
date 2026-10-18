@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-} from "@cheddar/ui";
+} from "@cheddar/ui/legacy";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { displayValue, type Snapshot } from "@/entities/test-case";
