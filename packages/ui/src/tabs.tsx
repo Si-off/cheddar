@@ -1,6 +1,13 @@
 import { Tabs as BaseTabs } from "@base-ui/react/tabs";
+import { useRender } from "@base-ui/react/use-render";
 import type { LucideIcon } from "lucide-react";
-import { type ComponentProps, createContext, type ReactNode, use } from "react";
+import {
+  type ComponentProps,
+  createContext,
+  type ReactElement,
+  type ReactNode,
+  use,
+} from "react";
 import { Icon } from "./icon";
 import { cn } from "./utils";
 
@@ -111,3 +118,73 @@ export const Tabs = {
   Tab: TabsTab,
   Panel: TabsPanel,
 };
+
+export interface NavTabsProps extends ComponentProps<"nav"> {
+  variant?: "line" | "pill";
+}
+
+/** 화면 이동용 탭 목록. 탭 안의 상태 전환이 아니라 다른 화면으로 가는 링크를 담는다. */
+export function NavTabs({
+  variant = "line",
+  className,
+  ...rest
+}: NavTabsProps) {
+  return (
+    <VariantContext value={variant}>
+      <nav
+        {...rest}
+        className={cn(
+          "flex items-center overflow-x-auto",
+          variant === "line" ? "gap-5 border-b border-line" : "gap-1",
+          className,
+        )}
+      />
+    </VariantContext>
+  );
+}
+
+export interface NavTabProps extends ComponentProps<"a"> {
+  /** 라우터 링크 요소. 예: <Link to="/admin/accounts" /> */
+  render: ReactElement;
+  active?: boolean;
+  icon?: LucideIcon;
+}
+
+export function NavTab({
+  render,
+  active,
+  icon,
+  className,
+  children,
+  ...rest
+}: NavTabProps) {
+  const variant = use(VariantContext);
+  return useRender({
+    render,
+    props: {
+      ...rest,
+      "aria-current": active ? "page" : undefined,
+      className: cn(
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-label no-underline transition-colors duration-fast",
+        variant === "line"
+          ? cn(
+              "h-10 border-b-2 hover:text-fg",
+              active
+                ? "border-accent text-fg"
+                : "border-transparent text-fg-muted",
+            )
+          : cn(
+              "h-8 rounded-md px-2.5 hover:bg-subtle hover:text-fg",
+              active ? "bg-selected text-accent-text" : "text-fg-muted",
+            ),
+        className,
+      ),
+      children: (
+        <>
+          {icon && <Icon icon={icon} size="sm" />}
+          {children}
+        </>
+      ),
+    },
+  });
+}

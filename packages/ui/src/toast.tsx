@@ -18,10 +18,16 @@ const toneIcon: Record<ToastTone, LucideIcon | null> = {
   info: Info,
 };
 
-/** 앱 최상위에 한 번 둔다. 토스트는 오른쪽 아래에 쌓인다. */
-export function ToastProvider({ children }: { children: ReactNode }) {
+/** 앱 최상위에 한 번 둔다. 토스트는 오른쪽 아래에 쌓인다. React 밖에서 띄우려면 createToaster의 결과를 넘긴다. */
+export function ToastProvider({
+  children,
+  toaster,
+}: {
+  children: ReactNode;
+  toaster?: Toaster;
+}) {
   return (
-    <BaseToast.Provider>
+    <BaseToast.Provider toastManager={toaster?.manager}>
       {children}
       <BaseToast.Portal>
         <BaseToast.Viewport className="fixed right-6 bottom-6 z-50 flex w-80 max-w-full flex-col gap-2 outline-none">
@@ -67,9 +73,12 @@ export interface ShowToastOptions {
   timeout?: number;
 }
 
-/** 토스트 띄우기. ToastProvider 안에서 쓴다. */
-export function useToast() {
-  const manager = BaseToast.useToastManager();
+type Manager = Pick<
+  ReturnType<typeof BaseToast.createToastManager>,
+  "add" | "close"
+>;
+
+function bind(manager: Manager) {
   return {
     show: ({
       message,
@@ -86,4 +95,19 @@ export function useToast() {
       }),
     close: (id: string) => manager.close(id),
   };
+}
+
+export type Toaster = ReturnType<typeof bind> & {
+  manager: ReturnType<typeof BaseToast.createToastManager>;
+};
+
+/** React 밖(예: 전역 조회 오류 처리)에서 토스트를 띄울 때 쓴다. ToastProvider에 넘긴다. */
+export function createToaster(): Toaster {
+  const manager = BaseToast.createToastManager();
+  return { ...bind(manager), manager };
+}
+
+/** 토스트 띄우기. ToastProvider 안에서 쓴다. */
+export function useToast() {
+  return bind(BaseToast.useToastManager());
 }

@@ -41,6 +41,8 @@ export interface DataGridProps<Row> {
   activeCell?: CellPosition | null;
   defaultActiveCell?: CellPosition | null;
   onActiveCellChange?: (cell: CellPosition) => void;
+  /** "none"이면 셀을 고르지 않는 읽기 전용 목록 */
+  selection?: "cell" | "none";
   presence?: GridPresence[];
   /** 있으면 행 선택 체크박스 열을 앞에 둔다 */
   selectedRowIds?: ReadonlySet<string>;
@@ -77,6 +79,7 @@ export function DataGrid<Row>({
   activeCell: activeCellProp,
   defaultActiveCell = null,
   onActiveCellChange,
+  selection = "cell",
   presence = [],
   selectedRowIds,
   onSelectedRowIdsChange,
@@ -92,6 +95,7 @@ export function DataGrid<Row>({
   const activeCell =
     activeCellProp === undefined ? innerActive : activeCellProp;
   const setActive = (cell: CellPosition) => {
+    if (selection === "none") return;
     setInnerActive(cell);
     onActiveCellChange?.(cell);
   };
@@ -283,13 +287,12 @@ export function DataGrid<Row>({
     <div
       ref={scrollRef}
       className={cn(
-        "overflow-auto rounded-lg border border-line bg-surface",
+        "w-fit max-w-full overflow-auto rounded-lg border border-line bg-surface",
         className,
       )}
     >
       <table
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: 방향키로 셀을 옮기려면 표가 포커스를 받아야 한다
-        tabIndex={0}
+        tabIndex={selection === "none" ? undefined : 0}
         onKeyDown={onKeyDown}
         aria-label={ariaLabel}
         aria-rowcount={rows.length + 1}

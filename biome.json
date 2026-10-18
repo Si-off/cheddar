@@ -46,5 +46,162 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/web/src/shared/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/entities/**",
+                      "@/features/**",
+                      "@/widgets/**",
+                      "@/pages/**",
+                      "@/app/**"
+                    ],
+                    "message": "FSD: 아래 계층은 위 계층을, 같은 계층은 다른 슬라이스를 가져오지 않는다. 슬라이스는 index만 공개한다."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/entities/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "@/widgets/**",
+                      "@/pages/**",
+                      "@/app/**",
+                      "@/entities/*/**"
+                    ],
+                    "message": "FSD: 아래 계층은 위 계층을, 같은 계층은 다른 슬라이스를 가져오지 않는다. 슬라이스는 index만 공개한다."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/features/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "@/widgets/**",
+                      "@/pages/**",
+                      "@/app/**",
+                      "@/entities/*/**"
+                    ],
+                    "message": "FSD: 아래 계층은 위 계층을, 같은 계층은 다른 슬라이스를 가져오지 않는다. 슬라이스는 index만 공개한다."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/widgets/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/widgets/**",
+                      "@/pages/**",
+                      "@/app/**",
+                      "@/entities/*/**",
+                      "@/features/*/**"
+                    ],
+                    "message": "FSD: 아래 계층은 위 계층을, 같은 계층은 다른 슬라이스를 가져오지 않는다. 슬라이스는 index만 공개한다."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/pages/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/pages/**",
+                      "@/app/**",
+                      "@/entities/*/**",
+                      "@/features/*/**",
+                      "@/widgets/*/**"
+                    ],
+                    "message": "FSD: 아래 계층은 위 계층을, 같은 계층은 다른 슬라이스를 가져오지 않는다. 슬라이스는 index만 공개한다."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/app/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/entities/*/**",
+                      "@/features/*/**",
+                      "@/widgets/*/**",
+                      "@/pages/*/**"
+                    ],
+                    "message": "FSD: 아래 계층은 위 계층을, 같은 계층은 다른 슬라이스를 가져오지 않는다. 슬라이스는 index만 공개한다."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

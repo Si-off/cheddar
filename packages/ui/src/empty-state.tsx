@@ -1,5 +1,6 @@
-import type { LucideIcon } from "lucide-react";
+import { CircleAlert, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { Button } from "./button";
 import { Icon } from "./icon";
 import { cn } from "./utils";
 
@@ -47,5 +48,31 @@ export function EmptyState({
         </div>
       )}
     </div>
+  );
+}
+
+export interface LoadErrorProps {
+  /** 예: "계정을 불러오지 못했습니다" */
+  title: ReactNode;
+  onRetry: () => void;
+  compact?: boolean;
+  className?: string;
+}
+
+/** 조회에 실패했을 때 빈 화면 대신 보여준다. 데이터가 없는 상태와 구분된다. */
+export function LoadError({
+  title,
+  onRetry,
+  compact,
+  className,
+}: LoadErrorProps) {
+  return (
+    <EmptyState
+      icon={CircleAlert}
+      title={title}
+      compact={compact}
+      className={className}
+      actions={<Button onClick={onRetry}>다시 시도</Button>}
+    />
   );
 }

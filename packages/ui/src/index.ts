@@ -22,8 +22,13 @@ export {
   type DataGridProps,
   type GridPresence,
 } from "./data-grid";
-export { Dialog } from "./dialog";
-export { EmptyState, type EmptyStateProps } from "./empty-state";
+export { ConfirmDialog, type ConfirmDialogProps, Dialog } from "./dialog";
+export {
+  EmptyState,
+  type EmptyStateProps,
+  LoadError,
+  type LoadErrorProps,
+} from "./empty-state";
 export { Field, type FieldOwnProps, type FieldProps } from "./field";
 export { FrameCard, type FrameCardProps } from "./frame-card";
 export { DrawnCheck, Icon, type IconProps, type IconSize } from "./icon";
@@ -44,12 +49,24 @@ export {
   type StepState,
 } from "./status";
 export { Switch, type SwitchProps } from "./switch";
-export { Tabs } from "./tabs";
+export {
+  NavTab,
+  type NavTabProps,
+  NavTabs,
+  type NavTabsProps,
+  Tabs,
+} from "./tabs";
 export {
   TextArea,
   type TextAreaProps,
   TextField,
   type TextFieldProps,
 } from "./text-field";
-export { type ShowToastOptions, ToastProvider, useToast } from "./toast";
+export {
+  createToaster,
+  type ShowToastOptions,
+  type Toaster,
+  ToastProvider,
+  useToast,
+} from "./toast";
 export { cn, motionTokens, type PresenceColor } from "./utils";

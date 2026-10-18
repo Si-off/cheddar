@@ -1,6 +1,7 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
+import { Button } from "./button";
 import { Icon } from "./icon";
 import { cn } from "./utils";
 
@@ -109,3 +110,47 @@ export const Dialog = {
   Body: DialogBody,
   Footer: DialogFooter,
 };
+
+export interface ConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: ReactNode;
+  description?: ReactNode;
+  /** 확인 버튼 문구. 예: "삭제" */
+  confirmLabel: string;
+  tone?: "primary" | "danger";
+  pending?: boolean;
+  onConfirm: () => void;
+}
+
+/** 되돌릴 수 없는 행동 전에 한 번 묻는다. */
+export function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel,
+  tone = "primary",
+  pending,
+  onConfirm,
+}: ConfirmDialogProps) {
+  return (
+    <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="sm">
+        <DialogHeader
+          title={title}
+          description={description}
+          closable={false}
+        />
+        <DialogFooter className="mt-2">
+          <BaseDialog.Close render={<Button variant="ghost" />}>
+            취소
+          </BaseDialog.Close>
+          <Button variant={tone} loading={pending} onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </BaseDialog.Root>
+  );
+}

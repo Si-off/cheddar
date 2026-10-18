@@ -27,16 +27,16 @@
 
 ## 웹 구조(FSD)
 
-아래 레이어는 위 레이어를 가져오지 않는다. 같은 레이어의 슬라이스끼리도 가져오지 않는다. 슬라이스 밖에는 `index.ts`로 공개한 것만 보이며, 이 경계는 Biome `noRestrictedImports`로 강제한다.
+아래 레이어는 위 레이어를 가져오지 않는다. 같은 레이어의 슬라이스끼리도 가져오지 않는다(entities만 예외로 다른 entity의 공개 타입을 가져올 수 있다). 슬라이스 밖에는 `index`로 공개한 것만 보이며, 이 경계는 루트 `biome.json`의 `noRestrictedImports` overrides로 강제한다. 표의 슬라이스 중 아직 없는 것은 해당 단계에서 만든다.
 
 | 레이어 | 슬라이스 | 하는 일 |
 | --- | --- | --- |
 | app | router, providers, `global.css` | 라우트 트리, 로그인과 권한 경계, Query와 motion 설정 |
-| pages | test-sets, test-set-new, test-set-generating, test-set, shared-test-set, projects, project-new, project-settings, login, invite, no-access, plugin-connect, admin-accounts, admin-account, admin-roles, admin-role, admin-affiliations | 화면 조립. 데이터 가져오기와 레이아웃만 |
-| widgets | app-header, case-grid, case-board, view-switcher, review-panel, generation-progress, share-dialog, role-assignments | 여러 기능이 모인 화면 덩어리 |
-| features | auth, collaborate-test-set, generate-cases, rewrite-review-item, export-xlsx, share-test-set, invite-account, transfer-ownership, edit-template, edit-feature-groups, edit-required-cases, edit-screen-structure | 사용자 행동 하나와 그 상태 |
+| pages | login, password-setup(초대 수락과 재설정), no-access, placeholder(4, 5단계 전 임시), admin-accounts, admin-account, admin-roles, admin-role, admin-affiliations, test-sets, test-set-new, test-set-generating, test-set, shared-test-set, projects, project-new, project-settings, plugin-connect | 화면 조립. 데이터 가져오기와 레이아웃만 |
+| widgets | app-header, admin-shell, auth-card, case-grid, case-board, view-switcher, review-panel, generation-progress, share-dialog | 여러 기능이 모인 화면 덩어리 |
+| features | auth, manage-account(계정 양식, 만들기, 초대와 재설정 링크, 계정 작업), manage-role, manage-affiliation, collaborate-test-set, generate-cases, rewrite-review-item, export-xlsx, share-test-set, transfer-ownership, edit-template, edit-feature-groups, edit-required-cases, edit-screen-structure | 사용자 행동 하나와 그 상태 |
 | entities | test-set, case, review-item, project, account, role, affiliation, permission | 도메인 타입, 생성 API 타입을 도메인 타입으로 바꾸는 변환, Query 키와 조회 훅 |
-| shared | api(생성 코드), lib, config | 도메인을 모르는 도구 |
+| shared | api(생성 코드와 클라이언트 설정, 오류 변환), config(환경, 공유 링크 경로), testing(e2e용 API 응답 합성) | 도메인을 모르는 도구 |
 
 - 플러그인 UI(`apps/figma-plugin/src/ui/`)는 app, pages, shared 레이어만 쓴다. `main/`(Figma 문서 접근)과 `protocol/`(main과 UI 사이 메시지 계약)은 FSD 밖에 둔다.
 - 권한은 `entities/permission`의 `can(permission, projectId)` 하나로 묻는다. 화면은 역할 이름을 모르고 권한 키만 안다.
