@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiCookieAuth,
@@ -22,7 +23,11 @@ import {
   ApiProduces,
   ApiTags,
 } from "@nestjs/swagger";
-import { CurrentAccount, RequirePermission } from "../authorization/guards";
+import {
+  AllowPluginToken,
+  CurrentAccount,
+  RequirePermission,
+} from "../authorization/guards";
 import {
   TempUploadDto,
   UploadMultipartDto,
@@ -39,6 +44,8 @@ export class TempUploadsController {
     @Inject(TempUploadsService) private readonly service: TempUploadsService,
   ) {}
   @Post()
+  @AllowPluginToken()
+  @ApiBearerAuth()
   @RequirePermission("plugin.upload")
   @UseInterceptors(
     FilesInterceptor("images[]", 20000, {

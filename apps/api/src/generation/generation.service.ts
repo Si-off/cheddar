@@ -303,6 +303,7 @@ export class GenerationService {
     });
   }
   async fail(jobId: string, code: string) {
+    let changedSetId: string | undefined;
     await this.store.database.db.transaction(async (tx) => {
       const [job] = await tx
         .select()
@@ -314,7 +315,7 @@ export class GenerationService {
         .update(generationJobs)
         .set({ status: "failed", errorCode: code, updatedAt: new Date() })
         .where(eq(generationJobs.id, jobId));
-      if (job.reviewItemId)
+      if (job.reviewItemId) {
         await tx
           .update(reviewItems)
           .set({ status: "pending", updatedAt: new Date() })
@@ -324,7 +325,15 @@ export class GenerationService {
               eq(reviewItems.status, "rewriting"),
             ),
           );
+        await this.store.bump(job.testSetId, tx);
+        changedSetId = job.testSetId;
+      }
     });
+    if (changedSetId)
+      await this.store.events.publish({
+        type: "resync",
+        testSetId: changedSetId,
+      });
     await this.cleanupJob(jobId);
   }
 }

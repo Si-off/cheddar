@@ -285,7 +285,7 @@ export const testSets = pgTable(
       .notNull()
       .default("private"),
     linkAccess: accessEnum("link_access").notNull().default("view"),
-    linkTokenHash: varchar("link_token_hash", { length: 64 }).unique(),
+    linkToken: varchar("link_token", { length: 43 }).unique(),
     version: integer("version").notNull().default(0),
     // 삭제한 케이스의 자동 번호도 다시 사용하지 않는다. 긴 사용자 입력 번호를 보존한다.
     testIdCounter: text("test_id_counter").notNull().default("0"),
@@ -295,7 +295,11 @@ export const testSets = pgTable(
   (t) => [
     check(
       "test_sets_visibility",
-      sql`${t.visibility} IN ('private', 'public') AND (${t.visibility} <> 'public' OR ${t.linkTokenHash} IS NOT NULL)`,
+      sql`${t.visibility} IN ('private', 'public') AND (${t.visibility} <> 'public' OR ${t.linkToken} IS NOT NULL)`,
+    ),
+    check(
+      "test_sets_link_token",
+      sql`${t.linkToken} IS NULL OR ${t.linkToken} ~ '^[A-Za-z0-9_-]{43}$'`,
     ),
     check("test_sets_version", sql`${t.version} >= 0`),
     index("test_sets_owner_idx").on(t.ownerId),
@@ -558,6 +562,7 @@ export const pluginConnections = pgTable(
       onDelete: "cascade",
     }),
     tokenHash: varchar("token_hash", { length: 64 }).unique(),
+    tokenExpiresAt: time("token_expires_at"),
     status: varchar("status", { length: 12 }).notNull().default("pending"),
     expiresAt: time("expires_at").notNull(),
     approvedAt: time("approved_at"),
@@ -569,5 +574,6 @@ export const pluginConnections = pgTable(
       "plugin_connections_status",
       sql`${t.status} IN ('pending', 'approved', 'revoked')`,
     ),
+    index("plugin_connections_account_idx").on(t.accountId),
   ],
 );

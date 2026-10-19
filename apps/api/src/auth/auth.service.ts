@@ -7,13 +7,19 @@ import {
 } from "../authorization/authorization.service";
 import { ApiError } from "../common/errors";
 import { DatabaseService } from "../database/database.service";
-import { accounts, authTokens, sessions } from "../database/schema";
+import {
+  accounts,
+  authTokens,
+  pluginConnections,
+  sessions,
+} from "../database/schema";
 import {
   hashPassword,
   hashToken,
   newToken,
   verifyPassword,
 } from "./credentials";
+import { revokeAccountPluginTokens } from "./plugin-tokens";
 
 export const SESSION_COOKIE = "cheddar_session";
 export const SESSION_SECONDS = 30 * 24 * 60 * 60;
@@ -87,6 +93,32 @@ export class AuthService {
         .delete(sessions)
         .where(eq(sessions.tokenHash, hashToken(token)));
   }
+  async authenticatePlugin(token: string) {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw unauthenticated();
+    const [row] = await this.database.db
+      .select({
+        accountId: accounts.id,
+        status: accounts.status,
+        expiresAt: accounts.expiresAt,
+        pluginConnectionId: pluginConnections.id,
+      })
+      .from(pluginConnections)
+      .innerJoin(accounts, eq(accounts.id, pluginConnections.accountId))
+      .where(
+        and(
+          eq(pluginConnections.tokenHash, hashToken(token)),
+          eq(pluginConnections.status, "approved"),
+          isNull(pluginConnections.revokedAt),
+          gt(pluginConnections.tokenExpiresAt, sql`now()`),
+        ),
+      )
+      .limit(1);
+    if (!row || accountState(row) !== "active") throw unauthenticated();
+    return {
+      accountId: row.accountId,
+      pluginConnectionId: row.pluginConnectionId,
+    };
+  }
   async me(id: string, db: IdentityDatabase = this.database.db) {
     return {
       ...(await this.accountsService.detail(id, db)),
@@ -153,6 +185,7 @@ export class AuthService {
           ),
         );
       await tx.delete(sessions).where(eq(sessions.accountId, row.account.id));
+      await revokeAccountPluginTokens(tx, row.account.id);
       await this.authorization.validateExpiry(tx, row.account.id);
     }, false);
   }

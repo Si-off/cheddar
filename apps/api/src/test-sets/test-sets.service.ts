@@ -3,7 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import type { IdentityDatabase } from "../authorization/authorization.service";
-import { notFound } from "../common/errors";
+import { ApiError, notFound } from "../common/errors";
 import type {
   ColumnsResultDto,
   CreateTestSetDto,
@@ -29,6 +29,7 @@ import { validateTemplate } from "../projects/template";
 import {
   forbidden,
   hasGrant,
+  type SetSubject,
   setAccess,
   TestSetsStore,
 } from "./test-sets.store";
@@ -50,6 +51,20 @@ const defaultView = (): TestSetViewDto => ({
 @Injectable()
 export class TestSetsService {
   constructor(@Inject(TestSetsStore) private readonly store: TestSetsStore) {}
+  async denyDetail(id: string): Promise<void> {
+    const [owner] = await this.store.database.db
+      .select({ ownerName: accounts.name })
+      .from(testSets)
+      .innerJoin(accounts, eq(accounts.id, testSets.ownerId))
+      .where(eq(testSets.id, id));
+    if (owner)
+      throw new ApiError(
+        403,
+        "NO_ACCESS",
+        "이 테스트 세트를 볼 권한이 없습니다.",
+        owner,
+      );
+  }
   async list(
     accountId: string,
     query: TestSetQueryDto,
@@ -139,7 +154,7 @@ export class TestSetsService {
   }
   async detail(
     id: string,
-    accountId: string,
+    accountId: SetSubject,
     db: IdentityDatabase = this.store.database.db,
   ): Promise<TestSetDto> {
     // version과 열, 케이스를 같은 스냅샷으로 읽어 공동 편집의 시작 상태를 일치시킨다.
@@ -149,6 +164,7 @@ export class TestSetsService {
         { isolationLevel: "repeatable read", accessMode: "read only" },
       );
     const { row, access } = await this.store.visible(id, accountId, db);
+    id = row.id;
     const [owner] = await db
       .select({ id: accounts.id, name: accounts.name })
       .from(accounts)
@@ -335,15 +351,18 @@ export class TestSetsService {
       };
     });
   }
-  async view(id: string, accountId: string): Promise<TestSetViewDto> {
-    await this.store.visible(id, accountId);
+  async view(id: string, accountId: SetSubject): Promise<TestSetViewDto> {
+    const resolved = await this.store.visible(id, accountId);
+    id = resolved.row.id;
     const [pref] = await this.store.database.db
       .select()
       .from(viewPreferences)
       .where(
         and(
           eq(viewPreferences.testSetId, id),
-          eq(viewPreferences.accountId, accountId),
+          resolved.actor.kind === "account"
+            ? eq(viewPreferences.accountId, resolved.actor.id)
+            : eq(viewPreferences.visitorSessionId, resolved.actor.id),
         ),
       );
     return pref
@@ -357,10 +376,12 @@ export class TestSetsService {
   }
   saveView(
     id: string,
-    accountId: string,
+    accountId: SetSubject,
     input: unknown,
   ): Promise<TestSetViewDto> {
-    return this.store.mutate(id, accountId, null, async (tx) => {
+    return this.store.database.db.transaction(async (tx) => {
+      const resolved = await this.store.visible(id, accountId, tx, true);
+      id = resolved.row.id;
       const dto = validateView(input);
       const columns = await this.store.columns(id, tx);
       if (
@@ -384,9 +405,20 @@ export class TestSetsService {
         );
       await tx
         .insert(viewPreferences)
-        .values({ ...dto, testSetId: id, accountId })
+        .values({
+          ...dto,
+          testSetId: id,
+          ...(resolved.actor.kind === "account"
+            ? { accountId: resolved.actor.id }
+            : { visitorSessionId: resolved.actor.id }),
+        })
         .onConflictDoUpdate({
-          target: [viewPreferences.testSetId, viewPreferences.accountId],
+          target: [
+            viewPreferences.testSetId,
+            resolved.actor.kind === "account"
+              ? viewPreferences.accountId
+              : viewPreferences.visitorSessionId,
+          ],
           set: { ...dto, updatedAt: new Date() },
         });
       return dto;
@@ -395,7 +427,7 @@ export class TestSetsService {
   /** 저장된 전체 케이스를 현재 열 이름과 순서로 내보낸다. 확인 필요 항목은 넣지 않는다. */
   async export(
     id: string,
-    accountId: string,
+    accountId: SetSubject,
   ): Promise<{ fileName: string; data: Uint8Array }> {
     const set = await this.detail(id, accountId);
     if (!set.access.canExport) throw forbidden();

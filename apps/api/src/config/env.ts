@@ -8,6 +8,7 @@ export interface ApiEnv {
   storageRoot: string;
   port: number;
   corsOrigins: string[];
+  allowFigmaNullOrigin?: boolean;
   production?: boolean;
   ai?: AiConfig;
   queuePollingSeconds?: number;
@@ -58,13 +59,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   if (allowNullOrigin === "true") {
     if (env.NODE_ENV !== "development")
       throw new Error("ALLOW_FIGMA_NULL_ORIGIN requires NODE_ENV=development.");
-    corsOrigins.push("null");
   }
   return {
     databaseUrl: databaseUrl as string,
     storageRoot: resolve(storageRoot),
     port,
     corsOrigins,
+    allowFigmaNullOrigin: allowNullOrigin === "true",
     production: env.NODE_ENV === "production",
     ai: readAiConfig(env),
   };

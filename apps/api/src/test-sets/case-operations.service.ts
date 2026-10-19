@@ -1,15 +1,12 @@
+import type { Actor, CaseOp } from "@cheddar/contracts";
 import { Inject, Injectable } from "@nestjs/common";
+import { isUUID } from "class-validator";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { ApiError, notFound } from "../common/errors";
 import type { CellValue, OpsResultDto } from "../contracts/test-set.dto";
 import type { DatabaseTransaction } from "../database/database.service";
-import {
-  accounts,
-  testCases,
-  testCaseValues,
-  viewPreferences,
-} from "../database/schema";
-import { forbidden, TestSetsStore } from "./test-sets.store";
+import { testCases, testCaseValues, viewPreferences } from "../database/schema";
+import { forbidden, type SetSubject, TestSetsStore } from "./test-sets.store";
 import {
   normalizeValues,
   testIdNumber,
@@ -24,21 +21,56 @@ export class CaseOperationsService {
   constructor(@Inject(TestSetsStore) private readonly store: TestSetsStore) {}
   async apply(
     id: string,
-    accountId: string,
+    accountId: SetSubject,
     input: unknown,
+    connectionId: string | null = null,
   ): Promise<OpsResultDto> {
-    return this.store.database.db.transaction((tx) =>
-      this.applyInTransaction(tx, id, accountId, input),
-    );
+    if (connectionId !== null && !isUUID(connectionId))
+      return validationFailed("연결 정보를 확인해주세요.");
+    let committed:
+      | { testSetId: string; actor: Actor; ops: CaseOp[] }
+      | undefined;
+    const result = await this.store.database.db.transaction(async (tx) => {
+      const resolved = await this.store.visible(id, accountId, tx, true);
+      const result = await this.applyInTransaction(
+        tx,
+        resolved.row.id,
+        accountId,
+        input,
+        (ops) => {
+          committed = {
+            testSetId: resolved.row.id,
+            actor: resolved.actor,
+            ops,
+          };
+        },
+      );
+      return result;
+    });
+    if (committed)
+      await this.store.events.publish({
+        type: "ops",
+        ...committed,
+        version: result.version,
+        connectionId,
+      });
+    return result;
   }
   // 생성 결과와 확인 필요 처리를 같은 트랜잭션에서 반영하는 진입점.
   async applyInTransaction(
     tx: DatabaseTransaction,
     id: string,
-    accountId: string,
+    accountId: SetSubject,
     input: unknown,
+    onApplied?: (ops: CaseOp[]) => void,
   ): Promise<OpsResultDto> {
-    const { row, access } = await this.store.visible(id, accountId, tx, true);
+    const { row, access, actor } = await this.store.visible(
+      id,
+      accountId,
+      tx,
+      true,
+    );
+    id = row.id;
     if (!access.canEdit) throw forbidden();
     const ops = validateOps(input);
     const columns = await this.store.columns(id, tx);
@@ -55,11 +87,6 @@ export class CaseOperationsService {
       const n = testIdNumber(c.values[testId.id]);
       if (n > counter) counter = n;
     }
-    const [author] = await tx
-      .select({ name: accounts.name })
-      .from(accounts)
-      .where(eq(accounts.id, accountId));
-    if (!author) throw notFound();
     const requireCase = (caseId: string) => {
       const c = byId.get(caseId);
       if (!c) throw notFound();
@@ -111,6 +138,7 @@ export class CaseOperationsService {
           values[testId.id] = `TC-${String(++counter).padStart(3, "0")}`;
           validateCell(testId, values[testId.id]);
         }
+        op.values = values;
         // 전역 UUID 충돌을 포함해 같은 ID의 동시 추가는 409로 통일한다.
         const inserted = await tx
           .insert(testCases)
@@ -118,8 +146,8 @@ export class CaseOperationsService {
             id: op.caseId,
             testSetId: id,
             position: 0,
-            createdBy: accountId,
-            authorName: author.name,
+            createdBy: actor.kind === "account" ? actor.id : null,
+            authorName: actor.name,
           })
           .onConflictDoNothing()
           .returning({ id: testCases.id });
@@ -137,6 +165,7 @@ export class CaseOperationsService {
       } else if (op.type === "set_cell") {
         const c = requireCase(op.caseId);
         const values = checkedValues({ [op.columnId]: op.value });
+        op.value = values[op.columnId];
         Object.assign(c.values, values);
         await saveValues(op.caseId, values);
         await tx
@@ -190,6 +219,7 @@ export class CaseOperationsService {
           .where(eq(viewPreferences.id, pref.id));
     }
     const version = await this.store.bump(id, tx, String(counter));
+    onApplied?.(ops);
     return {
       version,
       cases: order.filter((caseId) => changed.has(caseId)).map(requireCase),

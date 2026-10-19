@@ -1,0 +1,2 @@
+ALTER TABLE "plugin_connections" ADD COLUMN "token_expires_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "plugin_connections_account_idx" ON "plugin_connections" USING btree ("account_id");

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, count, eq, gt, ilike, isNull, lte, or, sql } from "drizzle-orm";
 import { hashToken, newToken } from "../auth/credentials";
+import { revokeAccountPluginTokens } from "../auth/plugin-tokens";
 import {
   AuthorizationService,
   type IdentityDatabase,
@@ -287,8 +288,10 @@ export class AccountsService {
         await this.assign(id, dto.assignments, tx);
       await this.authorization.validateExpiry(tx, id);
       const current = await this.row(id, tx);
-      if (accountState(current) !== "active")
+      if (accountState(current) !== "active") {
         await tx.delete(sessions).where(eq(sessions.accountId, id));
+        await revokeAccountPluginTokens(tx, id);
+      }
       return this.detail(id, tx);
     });
   }
@@ -308,6 +311,7 @@ export class AccountsService {
         .where(eq(accounts.id, id));
       if (!active) {
         await tx.delete(sessions).where(eq(sessions.accountId, id));
+        await revokeAccountPluginTokens(tx, id);
         await tx.delete(authTokens).where(eq(authTokens.accountId, id));
       }
       await this.authorization.validateExpiry(tx, id);

@@ -207,7 +207,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       },
     );
     await t.test(
-      "모든 경로는 볼 수 없는 세트를 404로 숨기고 보이는 쓰기는 권한별 403",
+      "세트 상세는 NO_ACCESS를 주고 하위 경로는 숨기며 보이는 쓰기는 권한별 403",
       async () => {
         const validView = {
           view: "table",
@@ -232,8 +232,8 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
               body,
               outsider.cookie,
             ),
-            404,
-            "NOT_FOUND",
+            suffix === "" && method === "GET" ? 403 : 404,
+            suffix === "" && method === "GET" ? "NO_ACCESS" : "NOT_FOUND",
           );
           await error(
             await request(`/${randomUUID()}${suffix}`, method, body),
@@ -296,8 +296,8 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         assert.equal(afterEmptyPatch.memo, beforeEmptyPatch.memo);
         await error(
           await request(`/${other.id}`, "GET", undefined, allViewer.cookie),
-          404,
-          "NOT_FOUND",
+          403,
+          "NO_ACCESS",
         );
         await error(
           await request(`/${first.id}/export`, "GET", undefined, editor.cookie),

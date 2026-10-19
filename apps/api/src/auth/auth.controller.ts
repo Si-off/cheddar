@@ -10,6 +10,7 @@ import {
   Res,
 } from "@nestjs/common";
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiCookieAuth,
   ApiNoContentResponse,
@@ -19,7 +20,12 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import type { Request, Response } from "express";
-import { CurrentAccount, Public, sessionCookie } from "../authorization/guards";
+import {
+  AllowPluginToken,
+  CurrentAccount,
+  Public,
+  sessionCookie,
+} from "../authorization/guards";
 import { API_ENV, type ApiEnv } from "../config/env";
 import {
   LoginDto,
@@ -75,6 +81,8 @@ export class AuthController {
     });
   }
   @Get("me")
+  @AllowPluginToken()
+  @ApiBearerAuth()
   @ApiCookieAuth()
   @ApiOperation({ operationId: "getMe", summary: "내 계정과 유효 권한 조회" })
   @ApiOkResponse({ type: MeDto })

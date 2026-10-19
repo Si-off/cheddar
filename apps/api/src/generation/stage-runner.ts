@@ -403,6 +403,7 @@ export class StageRunner implements OnModuleDestroy {
                 job.reviewItemId ?? "00000000-0000-0000-0000-000000000000",
               ),
             );
+          await this.generation.store.bump(job.testSetId, tx);
           await tx
             .update(generationJobs)
             .set({
@@ -415,6 +416,10 @@ export class StageRunner implements OnModuleDestroy {
             .update(generationSteps)
             .set({ input: null, output: null })
             .where(eq(generationSteps.jobId, jobId));
+        });
+        await this.generation.store.events.publish({
+          type: "resync",
+          testSetId: job.testSetId,
         });
       }
       if (next) {
@@ -527,6 +532,10 @@ export class StageRunner implements OnModuleDestroy {
         .update(generationSteps)
         .set({ input: null, output: null })
         .where(eq(generationSteps.jobId, job.id));
+    });
+    await this.generation.store.events.publish({
+      type: "resync",
+      testSetId: job.testSetId,
     });
   }
 }

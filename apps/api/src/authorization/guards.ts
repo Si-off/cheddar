@@ -9,13 +9,20 @@ import {
 import { Reflector } from "@nestjs/core";
 import { isUUID } from "class-validator";
 import type { Request } from "express";
-import { AuthService, SESSION_COOKIE } from "../auth/auth.service";
+import {
+  AuthService,
+  SESSION_COOKIE,
+  unauthenticated,
+} from "../auth/auth.service";
 import { ApiError, invalid } from "../common/errors";
 import { AuthorizationService } from "./authorization.service";
 import type { Permission } from "./permissions";
 
 const PUBLIC = Symbol("public");
 const REQUIRED = Symbol("permission");
+const PLUGIN_TOKEN = Symbol("pluginToken");
+export const AllowPluginToken = (required = false) =>
+  SetMetadata(PLUGIN_TOKEN, { required });
 type Requirement = {
   /** 여러 개면 그중 하나만 있어도 된다 */
   permission: Permission | readonly Permission[];
@@ -26,7 +33,10 @@ export const RequirePermission = (
   permission: Permission | readonly Permission[],
   project?: Requirement["project"],
 ) => SetMetadata(REQUIRED, { permission, project } satisfies Requirement);
-export type AuthenticatedRequest = Request & { accountId: string };
+export type AuthenticatedRequest = Request & {
+  accountId: string;
+  pluginConnectionId?: string;
+};
 export const CurrentAccount = createParamDecorator(
   (_data: unknown, context: ExecutionContext): string =>
     context.switchToHttp().getRequest<AuthenticatedRequest>().accountId,
@@ -48,9 +58,23 @@ export class AccessGuard implements CanActivate {
   ) {}
   async canActivate(context: ExecutionContext) {
     const targets = [context.getHandler(), context.getClass()];
-    if (this.reflector.getAllAndOverride<boolean>(PUBLIC, targets)) return true;
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    request.accountId = await this.auth.authenticate(sessionCookie(request));
+    const plugin = this.reflector.getAllAndOverride<{ required: boolean }>(
+      PLUGIN_TOKEN,
+      targets,
+    );
+    if (request.headers.authorization !== undefined) {
+      const bearer = /^Bearer ([A-Za-z0-9_-]{43})$/i.exec(
+        request.headers.authorization,
+      );
+      if (!plugin || !bearer) throw unauthenticated();
+      Object.assign(request, await this.auth.authenticatePlugin(bearer[1]));
+    } else {
+      if (this.reflector.getAllAndOverride<boolean>(PUBLIC, targets))
+        return true;
+      if (plugin?.required) throw unauthenticated();
+      request.accountId = await this.auth.authenticate(sessionCookie(request));
+    }
     const required = this.reflector.getAllAndOverride<Requirement>(
       REQUIRED,
       targets,

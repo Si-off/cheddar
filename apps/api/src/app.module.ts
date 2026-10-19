@@ -13,6 +13,8 @@ import {
   HealthController,
   MIGRATIONS_FOLDER,
 } from "./health/health.controller";
+import { LiveEventsModule } from "./live/live-events";
+import { PluginConnectionsModule } from "./plugin-connections/plugin-connections.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
@@ -28,11 +30,13 @@ export function appModule(
     module: AppModule,
     imports: [
       configModule(config),
+      LiveEventsModule,
       DatabaseModule,
       StorageModule,
       AuthorizationModule,
       AccountsModule,
       AuthModule,
+      PluginConnectionsModule,
       RolesModule,
       AffiliationsModule,
       ProjectsModule,

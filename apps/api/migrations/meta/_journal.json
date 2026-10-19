@@ -29,6 +29,20 @@
       "when": 1792393920891,
       "tag": "0003_ai_generation",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792400000000,
+      "tag": "0004_sharing_live",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792401452249,
+      "tag": "0005_plugin_connection_tokens",
+      "breakpoints": true
     }
   ]
 }

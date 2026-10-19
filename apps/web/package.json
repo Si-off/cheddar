@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@cheddar/contracts": "workspace:*",
     "@cheddar/design-tokens": "workspace:*",
     "@cheddar/ui": "workspace:*",
     "@tanstack/react-query": "5.104.2",

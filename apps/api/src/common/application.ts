@@ -1,17 +1,21 @@
 import "reflect-metadata";
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
+import type { CorsOptionsCallback } from "@nestjs/common/interfaces/external/cors-options.interface";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import { WsAdapter } from "@nestjs/platform-ws";
 import type { NextFunction, Request, Response } from "express";
 import { appModule } from "../app.module";
 import type { ApiEnv } from "../config/env";
 import { MAX_UPLOAD_BYTES } from "../temp-uploads/manifest";
 import { ApiExceptionFilter } from "./errors";
 import { createDocument } from "./openapi";
+import { isPluginCorsRequest } from "./plugin-cors";
 import { validationPipe } from "./validation";
 
 export function configureApp(app: INestApplication, config: ApiEnv) {
+  app.useWebSocketAdapter(new WsAdapter(app));
   app.use((req: Request, res: Response, next: NextFunction) => {
     const requestId = randomUUID();
     res.setHeader("X-Request-Id", requestId);
@@ -50,7 +54,9 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
     const origin = req.headers.origin;
     if (
       origin &&
-      !config.corsOrigins.includes(origin) &&
+      !(origin === "null"
+        ? config.allowFigmaNullOrigin && isPluginCorsRequest(req)
+        : config.corsOrigins.includes(origin)) &&
       !["GET", "HEAD", "OPTIONS"].includes(req.method)
     ) {
       res.status(403).json({
@@ -65,10 +71,20 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
     next();
   });
   (app as NestExpressApplication).useBodyParser("json", { limit: "5mb" });
-  app.enableCors({
-    origin: config.corsOrigins,
-    credentials: true,
-    exposedHeaders: ["X-Request-Id", "Content-Disposition"],
+  app.enableCors((req: Request, callback: CorsOptionsCallback) => {
+    const pluginOrigin = req.headers.origin === "null";
+    callback(null, {
+      origin: pluginOrigin
+        ? config.allowFigmaNullOrigin === true && isPluginCorsRequest(req)
+          ? "null"
+          : false
+        : config.corsOrigins.filter((origin) => origin !== "null"),
+      credentials: !pluginOrigin,
+      ...(pluginOrigin
+        ? { allowedHeaders: ["Authorization", "Content-Type"] }
+        : {}),
+      exposedHeaders: ["X-Request-Id", "Content-Disposition"],
+    });
   });
   app.useGlobalPipes(validationPipe());
   app.useGlobalFilters(new ApiExceptionFilter());

@@ -184,7 +184,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | required_cases | 프로젝트, 설명, 사용 여부, 기본 항목 여부, 순서. 프로젝트 API가 기본 12개를 생성 |
 | screen_structure_items | 프로젝트, 화면 ID, 이름, 상위 항목, 설명, 순서. 화면 ID는 프로젝트 안 유일, 상위 항목도 같은 프로젝트여야 하며 자기 참조 금지 |
 | project_memos | 프로젝트당 1행, 마지막 수정 계정(author_id), 본문, 생성·수정 시각. 생성 입력과 분리 |
-| test_sets | 프로젝트, 소유 계정, 이름, 메모, private/public, view/edit 링크 권한, 유일 링크 해시, version, 마지막 테스트 ID 번호. 기본 private, 공개일 때 링크 필수, 링크 만료 컬럼 없음 |
+| test_sets | 프로젝트, 소유 계정, 이름, 메모, private/public, view/edit 링크 권한, 유일 원문 링크 토큰(link_token, 32바이트 base64url), version, 마지막 테스트 ID 번호. 공유 창에서 링크를 다시 복사해야 하므로 0004에서 해시를 원문으로 바꾸며 기존 해시 링크는 비공개로 전환해 무효화한다. 기본 private, 공개일 때 링크 필수, 링크 만료 컬럼 없음 |
 | test_set_columns | 세트, 열 UUID, 이름, 형식 enum, 설명, 선택 값 배열, 순서. 시스템 키 test_id/title은 세트 안 유일하고 text 형식 |
 | test_cases | 세트, 순서, 작성 계정과 작성 당시 이름, 시각. 프레임·요구사항·화면 구조 근거 FK 없음 |
 | test_case_values | 케이스+열 복합 PK, JSONB 값. 세트 ID를 포함한 복합 FK로 다른 세트의 케이스·열 연결 금지 |
@@ -198,12 +198,15 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | visitor_sessions | 세트, 브라우저 토큰 해시, 표시 이름. 같은 세트의 브라우저·이름 각각 유일 |
 | plugin_connections | 요청 토큰 해시, 승인 계정, 계정 토큰 해시, pending/approved/revoked, 만료·승인·폐기 시각 |
 
+- 7단계 플러그인 연결은 10분 요청을 브라우저 세션으로 승인하고 30일 Bearer 토큰을 한 번 발급한다(`token_expires_at` 별도 저장). Bearer는 `GET /api/v1/auth/me`, `POST /api/v1/temp-uploads`, `DELETE /api/v1/plugin-connections/current`만 허용하며, 계정 비활성화·비밀번호 변경 시 함께 폐기한다. 업로드는 전체 `plugin.upload` 권한을 요구한다.
+- `ALLOW_FIGMA_NULL_ORIGIN=true`는 development에서 위 세 경로와 연결 요청 생성·토큰 교환에만 `Origin: null`을 credentials 없이 허용한다. 운영 환경의 Figma Origin 허용 방식은 배포 때 다시 정한다.
+
 아직 없는 API에서 지켜야 할 조건은 후속 구현에 남는다. 테스트 세트의 프로젝트 불변, 테스트 세트 안의 필수 시스템 열 2개 보호, JSONB 셀 값의 열 형식·선택 값 검증, 생성 종료 시 임시 자료·단계 입력/출력 삭제, 공개 권한 변경 시 연결 종료는 이번 단계의 스키마만으로 완성되지 않는다. 프로젝트 기본 양식의 시스템 항목 보호와 화면 구조의 다단계 순환 금지는 4단계 서비스에서 검사한다.
 
 
 ## 공동 편집
 
-- 서버가 기준인 셀 단위 연산을 WebSocket으로 주고받는다. 연산: 셀 값 설정, 행 추가, 행 삭제, 행 이동, 열 변경. 같은 셀은 나중에 온 값이 이긴다.
+- 셀 값 설정과 행 추가·삭제·이동은 기존 HTTP ops로 저장하고 WebSocket은 커밋 뒤 전파와 접속자·선택 표시에 쓴다. 웹의 대기열·재전송·결과 불명 처리를 재사용하며 같은 셀은 나중에 온 값이 이긴다. 단일 API 프로세스에서 test_sets.version과 방별 최근 500묶음으로 누락을 복구하고, 열·이름·메모·AI·확인 필요·공유 변경은 resync로 다시 읽는다. 전송 계약은 @cheddar/contracts의 빌드 결과를 공유한다.
 - 서버는 연산마다 권한을 확인하고 정규화된 테이블에 바로 저장한 뒤 같은 방에 전파한다. 연산에는 순번을 붙여 재연결 때 빠진 연산을 받는다.
 - 접속자와 셀 선택은 저장하지 않고 방 안에서만 전파한다.
 - 권한 변경, 링크 재발급, 비공개 전환, 계정 비활성화가 일어나면 해당 연결을 바로 끊는다.
@@ -227,7 +230,9 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 - 직접 선택한 Frame과 선택한 Section 안의 최상위 Frame을 모은다. 중복은 한 번만 포함한다.
 - 원본 JSON 대신 보드별 화면 문서를 만든다. 남기는 것: 글자(읽는 순서), 프레임과 인스턴스 이름, 컴포넌트 속성 값, 연결선, Dev Mode 주석. 버리는 것: 숨김 노드, 벡터와 아이콘과 장식, 스타일, 절대 좌표. 같은 컴포넌트가 반복되는 목록과 표 행은 처음 두 개와 개수로 접는다.
-- 이미지는 보드 단위로 렌더하고, 큰 보드는 겹치게 타일로 자른다.
+- 이미지는 보드 단위로 렌더하고, 큰 보드는 겹치게 타일로 자른다. 높이 2000px까지는 한 장, 넘으면 1600px 타일을 200px씩 겹친다(플러그인 UI의 canvas에서 자른다).
+- 화면 문서 형식은 `schemaVersion: 2`의 `{ board, texts, tree, links, notes }`다. 보드 밖으로 가는 연결 대상 이름은 main이 노드를 찾아 채우고, 찾지 못한 연결은 버린다.
+- 플러그인 계정 토큰은 iframe이 저장소를 쓸 수 없어 main의 `figma.clientStorage`에 둔다.
 - main은 IIFE JavaScript, UI는 단일 HTML로 따로 빌드한다. 실제 Figma iframe relay는 Figma Origin과 manifest pluginId를 검사한다.
 - 플러그인 ID `1692417282897261384`. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`, API 주소는 `VITE_API_BASE_URL`에서 읽는다. 배포용 네트워크 허용은 `none`이며 배포 전 다시 정한다.
 

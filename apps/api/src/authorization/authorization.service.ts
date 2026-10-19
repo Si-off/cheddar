@@ -13,6 +13,7 @@ import {
   rolePermissions,
   roles,
 } from "../database/schema";
+import { LiveEvents } from "../live/live-events";
 import { GLOBAL_ONLY, type Permission } from "./permissions";
 
 export type IdentityDatabase = DatabaseService["db"] | DatabaseTransaction;
@@ -25,6 +26,7 @@ export const activeAccount = () =>
 export class AuthorizationService {
   constructor(
     @Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(LiveEvents) private readonly events: LiveEvents = new LiveEvents(),
   ) {}
   async effective(
     accountId: string,
@@ -137,12 +139,14 @@ export class AuthorizationService {
     work: (tx: DatabaseTransaction) => Promise<T>,
     protectManager = true,
   ): Promise<T> {
-    return this.database.db.transaction(async (tx) => {
+    const result = await this.database.db.transaction(async (tx) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(724381019)`);
       const value = await work(tx);
       if (protectManager) await this.assertManagerRemains(tx);
       return value;
     });
+    await this.events.publish({ type: "identity" });
+    return result;
   }
   async validateExpiry(tx: IdentityDatabase, accountId?: string) {
     const missing = await tx

@@ -49,11 +49,11 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
           ).length,
         0,
       ),
-      69,
+      85,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
-        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets|temp-uploads|generations|review-items))/.test(
+        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets|shared|temp-uploads|generations|review-items|plugin-connections))/.test(
           p,
         ),
       ),

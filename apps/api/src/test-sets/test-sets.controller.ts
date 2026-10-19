@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Inject,
   Param,
@@ -18,6 +19,7 @@ import {
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiExtraModels,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -26,6 +28,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { CurrentAccount } from "../authorization/guards";
+import { ApiError } from "../common/errors";
 import {
   AddCaseOpDto,
   ApplyOpsDto,
@@ -80,11 +83,17 @@ export class TestSetsController {
   @Get(":testSetId")
   @ApiOperation({ operationId: "getTestSet", summary: "테스트 세트 보기" })
   @ApiOkResponse({ type: TestSetDto })
-  detail(
+  async detail(
     @Param("testSetId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
   ) {
-    return this.service.detail(id, accountId);
+    try {
+      return await this.service.detail(id, accountId);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "NOT_FOUND")
+        await this.service.denyDetail(id);
+      throw error;
+    }
   }
 
   @Patch(":testSetId")
@@ -136,12 +145,18 @@ export class TestSetsController {
   })
   @ApiBody({ type: ApplyOpsDto })
   @ApiOkResponse({ type: OpsResultDto })
+  @ApiHeader({
+    name: "x-cheddar-connection",
+    required: false,
+    schema: { type: "string", format: "uuid" },
+  })
   ops(
     @Param("testSetId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
     @Body() dto: ApplyOpsDto,
+    @Headers("x-cheddar-connection") connectionId?: string,
   ) {
-    return this.operations.apply(id, accountId, dto);
+    return this.operations.apply(id, accountId, dto, connectionId ?? null);
   }
 
   @Get(":testSetId/view")

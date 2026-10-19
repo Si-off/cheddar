@@ -104,6 +104,7 @@ export class ReviewItemsService {
         })
         .where(eq(reviewItems.id, id))
         .returning();
+      await this.store.bump(row.testSetId, tx);
       return reviewDto(updated);
     });
   }
@@ -172,6 +173,7 @@ export class ReviewItemsService {
         .update(reviewItems)
         .set({ status: "rewriting", questions, updatedAt: new Date() })
         .where(eq(reviewItems.id, id));
+      await this.store.bump(row.testSetId, tx);
       return this.generation.insertJob(
         tx,
         row.testSetId,
