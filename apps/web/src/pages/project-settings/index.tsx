@@ -7,28 +7,26 @@ import {
 import { useBlocker } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import {
+  type ColumnErrors,
   featureGroupsQuery,
+  fromTemplateDraft,
   memoQuery,
   type Project,
   projectQuery,
   requiredCasesQuery,
   screensQuery,
   type Template,
+  type TemplateDraft,
   templateQuery,
+  toTemplateDraft,
+  validateTemplateDraft,
 } from "@/entities/project";
 import { MemoEditor } from "@/features/edit-project-memo";
-import {
-  type ColumnErrors,
-  fromTemplateDraft,
-  type TemplateDraft,
-  TemplateEditor,
-  toTemplateDraft,
-  useSaveTemplate,
-  validateTemplateDraft,
-} from "@/features/edit-template";
+import { useSaveTemplate } from "@/features/edit-template";
 import { FeatureGroupsEditor } from "@/features/manage-feature-groups";
 import { RequiredCasesEditor } from "@/features/manage-required-cases";
 import { ScreensEditor } from "@/features/manage-screens";
+import { ColumnsEditor } from "@/widgets/columns-editor";
 import { ProjectShell } from "@/widgets/project-shell";
 
 /** 프로젝트와 탭 내용을 함께 불러온다. 둘 중 하나라도 실패하면 다시 시도를 보여준다. */
@@ -196,7 +194,7 @@ function TemplateSettings({
           최신 양식을 불러오면 지금 입력한 내용은 사라집니다.
         </Banner>
       )}
-      <TemplateEditor
+      <ColumnsEditor
         value={draft}
         onChange={change}
         errors={errors ?? undefined}

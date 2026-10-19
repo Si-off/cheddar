@@ -283,6 +283,122 @@ export type UpdateMemoDto = {
     body: string;
 };
 
+export type SetCellOpDto = {
+    type: 'set_cell';
+    caseId: string;
+    columnId: string;
+    value: string | null | boolean | Array<string>;
+};
+
+export type AddCaseOpDto = {
+    type: 'add_case';
+    caseId: string;
+    afterCaseId: string | null;
+    values?: {
+        [key: string]: string | null | boolean | Array<string>;
+    };
+};
+
+export type DeleteCasesOpDto = {
+    type: 'delete_cases';
+    caseIds: Array<string>;
+};
+
+export type MoveCaseOpDto = {
+    type: 'move_case';
+    caseId: string;
+    afterCaseId: string | null;
+};
+
+export type TestSetPersonDto = {
+    id: string;
+    name: string;
+};
+
+export type TestSetSummaryDto = {
+    id: string;
+    name: string;
+    owner: TestSetPersonDto;
+    isPublic: boolean;
+    caseCount: number;
+    reviewCount: number;
+    updatedAt: string;
+};
+
+export type TestSetListDto = {
+    items: Array<TestSetSummaryDto>;
+};
+
+export type CreateTestSetDto = {
+    name: string;
+    projectId: string;
+    memo?: string;
+};
+
+export type TestSetAccessDto = {
+    canEdit: boolean;
+    canRename: boolean;
+    canDelete: boolean;
+    canExport: boolean;
+};
+
+export type CaseDto = {
+    id: string;
+    values: {
+        [key: string]: string | null | boolean | Array<string>;
+    };
+};
+
+export type TestSetDto = {
+    id: string;
+    name: string;
+    memo: string;
+    project: TestSetPersonDto;
+    owner: TestSetPersonDto;
+    isPublic: boolean;
+    version: number;
+    access: TestSetAccessDto;
+    columns: Array<TemplateColumnDto>;
+    cases: Array<CaseDto>;
+    updatedAt: string;
+};
+
+export type UpdateTestSetDto = {
+    name?: string;
+    memo?: string;
+};
+
+export type UpdateColumnsDto = {
+    columns: Array<TemplateColumnDto>;
+};
+
+export type ColumnsResultDto = {
+    version: number;
+    columns: Array<TemplateColumnDto>;
+    cases: Array<CaseDto>;
+};
+
+export type ApplyOpsDto = {
+    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto>;
+};
+
+export type OpsResultDto = {
+    version: number;
+    cases: Array<CaseDto>;
+    deletedCaseIds: Array<string>;
+};
+
+export type TestSetViewDto = {
+    view: 'table' | 'card';
+    groupByColumnId: string | null;
+    columnWidths: {
+        [key: string]: number;
+    };
+    rowHeights: {
+        [key: string]: number;
+    };
+};
+
 export type LoginDtoWritable = {
     email: string;
     password: string;
@@ -2820,3 +2936,522 @@ export type UpdateProjectMemoResponses = {
 };
 
 export type UpdateProjectMemoResponse = UpdateProjectMemoResponses[keyof UpdateProjectMemoResponses];
+
+export type ListTestSetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        filter?: string;
+        search?: string;
+    };
+    url: '/api/v1/test-sets';
+};
+
+export type ListTestSetsErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ListTestSetsError = ListTestSetsErrors[keyof ListTestSetsErrors];
+
+export type ListTestSetsResponses = {
+    200: TestSetListDto;
+};
+
+export type ListTestSetsResponse = ListTestSetsResponses[keyof ListTestSetsResponses];
+
+export type CreateTestSetData = {
+    body: CreateTestSetDto;
+    path?: never;
+    query?: never;
+    url: '/api/v1/test-sets';
+};
+
+export type CreateTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type CreateTestSetError = CreateTestSetErrors[keyof CreateTestSetErrors];
+
+export type CreateTestSetResponses = {
+    201: TestSetDto;
+};
+
+export type CreateTestSetResponse = CreateTestSetResponses[keyof CreateTestSetResponses];
+
+export type DeleteTestSetData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}';
+};
+
+export type DeleteTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type DeleteTestSetError = DeleteTestSetErrors[keyof DeleteTestSetErrors];
+
+export type DeleteTestSetResponses = {
+    204: void;
+};
+
+export type DeleteTestSetResponse = DeleteTestSetResponses[keyof DeleteTestSetResponses];
+
+export type GetTestSetData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}';
+};
+
+export type GetTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetTestSetError = GetTestSetErrors[keyof GetTestSetErrors];
+
+export type GetTestSetResponses = {
+    200: TestSetDto;
+};
+
+export type GetTestSetResponse = GetTestSetResponses[keyof GetTestSetResponses];
+
+export type UpdateTestSetData = {
+    body: UpdateTestSetDto;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}';
+};
+
+export type UpdateTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UpdateTestSetError = UpdateTestSetErrors[keyof UpdateTestSetErrors];
+
+export type UpdateTestSetResponses = {
+    200: TestSetDto;
+};
+
+export type UpdateTestSetResponse = UpdateTestSetResponses[keyof UpdateTestSetResponses];
+
+export type UpdateTestSetColumnsData = {
+    body: UpdateColumnsDto;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/columns';
+};
+
+export type UpdateTestSetColumnsErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UpdateTestSetColumnsError = UpdateTestSetColumnsErrors[keyof UpdateTestSetColumnsErrors];
+
+export type UpdateTestSetColumnsResponses = {
+    200: ColumnsResultDto;
+};
+
+export type UpdateTestSetColumnsResponse = UpdateTestSetColumnsResponses[keyof UpdateTestSetColumnsResponses];
+
+export type ApplyTestSetOpsData = {
+    body: ApplyOpsDto;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/ops';
+};
+
+export type ApplyTestSetOpsErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ApplyTestSetOpsError = ApplyTestSetOpsErrors[keyof ApplyTestSetOpsErrors];
+
+export type ApplyTestSetOpsResponses = {
+    200: OpsResultDto;
+};
+
+export type ApplyTestSetOpsResponse = ApplyTestSetOpsResponses[keyof ApplyTestSetOpsResponses];
+
+export type GetTestSetViewData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/view';
+};
+
+export type GetTestSetViewErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetTestSetViewError = GetTestSetViewErrors[keyof GetTestSetViewErrors];
+
+export type GetTestSetViewResponses = {
+    200: TestSetViewDto;
+};
+
+export type GetTestSetViewResponse = GetTestSetViewResponses[keyof GetTestSetViewResponses];
+
+export type UpdateTestSetViewData = {
+    body: TestSetViewDto;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/view';
+};
+
+export type UpdateTestSetViewErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UpdateTestSetViewError = UpdateTestSetViewErrors[keyof UpdateTestSetViewErrors];
+
+export type UpdateTestSetViewResponses = {
+    200: TestSetViewDto;
+};
+
+export type UpdateTestSetViewResponse = UpdateTestSetViewResponses[keyof UpdateTestSetViewResponses];
+
+export type ExportTestSetData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/export';
+};
+
+export type ExportTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ExportTestSetError = ExportTestSetErrors[keyof ExportTestSetErrors];
+
+export type ExportTestSetResponses = {
+    200: Blob | File;
+};
+
+export type ExportTestSetResponse = ExportTestSetResponses[keyof ExportTestSetResponses];

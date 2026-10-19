@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInvitationData, AcceptInvitationErrors, AcceptInvitationResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateAffiliationData, CreateAffiliationErrors, CreateAffiliationResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectRequiredCaseData, CreateProjectRequiredCaseErrors, CreateProjectRequiredCaseResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteAffiliationData, DeleteAffiliationErrors, DeleteAffiliationResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseErrors, DeleteProjectRequiredCaseResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DuplicateRoleData, DuplicateRoleErrors, DuplicateRoleResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetAffiliationData, GetAffiliationErrors, GetAffiliationResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRoleData, GetRoleErrors, GetRoleResponses, InspectInvitationData, InspectInvitationErrors, InspectInvitationResponses, InspectPasswordResetData, InspectPasswordResetErrors, InspectPasswordResetResponses, IssuePasswordResetData, IssuePasswordResetErrors, IssuePasswordResetResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListAffiliationsData, ListAffiliationsErrors, ListAffiliationsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectRequiredCasesData, ListProjectRequiredCasesErrors, ListProjectRequiredCasesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReissueInvitationData, ReissueInvitationErrors, ReissueInvitationResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ResetPasswordData, ResetPasswordErrors, ResetPasswordResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateAffiliationData, UpdateAffiliationErrors, UpdateAffiliationResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseErrors, UpdateProjectRequiredCaseResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses } from './types.gen';
+import type { AcceptInvitationData, AcceptInvitationErrors, AcceptInvitationResponses, ApplyTestSetOpsData, ApplyTestSetOpsErrors, ApplyTestSetOpsResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateAffiliationData, CreateAffiliationErrors, CreateAffiliationResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectRequiredCaseData, CreateProjectRequiredCaseErrors, CreateProjectRequiredCaseResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateTestSetData, CreateTestSetErrors, CreateTestSetResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteAffiliationData, DeleteAffiliationErrors, DeleteAffiliationResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseErrors, DeleteProjectRequiredCaseResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteTestSetData, DeleteTestSetErrors, DeleteTestSetResponses, DuplicateRoleData, DuplicateRoleErrors, DuplicateRoleResponses, ExportTestSetData, ExportTestSetErrors, ExportTestSetResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetAffiliationData, GetAffiliationErrors, GetAffiliationResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRoleData, GetRoleErrors, GetRoleResponses, GetTestSetData, GetTestSetErrors, GetTestSetResponses, GetTestSetViewData, GetTestSetViewErrors, GetTestSetViewResponses, InspectInvitationData, InspectInvitationErrors, InspectInvitationResponses, InspectPasswordResetData, InspectPasswordResetErrors, InspectPasswordResetResponses, IssuePasswordResetData, IssuePasswordResetErrors, IssuePasswordResetResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListAffiliationsData, ListAffiliationsErrors, ListAffiliationsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectRequiredCasesData, ListProjectRequiredCasesErrors, ListProjectRequiredCasesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTestSetsData, ListTestSetsErrors, ListTestSetsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReissueInvitationData, ReissueInvitationErrors, ReissueInvitationResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ResetPasswordData, ResetPasswordErrors, ResetPasswordResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateAffiliationData, UpdateAffiliationErrors, UpdateAffiliationResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseErrors, UpdateProjectRequiredCaseResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateTestSetColumnsData, UpdateTestSetColumnsErrors, UpdateTestSetColumnsResponses, UpdateTestSetData, UpdateTestSetErrors, UpdateTestSetResponses, UpdateTestSetViewData, UpdateTestSetViewErrors, UpdateTestSetViewResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -676,4 +676,154 @@ export const updateProjectMemo = <ThrowOnError extends boolean = false>(options:
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * 볼 수 있는 테스트 세트 목록
+ */
+export const listTestSets = <ThrowOnError extends boolean = false>(options?: Options<ListTestSetsData, ThrowOnError>): RequestResult<ListTestSetsResponses, ListTestSetsErrors, ThrowOnError> => (options?.client ?? client).get<ListTestSetsResponses, ListTestSetsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets',
+    ...options
+});
+
+/**
+ * 프로젝트 기본 양식으로 테스트 세트 만들기
+ */
+export const createTestSet = <ThrowOnError extends boolean = false>(options: Options<CreateTestSetData, ThrowOnError>): RequestResult<CreateTestSetResponses, CreateTestSetErrors, ThrowOnError> => (options.client ?? client).post<CreateTestSetResponses, CreateTestSetErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 테스트 세트 삭제
+ */
+export const deleteTestSet = <ThrowOnError extends boolean = false>(options: Options<DeleteTestSetData, ThrowOnError>): RequestResult<DeleteTestSetResponses, DeleteTestSetErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTestSetResponses, DeleteTestSetErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}',
+    ...options
+});
+
+/**
+ * 테스트 세트 보기
+ */
+export const getTestSet = <ThrowOnError extends boolean = false>(options: Options<GetTestSetData, ThrowOnError>): RequestResult<GetTestSetResponses, GetTestSetErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetResponses, GetTestSetErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}',
+    ...options
+});
+
+/**
+ * 테스트 세트 이름과 메모 변경
+ */
+export const updateTestSet = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetData, ThrowOnError>): RequestResult<UpdateTestSetResponses, UpdateTestSetErrors, ThrowOnError> => (options.client ?? client).patch<UpdateTestSetResponses, UpdateTestSetErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 테스트 세트 양식 변경
+ */
+export const updateTestSetColumns = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetColumnsData, ThrowOnError>): RequestResult<UpdateTestSetColumnsResponses, UpdateTestSetColumnsErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestSetColumnsResponses, UpdateTestSetColumnsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/columns',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 테스트 케이스 편집 연산 적용
+ */
+export const applyTestSetOps = <ThrowOnError extends boolean = false>(options: Options<ApplyTestSetOpsData, ThrowOnError>): RequestResult<ApplyTestSetOpsResponses, ApplyTestSetOpsErrors, ThrowOnError> => (options.client ?? client).post<ApplyTestSetOpsResponses, ApplyTestSetOpsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/ops',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 내 보기 설정 읽기
+ */
+export const getTestSetView = <ThrowOnError extends boolean = false>(options: Options<GetTestSetViewData, ThrowOnError>): RequestResult<GetTestSetViewResponses, GetTestSetViewErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetViewResponses, GetTestSetViewErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/view',
+    ...options
+});
+
+/**
+ * 내 보기 설정 저장
+ */
+export const updateTestSetView = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetViewData, ThrowOnError>): RequestResult<UpdateTestSetViewResponses, UpdateTestSetViewErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestSetViewResponses, UpdateTestSetViewErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/view',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 테스트 세트 XLSX 내보내기
+ */
+export const exportTestSet = <ThrowOnError extends boolean = false>(options: Options<ExportTestSetData, ThrowOnError>): RequestResult<ExportTestSetResponses, ExportTestSetErrors, ThrowOnError> => (options.client ?? client).get<ExportTestSetResponses, ExportTestSetErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/export',
+    ...options
 });

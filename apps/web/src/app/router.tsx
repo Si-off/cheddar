@@ -1,5 +1,5 @@
 import { Button, EmptyState } from "@cheddar/ui";
-import type { QueryClient } from "@tanstack/react-query";
+import { type QueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
   createRoute,
@@ -13,7 +13,7 @@ import {
 import { CircleAlert, FileQuestion } from "lucide-react";
 import { Suspense } from "react";
 import { currentAccountQuery } from "@/entities/account";
-import { can, type PermissionKey } from "@/entities/permission";
+import { can, canAnywhere, type PermissionKey } from "@/entities/permission";
 import { AdminAccountPage } from "@/pages/admin-account";
 import { AdminAccountsPage } from "@/pages/admin-accounts";
 import { AdminAffiliationsPage } from "@/pages/admin-affiliations";
@@ -22,7 +22,6 @@ import { AdminRolesPage } from "@/pages/admin-roles";
 import { LoginPage } from "@/pages/login";
 import { NoAccessPage } from "@/pages/no-access";
 import { PasswordSetupPage } from "@/pages/password-setup";
-import { PlaceholderPage } from "@/pages/placeholder";
 import {
   ProjectFeatureGroupsPage,
   ProjectMemoPage,
@@ -31,6 +30,9 @@ import {
   ProjectTemplatePage,
 } from "@/pages/project-settings";
 import { ProjectsPage } from "@/pages/projects";
+import { TestSetPage } from "@/pages/test-set";
+import { TestSetNewPage } from "@/pages/test-set-new";
+import { TestSetsPage } from "@/pages/test-sets";
 import { isApiFailure } from "@/shared/api";
 import { AdminShell } from "@/widgets/admin-shell";
 import { AppHeader } from "@/widgets/app-header";
@@ -204,7 +206,34 @@ const homeRoute = createRoute({
 const testSetsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/test-sets",
-  component: () => <PlaceholderPage title="테스트 세트" />,
+  component: function TestSetsRoute() {
+    const { data: account } = useSuspenseQuery(currentAccountQuery());
+    return (
+      <TestSetsPage
+        canCreate={canAnywhere(account.permissions, "test_set.create")}
+      />
+    );
+  },
+});
+
+const testSetNewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/test-sets/new",
+  beforeLoad: async ({ context }) => {
+    const account = await context.queryClient.query(currentAccountQuery());
+    if (!canAnywhere(account.permissions, "test_set.create"))
+      throw redirect({ to: "/no-access" });
+  },
+  component: TestSetNewPage,
+});
+
+const testSetRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/test-sets/$testSetId",
+  component: function TestSetRoute() {
+    const { testSetId } = testSetRoute.useParams();
+    return <TestSetPage key={testSetId} testSetId={testSetId} />;
+  },
 });
 
 const projectsRoute = createRoute({
@@ -349,6 +378,8 @@ const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     homeRoute,
     testSetsRoute,
+    testSetNewRoute,
+    testSetRoute,
     projectsRoute,
     projectRoute.addChildren([
       projectIndexRoute,

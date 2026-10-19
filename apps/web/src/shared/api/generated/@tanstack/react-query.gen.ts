@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvitation, createAccount, createAffiliation, createProject, createProjectFeatureGroup, createProjectRequiredCase, createProjectScreen, createRole, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectRequiredCase, deleteProjectScreen, deleteRole, duplicateRole, getAccount, getAffiliation, getLiveness, getMe, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listProjectFeatureGroups, listProjectRequiredCases, listProjects, listProjectScreens, listRoles, login, logout, type Options, reactivateAccount, reissueInvitation, reorderProjectFeatureGroups, resetPassword, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectRequiredCase, updateProjectScreen, updateProjectTemplate, updateRole } from '../sdk.gen';
-import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectRequiredCaseData, CreateProjectRequiredCaseError, CreateProjectRequiredCaseResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseError, DeleteProjectRequiredCaseResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectRequiredCasesData, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListRolesData, ListRolesError, ListRolesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseError, UpdateProjectRequiredCaseResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse } from '../types.gen';
+import { acceptInvitation, applyTestSetOps, createAccount, createAffiliation, createProject, createProjectFeatureGroup, createProjectRequiredCase, createProjectScreen, createRole, createTestSet, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectRequiredCase, deleteProjectScreen, deleteRole, deleteTestSet, duplicateRole, exportTestSet, getAccount, getAffiliation, getLiveness, getMe, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, getTestSet, getTestSetView, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listProjectFeatureGroups, listProjectRequiredCases, listProjects, listProjectScreens, listRoles, listTestSets, login, logout, type Options, reactivateAccount, reissueInvitation, reorderProjectFeatureGroups, resetPassword, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectRequiredCase, updateProjectScreen, updateProjectTemplate, updateRole, updateTestSet, updateTestSetColumns, updateTestSetView } from '../sdk.gen';
+import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectRequiredCaseData, CreateProjectRequiredCaseError, CreateProjectRequiredCaseResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseError, DeleteProjectRequiredCaseResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, GetTestSetData, GetTestSetError, GetTestSetResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectRequiredCasesData, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListRolesData, ListRolesError, ListRolesResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseError, UpdateProjectRequiredCaseResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse, UpdateTestSetColumnsData, UpdateTestSetColumnsError, UpdateTestSetColumnsResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -942,3 +942,177 @@ export const updateProjectMemoMutation = (options?: Partial<Options<UpdateProjec
     };
     return mutationOptions;
 };
+
+export const listTestSetsQueryKey = (options?: Options<ListTestSetsData>) => createQueryKey('listTestSets', options);
+
+/**
+ * 볼 수 있는 테스트 세트 목록
+ */
+export const listTestSetsOptions = (options?: Options<ListTestSetsData>) => queryOptions<ListTestSetsResponse, ListTestSetsError, ListTestSetsResponse, ReturnType<typeof listTestSetsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listTestSets({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listTestSetsQueryKey(options)
+});
+
+/**
+ * 프로젝트 기본 양식으로 테스트 세트 만들기
+ */
+export const createTestSetMutation = (options?: Partial<Options<CreateTestSetData>>): UseMutationOptions<CreateTestSetResponse, CreateTestSetError, Options<CreateTestSetData>> => {
+    const mutationOptions: UseMutationOptions<CreateTestSetResponse, CreateTestSetError, Options<CreateTestSetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createTestSet({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 테스트 세트 삭제
+ */
+export const deleteTestSetMutation = (options?: Partial<Options<DeleteTestSetData>>): UseMutationOptions<DeleteTestSetResponse, DeleteTestSetError, Options<DeleteTestSetData>> => {
+    const mutationOptions: UseMutationOptions<DeleteTestSetResponse, DeleteTestSetError, Options<DeleteTestSetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteTestSet({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getTestSetQueryKey = (options: Options<GetTestSetData>) => createQueryKey('getTestSet', options);
+
+/**
+ * 테스트 세트 보기
+ */
+export const getTestSetOptions = (options: Options<GetTestSetData>) => queryOptions<GetTestSetResponse, GetTestSetError, GetTestSetResponse, ReturnType<typeof getTestSetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getTestSet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getTestSetQueryKey(options)
+});
+
+/**
+ * 테스트 세트 이름과 메모 변경
+ */
+export const updateTestSetMutation = (options?: Partial<Options<UpdateTestSetData>>): UseMutationOptions<UpdateTestSetResponse, UpdateTestSetError, Options<UpdateTestSetData>> => {
+    const mutationOptions: UseMutationOptions<UpdateTestSetResponse, UpdateTestSetError, Options<UpdateTestSetData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateTestSet({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 테스트 세트 양식 변경
+ */
+export const updateTestSetColumnsMutation = (options?: Partial<Options<UpdateTestSetColumnsData>>): UseMutationOptions<UpdateTestSetColumnsResponse, UpdateTestSetColumnsError, Options<UpdateTestSetColumnsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateTestSetColumnsResponse, UpdateTestSetColumnsError, Options<UpdateTestSetColumnsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateTestSetColumns({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 테스트 케이스 편집 연산 적용
+ */
+export const applyTestSetOpsMutation = (options?: Partial<Options<ApplyTestSetOpsData>>): UseMutationOptions<ApplyTestSetOpsResponse, ApplyTestSetOpsError, Options<ApplyTestSetOpsData>> => {
+    const mutationOptions: UseMutationOptions<ApplyTestSetOpsResponse, ApplyTestSetOpsError, Options<ApplyTestSetOpsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await applyTestSetOps({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getTestSetViewQueryKey = (options: Options<GetTestSetViewData>) => createQueryKey('getTestSetView', options);
+
+/**
+ * 내 보기 설정 읽기
+ */
+export const getTestSetViewOptions = (options: Options<GetTestSetViewData>) => queryOptions<GetTestSetViewResponse, GetTestSetViewError, GetTestSetViewResponse, ReturnType<typeof getTestSetViewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getTestSetView({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getTestSetViewQueryKey(options)
+});
+
+/**
+ * 내 보기 설정 저장
+ */
+export const updateTestSetViewMutation = (options?: Partial<Options<UpdateTestSetViewData>>): UseMutationOptions<UpdateTestSetViewResponse, UpdateTestSetViewError, Options<UpdateTestSetViewData>> => {
+    const mutationOptions: UseMutationOptions<UpdateTestSetViewResponse, UpdateTestSetViewError, Options<UpdateTestSetViewData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateTestSetView({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const exportTestSetQueryKey = (options: Options<ExportTestSetData>) => createQueryKey('exportTestSet', options);
+
+/**
+ * 테스트 세트 XLSX 내보내기
+ */
+export const exportTestSetOptions = (options: Options<ExportTestSetData>) => queryOptions<ExportTestSetResponse, ExportTestSetError, ExportTestSetResponse, ReturnType<typeof exportTestSetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportTestSet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportTestSetQueryKey(options)
+});
