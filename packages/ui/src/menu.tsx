@@ -7,7 +7,7 @@ import {
   use,
   useId,
 } from "react";
-import { Icon } from "./icon";
+import { DrawnCheck, Icon } from "./icon";
 import { PopupHighlight, popupFrame, popupItem } from "./popup-list";
 import { cn } from "./utils";
 
@@ -68,6 +68,44 @@ function MenuItem({
   );
 }
 
+interface MenuCheckboxItemProps
+  extends Omit<
+    ComponentProps<typeof BaseMenu.CheckboxItem>,
+    "render" | "children"
+  > {
+  children: ReactNode;
+}
+
+/** 여러 개를 고르는 항목. 고르는 동안 메뉴를 닫지 않는다. */
+function MenuCheckboxItem({
+  className,
+  children,
+  closeOnClick = false,
+  ...rest
+}: MenuCheckboxItemProps) {
+  const highlightId = use(HighlightContext);
+  return (
+    <BaseMenu.CheckboxItem
+      {...rest}
+      closeOnClick={closeOnClick}
+      className={cn(popupItem, className)}
+      render={(props, state) => (
+        <div {...props}>
+          <PopupHighlight active={state.highlighted} layoutId={highlightId} />
+          <span className="relative flex min-w-0 flex-1 items-center gap-2">
+            <span className="min-w-0 flex-1">{children}</span>
+            <DrawnCheck
+              drawn={state.checked}
+              size="sm"
+              className="text-accent-text"
+            />
+          </span>
+        </div>
+      )}
+    />
+  );
+}
+
 function MenuSeparator({ className }: { className?: string }) {
   return (
     <BaseMenu.Separator className={cn("-mx-1 my-1 h-px bg-line", className)} />
@@ -95,6 +133,7 @@ export const Menu = {
   Trigger: BaseMenu.Trigger,
   Popup: MenuPopup,
   Item: MenuItem,
+  CheckboxItem: MenuCheckboxItem,
   Separator: MenuSeparator,
   Group: BaseMenu.Group,
   GroupLabel: MenuGroupLabel,

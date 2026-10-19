@@ -3,6 +3,7 @@ import {
   type MouseEvent,
   type PointerEvent,
   type ReactNode,
+  type Ref,
   useCallback,
   useRef,
   useState,
@@ -56,6 +57,15 @@ export interface DataGridProps<Row> {
   isRowHighlighted?: (row: Row) => boolean;
   /** 표 아래(예: 케이스 추가 버튼) */
   footer?: ReactNode;
+  /** 활성 셀에서 방향키가 아닌 키를 눌렀을 때(편집 시작, 지우기, 복사 등). 입력 칸 안의 키는 보내지 않는다. */
+  onCellKeyDown?: (
+    cell: CellPosition,
+    event: KeyboardEvent<HTMLElement>,
+  ) => void;
+  /** 셀을 두 번 눌렀을 때(편집 시작). 크기 조절 경계에서는 보내지 않는다. */
+  onCellDoubleClick?: (cell: CellPosition) => void;
+  /** 표 바깥 틀. 편집을 마친 뒤 표로 포커스를 돌릴 때 쓴다. */
+  ref?: Ref<HTMLDivElement>;
   className?: string;
 }
 
@@ -89,6 +99,9 @@ export function DataGrid<Row>({
   onRowHeightsChange,
   isRowHighlighted,
   footer,
+  onCellKeyDown,
+  onCellDoubleClick,
+  ref,
   className,
 }: DataGridProps<Row>) {
   const [innerActive, setInnerActive] = useState(defaultActiveCell);
@@ -222,7 +235,11 @@ export function DataGrid<Row>({
 
   const onDoubleClick = (event: MouseEvent<HTMLTableElement>) => {
     const { mode, columnId, rowId } = hitTest(event);
-    if (!mode) return;
+    if (!mode) {
+      if (columnId && rowId && selection !== "none")
+        onCellDoubleClick?.({ rowId, columnId });
+      return;
+    }
     if (mode !== "row" && columnId) {
       const { [columnId]: _, ...rest } = widths;
       commitWidths(rest);
@@ -234,17 +251,19 @@ export function DataGrid<Row>({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTableElement>) => {
-    if (
-      !activeCell ||
-      !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
-    )
-      return;
+    if (!activeCell) return;
     if (
       (event.target as HTMLElement).closest(
-        "input, textarea, [contenteditable=true], [role=separator]",
+        "input, textarea, button, [role=menu], [role=listbox], [contenteditable=true], [role=separator]",
       )
     )
       return;
+    if (
+      !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
+    ) {
+      onCellKeyDown?.(activeCell, event);
+      return;
+    }
     event.preventDefault();
     const r = rowIds.indexOf(activeCell.rowId);
     const c = columns.findIndex((col) => col.id === activeCell.columnId);
@@ -285,7 +304,11 @@ export function DataGrid<Row>({
 
   return (
     <div
-      ref={scrollRef}
+      ref={(node) => {
+        scrollRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      }}
       className={cn(
         "w-fit max-w-full overflow-auto rounded-lg border border-line bg-surface",
         className,

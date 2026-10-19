@@ -9,6 +9,8 @@ const widthClass = { sm: "max-w-md", md: "max-w-xl", lg: "max-w-3xl" };
 
 interface DialogContentProps {
   size?: keyof typeof widthClass;
+  /** side: 오른쪽 가장자리에서 미끄러져 들어오는 전체 높이 시트 */
+  placement?: "center" | "side";
   className?: string;
   children: ReactNode;
 }
@@ -16,17 +18,28 @@ interface DialogContentProps {
 /** 바탕을 가리고 위에서 조금 내려오며 나타난다. 크기 변화 없이 미끄러짐과 투명도만 쓴다. */
 function DialogContent({
   size = "md",
+  placement = "center",
   className,
   children,
 }: DialogContentProps) {
+  const side = placement === "side";
   return (
     <BaseDialog.Portal>
       <BaseDialog.Backdrop className="fixed inset-0 z-40 bg-overlay transition-opacity duration-base data-ending-style:opacity-0 data-starting-style:opacity-0" />
-      <BaseDialog.Viewport className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 pt-24 pb-4">
+      <BaseDialog.Viewport
+        className={cn(
+          "fixed inset-0 z-50 flex",
+          side
+            ? "justify-end"
+            : "items-start justify-center overflow-y-auto px-4 pt-24 pb-4",
+        )}
+      >
         <BaseDialog.Popup
           className={cn(
-            "flex max-h-full w-full flex-col rounded-lg border border-line bg-surface shadow-dialog outline-none transition duration-base ease-emphasized",
-            "data-ending-style:translate-y-2 data-ending-style:opacity-0 data-starting-style:translate-y-2 data-starting-style:opacity-0",
+            "flex w-full flex-col border-line bg-surface shadow-dialog outline-none transition duration-base ease-emphasized",
+            side
+              ? "h-full border-l data-ending-style:translate-x-4 data-ending-style:opacity-0 data-starting-style:translate-x-4 data-starting-style:opacity-0"
+              : "max-h-full rounded-lg border data-ending-style:translate-y-2 data-ending-style:opacity-0 data-starting-style:translate-y-2 data-starting-style:opacity-0",
             widthClass[size],
             className,
           )}

@@ -3,13 +3,15 @@ import type { ReactNode } from "react";
 import { DrawnCheck, Icon } from "./icon";
 import { cn } from "./utils";
 
-export type SaveState = "saved" | "dirty" | "saving" | "error";
+/** unknown: 응답을 받지 못해 저장됐는지 알 수 없다 */
+export type SaveState = "saved" | "dirty" | "saving" | "error" | "unknown";
 
 const saveLabel: Record<SaveState, string> = {
   saved: "저장됨",
   dirty: "저장 전",
   saving: "저장 중",
   error: "저장 실패",
+  unknown: "저장 확인 필요",
 };
 
 export interface SaveStatusProps {
@@ -36,8 +38,12 @@ export function SaveStatus({ state, meta, className }: SaveStatusProps) {
       {state === "dirty" && (
         <span aria-hidden className="size-1.5 rounded-full bg-warning" />
       )}
-      {state === "error" && (
-        <Icon icon={CircleAlert} size="sm" className="text-danger" />
+      {(state === "error" || state === "unknown") && (
+        <Icon
+          icon={CircleAlert}
+          size="sm"
+          className={state === "error" ? "text-danger" : "text-warning"}
+        />
       )}
       <span className={cn(state === "error" && "text-danger")}>
         {saveLabel[state]}
