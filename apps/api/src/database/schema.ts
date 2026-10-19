@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -475,6 +476,9 @@ export const generationJobs = pgTable(
     status: jobStatusEnum("status").notNull().default("pending"),
     currentStage: varchar("current_stage", { length: 30 }),
     errorCode: text("error_code"),
+    addedCount: integer("added_count").notNull().default(0),
+    reviewCount: integer("review_count").notNull().default(0),
+    reviewItemId: uuid("review_item_id"),
     createdAt: created(),
     updatedAt: updated(),
   },
@@ -483,6 +487,9 @@ export const generationJobs = pgTable(
       "generation_jobs_kind",
       sql`${t.kind} IN ('initial', 'append', 'rewrite')`,
     ),
+    uniqueIndex("generation_jobs_active_set")
+      .on(t.testSetId)
+      .where(sql`${t.status} IN ('pending', 'running')`),
   ],
 );
 export const generationSteps = pgTable(
@@ -502,6 +509,11 @@ export const generationSteps = pgTable(
     model: text("model"),
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),
+    cacheReadTokens: integer("cache_read_tokens"),
+    cacheCreationTokens: integer("cache_creation_tokens"),
+    failureCode: text("failure_code"),
+    mergedCount: integer("merged_count").notNull().default(0),
+    repairCount: integer("repair_count").notNull().default(0),
     durationMs: integer("duration_ms"),
     cost: numeric("cost", { precision: 20, scale: 10 }),
     requiredCoverage: jsonb("required_coverage"),
@@ -519,6 +531,7 @@ export const reviewItems = pgTable(
       .notNull()
       .references(() => testSets.id, { onDelete: "cascade" }),
     screenDescription: text("screen_description").notNull(),
+    reason: text("reason").notNull().default(""),
     questions: jsonb("questions")
       .$type<{ question: string; answer: string | null }[]>()
       .notNull(),
@@ -530,7 +543,7 @@ export const reviewItems = pgTable(
   (t) => [
     check(
       "review_items_status",
-      sql`${t.status} IN ('pending', 'excluded', 'resolved')`,
+      sql`${t.status} IN ('pending', 'rewriting', 'excluded', 'resolved')`,
     ),
   ],
 );

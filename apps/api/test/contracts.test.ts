@@ -27,6 +27,7 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
       port: 3101,
       corsOrigins: [],
+      workersEnabled: false,
     },
     resolve(process.cwd(), "migrations"),
   );
@@ -48,11 +49,11 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
           ).length,
         0,
       ),
-      59,
+      69,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
-        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets))/.test(
+        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets|temp-uploads|generations|review-items))/.test(
           p,
         ),
       ),

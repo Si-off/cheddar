@@ -55,6 +55,10 @@ export async function openTestDatabase() {
           "DELETE FROM projects WHERE created_by = ANY($1::uuid[])",
           [accountIds],
         );
+        await lock.query(
+          "DELETE FROM temp_uploads WHERE account_id = ANY($1::uuid[])",
+          [accountIds],
+        );
         await lock.query("DELETE FROM accounts WHERE id = ANY($1::uuid[])", [
           accountIds,
         ]);

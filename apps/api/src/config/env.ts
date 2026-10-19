@@ -1,5 +1,6 @@
 import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
+import { type AiConfig, readAiConfig } from "../generation/model-config";
 
 export const API_ENV = Symbol("API_ENV");
 export interface ApiEnv {
@@ -8,6 +9,9 @@ export interface ApiEnv {
   port: number;
   corsOrigins: string[];
   production?: boolean;
+  ai?: AiConfig;
+  queuePollingSeconds?: number;
+  workersEnabled?: boolean;
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
@@ -62,6 +66,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     port,
     corsOrigins,
     production: env.NODE_ENV === "production",
+    ai: readAiConfig(env),
   };
 }
 

@@ -7,6 +7,8 @@ import { AuthorizationModule } from "./authorization/authorization.module";
 import { AccessGuard } from "./authorization/guards";
 import { type ApiEnv, configModule } from "./config/env";
 import { DatabaseModule } from "./database/database.module";
+import { GenerationModule } from "./generation/generation.module";
+import { QueueModule } from "./generation/queue.service";
 import {
   HealthController,
   MIGRATIONS_FOLDER,
@@ -14,6 +16,7 @@ import {
 import { ProjectsModule } from "./projects/projects.module";
 import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
+import { TempUploadsModule } from "./temp-uploads/temp-uploads.module";
 import { TestSetsModule } from "./test-sets/test-sets.module";
 @Module({})
 export class AppModule {}
@@ -34,6 +37,9 @@ export function appModule(
       AffiliationsModule,
       ProjectsModule,
       TestSetsModule,
+      QueueModule,
+      TempUploadsModule,
+      GenerationModule,
     ],
     controllers: [HealthController],
     providers: [

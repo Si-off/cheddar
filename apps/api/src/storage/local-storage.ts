@@ -7,6 +7,7 @@ import {
   readdir,
   realpath,
   rename,
+  rm,
   unlink,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -96,6 +97,28 @@ export class LocalStorage implements FileStorage {
         throw error;
     }
   }
+  async cleanupStages(before: Date) {
+    await this.check();
+    const folder = join(this.root, ".incoming");
+    for (const fileId of await readdir(folder)) {
+      if (!isUUID(fileId)) continue;
+      try {
+        const entry = await lstat(join(folder, fileId));
+        if (entry.isFile() && !entry.isSymbolicLink() && entry.mtime <= before)
+          await this.discardStage(fileId);
+      } catch (error) {
+        // 업로드 게시나 다른 서버의 정리가 먼저 끝난 경우다.
+        if (
+          !(
+            error instanceof Error &&
+            "code" in error &&
+            error.code === "ENOENT"
+          )
+        )
+          throw error;
+      }
+    }
+  }
   async open(storageKey: string) {
     const parts = storageKey.split("/");
     if (parts.length !== 2) throw new Error("Invalid storage key.");
@@ -117,6 +140,20 @@ export class LocalStorage implements FileStorage {
     } catch (error) {
       await handle.close();
       throw error;
+    }
+  }
+  async removeUpload(uploadId: string) {
+    this.uuid(uploadId);
+    await this.check();
+    const path = join(this.root, uploadId);
+    try {
+      await this.directory(path);
+      await rm(path, { recursive: true });
+    } catch (error) {
+      if (
+        !(error instanceof Error && "code" in error && error.code === "ENOENT")
+      )
+        throw error;
     }
   }
 }

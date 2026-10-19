@@ -17,6 +17,7 @@ import {
   accounts,
   projects,
   projectTemplates,
+  reviewItems,
   testCases,
   testCaseValues,
   testSetColumns,
@@ -33,6 +34,7 @@ import {
 } from "./test-sets.store";
 import {
   cellText,
+  normalizeValues,
   reconcileValue,
   testIdNumber,
   validateView,
@@ -60,6 +62,7 @@ export class TestSetsService {
         owner: { id: accounts.id, name: accounts.name },
         member: testSetMembers.access,
         caseCount: sql<number>`(select count(*)::int from ${testCases} where ${testCases.testSetId} = ${testSets.id})`,
+        reviewCount: sql<number>`(select count(*)::int from ${reviewItems} where ${reviewItems.testSetId} = ${testSets.id} and ${reviewItems.status} in ('pending','rewriting'))`,
       })
       .from(testSets)
       .innerJoin(accounts, eq(accounts.id, testSets.ownerId))
@@ -81,13 +84,13 @@ export class TestSetsService {
               (!!member && row.ownerId !== accountId)) &&
             row.name.toLowerCase().includes(query.search.toLowerCase()),
         )
-        .map(({ row, owner, caseCount }) => ({
+        .map(({ row, owner, caseCount, reviewCount }) => ({
           id: row.id,
           name: row.name,
           owner,
           isPublic: row.visibility === "public",
           caseCount,
-          reviewCount: 0,
+          reviewCount,
           updatedAt: row.updatedAt.toISOString(),
         })),
     };
@@ -269,6 +272,25 @@ export class TestSetsService {
         }
       }
       const columnMap = new Map(columns.map((c) => [c.id, c]));
+      const reviews = await tx
+        .select()
+        .from(reviewItems)
+        .where(eq(reviewItems.testSetId, id));
+      for (const item of reviews) {
+        const draft = Object.fromEntries(
+          Object.entries(normalizeValues(item.draft)).flatMap(
+            ([key, value]) => {
+              const column = columnMap.get(key);
+              const next = column ? reconcileValue(column, value) : undefined;
+              return next === undefined ? [] : [[key, next]];
+            },
+          ),
+        );
+        await tx
+          .update(reviewItems)
+          .set({ draft, updatedAt: new Date() })
+          .where(eq(reviewItems.id, item.id));
+      }
       const testId = columns[0].id;
       for (const c of cases) {
         for (const [columnId, value] of Object.entries(c.values)) {

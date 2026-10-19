@@ -8,6 +8,6 @@ import { TestSetsStore } from "./test-sets.store";
   imports: [AuthorizationModule],
   controllers: [TestSetsController],
   providers: [TestSetsStore, TestSetsService, CaseOperationsService],
-  exports: [CaseOperationsService],
+  exports: [CaseOperationsService, TestSetsStore],
 })
 export class TestSetsModule {}
