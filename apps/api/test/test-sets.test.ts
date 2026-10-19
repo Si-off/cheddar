@@ -807,9 +807,74 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       },
     );
     await t.test(
-      "XLSX 파일의 머리글, 전체 케이스, 열 순서, 태그와 체크박스 표기, 확인 필요 제외",
-      { todo: "exceljs 설치 차단으로 미구현" },
-      () => {},
+      "XLSX 파일은 현재 열 이름과 순서로 전체 케이스를 담고 태그와 체크박스를 글자로 쓴다",
+      async () => {
+        const set = await json<TestSetDto>(
+          await request("", "POST", { name: "내보내기 세트", projectId: p.id }),
+          201,
+        );
+        const columns: TemplateColumnDto[] = [
+          ...set.columns.slice(0, 2),
+          {
+            id: randomUUID(),
+            systemKey: null,
+            name: "영역",
+            type: "tags",
+            description: "",
+            options: ["회원", "약관"],
+          },
+          {
+            id: randomUUID(),
+            systemKey: null,
+            name: "자동화",
+            type: "checkbox",
+            description: "",
+            options: [],
+          },
+        ];
+        const saved = await json<ColumnsResultDto>(
+          await request(`/${set.id}/columns`, "PUT", { columns }),
+        );
+        const [id, title, tags, auto] = saved.columns;
+        assert.ok(id && title && tags && auto);
+        const first = randomUUID(),
+          second = randomUUID();
+        await json<OpsResultDto>(
+          await request(`/${set.id}/ops`, "POST", {
+            ops: [
+              {
+                type: "add_case",
+                caseId: first,
+                afterCaseId: null,
+                values: {
+                  [title.id]: "가입한다",
+                  [tags.id]: ["회원", "약관"],
+                  [auto.id]: true,
+                },
+              },
+              {
+                type: "add_case",
+                caseId: second,
+                afterCaseId: first,
+                values: { [title.id]: "탈퇴한다", [auto.id]: false },
+              },
+            ],
+          }),
+        );
+        const exported = await request(`/${set.id}/export`);
+        assert.equal(exported.status, 200);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(await exported.arrayBuffer());
+        const sheet = workbook.worksheets[0];
+        assert.ok(sheet);
+        const row = (n: number) =>
+          (sheet.getRow(n).values as unknown[]).slice(1).map((v) => v ?? "");
+        assert.deepEqual(row(1), ["테스트 ID", "제목", "영역", "자동화"]);
+        assert.deepEqual(row(2), ["TC-001", "가입한다", "회원, 약관", "예"]);
+        assert.deepEqual(row(3), ["TC-002", "탈퇴한다", "", ""]);
+        assert.equal(sheet.rowCount, 3);
+        assert.equal((await request(`/${set.id}`, "DELETE")).status, 204);
+      },
     );
   } finally {
     await app.close();
