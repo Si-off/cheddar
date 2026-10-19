@@ -8,7 +8,7 @@ import {
 } from "@cheddar/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useRef, useState } from "react";
 import { tempUploadQuery } from "@/entities/generation";
 import { can, type PermissionGrant } from "@/entities/permission";
 import { projectsQuery } from "@/entities/project";
@@ -52,6 +52,7 @@ export function CreateTestSetForm({
   const [projectId, setProjectId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
   const [touched, setTouched] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const chosen = projectId ?? (projects.length === 1 ? projects[0]?.id : null);
   const frames = upload.data?.frames ?? [];
 
@@ -121,11 +122,23 @@ export function CreateTestSetForm({
   const canGenerate = frames.length > 0;
   const submit = (generate: boolean) => {
     setTouched(true);
-    if (!errors.name && !errors.project) create.mutate(generate);
+    if (!errors.name && !errors.project) {
+      create.mutate(generate);
+      return;
+    }
+    // 아래쪽 버튼을 누르면 위의 오류가 보이지 않으므로 첫 오류 칸으로 옮긴다
+    requestAnimationFrame(() =>
+      formRef.current
+        ?.querySelector<HTMLElement>(
+          "input[data-invalid]:not([aria-hidden]), button[data-invalid]",
+        )
+        ?.focus(),
+    );
   };
 
   return (
     <form
+      ref={formRef}
       onSubmit={(event: SubmitEvent<HTMLFormElement>) => {
         event.preventDefault();
         submit(canGenerate);

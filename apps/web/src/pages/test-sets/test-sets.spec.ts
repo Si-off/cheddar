@@ -118,3 +118,18 @@ test("프레임 없이는 케이스 생성을 시작할 수 없고 직접 작성
     page.getByText("Figma 플러그인에서 프레임을 올리면 여기에 보입니다"),
   ).toBeVisible();
 });
+
+test("이름을 비운 채 만들기를 누르면 이름 칸으로 옮겨 바로 고칠 수 있다", async ({
+  page,
+}) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/projects": { items: [] },
+  });
+  await page.goto("/test-sets/new");
+  await page.getByRole("button", { name: "직접 작성" }).click();
+  await expect(page.getByText("테스트 세트 이름을 입력하세요")).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "테스트 세트 이름" }),
+  ).toBeFocused();
+});

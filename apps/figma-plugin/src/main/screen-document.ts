@@ -110,6 +110,16 @@ export function linkTargets(board: SourceNode): string[] {
   return [...ids];
 }
 
+// 원본 컴포넌트 세트에 오류가 있는 인스턴스는 속성을 읽을 때 Figma가 예외를 던진다.
+// 속성만 빼고 화면은 그대로 올린다.
+function componentProperties(node: SourceNode) {
+  try {
+    return node.componentProperties ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export function buildScreenDocument(
   board: SourceNode,
   /** 이 보드 밖에 있는 연결 대상의 이름 */
@@ -162,7 +172,7 @@ export function buildScreenDocument(
       return { kind: "text", text };
     }
     const props: Record<string, string | boolean> = {};
-    for (const [key, p] of Object.entries(node.componentProperties ?? {}))
+    for (const [key, p] of Object.entries(componentProperties(node)))
       if (p.type !== "INSTANCE_SWAP") props[propName(key)] = p.value;
     const children = collapse(
       readingOrder(node.children ?? [])

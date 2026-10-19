@@ -101,6 +101,27 @@ test("컴포넌트 속성은 남기고 글자 없는 아이콘은 버린다", ()
   ]);
 });
 
+test("원본 컴포넌트가 깨진 인스턴스가 있어도 화면 내용을 만든다", () => {
+  const broken = {
+    id: "b",
+    type: "INSTANCE",
+    name: "Button",
+    children: [{ id: "bt", type: "TEXT", name: "label", characters: "저장" }],
+  };
+  Object.defineProperty(broken, "componentProperties", {
+    get() {
+      throw new Error("Component set for node has existing errors");
+    },
+  });
+  const doc = buildScreenDocument({
+    id: "1",
+    type: "FRAME",
+    name: "주문 관리",
+    children: [broken],
+  });
+  assert.deepEqual(doc.texts, ["저장"]);
+});
+
 test("연결은 이름으로 바꾸고 대상을 모르는 연결은 버리며 주석을 남긴다", () => {
   const board = {
     id: "1",

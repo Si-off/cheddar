@@ -67,6 +67,14 @@ function useThumbnails(selection: FrameSelection | null) {
 }
 
 // 세션이 끝났거나 문서가 바뀌면 같은 세션으로는 다시 시도할 수 없다
+// 프레임을 올리지 못한 이유를 사용자가 할 수 있는 일로 알려준다. 이유가 섞이면 다시 시도를 안내한다.
+const failureHint = (code: string | null) =>
+  code === "IMAGE_TOO_LARGE"
+    ? "프레임 이미지가 20MB를 넘습니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
+    : code === "DATA_TOO_LARGE"
+      ? "프레임 내용이 5MB를 넘습니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
+      : "다시 시도하세요.";
+
 const sessionLost = (error: unknown) =>
   error instanceof FigmaExportError &&
   ["SESSION_EXPIRED", "FRAME_CHANGED", "DISCONNECTED"].includes(error.code);
@@ -104,7 +112,7 @@ export function UploadPage({
       setPhase({ name: "failed", upload });
       toast.show({
         tone: "danger",
-        message: `${failed}개를 올리지 못했습니다`,
+        message: `프레임 ${failed}개를 올리지 못했습니다. ${failureHint(upload.commonFailure)}`,
       });
       return;
     }
