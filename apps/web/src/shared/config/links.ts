@@ -4,4 +4,6 @@ export const appLinks = {
     `${window.location.origin}/invite?token=${encodeURIComponent(token)}`,
   passwordReset: (token: string) =>
     `${window.location.origin}/password-reset?token=${encodeURIComponent(token)}`,
+  sharedTestSet: (token: string) =>
+    `${window.location.origin}/s/${encodeURIComponent(token)}`,
 };

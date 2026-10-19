@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvitation, acceptReviewItem, applyTestSetOps, createAccount, createAffiliation, createGeneration, createProject, createProjectFeatureGroup, createProjectRequiredCase, createProjectScreen, createRole, createTempUpload, createTestSet, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectRequiredCase, deleteProjectScreen, deleteRole, deleteTestSet, duplicateRole, exportTestSet, getAccount, getAffiliation, getCurrentGeneration, getLiveness, getMe, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, getTempFrameThumbnail, getTempUpload, getTestSet, getTestSetView, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listProjectFeatureGroups, listProjectRequiredCases, listProjects, listProjectScreens, listReviewItems, listRoles, listTestSets, login, logout, type Options, reactivateAccount, reissueInvitation, reorderProjectFeatureGroups, resetPassword, rewriteReviewItem, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectRequiredCase, updateProjectScreen, updateProjectTemplate, updateReviewItem, updateRole, updateTestSet, updateTestSetColumns, updateTestSetView } from '../sdk.gen';
-import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, AcceptReviewItemData, AcceptReviewItemError, AcceptReviewItemResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateGenerationData, CreateGenerationError, CreateGenerationResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectRequiredCaseData, CreateProjectRequiredCaseError, CreateProjectRequiredCaseResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, CreateTempUploadData, CreateTempUploadError, CreateTempUploadResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseError, DeleteProjectRequiredCaseResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetCurrentGenerationData, GetCurrentGenerationError, GetCurrentGenerationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, GetTempFrameThumbnailData, GetTempFrameThumbnailError, GetTempFrameThumbnailResponse, GetTempUploadData, GetTempUploadError, GetTempUploadResponse, GetTestSetData, GetTestSetError, GetTestSetResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectRequiredCasesData, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListReviewItemsData, ListReviewItemsError, ListReviewItemsResponse, ListRolesData, ListRolesError, ListRolesResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, RewriteReviewItemData, RewriteReviewItemError, RewriteReviewItemResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseError, UpdateProjectRequiredCaseResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateReviewItemData, UpdateReviewItemError, UpdateReviewItemResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse, UpdateTestSetColumnsData, UpdateTestSetColumnsError, UpdateTestSetColumnsResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse } from '../types.gen';
+import { acceptInvitation, acceptReviewItem, applySharedTestSetOps, applyTestSetOps, approvePluginConnection, createAccount, createAffiliation, createGeneration, createPluginConnection, createProject, createProjectFeatureGroup, createProjectRequiredCase, createProjectScreen, createRole, createTempUpload, createTestSet, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectRequiredCase, deleteProjectScreen, deleteRole, deleteTestSet, duplicateRole, exchangePluginConnection, exportSharedTestSet, exportTestSet, getAccount, getAffiliation, getCurrentGeneration, getLiveness, getMe, getPluginConnectionRequest, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, getSharedTestSet, getSharedTestSetView, getTempFrameThumbnail, getTempUpload, getTestSet, getTestSetSharing, getTestSetView, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listProjectFeatureGroups, listProjectRequiredCases, listProjects, listProjectScreens, listReviewItems, listRoles, listSharingCandidates, listTestSets, login, logout, type Options, reactivateAccount, reissueInvitation, removeTestSetMember, reorderProjectFeatureGroups, replaceTestSetLink, resetPassword, revokePluginConnection, rewriteReviewItem, setTestSetMember, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectRequiredCase, updateProjectScreen, updateProjectTemplate, updateReviewItem, updateRole, updateSharedTestSetView, updateTestSet, updateTestSetColumns, updateTestSetSharing, updateTestSetView } from '../sdk.gen';
+import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, AcceptReviewItemData, AcceptReviewItemError, AcceptReviewItemResponse, ApplySharedTestSetOpsData, ApplySharedTestSetOpsError, ApplySharedTestSetOpsResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, ApprovePluginConnectionData, ApprovePluginConnectionError, ApprovePluginConnectionResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateGenerationData, CreateGenerationError, CreateGenerationResponse, CreatePluginConnectionData, CreatePluginConnectionError, CreatePluginConnectionResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectRequiredCaseData, CreateProjectRequiredCaseError, CreateProjectRequiredCaseResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, CreateTempUploadData, CreateTempUploadError, CreateTempUploadResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseError, DeleteProjectRequiredCaseResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, ExchangePluginConnectionData, ExchangePluginConnectionError, ExchangePluginConnectionResponse, ExportSharedTestSetData, ExportSharedTestSetError, ExportSharedTestSetResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetCurrentGenerationData, GetCurrentGenerationError, GetCurrentGenerationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetPluginConnectionRequestData, GetPluginConnectionRequestError, GetPluginConnectionRequestResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, GetSharedTestSetData, GetSharedTestSetError, GetSharedTestSetResponse, GetSharedTestSetViewData, GetSharedTestSetViewError, GetSharedTestSetViewResponse, GetTempFrameThumbnailData, GetTempFrameThumbnailError, GetTempFrameThumbnailResponse, GetTempUploadData, GetTempUploadError, GetTempUploadResponse, GetTestSetData, GetTestSetError, GetTestSetResponse, GetTestSetSharingData, GetTestSetSharingError, GetTestSetSharingResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectRequiredCasesData, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListReviewItemsData, ListReviewItemsError, ListReviewItemsResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSharingCandidatesData, ListSharingCandidatesError, ListSharingCandidatesResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, RemoveTestSetMemberData, RemoveTestSetMemberError, RemoveTestSetMemberResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ReplaceTestSetLinkData, ReplaceTestSetLinkError, ReplaceTestSetLinkResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, RevokePluginConnectionData, RevokePluginConnectionError, RevokePluginConnectionResponse, RewriteReviewItemData, RewriteReviewItemError, RewriteReviewItemResponse, SetTestSetMemberData, SetTestSetMemberError, SetTestSetMemberResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseError, UpdateProjectRequiredCaseResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateReviewItemData, UpdateReviewItemError, UpdateReviewItemResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse, UpdateSharedTestSetViewData, UpdateSharedTestSetViewError, UpdateSharedTestSetViewResponse, UpdateTestSetColumnsData, UpdateTestSetColumnsError, UpdateTestSetColumnsResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetSharingData, UpdateTestSetSharingError, UpdateTestSetSharingResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -378,6 +378,92 @@ export const resetPasswordMutation = (options?: Partial<Options<ResetPasswordDat
     const mutationOptions: UseMutationOptions<ResetPasswordResponse, ResetPasswordError, Options<ResetPasswordData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await resetPassword({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 플러그인 연결 요청 만들기
+ */
+export const createPluginConnectionMutation = (options?: Partial<Options<CreatePluginConnectionData>>): UseMutationOptions<CreatePluginConnectionResponse, CreatePluginConnectionError, Options<CreatePluginConnectionData>> => {
+    const mutationOptions: UseMutationOptions<CreatePluginConnectionResponse, CreatePluginConnectionError, Options<CreatePluginConnectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPluginConnection({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPluginConnectionRequestQueryKey = (options: Options<GetPluginConnectionRequestData>) => createQueryKey('getPluginConnectionRequest', options);
+
+/**
+ * 플러그인 연결 요청 확인
+ */
+export const getPluginConnectionRequestOptions = (options: Options<GetPluginConnectionRequestData>) => queryOptions<GetPluginConnectionRequestResponse, GetPluginConnectionRequestError, GetPluginConnectionRequestResponse, ReturnType<typeof getPluginConnectionRequestQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPluginConnectionRequest({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPluginConnectionRequestQueryKey(options)
+});
+
+/**
+ * 플러그인 연결 승인
+ */
+export const approvePluginConnectionMutation = (options?: Partial<Options<ApprovePluginConnectionData>>): UseMutationOptions<ApprovePluginConnectionResponse, ApprovePluginConnectionError, Options<ApprovePluginConnectionData>> => {
+    const mutationOptions: UseMutationOptions<ApprovePluginConnectionResponse, ApprovePluginConnectionError, Options<ApprovePluginConnectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await approvePluginConnection({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 승인한 플러그인 연결 토큰 발급
+ */
+export const exchangePluginConnectionMutation = (options?: Partial<Options<ExchangePluginConnectionData>>): UseMutationOptions<ExchangePluginConnectionResponse, ExchangePluginConnectionError, Options<ExchangePluginConnectionData>> => {
+    const mutationOptions: UseMutationOptions<ExchangePluginConnectionResponse, ExchangePluginConnectionError, Options<ExchangePluginConnectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await exchangePluginConnection({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 현재 플러그인 연결 해제
+ */
+export const revokePluginConnectionMutation = (options?: Partial<Options<RevokePluginConnectionData>>): UseMutationOptions<RevokePluginConnectionResponse, RevokePluginConnectionError, Options<RevokePluginConnectionData>> => {
+    const mutationOptions: UseMutationOptions<RevokePluginConnectionResponse, RevokePluginConnectionError, Options<RevokePluginConnectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokePluginConnection({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1115,6 +1201,198 @@ export const exportTestSetOptions = (options: Options<ExportTestSetData>) => que
         return data;
     },
     queryKey: exportTestSetQueryKey(options)
+});
+
+export const getTestSetSharingQueryKey = (options: Options<GetTestSetSharingData>) => createQueryKey('getTestSetSharing', options);
+
+/**
+ * 공유 설정 읽기
+ */
+export const getTestSetSharingOptions = (options: Options<GetTestSetSharingData>) => queryOptions<GetTestSetSharingResponse, GetTestSetSharingError, GetTestSetSharingResponse, ReturnType<typeof getTestSetSharingQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getTestSetSharing({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getTestSetSharingQueryKey(options)
+});
+
+/**
+ * 공개 범위와 링크 권한 변경
+ */
+export const updateTestSetSharingMutation = (options?: Partial<Options<UpdateTestSetSharingData>>): UseMutationOptions<UpdateTestSetSharingResponse, UpdateTestSetSharingError, Options<UpdateTestSetSharingData>> => {
+    const mutationOptions: UseMutationOptions<UpdateTestSetSharingResponse, UpdateTestSetSharingError, Options<UpdateTestSetSharingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateTestSetSharing({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 공유 링크 새로 만들기
+ */
+export const replaceTestSetLinkMutation = (options?: Partial<Options<ReplaceTestSetLinkData>>): UseMutationOptions<ReplaceTestSetLinkResponse, ReplaceTestSetLinkError, Options<ReplaceTestSetLinkData>> => {
+    const mutationOptions: UseMutationOptions<ReplaceTestSetLinkResponse, ReplaceTestSetLinkError, Options<ReplaceTestSetLinkData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await replaceTestSetLink({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listSharingCandidatesQueryKey = (options: Options<ListSharingCandidatesData>) => createQueryKey('listSharingCandidates', options);
+
+/**
+ * 초대할 계정 찾기
+ */
+export const listSharingCandidatesOptions = (options: Options<ListSharingCandidatesData>) => queryOptions<ListSharingCandidatesResponse, ListSharingCandidatesError, ListSharingCandidatesResponse, ReturnType<typeof listSharingCandidatesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSharingCandidates({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSharingCandidatesQueryKey(options)
+});
+
+/**
+ * 구성원 제거
+ */
+export const removeTestSetMemberMutation = (options?: Partial<Options<RemoveTestSetMemberData>>): UseMutationOptions<RemoveTestSetMemberResponse, RemoveTestSetMemberError, Options<RemoveTestSetMemberData>> => {
+    const mutationOptions: UseMutationOptions<RemoveTestSetMemberResponse, RemoveTestSetMemberError, Options<RemoveTestSetMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeTestSetMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 사람 초대와 권한 변경
+ */
+export const setTestSetMemberMutation = (options?: Partial<Options<SetTestSetMemberData>>): UseMutationOptions<SetTestSetMemberResponse, SetTestSetMemberError, Options<SetTestSetMemberData>> => {
+    const mutationOptions: UseMutationOptions<SetTestSetMemberResponse, SetTestSetMemberError, Options<SetTestSetMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setTestSetMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getSharedTestSetQueryKey = (options: Options<GetSharedTestSetData>) => createQueryKey('getSharedTestSet', options);
+
+/**
+ * 공개 링크로 테스트 세트 열기
+ */
+export const getSharedTestSetOptions = (options: Options<GetSharedTestSetData>) => queryOptions<GetSharedTestSetResponse, GetSharedTestSetError, GetSharedTestSetResponse, ReturnType<typeof getSharedTestSetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharedTestSet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharedTestSetQueryKey(options)
+});
+
+/**
+ * 공개 링크의 케이스 편집
+ */
+export const applySharedTestSetOpsMutation = (options?: Partial<Options<ApplySharedTestSetOpsData>>): UseMutationOptions<ApplySharedTestSetOpsResponse, ApplySharedTestSetOpsError, Options<ApplySharedTestSetOpsData>> => {
+    const mutationOptions: UseMutationOptions<ApplySharedTestSetOpsResponse, ApplySharedTestSetOpsError, Options<ApplySharedTestSetOpsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await applySharedTestSetOps({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getSharedTestSetViewQueryKey = (options: Options<GetSharedTestSetViewData>) => createQueryKey('getSharedTestSetView', options);
+
+/**
+ * 공개 링크의 내 보기 설정 읽기
+ */
+export const getSharedTestSetViewOptions = (options: Options<GetSharedTestSetViewData>) => queryOptions<GetSharedTestSetViewResponse, GetSharedTestSetViewError, GetSharedTestSetViewResponse, ReturnType<typeof getSharedTestSetViewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharedTestSetView({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharedTestSetViewQueryKey(options)
+});
+
+/**
+ * 공개 링크의 내 보기 설정 저장
+ */
+export const updateSharedTestSetViewMutation = (options?: Partial<Options<UpdateSharedTestSetViewData>>): UseMutationOptions<UpdateSharedTestSetViewResponse, UpdateSharedTestSetViewError, Options<UpdateSharedTestSetViewData>> => {
+    const mutationOptions: UseMutationOptions<UpdateSharedTestSetViewResponse, UpdateSharedTestSetViewError, Options<UpdateSharedTestSetViewData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateSharedTestSetView({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const exportSharedTestSetQueryKey = (options: Options<ExportSharedTestSetData>) => createQueryKey('exportSharedTestSet', options);
+
+/**
+ * 공개 링크의 XLSX 내보내기
+ */
+export const exportSharedTestSetOptions = (options: Options<ExportSharedTestSetData>) => queryOptions<ExportSharedTestSetResponse, ExportSharedTestSetError, ExportSharedTestSetResponse, ReturnType<typeof exportSharedTestSetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await exportSharedTestSet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: exportSharedTestSetQueryKey(options)
 });
 
 /**

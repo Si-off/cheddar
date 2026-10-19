@@ -30,6 +30,12 @@ export interface TestSet {
   cases: TestCase[];
 }
 
+/** 공개 링크로 연 테스트 세트. 소유자는 이름만, 나는 계정이나 방문자다. */
+export interface SharedTestSet extends Omit<TestSet, "owner"> {
+  owner: { name: string };
+  me: { kind: "account" | "visitor"; id: string; name: string };
+}
+
 export interface TestSetSummary {
   id: string;
   name: string;

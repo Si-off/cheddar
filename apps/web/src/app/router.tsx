@@ -22,6 +22,7 @@ import { AdminRolesPage } from "@/pages/admin-roles";
 import { LoginPage } from "@/pages/login";
 import { NoAccessPage } from "@/pages/no-access";
 import { PasswordSetupPage } from "@/pages/password-setup";
+import { PluginConnectPage } from "@/pages/plugin-connect";
 import {
   ProjectFeatureGroupsPage,
   ProjectMemoPage,
@@ -30,6 +31,7 @@ import {
   ProjectTemplatePage,
 } from "@/pages/project-settings";
 import { ProjectsPage } from "@/pages/projects";
+import { SharedTestSetPage } from "@/pages/shared-test-set";
 import { TestSetPage } from "@/pages/test-set";
 import { TestSetGeneratingPage } from "@/pages/test-set-generating";
 import { TestSetNewPage } from "@/pages/test-set-new";
@@ -125,6 +127,16 @@ const loginRoute = createRoute({
         }
       />
     );
+  },
+});
+
+/** 공개 링크. 로그인하지 않은 방문자도 연다 */
+const sharedTestSetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/s/$linkToken",
+  component: function SharedTestSetRoute() {
+    const { linkToken } = sharedTestSetRoute.useParams();
+    return <SharedTestSetPage key={linkToken} linkToken={linkToken} />;
   },
 });
 
@@ -338,6 +350,23 @@ const projectMemoRoute = createRoute({
   },
 });
 
+/** Figma 플러그인이 연 연결 확인. 로그인하지 않았으면 로그인 뒤 돌아온다 */
+const pluginConnectRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/plugin-connect",
+  validateSearch: (search: Record<string, unknown>): { request?: string } => ({
+    request:
+      typeof search.request === "string" &&
+      /^[A-Za-z0-9_-]{43}$/.test(search.request)
+        ? search.request
+        : undefined,
+  }),
+  component: function PluginConnectRoute() {
+    const { request } = pluginConnectRoute.useSearch();
+    return <PluginConnectPage requestToken={request} />;
+  },
+});
+
 const noAccessRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/no-access",
@@ -413,6 +442,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   inviteRoute,
   passwordResetRoute,
+  sharedTestSetRoute,
   appRoute.addChildren([
     homeRoute,
     testSetsRoute,
@@ -428,6 +458,7 @@ const routeTree = rootRoute.addChildren([
       projectScreensRoute,
       projectMemoRoute,
     ]),
+    pluginConnectRoute,
     noAccessRoute,
     adminRoute.addChildren([
       adminIndexRoute,

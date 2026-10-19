@@ -1,4 +1,4 @@
-import type { Page, Route } from "@playwright/test";
+import type { Page, Route, WebSocketRoute } from "@playwright/test";
 import type {
   AccountDto,
   AffiliationDto,
@@ -89,12 +89,17 @@ export function reply(status: number, json?: unknown) {
   return { [REPLY]: true, status, json };
 }
 
-/** 경로("METHOD /path")별 응답. 함수면 요청 본문을 받아 응답 본문을 돌려준다. */
+/**
+ * 경로("METHOD /path")별 응답. 함수면 요청 본문을 받아 응답 본문을 돌려준다.
+ * 실시간 연결은 실제 서버로 가지 않게 막고, live가 있으면 그 연결을 넘긴다.
+ */
 export async function mockApi(
   page: Page,
   handlers: Record<string, unknown | Handler>,
+  options: { live?: (ws: WebSocketRoute) => void } = {},
 ) {
   const calls: Array<{ key: string; body: unknown }> = [];
+  await page.routeWebSocket(/\/live$/, (ws) => options.live?.(ws));
   await page.route(`${API}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -103,7 +108,7 @@ export async function mockApi(
       "access-control-allow-origin": new URL(page.url() || "http://127.0.0.1")
         .origin,
       "access-control-allow-credentials": "true",
-      "access-control-allow-headers": "content-type",
+      "access-control-allow-headers": "content-type, x-cheddar-connection",
     };
     if (request.method() === "OPTIONS")
       return route.fulfill({ status: 204, headers });

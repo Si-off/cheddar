@@ -153,8 +153,11 @@ export function useReviewActions(testSetId: string) {
         (current: TestSet | undefined) =>
           current && {
             ...current,
-            version: data.version,
-            cases: [...current.cases, data.case],
+            version: Math.max(current.version, data.version),
+            // 실시간 재동기화가 먼저 가져왔으면 그 뒤 편집이 있을 수 있어 그대로 둔다
+            cases: current.cases.some((c) => c.id === data.case.id)
+              ? current.cases
+              : [...current.cases, data.case],
           },
       );
       toast.show({ message: "테스트 세트에 추가했습니다", tone: "success" });

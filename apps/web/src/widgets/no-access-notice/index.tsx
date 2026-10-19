@@ -2,14 +2,14 @@ import { Button, EmptyState } from "@cheddar/ui";
 import { Lock } from "lucide-react";
 import type { ReactElement } from "react";
 
-export interface NoAccessPageProps {
+export interface NoAccessNoticeProps {
   /** 소유자 이름을 알면 누구에게 요청할지 보여준다 */
   ownerName?: string;
   /** 돌아갈 곳 링크 요소. 예: <Link to="/test-sets" /> */
   backLink: ReactElement;
 }
 
-export function NoAccessPage({ ownerName, backLink }: NoAccessPageProps) {
+export function NoAccessNotice({ ownerName, backLink }: NoAccessNoticeProps) {
   return (
     <main className="flex justify-center px-6 pt-40 pb-12">
       <EmptyState

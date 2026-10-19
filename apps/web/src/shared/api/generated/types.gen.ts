@@ -121,6 +121,28 @@ export type SetPasswordDto = {
     token: string;
 };
 
+export type CreatedPluginConnectionDto = {
+    requestToken: string;
+    expiresAt: string;
+};
+
+export type PluginConnectionStatusDto = {
+    status: 'pending' | 'approved' | 'expired';
+};
+
+export type PluginConnectionRequestDto = {
+    requestToken: string;
+};
+
+export type PluginConnectionTokenDto = {
+    token: string;
+    account: MeDto;
+};
+
+export type PendingPluginConnectionDto = {
+    status: 'pending';
+};
+
 export type RoleDto = {
     id: string;
     name: string;
@@ -397,6 +419,62 @@ export type TestSetViewDto = {
     rowHeights: {
         [key: string]: number;
     };
+};
+
+export type SharingPersonDto = {
+    id: string;
+    name: string;
+    email: string;
+    affiliation: string | null;
+};
+
+export type SharingMemberDto = {
+    person: SharingPersonDto;
+    access: 'view' | 'edit';
+};
+
+export type SharingDto = {
+    visibility: 'private' | 'public';
+    linkAccess: 'view' | 'edit';
+    linkToken: string | null;
+    canInvite: boolean;
+    canManageLink: boolean;
+    owner: SharingPersonDto;
+    members: Array<SharingMemberDto>;
+};
+
+export type PatchSharingDto = {
+    visibility?: 'private' | 'public';
+    linkAccess?: 'view' | 'edit';
+};
+
+export type MemberAccessDto = {
+    access: 'view' | 'edit';
+};
+
+export type SharedActorDto = {
+    kind: 'account' | 'visitor';
+    id: string;
+    name: string;
+};
+
+export type SharedOwnerDto = {
+    name: string;
+};
+
+export type SharedTestSetDto = {
+    id: string;
+    name: string;
+    memo: string;
+    project: TestSetPersonDto;
+    isPublic: boolean;
+    version: number;
+    access: TestSetAccessDto;
+    columns: Array<TemplateColumnDto>;
+    cases: Array<CaseDto>;
+    updatedAt: string;
+    me: SharedActorDto;
+    owner: SharedOwnerDto;
 };
 
 export type UploadMultipartDto = {
@@ -1356,6 +1434,261 @@ export type ResetPasswordResponses = {
 };
 
 export type ResetPasswordResponse = ResetPasswordResponses[keyof ResetPasswordResponses];
+
+export type CreatePluginConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plugin-connections';
+};
+
+export type CreatePluginConnectionErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type CreatePluginConnectionError = CreatePluginConnectionErrors[keyof CreatePluginConnectionErrors];
+
+export type CreatePluginConnectionResponses = {
+    201: CreatedPluginConnectionDto;
+};
+
+export type CreatePluginConnectionResponse = CreatePluginConnectionResponses[keyof CreatePluginConnectionResponses];
+
+export type GetPluginConnectionRequestData = {
+    body?: never;
+    path: {
+        requestToken: string;
+    };
+    query?: never;
+    url: '/api/v1/plugin-connections/requests/{requestToken}';
+};
+
+export type GetPluginConnectionRequestErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetPluginConnectionRequestError = GetPluginConnectionRequestErrors[keyof GetPluginConnectionRequestErrors];
+
+export type GetPluginConnectionRequestResponses = {
+    200: PluginConnectionStatusDto;
+};
+
+export type GetPluginConnectionRequestResponse = GetPluginConnectionRequestResponses[keyof GetPluginConnectionRequestResponses];
+
+export type ApprovePluginConnectionData = {
+    body?: never;
+    path: {
+        requestToken: string;
+    };
+    query?: never;
+    url: '/api/v1/plugin-connections/requests/{requestToken}/approve';
+};
+
+export type ApprovePluginConnectionErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ApprovePluginConnectionError = ApprovePluginConnectionErrors[keyof ApprovePluginConnectionErrors];
+
+export type ApprovePluginConnectionResponses = {
+    204: void;
+};
+
+export type ApprovePluginConnectionResponse = ApprovePluginConnectionResponses[keyof ApprovePluginConnectionResponses];
+
+export type ExchangePluginConnectionData = {
+    body: PluginConnectionRequestDto;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plugin-connections/token';
+};
+
+export type ExchangePluginConnectionErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ExchangePluginConnectionError = ExchangePluginConnectionErrors[keyof ExchangePluginConnectionErrors];
+
+export type ExchangePluginConnectionResponses = {
+    200: PluginConnectionTokenDto;
+    202: PendingPluginConnectionDto;
+};
+
+export type ExchangePluginConnectionResponse = ExchangePluginConnectionResponses[keyof ExchangePluginConnectionResponses];
+
+export type RevokePluginConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plugin-connections/current';
+};
+
+export type RevokePluginConnectionErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type RevokePluginConnectionError = RevokePluginConnectionErrors[keyof RevokePluginConnectionErrors];
+
+export type RevokePluginConnectionResponses = {
+    204: void;
+};
+
+export type RevokePluginConnectionResponse = RevokePluginConnectionResponses[keyof RevokePluginConnectionResponses];
 
 export type ListRolesData = {
     body?: never;
@@ -3328,6 +3661,9 @@ export type UpdateTestSetColumnsResponse = UpdateTestSetColumnsResponses[keyof U
 
 export type ApplyTestSetOpsData = {
     body: ApplyOpsDto;
+    headers?: {
+        'x-cheddar-connection'?: string;
+    };
     path: {
         testSetId: string;
     };
@@ -3533,6 +3869,585 @@ export type ExportTestSetResponses = {
 };
 
 export type ExportTestSetResponse = ExportTestSetResponses[keyof ExportTestSetResponses];
+
+export type GetTestSetSharingData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/sharing';
+};
+
+export type GetTestSetSharingErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetTestSetSharingError = GetTestSetSharingErrors[keyof GetTestSetSharingErrors];
+
+export type GetTestSetSharingResponses = {
+    200: SharingDto;
+};
+
+export type GetTestSetSharingResponse = GetTestSetSharingResponses[keyof GetTestSetSharingResponses];
+
+export type UpdateTestSetSharingData = {
+    body: PatchSharingDto;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/sharing';
+};
+
+export type UpdateTestSetSharingErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UpdateTestSetSharingError = UpdateTestSetSharingErrors[keyof UpdateTestSetSharingErrors];
+
+export type UpdateTestSetSharingResponses = {
+    200: SharingDto;
+};
+
+export type UpdateTestSetSharingResponse = UpdateTestSetSharingResponses[keyof UpdateTestSetSharingResponses];
+
+export type ReplaceTestSetLinkData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/sharing/link';
+};
+
+export type ReplaceTestSetLinkErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ReplaceTestSetLinkError = ReplaceTestSetLinkErrors[keyof ReplaceTestSetLinkErrors];
+
+export type ReplaceTestSetLinkResponses = {
+    201: SharingDto;
+};
+
+export type ReplaceTestSetLinkResponse = ReplaceTestSetLinkResponses[keyof ReplaceTestSetLinkResponses];
+
+export type ListSharingCandidatesData = {
+    body?: never;
+    path: {
+        testSetId: string;
+    };
+    query?: {
+        search?: string;
+    };
+    url: '/api/v1/test-sets/{testSetId}/sharing/candidates';
+};
+
+export type ListSharingCandidatesErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ListSharingCandidatesError = ListSharingCandidatesErrors[keyof ListSharingCandidatesErrors];
+
+export type ListSharingCandidatesResponses = {
+    200: Array<SharingPersonDto>;
+};
+
+export type ListSharingCandidatesResponse = ListSharingCandidatesResponses[keyof ListSharingCandidatesResponses];
+
+export type RemoveTestSetMemberData = {
+    body?: never;
+    path: {
+        testSetId: string;
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/members/{accountId}';
+};
+
+export type RemoveTestSetMemberErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type RemoveTestSetMemberError = RemoveTestSetMemberErrors[keyof RemoveTestSetMemberErrors];
+
+export type RemoveTestSetMemberResponses = {
+    200: SharingDto;
+};
+
+export type RemoveTestSetMemberResponse = RemoveTestSetMemberResponses[keyof RemoveTestSetMemberResponses];
+
+export type SetTestSetMemberData = {
+    body: MemberAccessDto;
+    path: {
+        testSetId: string;
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/members/{accountId}';
+};
+
+export type SetTestSetMemberErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type SetTestSetMemberError = SetTestSetMemberErrors[keyof SetTestSetMemberErrors];
+
+export type SetTestSetMemberResponses = {
+    200: SharingDto;
+};
+
+export type SetTestSetMemberResponse = SetTestSetMemberResponses[keyof SetTestSetMemberResponses];
+
+export type GetSharedTestSetData = {
+    body?: never;
+    path: {
+        linkToken: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}';
+};
+
+export type GetSharedTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetSharedTestSetError = GetSharedTestSetErrors[keyof GetSharedTestSetErrors];
+
+export type GetSharedTestSetResponses = {
+    200: SharedTestSetDto;
+};
+
+export type GetSharedTestSetResponse = GetSharedTestSetResponses[keyof GetSharedTestSetResponses];
+
+export type ApplySharedTestSetOpsData = {
+    body: ApplyOpsDto;
+    headers?: {
+        'x-cheddar-connection'?: string;
+    };
+    path: {
+        linkToken: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}/ops';
+};
+
+export type ApplySharedTestSetOpsErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ApplySharedTestSetOpsError = ApplySharedTestSetOpsErrors[keyof ApplySharedTestSetOpsErrors];
+
+export type ApplySharedTestSetOpsResponses = {
+    200: OpsResultDto;
+};
+
+export type ApplySharedTestSetOpsResponse = ApplySharedTestSetOpsResponses[keyof ApplySharedTestSetOpsResponses];
+
+export type GetSharedTestSetViewData = {
+    body?: never;
+    path: {
+        linkToken: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}/view';
+};
+
+export type GetSharedTestSetViewErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetSharedTestSetViewError = GetSharedTestSetViewErrors[keyof GetSharedTestSetViewErrors];
+
+export type GetSharedTestSetViewResponses = {
+    200: TestSetViewDto;
+};
+
+export type GetSharedTestSetViewResponse = GetSharedTestSetViewResponses[keyof GetSharedTestSetViewResponses];
+
+export type UpdateSharedTestSetViewData = {
+    body: TestSetViewDto;
+    path: {
+        linkToken: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}/view';
+};
+
+export type UpdateSharedTestSetViewErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UpdateSharedTestSetViewError = UpdateSharedTestSetViewErrors[keyof UpdateSharedTestSetViewErrors];
+
+export type UpdateSharedTestSetViewResponses = {
+    200: TestSetViewDto;
+};
+
+export type UpdateSharedTestSetViewResponse = UpdateSharedTestSetViewResponses[keyof UpdateSharedTestSetViewResponses];
+
+export type ExportSharedTestSetData = {
+    body?: never;
+    path: {
+        linkToken: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}/export';
+};
+
+export type ExportSharedTestSetErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ExportSharedTestSetError = ExportSharedTestSetErrors[keyof ExportSharedTestSetErrors];
+
+export type ExportSharedTestSetResponses = {
+    200: Blob | File;
+};
+
+export type ExportSharedTestSetResponse = ExportSharedTestSetResponses[keyof ExportSharedTestSetResponses];
 
 export type CreateTempUploadData = {
     body: {

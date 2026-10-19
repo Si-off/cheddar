@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "@cheddar/design-tokens/theme.css";
 @source "../../../../../packages/ui/src";
-@source not "../../../../../packages/ui/src/legacy";
 
 @layer base {
   html {

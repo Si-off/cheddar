@@ -6,6 +6,7 @@ import {
   sdk,
 } from "@/shared/api";
 import type {
+  SharedTestSet,
   TestSet,
   TestSetFilter,
   TestSetSummary,
@@ -39,8 +40,23 @@ export const testSetQuery = (testSetId: string) =>
           throwOnError: true,
         })
       ).data,
-    // 편집 중인 표를 다른 창에서 돌아올 때 덮지 않는다. 공동 편집은 6단계에서 실시간으로 반영한다.
+    // 편집 중인 표를 다른 창에서 돌아올 때 덮지 않는다. 다른 사람의 변경은 실시간 연결로 받는다.
     refetchOnWindowFocus: false,
+  });
+
+export const sharedTestSetQuery = (linkToken: string) =>
+  queryOptions({
+    queryKey: ["shared-test-set", linkToken],
+    queryFn: async ({ signal }): Promise<SharedTestSet> =>
+      (
+        await sdk.getSharedTestSet({
+          path: { linkToken },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 
 export const testSetViewQuery = (testSetId: string) =>

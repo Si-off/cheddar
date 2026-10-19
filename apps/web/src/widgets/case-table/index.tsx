@@ -4,6 +4,7 @@ import {
   DataGrid,
   type DataGridColumn,
   DrawnCheck,
+  type GridPresence,
   Menu,
   useToast,
 } from "@cheddar/ui";
@@ -39,6 +40,10 @@ export interface CaseTableProps {
   onRowHeightsChange?: (heights: Record<string, number>) => void;
   /** 표 아래 "케이스 추가". 없으면 버튼을 두지 않는다. */
   onAddCase?: () => void;
+  /** 다른 사람이 선택한 셀 */
+  presence?: GridPresence[];
+  /** 내가 고른 셀이 바뀌면 알린다(다른 사람에게 보여주기 위해) */
+  onActiveCellChange?: (cell: { caseId: string; columnId: string }) => void;
 }
 
 interface Editing {
@@ -78,6 +83,8 @@ export function CaseTable({
   cases,
   readOnly,
   onOps,
+  presence,
+  onActiveCellChange,
   selectedIds,
   onSelectedIdsChange,
   columnWidths,
@@ -279,7 +286,9 @@ export function CaseTable({
           )
             setEditing(null);
           setActive(cell);
+          onActiveCellChange?.({ caseId: cell.rowId, columnId: cell.columnId });
         }}
+        presence={presence}
         onCellKeyDown={onCellKeyDown}
         onCellDoubleClick={(cell) => {
           const column = columnOf(cell.columnId);
