@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common";
 import { validateSchema } from "./output-schema";
 import {
   AiFailure,
@@ -6,6 +7,9 @@ import {
   emptyUsage,
   type Usage,
 } from "./providers/ai-provider";
+
+const logger = new Logger("GenerationOutput");
+
 export async function validatedOutput(
   provider: AiProvider,
   request: AiRequest,
@@ -27,6 +31,17 @@ export async function validatedOutput(
       validate(value);
       return { value, usage, repairCount: call };
     } catch (error) {
+      // 무엇이 형식에 맞지 않았는지 남긴다. 출력 본문은 남기지 않는다.
+      logger.warn(
+        JSON.stringify({
+          event: "ai_output_invalid",
+          stage: request.definition.key,
+          model: `${request.model.provider}:${request.model.model}`,
+          call: request.repair ? "repair" : call ? "repair" : "first",
+          outputChars: response.text.length,
+          reason: error instanceof Error ? error.message : String(error),
+        }),
+      );
       if (call || request.repair || !allowRepair)
         throw new AiFailure("AI_OUTPUT_INVALID", false);
       await onRepair();

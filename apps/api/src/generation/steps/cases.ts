@@ -4,7 +4,7 @@ export const cases: StepDefinition = {
   key: "cases",
   displayStage: "cases",
   version: "cases-2",
-  maxTokens: 32000,
+  maxTokens: 96000,
   timeoutMs: 300000,
   retries: 2,
   prompt:
