@@ -17,17 +17,19 @@ function compile(path) {
 }
 const protocolCode = compile("../protocol/messages.ts");
 const mainCode = compile("./index.ts");
+const screenDocumentCode = compile("./screen-document.ts");
 function setup({
   fileKey = "file-key",
   nodes,
   failPng = false,
   webBaseUrl = "http://127.0.0.1:5176",
-  json = { document: { type: "FRAME", children: [] } },
+  children = [],
 } = {}) {
   const messages = [];
   const exported = [];
   const opened = [];
   const events = new Map();
+  const storage = new Map();
   const pageEvents = new Set();
   const frame = {
     id: "1:2",
@@ -36,11 +38,12 @@ function setup({
     width: 390,
     height: 844,
     removed: false,
+    children,
     exportAsync: async (options) => {
       exported.push(options);
       const { format } = options;
       if (format === "PNG" && failPng) throw new Error("private detail");
-      return format === "PNG" ? new Uint8Array([137, 80, 78, 71]) : json;
+      return new Uint8Array([137, 80, 78, 71]);
     },
   };
   const page = {
@@ -66,6 +69,15 @@ function setup({
     ui: { postMessage: (message) => messages.push(message) },
     on: (event, callback) => events.set(event, callback),
     getNodeByIdAsync: async (id) => lookup.get(id) ?? null,
+    clientStorage: {
+      getAsync: async (key) => storage.get(key),
+      setAsync: async (key, value) => {
+        storage.set(key, value);
+      },
+      deleteAsync: async (key) => {
+        storage.delete(key);
+      },
+    },
   };
   const protocol = { exports: {} };
   vm.runInNewContext(protocolCode, {
@@ -73,15 +85,27 @@ function setup({
     Uint8Array,
     Set,
   });
+  const screenDocument = { exports: {} };
+  vm.runInNewContext(screenDocumentCode, {
+    exports: screenDocument.exports,
+    Set,
+    Map,
+    Object,
+  });
   vm.runInNewContext(mainCode, {
     figma,
     __html__: "",
     __WEB_BASE_URL__: webBaseUrl,
     exports: {},
-    require: () => protocol.exports,
+    require: (path) =>
+      path.endsWith("screen-document")
+        ? screenDocument.exports
+        : protocol.exports,
+    Map,
     Uint8Array,
     Error,
     Date,
+    encodeURIComponent,
   });
   return {
     messages,
@@ -198,7 +222,7 @@ test("Sections collect top-level Frames through nested Sections and Groups in la
     nodeId: first.id,
   });
   assert.equal(exported.type, "frame-exported");
-  assert.equal(JSON.parse(exported.data).source.figmaNodeId, first.id);
+  assert.equal(exported.frame.nodeId, first.id);
 });
 
 test("mixed Section and descendant selections deduplicate frames regardless of ancestor order", async () => {
@@ -288,8 +312,12 @@ test("a prepared Section snapshot survives selection changes but stops after doc
     "FRAME_CHANGED",
   );
 });
-test("exports immutable provenance and PNG without traversing or uploading unselected frames", async () => {
-  const subject = setup();
+test("exports a screen document and PNG without uploading unselected frames", async () => {
+  const subject = setup({
+    children: [
+      { id: "1:3", type: "TEXT", name: "결제", characters: "결제하기" },
+    ],
+  });
   const prepared = await prepare(subject);
   assert.equal(prepared.frames.length, 1);
   const result = await subject.send({
@@ -300,10 +328,9 @@ test("exports immutable provenance and PNG without traversing or uploading unsel
   });
   assert.equal(result.type, "frame-exported");
   const data = JSON.parse(result.data);
-  assert.equal(data.schemaVersion, 1);
-  assert.equal(data.source.figmaFileKey, "file-key");
-  assert.equal(data.source.figmaNodeId, "1:2");
-  assert.equal(data.document.document.type, "FRAME");
+  assert.equal(data.schemaVersion, 2);
+  assert.equal(data.board.name, "주문");
+  assert.deepEqual(data.texts, ["결제하기"]);
   assert.equal(
     (
       await subject.send({
@@ -357,7 +384,19 @@ test("document changes and released sessions cannot publish a mixed snapshot", a
   );
 });
 test("oversized UTF-8 JSON and failed exports produce safe actionable codes", async () => {
-  const oversized = setup({ json: { text: "한".repeat(2 * 1024 * 1024) } });
+  const oversized = setup({
+    children: [1, 2].map((n) => ({
+      id: `big${n}`,
+      type: "FRAME",
+      name: `묶음 ${n}`,
+      children: Array.from({ length: 700 }, (_, i) => ({
+        id: `t${n}-${i}`,
+        type: "TEXT",
+        name: "t",
+        characters: `${n}-${i}-${"한".repeat(1990)}`,
+      })),
+    })),
+  });
   await prepare(oversized);
   assert.equal(
     (
@@ -460,17 +499,12 @@ test("web open accepts resource IDs only and uses the configured web base", asyn
   const message = {
     type: "open-upload-web",
     requestId: "open",
-    projectId: "10000000-0000-4000-8000-000000000001",
     uploadId: "20000000-0000-4000-8000-000000000002",
   };
   assert.equal((await subject.send(message)).type, "upload-web-opened");
   assert.deepEqual(subject.opened, [
-    "http://127.0.0.1:5176/projects/10000000-0000-4000-8000-000000000001/uploads/20000000-0000-4000-8000-000000000002",
+    "http://127.0.0.1:5176/test-sets/new?upload=20000000-0000-4000-8000-000000000002",
   ]);
-  assert.equal(
-    subject.protocol.isUiToMainMessage({ ...message, projectId: "../evil" }),
-    false,
-  );
   assert.equal(
     subject.protocol.isUiToMainMessage({
       ...message,
@@ -478,7 +512,48 @@ test("web open accepts resource IDs only and uses the configured web base", asyn
     }),
     false,
   );
+  const token = "a".repeat(43);
+  assert.equal(
+    (
+      await subject.send({
+        type: "open-connect-web",
+        requestId: "connect",
+        requestToken: token,
+      })
+    ).type,
+    "connect-web-opened",
+  );
+  assert.equal(
+    subject.opened.at(-1),
+    `http://127.0.0.1:5176/plugin-connect?request=${token}`,
+  );
+  assert.equal(
+    subject.protocol.isUiToMainMessage({
+      type: "open-connect-web",
+      requestId: "bad",
+      requestToken: "../x",
+    }),
+    false,
+  );
   const missing = setup({ webBaseUrl: "" });
   assert.equal((await missing.send(message)).code, "WEB_UNAVAILABLE");
   assert.equal(missing.opened.length, 0);
+});
+test("the account token is kept in client storage and can be cleared", async () => {
+  const subject = setup();
+  const token = "b".repeat(43);
+  assert.equal(
+    (await subject.send({ type: "load-auth", requestId: "l1" })).token,
+    null,
+  );
+  await subject.send({ type: "save-auth", requestId: "s1", token });
+  assert.equal(
+    (await subject.send({ type: "load-auth", requestId: "l2" })).token,
+    token,
+  );
+  await subject.send({ type: "save-auth", requestId: "s2", token: null });
+  assert.equal(
+    (await subject.send({ type: "load-auth", requestId: "l3" })).token,
+    null,
+  );
 });

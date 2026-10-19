@@ -5,10 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./legacy": "./src/legacy/index.ts",
-    "./legacy/styles.css": "./src/legacy/styles.css",
     "./utils": "./src/utils.ts",
-    "./legacy/*": "./src/legacy/*.tsx",
     "./*": "./src/*.tsx"
   },
   "scripts": {

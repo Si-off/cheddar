@@ -44,7 +44,7 @@ VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm dev:plugin
 
 플러그인 UI와 main을 각각 감시 빌드하여 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. UI는 CSS·폰트를 포함한 단일 HTML이다. 브라우저에서 UI만 확인하려면 `pnpm --filter @cheddar/figma-plugin dev:ui`를 사용한다 (`http://127.0.0.1:5174/`).
 
-Figma 플러그인 ID는 `1692417282897261384`다. [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 개발용 manifest를 가져온다. 플러그인의 개발 API 기본 주소는 `http://localhost:3102`다. 실제 Figma의 origin·네트워크 접근·업로드 결과는 현재 환경에서 확인한다.
+Figma 플러그인 ID는 `1692417282897261384`다. [공식 안내](https://developers.figma.com/docs/plugins/manifest/)에 따라 개발용 manifest를 가져온다. 플러그인의 개발 API 기본 주소는 `http://localhost:3101`다. 실제 Figma의 origin·네트워크 접근·업로드 결과는 현재 환경에서 확인한다.
 
 업로드할 Frame 또는 Section을 선택한다. Section을 선택하면 내부의 최상위 Frame들을 목록에 표시하며, 각 Frame 안의 중첩 프레임은 별도 항목으로 추가하지 않는다. 섹션과 그 안의 프레임을 함께 선택해도 중복 없이 포함한다. 경량 썸네일과 큰 미리보기로 화면을 확인하고 프로젝트를 검색한다. 프레임 추출·이미지 전송·데이터 전송·업로드 등록의 진행 상태를 구분한다. 완료 후 `웹에서 열기`는 main의 `figma.openExternal`로 해당 자료 상세를 연다. `VITE_WEB_BASE_URL`은 main 빌드 기준 웹 주소이며 HTTP(S)만 허용한다. build/watch에서는 값을 명시해야 하며 미설정이면 웹 열기를 오류로 처리한다. API 주소와 별도 설정이다.
 

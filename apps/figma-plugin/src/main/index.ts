@@ -1,6 +1,7 @@
 import {
   type ExportErrorCode,
   type FrameSelection,
+  isToken,
   isUiToMainMessage,
   MAX_FRAME_DATA_BYTES,
   MAX_IMAGE_BYTES,
@@ -9,10 +10,16 @@ import {
   type SelectedFrame,
   type UiToMainMessage,
 } from "../protocol/messages";
+import {
+  buildScreenDocument,
+  linkTargets,
+  type SourceNode,
+} from "./screen-document";
 
 declare const __WEB_BASE_URL__: string;
+const AUTH_KEY = "cheddar.pluginToken";
 
-figma.showUI(__html__, { width: 400, height: 640, themeColors: true });
+figma.showUI(__html__, { width: 360, height: 560, themeColors: true });
 type Session = {
   id: string;
   fileKey: string;
@@ -131,9 +138,34 @@ async function handle(
   if (message.type === "open-upload-web") {
     if (!__WEB_BASE_URL__) throw new Error("WEB_UNAVAILABLE");
     figma.openExternal(
-      `${__WEB_BASE_URL__}/projects/${message.projectId}/uploads/${message.uploadId}`,
+      `${__WEB_BASE_URL__}/test-sets/new?upload=${encodeURIComponent(message.uploadId)}`,
     );
     send({ type: "upload-web-opened", requestId: message.requestId });
+    return;
+  }
+  if (message.type === "open-connect-web") {
+    if (!__WEB_BASE_URL__) throw new Error("WEB_UNAVAILABLE");
+    figma.openExternal(
+      `${__WEB_BASE_URL__}/plugin-connect?request=${encodeURIComponent(message.requestToken)}`,
+    );
+    send({ type: "connect-web-opened", requestId: message.requestId });
+    return;
+  }
+  // 플러그인 iframe은 저장소를 쓸 수 없어 계정 토큰은 main의 clientStorage에 둔다
+  if (message.type === "load-auth") {
+    const token: unknown = await figma.clientStorage.getAsync(AUTH_KEY);
+    send({
+      type: "auth-loaded",
+      requestId: message.requestId,
+      token: isToken(token) ? token : null,
+    });
+    return;
+  }
+  if (message.type === "save-auth") {
+    if (message.token)
+      await figma.clientStorage.setAsync(AUTH_KEY, message.token);
+    else await figma.clientStorage.deleteAsync(AUTH_KEY);
+    send({ type: "auth-saved", requestId: message.requestId });
     return;
   }
   if (message.type === "thumbnail-frame") {
@@ -225,14 +257,13 @@ async function handle(
     JSON.stringify(metadata(node)) !== JSON.stringify(expected)
   )
     throw new Error("FRAME_CHANGED");
-  const rest = await node.exportAsync({ format: "JSON_REST_V1" });
-  const data = JSON.stringify({
-    schemaVersion: 1,
-    source: { figmaFileKey: current.fileKey, figmaNodeId: expected.nodeId },
-    frame: expected,
-    exportedAt: new Date().toISOString(),
-    document: rest,
-  });
+  const source = node as unknown as SourceNode;
+  const external = new Map<string, string>();
+  for (const id of linkTargets(source)) {
+    const target = await figma.getNodeByIdAsync(id);
+    if (target && "name" in target) external.set(id, target.name);
+  }
+  const data = JSON.stringify(buildScreenDocument(source, external));
   if (utf8Size(data) > MAX_FRAME_DATA_BYTES) throw new Error("DATA_TOO_LARGE");
   const image = await node.exportAsync({
     format: "PNG",

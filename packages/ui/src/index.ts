@@ -34,6 +34,7 @@ export { FrameCard, type FrameCardProps } from "./frame-card";
 export { DrawnCheck, Icon, type IconProps, type IconSize } from "./icon";
 export { Menu } from "./menu";
 export { Popover } from "./popover";
+export { Progress, type ProgressProps } from "./progress";
 export {
   RadioGroup,
   type RadioGroupProps,
