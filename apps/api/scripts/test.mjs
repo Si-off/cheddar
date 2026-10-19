@@ -24,7 +24,12 @@ try {
     await symlink(resolve("node_modules"), join(output, "node_modules"), "dir");
     const tests = spawnSync(
       process.execPath,
-      ["--test", "--test-concurrency=1", join(output, "test", "*.test.js")],
+      [
+        "--test",
+        "--test-concurrency=1",
+        ...process.argv.slice(2),
+        join(output, "test", "*.test.js"),
+      ],
       {
         stdio: "inherit",
         env: { ...process.env, API_SOURCE_ROOT: process.cwd() },

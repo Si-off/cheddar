@@ -18,8 +18,9 @@ import {
   UpdateAccountDto,
   UpdateRoleDto,
 } from "../src/contracts/identity.dto";
+import { defaultColumns } from "../src/projects/template";
 
-test("명세는 DB 없이 생성되며 인증·계정·역할·소속 계약만 노출", async () => {
+test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝트 설정 계약을 노출", async () => {
   const app = await createApp(
     {
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
@@ -43,15 +44,17 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속 계약만 
         (n, p) =>
           n +
           Object.keys(p).filter((k) =>
-            ["get", "post", "patch", "delete"].includes(k),
+            ["get", "post", "put", "patch", "delete"].includes(k),
           ).length,
         0,
       ),
-      28,
+      49,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
-        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations))/.test(p),
+        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects))/.test(
+          p,
+        ),
       ),
     );
     const cookieScheme = document.components?.securitySchemes?.cookie;
@@ -64,6 +67,20 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속 계약만 
       ajv.addSchema(schema, `#/components/schemas/${name}`);
     for (const name of Object.keys(components))
       assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
+    const template = ajv.getSchema("#/components/schemas/TemplateDto");
+    assert.ok(template);
+    assert.equal(template({ revision: 1, columns: defaultColumns() }), true);
+    const memo = ajv.getSchema("#/components/schemas/MemoDto");
+    assert.ok(memo);
+    assert.equal(memo({ body: "", updatedAt: null, updatedBy: null }), true);
+    assert.equal(
+      memo({
+        body: "기록",
+        updatedAt: new Date().toISOString(),
+        updatedBy: { id: defaultColumns()[0].id, name: "계정" },
+      }),
+      true,
+    );
     const me = components.MeDto;
     assert.ok(me && !("$ref" in me));
     assert.ok(me.properties?.permissions);

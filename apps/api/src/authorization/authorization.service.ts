@@ -86,8 +86,24 @@ export class AuthorizationService {
       (grant) =>
         grant.permission === permission &&
         (grant.scope === "global" ||
-          (!!projectId && grant.projectIds.includes(projectId))),
+          (!!projectId && grant.projectIds.includes(projectId.toLowerCase()))),
     );
+  }
+  // 보기에는 적용 가능한 권한 하나면 충분하다. 전체 전용 권한은 effective에서 걸러진다.
+  projectAccess(grants: EffectivePermissionDto[], projectId: string) {
+    const applies = (grant: EffectivePermissionDto) =>
+      grant.scope === "global" ||
+      grant.projectIds.includes(projectId.toLowerCase());
+    return {
+      canView: grants.some(applies),
+      canManage: grants.some(
+        (grant) => grant.permission === "project.manage" && applies(grant),
+      ),
+    };
+  }
+  async canViewProject(accountId: string, projectId: string) {
+    return this.projectAccess(await this.effective(accountId), projectId)
+      .canView;
   }
   async assertManagerRemains(tx: DatabaseTransaction) {
     const [manager] = await tx

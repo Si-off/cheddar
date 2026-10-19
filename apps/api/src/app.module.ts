@@ -11,6 +11,7 @@ import {
   HealthController,
   MIGRATIONS_FOLDER,
 } from "./health/health.controller";
+import { ProjectsModule } from "./projects/projects.module";
 import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
 @Module({})
@@ -30,6 +31,7 @@ export function appModule(
       AuthModule,
       RolesModule,
       AffiliationsModule,
+      ProjectsModule,
     ],
     controllers: [HealthController],
     providers: [

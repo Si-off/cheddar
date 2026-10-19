@@ -145,6 +145,7 @@ export const rolePermissions = pgTable(
 export const projects = pgTable("projects", {
   id: id(),
   name: varchar("name", { length: 100 }).notNull(),
+  description: text("description").notNull().default(""),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => accounts.id, { onDelete: "restrict" }),
@@ -194,7 +195,7 @@ export const projectTemplates = pgTable(
           id: string;
           name: string;
           type: "text" | "select" | "checkbox" | "tags";
-          systemKey?: "test_id" | "title";
+          systemKey: "test_id" | "title" | null;
           description: string;
           options: string[];
         }[]
@@ -225,6 +226,7 @@ export const requiredCases = pgTable("required_cases", {
     .references(() => projects.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
   position: integer("position").notNull(),
 });
 export const screenStructureItems = pgTable(
@@ -257,6 +259,7 @@ export const projectMemos = pgTable("project_memos", {
   id: id(),
   projectId: uuid("project_id")
     .notNull()
+    .unique()
     .references(() => projects.id, { onDelete: "cascade" }),
   authorId: uuid("author_id")
     .notNull()

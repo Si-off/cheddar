@@ -106,7 +106,7 @@ export async function openTestDatabase() {
       const expected = readMigrationFiles({ migrationsFolder: folder });
       assert.ok(
         applied.rows.length === 0 ||
-          (applied.rows.length === expected.length &&
+          (applied.rows.length <= expected.length &&
             applied.rows.every((r, i) => r.hash === expected[i].hash)),
         "구형 마이그레이션 DB입니다. 새 기준 전용 테스트 DB를 준비해주세요.",
       );

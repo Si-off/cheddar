@@ -8,6 +8,13 @@
       "when": 1792324982966,
       "tag": "0000_salty_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792376048660,
+      "tag": "0001_striped_justice",
+      "breakpoints": true
     }
   ]
 }
