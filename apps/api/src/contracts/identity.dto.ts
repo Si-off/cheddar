@@ -255,6 +255,17 @@ export class AccountPageDto {
   @ApiProperty({ type: [AccountDto] }) items!: AccountDto[];
   @ApiProperty({ type: "integer" }) total!: number;
 }
+export class OwnedTestSetDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() projectName!: string;
+}
+export class OwnedTestSetListDto {
+  @ApiProperty({ type: [OwnedTestSetDto] }) items!: OwnedTestSetDto[];
+}
+export class TransferTestSetOwnerDto {
+  @ApiProperty({ format: "uuid" }) @IsUUID() accountId!: string;
+}
 export class IssuedTokenDto {
   @ApiProperty({ description: "링크에 넣을 토큰. 발급 응답에서만 제공한다." })
   token!: string;

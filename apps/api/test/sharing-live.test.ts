@@ -28,6 +28,7 @@ import {
   roles as roleRows,
   sessions,
   testCases,
+  testSetMembers,
   testSets,
   visitorSessions,
 } from "../src/database/schema";
@@ -996,6 +997,42 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         );
         for (let index = 2; index <= 501; index++)
           assert.equal((await c.next("ops")).version, before.version + index);
+      },
+    );
+    await t.test(
+      "소유자 이전은 연결된 새 소유자의 권한을 즉시 재검사",
+      async () => {
+        const from = await actor(),
+          to = await actor();
+        const [owned] = await db
+          .insert(testSets)
+          .values({
+            name: "소유자 이전 live",
+            projectId: project.id,
+            ownerId: from.id,
+          })
+          .returning();
+        await db.insert(testSetMembers).values({
+          testSetId: owned.id,
+          accountId: to.id,
+          access: "view",
+        });
+        await accounts.setActive(from.id, false);
+        const c = connect(`/test-sets/${owned.id}/live`, to.cookie);
+        const welcome = await c.next("welcome");
+        assert.equal(welcome.access.canEdit, false);
+        assert.equal(welcome.access.canDelete, false);
+        const response = await request(
+          `/accounts/${from.id}/owned-test-sets/${owned.id}/owner`,
+          "POST",
+          { accountId: to.id },
+        );
+        assert.equal(response.status, 204, await response.clone().text());
+        const changed = await c.next("access");
+        assert.equal(changed.access.canEdit, true);
+        assert.equal(changed.access.canDelete, true);
+        c.ws.close();
+        await c.closed;
       },
     );
     await t.test(

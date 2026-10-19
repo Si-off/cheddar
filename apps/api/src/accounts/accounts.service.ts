@@ -12,6 +12,7 @@ import type {
   AccountQueryDto,
   AssignmentDto,
   CreateAccountDto,
+  OwnedTestSetListDto,
   UpdateAccountDto,
 } from "../contracts/identity.dto";
 import {
@@ -27,6 +28,7 @@ import {
   roleAssignments,
   roles,
   sessions,
+  testSetMembers,
   testSets,
 } from "../database/schema";
 
@@ -329,23 +331,53 @@ export class AccountsService {
       return this.issueToken(id, purpose, tx);
     });
   }
-  async transferOwnership(fromId: string, toId: string) {
+  async listOwnedTestSets(accountId: string): Promise<OwnedTestSetListDto> {
+    await this.row(accountId);
+    const items = await this.database.db
+      .select({
+        id: testSets.id,
+        name: testSets.name,
+        projectName: projects.name,
+      })
+      .from(testSets)
+      .innerJoin(projects, eq(projects.id, testSets.projectId))
+      .where(eq(testSets.ownerId, accountId))
+      .orderBy(testSets.name, testSets.id);
+    return { items };
+  }
+  async transferTestSetOwner(fromId: string, testSetId: string, toId: string) {
     return this.authorization.mutate(async (tx) => {
-      if (
-        (await this.row(fromId, tx)).status !== "inactive" ||
-        accountState(await this.row(toId, tx)) !== "active"
-      )
+      const [owned] = await tx
+        .select({ id: testSets.id })
+        .from(testSets)
+        .where(and(eq(testSets.id, testSetId), eq(testSets.ownerId, fromId)))
+        .for("update");
+      if (!owned) throw notFound();
+      // 고칠 대상이 다르므로 원래 소유자와 새 소유자의 문제를 나눠 알린다
+      if ((await this.row(fromId, tx)).status !== "inactive")
         throw new ApiError(
           409,
           "OWNERSHIP_ACCOUNT_STATE",
-          "소유권을 넘길 계정 상태를 확인해주세요.",
+          "현재 소유자가 비활성 계정일 때만 넘길 수 있습니다.",
         );
-      const changed = await tx
+      if (accountState(await this.row(toId, tx)) !== "active")
+        throw new ApiError(
+          409,
+          "OWNERSHIP_ACCOUNT_STATE",
+          "새 소유자가 활성 계정이 아닙니다. 다른 계정을 고르세요.",
+        );
+      await tx
+        .delete(testSetMembers)
+        .where(
+          and(
+            eq(testSetMembers.testSetId, testSetId),
+            eq(testSetMembers.accountId, toId),
+          ),
+        );
+      await tx
         .update(testSets)
         .set({ ownerId: toId, updatedAt: new Date() })
-        .where(eq(testSets.ownerId, fromId))
-        .returning({ id: testSets.id });
-      return changed.length;
+        .where(eq(testSets.id, testSetId));
     });
   }
 }

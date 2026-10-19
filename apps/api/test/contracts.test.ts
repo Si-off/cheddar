@@ -49,7 +49,7 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
           ).length,
         0,
       ),
-      85,
+      87,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
@@ -68,6 +68,30 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       ajv.addSchema(schema, `#/components/schemas/${name}`);
     for (const name of Object.keys(components))
       assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
+    const owned =
+      document.paths["/api/v1/accounts/{accountId}/owned-test-sets"].get;
+    assert.equal(owned?.operationId, "listOwnedTestSets");
+    const transfer =
+      document.paths[
+        "/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner"
+      ].post;
+    assert.equal(transfer?.operationId, "transferTestSetOwner");
+    assert.ok(transfer?.responses["204"]);
+    const body = transfer?.requestBody;
+    assert.ok(body && !("$ref" in body));
+    assert.equal(body.required, true);
+    assert.deepEqual(body.content["application/json"].schema, {
+      $ref: "#/components/schemas/TransferTestSetOwnerDto",
+    });
+    const owner = ajv.getSchema("#/components/schemas/TransferTestSetOwnerDto");
+    assert.ok(owner);
+    assert.equal(owner({ accountId: defaultColumns()[0].id }), true);
+    assert.equal(owner({}), false);
+    assert.equal(owner({ accountId: "wrong" }), false);
+    assert.equal(
+      owner({ accountId: defaultColumns()[0].id, extra: true }),
+      false,
+    );
     const ops = ajv.getSchema("#/components/schemas/ApplyOpsDto");
     assert.ok(ops);
     const caseId = defaultColumns()[0].id,

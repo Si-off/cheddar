@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -13,6 +14,7 @@ import {
   ApiBody,
   ApiCookieAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -26,6 +28,8 @@ import {
   AccountQueryDto,
   CreateAccountDto,
   IssuedTokenDto,
+  OwnedTestSetListDto,
+  TransferTestSetOwnerDto,
   UpdateAccountDto,
 } from "../contracts/identity.dto";
 import { AccountsService } from "./accounts.service";
@@ -59,6 +63,30 @@ export class AccountsController {
   @ApiOkResponse({ type: AccountDto })
   detail(@Param("accountId", ParseUUIDPipe) id: string) {
     return this.service.detail(id);
+  }
+  @Get(":accountId/owned-test-sets")
+  @ApiOperation({
+    operationId: "listOwnedTestSets",
+    summary: "계정이 소유한 테스트 세트 목록",
+  })
+  @ApiOkResponse({ type: OwnedTestSetListDto })
+  listOwnedTestSets(@Param("accountId", ParseUUIDPipe) id: string) {
+    return this.service.listOwnedTestSets(id);
+  }
+  @Post(":accountId/owned-test-sets/:testSetId/owner")
+  @HttpCode(204)
+  @ApiOperation({
+    operationId: "transferTestSetOwner",
+    summary: "테스트 세트 소유자 넘기기",
+  })
+  @ApiNoContentResponse({ description: "소유자 변경 완료" })
+  @ApiBody({ type: TransferTestSetOwnerDto })
+  transferTestSetOwner(
+    @Param("accountId", ParseUUIDPipe) id: string,
+    @Param("testSetId", ParseUUIDPipe) testSetId: string,
+    @Body() dto: TransferTestSetOwnerDto,
+  ) {
+    return this.service.transferTestSetOwner(id, testSetId, dto.accountId);
   }
   @Patch(":accountId")
   @ApiOperation({

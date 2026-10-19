@@ -18,13 +18,7 @@ import {
   type CreateRoleDto,
   type MeDto,
 } from "../src/contracts/identity.dto";
-import {
-  authTokens,
-  projects,
-  roles,
-  sessions,
-  testSets,
-} from "../src/database/schema";
+import { authTokens, projects, roles, sessions } from "../src/database/schema";
 import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
@@ -595,50 +589,21 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
       const deletableAffiliation = await affiliationService.save(randomUUID());
       await affiliationService.remove(deletableAffiliation.id);
     });
-    await t.test(
-      "계정 검색, 소속·역할·상태 필터와 소유권 이전 서비스",
-      async () => {
-        const person = await create({
-          name: "검색전용",
-          assignments: [{ roleId: member.id, scope: "global", projectIds: [] }],
-        });
-        const query = Object.assign(new AccountQueryDto(), {
-          search: "검색전용",
-          roleId: member.id,
-          affiliationId,
-          status: "invited",
-        });
-        const page = await service.list(query);
-        assert.equal(page.total, 1);
-        assert.equal(page.items[0].id, person.account.id);
-        const [project] = await db
-          .insert(projects)
-          .values({ name: "이전 프로젝트", createdBy: adminId })
-          .returning();
-        const [set] = await db
-          .insert(testSets)
-          .values({
-            name: "소유 세트",
-            projectId: project.id,
-            ownerId: person.account.id,
-          })
-          .returning();
-        await assert.rejects(
-          service.transferOwnership(person.account.id, adminId),
-          code("OWNERSHIP_ACCOUNT_STATE"),
-        );
-        await service.setActive(person.account.id, false);
-        assert.equal(
-          await service.transferOwnership(person.account.id, adminId),
-          1,
-        );
-        assert.equal(
-          (await db.select().from(testSets).where(eq(testSets.id, set.id)))[0]
-            .ownerId,
-          adminId,
-        );
-      },
-    );
+    await t.test("계정 검색과 소속·역할·상태 필터", async () => {
+      const person = await create({
+        name: "검색전용",
+        assignments: [{ roleId: member.id, scope: "global", projectIds: [] }],
+      });
+      const query = Object.assign(new AccountQueryDto(), {
+        search: "검색전용",
+        roleId: member.id,
+        affiliationId,
+        status: "invited",
+      });
+      const page = await service.list(query);
+      assert.equal(page.total, 1);
+      assert.equal(page.items[0].id, person.account.id);
+    });
     await t.test("계정 DTO 오류·중복 이메일, 운영 쿠키 Secure", async () => {
       const current = await auth.login("admin@example.com", password),
         currentCookie = `cheddar_session=${current.token}`;
