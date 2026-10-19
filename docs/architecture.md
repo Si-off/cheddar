@@ -2,7 +2,7 @@
 
 이 문서는 합의된 시스템 구조, 기술 선택, 코드 규칙, 운영 제약을 설명한다. 구현 진행과 검증 이력은 커밋과 PR에 남긴다.
 
-2026-10-18 전면 개편으로 이 문서는 **목표 구조**를 설명한다. 코드는 단계적으로 옮기는 중이며, 아직 옮기지 않은 영역은 이전 구조로 남아 있다. 단계와 현재 상태는 [개편 기록](changes/2026-10-18-redesign.md)에 있다.
+2026-10-18부터 2026-10-19까지의 전면 개편으로 코드가 이 문서의 구조를 따른다.
 
 ## 설계 범위와 환경
 
@@ -27,15 +27,15 @@
 
 ## 웹 구조(FSD)
 
-아래 레이어는 위 레이어를 가져오지 않는다. 같은 레이어의 슬라이스끼리도 가져오지 않는다(entities만 예외로 다른 entity의 공개 타입을 가져올 수 있다). 슬라이스 밖에는 `index`로 공개한 것만 보이며, 이 경계는 루트 `biome.json`의 `noRestrictedImports` overrides로 강제한다. 표의 슬라이스 중 아직 없는 것은 해당 단계에서 만든다.
+아래 레이어는 위 레이어를 가져오지 않는다. 같은 레이어의 슬라이스끼리도 가져오지 않는다(entities만 예외로 다른 entity의 공개 타입을 가져올 수 있다). 슬라이스 밖에는 `index`로 공개한 것만 보이며, 이 경계는 루트 `biome.json`의 `noRestrictedImports` overrides로 강제한다.
 
 | 레이어 | 슬라이스 | 하는 일 |
 | --- | --- | --- |
 | app | router, providers, `global.css` | 라우트 트리, 로그인과 권한 경계, Query와 motion 설정 |
-| pages | login, password-setup(초대 수락과 재설정), no-access, placeholder(4, 5단계 전 임시), admin-accounts, admin-account, admin-roles, admin-role, admin-affiliations, test-sets, test-set-new, test-set-generating, test-set, shared-test-set, projects, project-new, project-settings, plugin-connect | 화면 조립. 데이터 가져오기와 레이아웃만 |
-| widgets | app-header, admin-shell, auth-card, case-grid, case-board, view-switcher, review-panel, generation-progress, share-dialog | 여러 기능이 모인 화면 덩어리 |
-| features | auth, manage-account(계정 양식, 만들기, 초대와 재설정 링크, 계정 작업), manage-role, manage-affiliation, collaborate-test-set, generate-cases, rewrite-review-item, export-xlsx, share-test-set, transfer-ownership, edit-template, edit-feature-groups, edit-required-cases, edit-screen-structure | 사용자 행동 하나와 그 상태 |
-| entities | test-set, case, review-item, project, account, role, affiliation, permission | 도메인 타입, 생성 API 타입을 도메인 타입으로 바꾸는 변환, Query 키와 조회 훅 |
+| pages | login, password-setup(초대 수락과 재설정), no-access, admin-accounts, admin-account, admin-roles, admin-role, admin-affiliations, test-sets, test-set-new, test-set-generating, test-set, shared-test-set(공개 링크), projects(목록과 만들기), project-settings, plugin-connect | 화면 조립. 데이터 가져오기와 레이아웃만 |
+| widgets | app-header, admin-shell, auth-card, project-shell, case-table, case-board, case-dialog, columns-editor, review-panel, share-dialog, no-access-notice | 여러 기능이 모인 화면 덩어리 |
+| features | auth, manage-account(계정 양식, 만들기, 초대와 재설정 링크, 계정 작업), transfer-ownership(소유 테스트 세트 넘기기), manage-role, manage-affiliation, create-project, edit-project, edit-project-memo, edit-template, manage-feature-groups, manage-required-cases, manage-screens, create-test-set, manage-test-set, edit-test-set-columns, edit-cases, test-set-view, collaborate-test-set, generate-cases, resolve-review, export-xlsx, share-test-set | 사용자 행동 하나와 그 상태 |
+| entities | test-set(케이스 포함), generation(생성 작업과 확인 필요), project, account, role, affiliation, permission | 도메인 타입, 생성 API 타입을 도메인 타입으로 바꾸는 변환, Query 키와 조회 훅 |
 | shared | api(생성 코드와 클라이언트 설정, 오류 변환), config(환경, 공유 링크 경로), testing(e2e용 API 응답 합성) | 도메인을 모르는 도구 |
 
 - 플러그인 UI(`apps/figma-plugin/src/ui/`)는 app, pages, shared 레이어만 쓴다. `main/`(Figma 문서 접근)과 `protocol/`(main과 UI 사이 메시지 계약)은 FSD 밖에 둔다.
@@ -119,7 +119,7 @@
 - 역할 이름은 인가에 쓰지 않는다. `global` 할당은 해당 권한을 모든 프로젝트에 적용하고, `projects`는 비어 있지 않은 프로젝트 UUID 목록이다. 전체만 권한은 후자의 할당에서 제외한다. `can(accountId, permission)`처럼 프로젝트가 없으면 전체 범위만 통과한다. 유효 권한 응답은 권한 키마다 전체 범위 또는 프로젝트 합집합을 반환한다.
 - `@Public()` 외 컨트롤러는 전역 Guard에서 세션을 검사한다. `@RequirePermission(key, { source: "params" | "body", key: "projectId" })`는 프로젝트 UUID를 읽어 권한을 검사한다. 계정 관리는 `account.manage`, 역할·소속 관리는 `role.manage`를 요구한다.
 - 역할 할당은 수정 요청의 목록으로 교체한다. 필수 만료일을 기본 기간으로 자동 저장하지 않고 명시적으로 받는다. 응답의 `defaultExpiryDays`는 만료일 필수 역할들의 기본 기간 중 최솟값이다. 역할에 만료일 필수를 추가할 때 기존 할당 계정에 만료일이 없으면 거부한다.
-- 소유권 이전은 `AccountsService.transferOwnership(fromId, toId)`로 구현했다. 원 소유자는 비활성, 받는 계정은 활성·미만료여야 한다. 아직 외부 엔드포인트는 없다.
+- `account.manage` 계정은 `GET /api/v1/accounts/:accountId/owned-test-sets`로 소유 세트를 이름순으로 조회하고, `POST /api/v1/accounts/:accountId/owned-test-sets/:testSetId/owner`로 한 세트의 소유자를 넘긴다. 원 소유자는 비활성, 받는 계정은 활성·미만료여야 한다. 세트 행 잠금 안에서 소유자를 확인하고 새 소유자의 구성원 행을 정리한다. 커밋 후 기존 계정 변경 알림으로 live 연결 권한을 재검사한다.
 - 기본 역할·소속은 `db:migrate`의 별도 트랜잭션으로 초기화한다. 초기 데이터가 있으면 이름·권한을 덮어쓰지 않는다. `admin:create --email --name`은 계정이 없는 DB에서만 첫 관리자 역할의 전체 범위 계정과 초대 토큰을 만든다. 링크 경로는 웹이 결정하며 CLI는 토큰과 만료 시각을 출력한다.
 - DB 필수 테이블 검사는 Drizzle 스키마의 전체 테이블을 사용한다. 서버 시작 시 마이그레이션 이력과 테이블을 확인하며 마이그레이션 자체는 실행하지 않는다.
 

@@ -87,9 +87,7 @@ Cheddar는 사람이 수행할 QA 테스트 케이스를 Figma 기획 자료로 
 
 ## 컴포넌트
 
-공통 컴포넌트는 `packages/ui`에 둔다: Button, IconButton, Icon, DrawnCheck, Field, TextField, TextArea, Select, Menu, Checkbox, Switch, RadioGroup, Badge, Tag, SaveStatus, StepList(시스템의 JobProgress), Tabs, Breadcrumb, DataGrid(시스템의 CaseTable), Avatars, FrameCard, ReviewCard, Banner, Dialog, Toast, EmptyState. 스크롤바는 앱의 `global.css`가 처리한다. Select와 Menu는 브라우저 기본 UI가 아니라 직접 그린 목록이다. 실제 모양은 웹 개발 서버의 `/design-system.html`에서 라이트와 다크로 확인한다. props와 파일 규칙은 [프로젝트 구조의 코드 규칙](docs/architecture.md#코드-규칙)을 따른다.
-
-개편 중에는 이전 컴포넌트와 토큰이 `packages/ui/src/legacy/`, `packages/design-tokens/src/legacy-theme.css`에 남아 있다. 기존 화면만 쓰며 새 코드에서 가져오지 않는다. 웹은 3단계, 플러그인은 7단계에서 지운다.
+공통 컴포넌트는 `packages/ui`에 둔다: Button, IconButton, Icon, DrawnCheck, Field, TextField, TextArea, Select, Menu, Checkbox, Switch, RadioGroup, Badge, Tag, SaveStatus, StepList(시스템의 JobProgress), Tabs, Breadcrumb, DataGrid(시스템의 CaseTable), Avatars, FrameCard, ReviewCard, Banner, Dialog(ConfirmDialog 포함), Popover, SortableList, Progress, Toast, EmptyState(LoadError 포함). 스크롤바는 앱의 `global.css`가 처리한다. Select와 Menu는 브라우저 기본 UI가 아니라 직접 그린 목록이다. 실제 모양은 웹 개발 서버의 `/design-system.html`에서 라이트와 다크로 확인한다. props와 파일 규칙은 [프로젝트 구조의 코드 규칙](docs/architecture.md#코드-규칙)을 따른다.
 
 ## 아이콘
 
