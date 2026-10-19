@@ -70,6 +70,20 @@ export type AccountInvitationDto = {
     account: AccountDto;
 };
 
+export type OwnedTestSetDto = {
+    id: string;
+    name: string;
+    projectName: string;
+};
+
+export type OwnedTestSetListDto = {
+    items: Array<OwnedTestSetDto>;
+};
+
+export type TransferTestSetOwnerDto = {
+    accountId: string;
+};
+
 export type UpdateAccountDto = {
     name?: string;
     email?: string;
@@ -872,6 +886,114 @@ export type UpdateAccountResponses = {
 };
 
 export type UpdateAccountResponse = UpdateAccountResponses[keyof UpdateAccountResponses];
+
+export type ListOwnedTestSetsData = {
+    body?: never;
+    path: {
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/accounts/{accountId}/owned-test-sets';
+};
+
+export type ListOwnedTestSetsErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ListOwnedTestSetsError = ListOwnedTestSetsErrors[keyof ListOwnedTestSetsErrors];
+
+export type ListOwnedTestSetsResponses = {
+    200: OwnedTestSetListDto;
+};
+
+export type ListOwnedTestSetsResponse = ListOwnedTestSetsResponses[keyof ListOwnedTestSetsResponses];
+
+export type TransferTestSetOwnerData = {
+    body: TransferTestSetOwnerDto;
+    path: {
+        accountId: string;
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner';
+};
+
+export type TransferTestSetOwnerErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type TransferTestSetOwnerError = TransferTestSetOwnerErrors[keyof TransferTestSetOwnerErrors];
+
+export type TransferTestSetOwnerResponses = {
+    /**
+     * 소유자 변경 완료
+     */
+    204: void;
+};
+
+export type TransferTestSetOwnerResponse = TransferTestSetOwnerResponses[keyof TransferTestSetOwnerResponses];
 
 export type DeactivateAccountData = {
     body?: never;

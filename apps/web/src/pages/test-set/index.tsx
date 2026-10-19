@@ -66,6 +66,7 @@ import {
   RenameTestSetDialog,
 } from "@/features/manage-test-set";
 import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
+import { sharingQuery } from "@/features/share-test-set";
 import { useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
@@ -139,7 +140,7 @@ function TestSetScreen({
   const queryClient = useQueryClient();
   const { queryKey } = testSetQuery(testSet.id);
   const connection = useRef<() => string | null>(() => null);
-  const { apply, state, applyRemote, resync } = useCaseOps({
+  const { apply, state, applyRemote, resync, refresh } = useCaseOps({
     queryKey,
     fetch: () =>
       queryClient.fetchQuery({ ...testSetQuery(testSet.id), staleTime: 0 }),
@@ -165,13 +166,29 @@ function TestSetScreen({
       void queryClient.invalidateQueries({
         queryKey: currentGenerationQuery(testSet.id).queryKey,
       });
+      void queryClient.invalidateQueries({
+        queryKey: sharingQuery(testSet.id).queryKey,
+      });
     },
-    onAccess: (access) =>
-      queryClient.setQueryData(
-        queryKey,
-        (current: TestSet | undefined) =>
-          current && { ...current, access: { ...current.access, ...access } },
-      ),
+    onAccess: (access) => {
+      const current = queryClient.getQueryData<TestSet>(queryKey);
+      if (
+        !current ||
+        (Object.keys(access) as (keyof typeof access)[]).every(
+          (key) => current.access[key] === access[key],
+        )
+      )
+        return;
+      // 권한이 바뀌면 소유자가 바뀌었을 수 있어 테스트 세트와 공유 설정을 다시 읽는다
+      queryClient.setQueryData(queryKey, {
+        ...current,
+        access: { ...current.access, ...access },
+      });
+      refresh();
+      void queryClient.invalidateQueries({
+        queryKey: sharingQuery(testSet.id).queryKey,
+      });
+    },
   });
   connection.current = live.connectionId;
   // 로그인이 끝나 연결이 닫히면 로그인 뒤 이 화면으로 돌아온다

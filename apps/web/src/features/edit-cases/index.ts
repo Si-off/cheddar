@@ -223,5 +223,8 @@ export function useCaseOps(source: CaseOpsSource) {
     [confirmed, reload],
   );
 
-  return { apply, state, applyRemote, resync };
+  /** 순번과 관계없이 서버 내용을 다시 읽는다(소유자 변경처럼 순번이 그대로인 변경) */
+  const refresh = useCallback(() => void reload(), [reload]);
+
+  return { apply, state, applyRemote, resync, refresh };
 }

@@ -383,3 +383,59 @@ test("역할 범위를 프로젝트 지정으로 바꾸면 고른 프로젝트�
       assignments: [{ roleId: "r3", scope: "projects", projectIds: ["p2"] }],
     });
 });
+
+test("비활성 계정이 소유한 테스트 세트는 활성 계정을 찾아 소유자를 넘긴다", async ({
+  page,
+}) => {
+  const leaver = account({ id: "a8", name: "이서연", status: "inactive" });
+  const kim = account({
+    id: "a2",
+    name: "김지은",
+    email: "jieun.kim@cheddar.app",
+  });
+  let owned = [
+    { id: "t1", name: "2.3.1 장바구니 합치기", projectName: "쇼핑몰" },
+  ];
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/roles": roles,
+    "GET /api/v1/affiliations": affiliations,
+    "GET /api/v1/accounts/a8": leaver,
+    "GET /api/v1/accounts/a8/owned-test-sets": () => ({ items: owned }),
+    "GET /api/v1/accounts": { items: [kim], total: 1 },
+    "POST /api/v1/accounts/a8/owned-test-sets/t1/owner": () => {
+      owned = [];
+      return reply(204);
+    },
+  });
+  await page.goto("/admin/accounts/a8");
+  await page.getByRole("button", { name: "소유자 넘기기" }).click();
+  const dialog = page.getByRole("dialog", { name: "소유자 넘기기" });
+  await dialog.getByRole("textbox", { name: "새 소유자" }).fill("김");
+  await dialog.getByRole("button", { name: /김지은/ }).click();
+  await dialog.getByRole("button", { name: "넘기기" }).click();
+  await expect(page.getByText("소유자를 넘겼습니다")).toBeVisible();
+  await expect(page.getByText("2.3.1 장바구니 합치기")).toHaveCount(0);
+  expect(
+    calls.find(
+      (c) => c.key === "POST /api/v1/accounts/a8/owned-test-sets/t1/owner",
+    )?.body,
+  ).toEqual({ accountId: "a2" });
+});
+
+test("활성 계정의 소유 테스트 세트는 넘길 수 없다", async ({ page }) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/roles": roles,
+    "GET /api/v1/affiliations": affiliations,
+    "GET /api/v1/accounts/a1": account(),
+    "GET /api/v1/accounts/a1/owned-test-sets": {
+      items: [{ id: "t1", name: "2.4.0 회원가입 개편", projectName: "쇼핑몰" }],
+    },
+  });
+  await page.goto("/admin/accounts/a1");
+  await expect(page.getByText("2.4.0 회원가입 개편")).toBeVisible();
+  await expect(page.getByRole("button", { name: "소유자 넘기기" })).toHaveCount(
+    0,
+  );
+});

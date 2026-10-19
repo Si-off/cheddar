@@ -24,6 +24,7 @@ import {
   useAccountActions,
   validateAccountDraft,
 } from "@/features/manage-account";
+import { OwnedTestSets } from "@/features/transfer-ownership";
 
 export function AdminAccountPage({ accountId }: { accountId: string }) {
   const account = useQuery(accountQuery(accountId));
@@ -137,6 +138,11 @@ function AccountDetail({ account }: { account: Account }) {
           errors={errors}
         />
       </section>
+
+      <OwnedTestSets
+        accountId={account.id}
+        canTransfer={account.status === "inactive"}
+      />
 
       <div className="flex justify-end gap-2">
         <Button

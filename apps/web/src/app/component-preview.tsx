@@ -14,6 +14,7 @@ import {
   FrameCard,
   IconButton,
   Menu,
+  Progress,
   RadioGroup,
   ReviewCard,
   SaveStatus,
@@ -463,6 +464,14 @@ function Preview() {
             다음 단계
           </Button>
         </Row>
+      </Section>
+
+      <Section title="업로드 진행">
+        <Progress
+          label="업로드 중"
+          value={(step / steps.length) * 100}
+          className="max-w-sm"
+        />
       </Section>
 
       <Section title="순서 바꾸기">
