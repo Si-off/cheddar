@@ -1,7 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import {
   defaultView,
+  sharedTestSetViewQuery,
   testSetViewQuery,
   type ViewPreference,
 } from "@/entities/test-set";
@@ -37,12 +38,51 @@ function clean(view: ViewPreference, targets: ViewTargets): ViewPreference {
   };
 }
 
-export function useTestSetView(testSetId: string, targets: ViewTargets) {
+/** 보기 설정을 읽고 저장할 곳. 로그인한 테스트 세트와 공개 링크가 따로 저장한다. */
+export interface ViewSource {
+  queryKey: QueryKey;
+  fetch: () => Promise<ViewPreference>;
+  save: (body: ViewPreference) => Promise<unknown>;
+}
+
+export const testSetViewSource = (testSetId: string): ViewSource => {
+  const query = testSetViewQuery(testSetId);
+  return {
+    queryKey: query.queryKey,
+    fetch: async () =>
+      (await sdk.getTestSetView({ path: { testSetId }, throwOnError: true }))
+        .data,
+    save: (body) => sdk.updateTestSetView({ path: { testSetId }, body }),
+  };
+};
+
+export const sharedViewSource = (linkToken: string): ViewSource => {
+  const query = sharedTestSetViewQuery(linkToken);
+  return {
+    queryKey: query.queryKey,
+    fetch: async () =>
+      (
+        await sdk.getSharedTestSetView({
+          path: { linkToken },
+          throwOnError: true,
+        })
+      ).data,
+    save: (body) => sdk.updateSharedTestSetView({ path: { linkToken }, body }),
+  };
+};
+
+export function useTestSetView(source: ViewSource, targets: ViewTargets) {
   const current = useRef(targets);
   current.current = targets;
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
   const queryClient = useQueryClient();
-  const { queryKey } = testSetViewQuery(testSetId);
-  const view = useQuery(testSetViewQuery(testSetId)).data;
+  const { queryKey } = source;
+  const view = useQuery({
+    queryKey,
+    queryFn: () => sourceRef.current.fetch(),
+    refetchOnWindowFocus: false,
+  }).data;
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const latest = useRef<ViewPreference | null>(null);
 
@@ -50,15 +90,12 @@ export function useTestSetView(testSetId: string, targets: ViewTargets) {
     clearTimeout(timer.current);
     const next = latest.current;
     latest.current = null;
+    // 기다리는 동안 지워진 항목이 있을 수 있어 보내는 시점에 다시 정리한다
     if (next)
-      void sdk
-        // 기다리는 동안 지워진 항목이 있을 수 있어 보내는 시점에 다시 정리한다
-        .updateTestSetView({
-          path: { testSetId },
-          body: clean(next, current.current),
-        })
+      void sourceRef.current
+        .save(clean(next, current.current))
         .catch(() => undefined);
-  }, [testSetId]);
+  }, []);
 
   const update = useCallback(
     (patch: Partial<ViewPreference>) => {

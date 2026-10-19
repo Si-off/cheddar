@@ -67,7 +67,7 @@ import {
 } from "@/features/manage-test-set";
 import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { sharingQuery } from "@/features/share-test-set";
-import { useTestSetView } from "@/features/test-set-view";
+import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
 import { CaseDialog } from "@/widgets/case-dialog";
@@ -201,7 +201,7 @@ function TestSetScreen({
         },
       });
   }, [live.closed, navigate]);
-  const [view, setView] = useTestSetView(testSet.id, {
+  const [view, setView] = useTestSetView(testSetViewSource(testSet.id), {
     columnIds: testSet.columns.map((c) => c.id),
     groupableColumnIds: testSet.columns
       .filter((c) => groupable(c.type))

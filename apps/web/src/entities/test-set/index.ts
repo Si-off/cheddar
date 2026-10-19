@@ -59,6 +59,21 @@ export const sharedTestSetQuery = (linkToken: string) =>
     retry: false,
   });
 
+/** 공개 링크로 연 사람(방문자 포함)의 보기 설정 */
+export const sharedTestSetViewQuery = (linkToken: string) =>
+  queryOptions({
+    queryKey: ["shared-test-set-view", linkToken],
+    queryFn: async ({ signal }): Promise<ViewPreference> =>
+      (
+        await sdk.getSharedTestSetView({
+          path: { linkToken },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+    refetchOnWindowFocus: false,
+  });
+
 export const testSetViewQuery = (testSetId: string) =>
   queryOptions({
     queryKey: getTestSetViewQueryKey({ path: { testSetId } }),

@@ -378,3 +378,59 @@ test("먼저 보낸 저장의 응답이 늦게 와도 그 뒤에 고친 값을 �
   await expect(cell(page, 1, "예상 결과")).toHaveText("첫 수정");
   await expect(cell(page, 1, "우선순위")).toHaveText("");
 });
+
+test("셀을 고르고 바로 한글을 조합해 치면 첫 글자부터 빠짐없이 들어간다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click();
+
+  // 운영체제 입력기처럼 키를 누르면 조합이 시작되고, 조합이 끝나면 글자가 확정된다
+  const cdp = await page.context().newCDPSession(page);
+  const compose = async (steps: string[], done: string) => {
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "rawKeyDown",
+      key: "Process",
+      windowsVirtualKeyCode: 229,
+    });
+    for (const text of steps)
+      await cdp.send("Input.imeSetComposition", {
+        text,
+        selectionStart: text.length,
+        selectionEnd: text.length,
+      });
+    await cdp.send("Input.insertText", { text: done });
+  };
+  await compose(["ㅎ", "하", "한"], "한");
+  await compose(["ㄱ", "그", "글"], "글");
+  await page.getByRole("textbox", { name: "예상 결과" }).press("Enter");
+
+  await expect(cell(page, 1, "예상 결과")).toHaveText("한글");
+  expect(
+    calls.find((c) => c.key === "POST /api/v1/test-sets/t1/ops")?.body,
+  ).toMatchObject({
+    ops: [{ type: "set_cell", columnId: "c-exp", value: "한글" }],
+  });
+});
+
+test("글자 셀에서 방향키로 선택 항목 셀로 옮겨도 키보드 조작이 이어진다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Delete");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: null },
+    ]);
+});

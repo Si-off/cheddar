@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  cn,
   DataGrid,
   type DataGridColumn,
   DrawnCheck,
@@ -12,6 +13,7 @@ import { Plus } from "lucide-react";
 import {
   type ClipboardEvent,
   type KeyboardEvent,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -51,6 +53,8 @@ interface Editing {
   columnId: string;
   /** 글자를 쳐서 시작했으면 그 글자로 바꾼다 */
   initial?: string;
+  /** 셀에 미리 둔 입력 칸에 바로 쳐서 시작했다. 친 글자가 이미 칸에 있다. */
+  typed?: boolean;
 }
 
 const empty = (column: Column): CellValue =>
@@ -100,12 +104,32 @@ export function CaseTable({
     columnId: string;
   } | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
+  // 셀을 눌러 생긴 포커스인지 구분한다
+  const pointerFocus = useRef(false);
+  // 고른 셀이 바뀔 때 표 안에 포커스가 있었는지
+  const restoreFocus = useRef(false);
+  // 글자 셀의 입력 칸에서 다른 형식의 셀로 옮기면 그 칸이 사라지므로, 그리자마자 표로 포커스를 돌린다
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 고른 셀이 바뀔 때만 확인한다
+  useLayoutEffect(() => {
+    if (!restoreFocus.current) return;
+    restoreFocus.current = false;
+    const grid = gridRef.current;
+    if (!grid || grid.contains(document.activeElement)) return;
+    (
+      grid.querySelector<HTMLElement>("[data-grid-input]") ??
+      grid.querySelector<HTMLElement>("table")
+    )?.focus();
+  }, [active]);
 
   const columnOf = (id: string) => columns.find((c) => c.id === id);
   const caseOf = (id: string) => cases.find((c) => c.id === id);
+  // 고른 글자 셀에는 입력 칸이 미리 있어 그쪽으로, 없으면 표로 포커스를 돌린다
   const focusGrid = () =>
     requestAnimationFrame(() =>
-      gridRef.current?.querySelector<HTMLElement>("table")?.focus(),
+      (
+        gridRef.current?.querySelector<HTMLElement>("[data-grid-input]") ??
+        gridRef.current?.querySelector<HTMLElement>("table")
+      )?.focus(),
     );
   const set = (caseId: string, columnId: string, value: CellValue) =>
     onOps([{ type: "set_cell", caseId, columnId, value }]);
@@ -135,18 +159,17 @@ export function CaseTable({
       event.preventDefault();
       set(row.id, column.id, empty(column));
     } else if (
+      (event.target as HTMLElement).dataset.gridInput === "idle" &&
+      column.type === "text"
+    ) {
+      // 미리 둔 입력 칸이 글자를 그대로 받는다. 한글 조합도 끊기지 않는다.
+    } else if (
       event.key.length === 1 &&
       !event.altKey &&
       column.type === "text"
     ) {
       event.preventDefault();
       setEditing({ caseId: row.id, columnId: column.id, initial: event.key });
-    } else if (
-      (event.key === "Process" || event.nativeEvent.isComposing) &&
-      column.type === "text"
-    ) {
-      // 한글 같은 조합 입력은 키 값을 알 수 없어 빈 편집 칸을 연다
-      setEditing({ caseId: row.id, columnId: column.id, initial: "" });
     }
   };
 
@@ -211,18 +234,33 @@ export function CaseTable({
       const value = row.values[column.id];
       const isEditing =
         editing?.caseId === row.id && editing.columnId === column.id;
-      if (isEditing && column.type === "text")
+      const isActive =
+        active?.rowId === row.id && active.columnId === column.id;
+      // 고른 글자 셀에는 보이지 않는 입력 칸을 미리 두고, 치기 시작하면 같은 칸이 편집 칸이 된다.
+      // 한글처럼 조합하는 입력이 첫 키부터 이 칸에서 시작해야 글자가 빠지지 않는다.
+      if (column.type === "text" && !readOnly && (isEditing || isActive))
         return (
-          <TextEditor
-            label={column.name}
-            initial={editing.initial ?? cellText(column, value)}
-            onCommit={(next) => {
-              if (next !== cellText(column, value))
-                set(row.id, column.id, next);
-              finish();
-            }}
-            onCancel={finish}
-          />
+          <>
+            {!isEditing && <CellDisplay column={column} value={value} />}
+            <TextEditor
+              label={column.name}
+              dormant={!isEditing}
+              seed={
+                !isEditing || editing.typed
+                  ? undefined
+                  : (editing.initial ?? cellText(column, value))
+              }
+              onStart={() =>
+                setEditing({ caseId: row.id, columnId: column.id, typed: true })
+              }
+              onCommit={(next) => {
+                if (next !== cellText(column, value))
+                  set(row.id, column.id, next);
+                finish();
+              }}
+              onCancel={finish}
+            />
+          </>
         );
       if (isEditing && (column.type === "select" || column.type === "tags"))
         return (
@@ -259,15 +297,25 @@ export function CaseTable({
       onPaste={onPaste}
       // 키보드로 표에 들어오면 첫 셀을 고른다
       onFocus={(event) => {
+        if ((event.target as HTMLElement).tagName !== "TABLE") return;
+        // 셀을 누르면 브라우저가 표에 포커스를 주므로 고른 셀의 입력 칸으로 되돌린다.
+        // 키보드로 빠져나가는 포커스(Shift+Tab)는 그대로 둔다.
+        const idle = gridRef.current?.querySelector<HTMLElement>(
+          "[data-grid-input=idle]",
+        );
+        const byPointer = pointerFocus.current;
+        pointerFocus.current = false;
+        if (idle && byPointer) {
+          idle.focus();
+          return;
+        }
         const first = cases[0];
         const column = columns[0];
-        if (
-          !active &&
-          first &&
-          column &&
-          (event.target as HTMLElement).tagName === "TABLE"
-        )
+        if (!active && first && column)
           setActive({ rowId: first.id, columnId: column.id });
+      }}
+      onPointerDownCapture={() => {
+        pointerFocus.current = true;
       }}
       className="min-w-0"
     >
@@ -279,6 +327,9 @@ export function CaseTable({
         getRowId={(c) => c.id}
         activeCell={active}
         onActiveCellChange={(cell) => {
+          restoreFocus.current = Boolean(
+            gridRef.current?.contains(document.activeElement),
+          );
           if (
             editing &&
             (editing.caseId !== cell.rowId ||
@@ -315,6 +366,7 @@ export function CaseTable({
 
 const isInput = (target: EventTarget) =>
   target instanceof HTMLElement &&
+  target.dataset.gridInput !== "idle" &&
   Boolean(target.closest("input, textarea, [contenteditable=true]"));
 
 function CellDisplay({
@@ -344,35 +396,59 @@ function CellDisplay({
   return <>{v}</>;
 }
 
-/** 셀을 덮는 글자 입력. Enter로 마치고 Shift+Enter로 줄을 바꾼다. */
+/**
+ * 셀을 덮는 글자 입력. Enter로 마치고 Shift+Enter로 줄을 바꾼다.
+ * dormant이면 보이지 않게 셀에 미리 있다가, 글자를 치면 같은 칸 그대로 편집을 시작한다.
+ */
 function TextEditor({
   label,
-  initial,
+  dormant,
+  seed,
+  onStart,
   onCommit,
   onCancel,
 }: {
   label: string;
-  initial: string;
+  dormant: boolean;
+  /** 편집을 시작할 때 채울 값. 없으면 친 글자를 그대로 둔다. */
+  seed: string | undefined;
+  onStart: () => void;
   onCommit: (value: string) => void;
   onCancel: () => void;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
   const done = useRef(false);
+  const seedRef = useRef(seed);
+  seedRef.current = seed;
+  // 편집이 시작되거나 끝날 때만 칸의 값을 맞춘다. 편집 중 다른 사람의 변경이 와도 입력을 덮지 않는다.
+  // 같은 칸을 쓰므로 조합 중인 글자도 이어진다.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const start = seedRef.current;
+    if (dormant) {
+      done.current = false;
+      el.value = "";
+    } else if (start !== undefined) {
+      el.value = start;
+      el.setSelectionRange(start.length, start.length);
+    }
+    el.focus();
+  }, [dormant]);
   const commit = (value: string) => {
-    if (done.current) return;
+    if (dormant || done.current) return;
     done.current = true;
     onCommit(value);
   };
   return (
     <textarea
+      ref={ref}
       aria-label={label}
-      // biome-ignore lint/a11y/noAutofocus: 셀 편집을 시작하면 바로 입력한다
-      autoFocus
-      defaultValue={initial}
-      onFocus={(e) => {
-        const end = e.currentTarget.value.length;
-        e.currentTarget.setSelectionRange(end, end);
-      }}
+      data-grid-input={dormant ? "idle" : "editing"}
+      onInput={() => dormant && onStart()}
+      onCompositionStart={() => dormant && onStart()}
       onKeyDown={(e) => {
+        if (dormant) return;
         if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
           e.preventDefault();
           commit(e.currentTarget.value);
@@ -383,7 +459,10 @@ function TextEditor({
         }
       }}
       onBlur={(e) => commit(e.currentTarget.value)}
-      className="absolute inset-0 z-10 m-0 h-full min-h-full w-full resize-none border-0 bg-surface px-2 py-1.5 font-sans text-body-sm text-fg outline-2 -outline-offset-2 outline-accent"
+      className={cn(
+        "absolute inset-0 z-10 m-0 h-full min-h-full w-full resize-none border-0 bg-surface px-2 py-1.5 font-sans text-body-sm text-fg outline-2 -outline-offset-2 outline-accent",
+        dormant && "pointer-events-none opacity-0",
+      )}
     />
   );
 }
