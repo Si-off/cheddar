@@ -79,7 +79,7 @@ function TabsTab({
       {...rest}
       className={cn(
         "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap text-label text-fg-muted transition-colors duration-fast hover:text-fg data-selected:text-fg",
-        variant === "line" ? "h-10" : "h-7 rounded-sm px-2.5",
+        variant === "line" ? "h-11" : "h-8 rounded-sm px-3",
         className,
       )}
     >
@@ -168,13 +168,13 @@ export function NavTab({
         "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-label no-underline transition-colors duration-fast",
         variant === "line"
           ? cn(
-              "h-10 border-b-2 hover:text-fg",
+              "h-11 border-b-2 hover:text-fg",
               active
                 ? "border-accent text-fg"
                 : "border-transparent text-fg-muted",
             )
           : cn(
-              "h-8 rounded-md px-2.5 hover:bg-subtle hover:text-fg",
+              "h-9 rounded-md px-3 hover:bg-subtle hover:text-fg",
               active ? "bg-selected text-accent-text" : "text-fg-muted",
             ),
         className,

@@ -76,8 +76,8 @@ export const controlFrame =
   "rounded-md border border-line bg-surface text-fg transition-colors duration-fast hover:border-line-strong focus-within:border-accent data-invalid:border-danger has-data-invalid:border-danger has-disabled:bg-subtle has-disabled:text-fg-muted";
 
 export const controlHeight = {
-  sm: "h-7 text-body-sm",
-  md: "h-8 text-body",
-  lg: "h-10 text-body",
+  sm: "h-8 text-body-sm",
+  md: "h-9 text-body",
+  lg: "h-11 text-body",
 } as const;
 export type ControlSize = keyof typeof controlHeight;

@@ -30,7 +30,7 @@ export function ToastProvider({
     <BaseToast.Provider toastManager={toaster?.manager}>
       {children}
       <BaseToast.Portal>
-        <BaseToast.Viewport className="fixed right-6 bottom-6 z-50 flex w-80 max-w-full flex-col gap-2 outline-none">
+        <BaseToast.Viewport className="fixed bottom-6 left-1/2 z-50 flex w-80 max-w-full -translate-x-1/2 flex-col gap-2 outline-none">
           <ToastList />
         </BaseToast.Viewport>
       </BaseToast.Portal>
@@ -46,7 +46,7 @@ function ToastList() {
       <BaseToast.Root
         key={toast.id}
         toast={toast}
-        className="flex items-start gap-2 rounded-lg bg-inverse px-4 py-3 text-body-sm text-fg-inverse shadow-popover transition duration-base ease-emphasized data-ending-style:translate-x-4 data-ending-style:opacity-0 data-starting-style:translate-y-2 data-starting-style:opacity-0"
+        className="flex items-start gap-2 rounded-lg bg-inverse px-4 py-3 text-body-sm text-fg-inverse shadow-popover transition duration-base ease-emphasized data-ending-style:translate-y-2 data-ending-style:opacity-0 data-starting-style:translate-y-2 data-starting-style:opacity-0"
       >
         {icon && <Icon icon={icon} className="mt-0.5" />}
         <BaseToast.Content className="flex min-w-0 flex-1 flex-col">

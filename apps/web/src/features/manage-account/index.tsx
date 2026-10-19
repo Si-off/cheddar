@@ -540,7 +540,7 @@ function ScopePicker({
           <button
             type="button"
             aria-label={`범위: ${label}`}
-            className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-left text-body-sm text-fg outline-none transition-colors duration-fast hover:border-line-strong focus-visible:border-accent data-popup-open:border-accent"
+            className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-line bg-surface px-3 text-left text-body-sm text-fg outline-none transition-colors duration-fast hover:border-line-strong focus-visible:border-accent data-popup-open:border-accent"
           />
         }
       >

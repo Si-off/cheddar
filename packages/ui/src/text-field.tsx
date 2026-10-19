@@ -46,7 +46,7 @@ export function TextField({
     >
       <div
         className={cn(
-          "flex items-center gap-2 px-2.5",
+          "flex items-center gap-2 px-3",
           controlFrame,
           controlHeight[size],
         )}
@@ -102,7 +102,7 @@ export function TextArea({
         render={<textarea {...rest} rows={rows} required={required} />}
         className={cn(
           controlFrame,
-          "min-h-20 resize-y px-2.5 py-1.5 text-body outline-none placeholder:text-fg-faint focus:border-accent data-invalid:border-danger",
+          "min-h-20 resize-y px-3 py-2 text-body outline-none placeholder:text-fg-faint focus:border-accent data-invalid:border-danger",
         )}
       />
     </Field>

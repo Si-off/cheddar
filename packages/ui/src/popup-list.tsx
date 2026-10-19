@@ -6,7 +6,7 @@ export const popupFrame =
   "max-h-72 overflow-auto rounded-lg border border-line bg-surface p-1 shadow-popover outline-none transition duration-base ease-emphasized data-ending-style:-translate-y-1 data-ending-style:opacity-0 data-starting-style:-translate-y-1 data-starting-style:opacity-0";
 
 export const popupItem =
-  "relative flex min-h-8 cursor-default select-none items-center gap-2 rounded-md px-2 py-1 text-body-sm text-fg outline-none data-disabled:text-fg-faint";
+  "relative flex min-h-9 cursor-default select-none items-center gap-2 rounded-md px-2.5 py-1.5 text-body-sm text-fg outline-none data-disabled:text-fg-faint";
 
 /** 강조된 항목 뒤의 배경. 같은 layoutId끼리 항목 사이를 미끄러진다. */
 export function PopupHighlight({

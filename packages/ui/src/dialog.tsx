@@ -78,7 +78,7 @@ function DialogHeader({
       {closable && (
         <BaseDialog.Close
           aria-label="닫기"
-          className="grid size-7 place-items-center rounded-md text-fg-muted hover:bg-subtle hover:text-fg"
+          className="grid size-8 place-items-center rounded-md text-fg-muted hover:bg-subtle hover:text-fg"
         >
           <Icon icon={X} size="sm" />
         </BaseDialog.Close>

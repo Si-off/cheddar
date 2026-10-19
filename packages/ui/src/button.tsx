@@ -18,9 +18,9 @@ export const buttonVariants = cva(
         danger: "border-transparent bg-danger text-on-danger hover:opacity-90",
       },
       size: {
-        sm: "h-7 px-2.5",
-        md: "h-8 px-3",
-        lg: "h-10 px-4 text-body",
+        sm: "h-8 px-3",
+        md: "h-9 px-3.5",
+        lg: "h-11 px-5 text-body",
       },
       block: { true: "w-full" },
     },
@@ -74,7 +74,7 @@ const iconButtonVariants = cva(
   "inline-flex shrink-0 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors duration-fast hover:bg-subtle hover:text-fg disabled:opacity-50 aria-pressed:bg-selected aria-pressed:text-accent-text",
   {
     variants: {
-      size: { sm: "size-7", md: "size-8" },
+      size: { sm: "size-8", md: "size-9" },
       variant: { ghost: "", solid: "border-line bg-surface" },
     },
     defaultVariants: { size: "md", variant: "ghost" },

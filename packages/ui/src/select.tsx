@@ -62,7 +62,7 @@ export function Select({
         <BaseSelect.Trigger
           aria-label={ariaLabel}
           className={cn(
-            "flex w-full items-center gap-2 px-2.5 text-left",
+            "flex w-full items-center gap-2 px-3 text-left",
             controlFrame,
             controlHeight[size],
           )}
