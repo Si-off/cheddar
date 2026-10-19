@@ -100,6 +100,19 @@ export function UploadPage({
     (selection.unsupportedCount > 0 || selection.emptySectionCount > 0);
 
   const release = (upload: FrameUpload) => releaseFrameUpload(upload.sessionId);
+  const loginEnded = () =>
+    sdk.getMe({ throwOnError: true }).then(
+      () => false,
+      (error) => toApiFailure(error).code === "UNAUTHENTICATED",
+    );
+  const signOut = (upload: FrameUpload) => {
+    release(upload);
+    onSignedOut();
+    toast.show({
+      tone: "danger",
+      message: "로그인이 해제되었습니다. 로그인 후 프레임을 다시 올리세요.",
+    });
+  };
   const finish = async (upload: FrameUpload, signal: AbortSignal) => {
     const failed = await upload.extract(
       (nodeId) => exportSelectedFrame(upload.sessionId, nodeId),
@@ -117,6 +130,8 @@ export function UploadPage({
       return;
     }
     setPhase({ name: "uploading", upload, posting: true });
+    // 로그인이 끝났으면 이미지를 보내는 동안 기다리게 하지 않고 바로 로그인 화면으로 보낸다
+    if (await loginEnded()) return signOut(upload);
     // 다시 시도 사이에 문서가 바뀌었으면 이전에 읽은 내용을 보내지 않는다
     await validateFrameUpload(upload.sessionId);
     const { manifest, images } = upload.payload();
@@ -136,11 +151,12 @@ export function UploadPage({
       );
     } catch (error) {
       const failure = toApiFailure(error);
-      if (failure.code === "UNAUTHENTICATED") {
-        release(upload);
-        onSignedOut();
-        return;
-      }
+      // 보내는 사이 로그인이 끝나면 서버가 이미지를 다 받기 전에 응답해 브라우저는 연결 오류로 본다
+      if (
+        failure.code === "UNAUTHENTICATED" ||
+        (failure.code === "NETWORK" && (await loginEnded()))
+      )
+        return signOut(upload);
       setPhase({ name: "failed", upload });
       toast.show({ tone: "danger", message: failure.message });
     }
