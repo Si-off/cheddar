@@ -14,6 +14,7 @@ import { Download, Eye, FileX, Link2Off, Search } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import {
   cellText,
+  groupable,
   type SharedTestSet,
   sharedTestSetQuery,
   type TestSet,
@@ -24,6 +25,7 @@ import {
 } from "@/features/collaborate-test-set";
 import { useCaseOps } from "@/features/edit-cases";
 import { useExportSharedXlsx } from "@/features/export-xlsx";
+import { sharedViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk } from "@/shared/api";
 import { CaseTable } from "@/widgets/case-table";
 
@@ -110,6 +112,15 @@ function SharedScreen({
     if (live.closed === "session-expired") window.location.reload();
   }, [live.closed]);
   const exportXlsx = useExportSharedXlsx(linkToken, testSet.name);
+  // 방문자도 열 너비와 행 높이를 사람마다 따로 기억한다
+  const [view, setView] = useTestSetView(sharedViewSource(linkToken), {
+    columnIds: testSet.columns.map((c) => c.id),
+    // 묶기 화면은 없지만 같은 계정의 보기 설정을 함께 쓰므로 묶기 기준을 지우지 않게 한다
+    groupableColumnIds: testSet.columns
+      .filter((c) => groupable(c.type))
+      .map((c) => c.id),
+    caseIds: testSet.cases.map((c) => c.id),
+  });
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim().toLowerCase());
 
@@ -135,15 +146,12 @@ function SharedScreen({
     (p) => p.connectionId !== live.me?.connectionId,
   );
   const addCase = () => {
+    const caseId = crypto.randomUUID();
     const last = testSet.cases[testSet.cases.length - 1];
     apply([
-      {
-        type: "add_case",
-        caseId: crypto.randomUUID(),
-        afterCaseId: last?.id ?? null,
-        values: {},
-      },
+      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values: {} },
     ]);
+    return caseId;
   };
 
   return (
@@ -223,6 +231,10 @@ function SharedScreen({
           onAddCase={addCase}
           presence={live.presence}
           onActiveCellChange={live.select}
+          columnWidths={view.columnWidths}
+          rowHeights={view.rowHeights}
+          onColumnWidthsChange={(columnWidths) => setView({ columnWidths })}
+          onRowHeightsChange={(rowHeights) => setView({ rowHeights })}
         />
       </main>
     </div>

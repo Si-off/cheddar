@@ -252,10 +252,13 @@ export function DataGrid<Row>({
 
   const onKeyDown = (event: KeyboardEvent<HTMLTableElement>) => {
     if (!activeCell) return;
+    const target = event.target as HTMLElement;
+    // 셀에 미리 두는 입력 칸(data-grid-input="idle")은 편집 전이라 표 키 조작을 그대로 받는다
     if (
-      (event.target as HTMLElement).closest(
+      target.closest(
         "input, textarea, button, [role=menu], [role=listbox], [contenteditable=true], [role=separator]",
-      )
+      ) &&
+      !target.closest("[data-grid-input=idle]")
     )
       return;
     if (
@@ -366,7 +369,7 @@ export function DataGrid<Row>({
                 <span className="block truncate">{column.header}</span>
                 <ColumnResizeHandle
                   label={
-                    typeof column.header === "string"
+                    typeof column.header === "string" && column.header
                       ? `${column.header} 너비`
                       : "열 너비"
                   }

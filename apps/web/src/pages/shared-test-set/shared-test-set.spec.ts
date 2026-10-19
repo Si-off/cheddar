@@ -71,3 +71,64 @@ test("바뀌었거나 닫힌 링크는 열 수 없다고 알린다", async ({ pa
   await page.goto(`/s/${TOKEN}`);
   await expect(page.getByText("열 수 없는 링크입니다")).toBeVisible();
 });
+
+test("방문자가 바꾼 열 너비는 공개 링크 경로로 저장해 다음에도 그대로 연다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": unauthenticated,
+    [`GET /api/v1/shared/${TOKEN}`]: shared(false),
+    [`GET /api/v1/shared/${TOKEN}/view`]: {
+      view: "table",
+      groupByColumnId: null,
+      columnWidths: {},
+      rowHeights: {},
+    },
+    [`PUT /api/v1/shared/${TOKEN}/view`]: (_route: unknown, body: unknown) =>
+      body,
+  });
+  await page.goto(`/s/${TOKEN}`);
+  const handle = page.getByRole("separator", { name: "제목 너비" });
+  const before = Number(await handle.getAttribute("aria-valuenow"));
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(
+      () =>
+        (
+          calls
+            .filter((c) => c.key === `PUT /api/v1/shared/${TOKEN}/view`)
+            .at(-1)?.body as
+            | { columnWidths?: Record<string, number> }
+            | undefined
+        )?.columnWidths?.["c-title"],
+    )
+    .toBeGreaterThan(before);
+});
+
+test("공개 링크에서 열 너비를 바꿔도 다른 화면에서 정한 묶기 기준은 그대로 둔다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": unauthenticated,
+    [`GET /api/v1/shared/${TOKEN}`]: shared(false),
+    [`GET /api/v1/shared/${TOKEN}/view`]: {
+      view: "table",
+      groupByColumnId: "c-pri",
+      columnWidths: {},
+      rowHeights: {},
+    },
+    [`PUT /api/v1/shared/${TOKEN}/view`]: (_route: unknown, body: unknown) =>
+      body,
+  });
+  await page.goto(`/s/${TOKEN}`);
+  await page.getByRole("separator", { name: "제목 너비" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(
+      () =>
+        calls.filter((c) => c.key === `PUT /api/v1/shared/${TOKEN}/view`).at(-1)
+          ?.body,
+    )
+    .toMatchObject({ groupByColumnId: "c-pri" });
+});

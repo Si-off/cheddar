@@ -67,6 +67,14 @@ function useThumbnails(selection: FrameSelection | null) {
 }
 
 // 세션이 끝났거나 문서가 바뀌면 같은 세션으로는 다시 시도할 수 없다
+// 프레임을 올리지 못한 이유를 사용자가 할 수 있는 일로 알려준다. 이유가 섞이면 다시 시도를 안내한다.
+const failureHint = (code: string | null) =>
+  code === "IMAGE_TOO_LARGE"
+    ? "프레임 이미지가 20MB를 넘습니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
+    : code === "DATA_TOO_LARGE"
+      ? "프레임 내용이 5MB를 넘습니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
+      : "다시 시도하세요.";
+
 const sessionLost = (error: unknown) =>
   error instanceof FigmaExportError &&
   ["SESSION_EXPIRED", "FRAME_CHANGED", "DISCONNECTED"].includes(error.code);
@@ -92,6 +100,19 @@ export function UploadPage({
     (selection.unsupportedCount > 0 || selection.emptySectionCount > 0);
 
   const release = (upload: FrameUpload) => releaseFrameUpload(upload.sessionId);
+  const loginEnded = () =>
+    sdk.getMe({ throwOnError: true }).then(
+      () => false,
+      (error) => toApiFailure(error).code === "UNAUTHENTICATED",
+    );
+  const signOut = (upload: FrameUpload) => {
+    release(upload);
+    onSignedOut();
+    toast.show({
+      tone: "danger",
+      message: "로그인이 해제되었습니다. 로그인 후 프레임을 다시 올리세요.",
+    });
+  };
   const finish = async (upload: FrameUpload, signal: AbortSignal) => {
     const failed = await upload.extract(
       (nodeId) => exportSelectedFrame(upload.sessionId, nodeId),
@@ -104,11 +125,13 @@ export function UploadPage({
       setPhase({ name: "failed", upload });
       toast.show({
         tone: "danger",
-        message: `${failed}개를 올리지 못했습니다`,
+        message: `프레임 ${failed}개를 올리지 못했습니다. ${failureHint(upload.commonFailure)}`,
       });
       return;
     }
     setPhase({ name: "uploading", upload, posting: true });
+    // 로그인이 끝났으면 이미지를 보내는 동안 기다리게 하지 않고 바로 로그인 화면으로 보낸다
+    if (await loginEnded()) return signOut(upload);
     // 다시 시도 사이에 문서가 바뀌었으면 이전에 읽은 내용을 보내지 않는다
     await validateFrameUpload(upload.sessionId);
     const { manifest, images } = upload.payload();
@@ -128,11 +151,12 @@ export function UploadPage({
       );
     } catch (error) {
       const failure = toApiFailure(error);
-      if (failure.code === "UNAUTHENTICATED") {
-        release(upload);
-        onSignedOut();
-        return;
-      }
+      // 보내는 사이 로그인이 끝나면 서버가 이미지를 다 받기 전에 응답해 브라우저는 연결 오류로 본다
+      if (
+        failure.code === "UNAUTHENTICATED" ||
+        (failure.code === "NETWORK" && (await loginEnded()))
+      )
+        return signOut(upload);
       setPhase({ name: "failed", upload });
       toast.show({ tone: "danger", message: failure.message });
     }

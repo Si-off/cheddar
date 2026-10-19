@@ -118,6 +118,29 @@ test("케이스를 추가하면 서버가 붙인 번호가 보이고, 고른 케
   ]);
 });
 
+test("케이스를 추가한 뒤 바로 치면 새 케이스의 제목이 된다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await page.getByRole("button", { name: "케이스 추가", exact: true }).click();
+  await expect(cell(page, 3, "테스트 ID")).toHaveText("TC-003");
+  await page.keyboard.type("New title");
+  await page.keyboard.press("Enter");
+  // 목 서버는 셀 변경을 응답에 담지 않으므로 보낸 변경으로 확인한다
+  await expect
+    .poll(() => opsBodies(calls).flat())
+    .toContainEqual({
+      type: "set_cell",
+      caseId: expect.any(String),
+      columnId: "c-title",
+      value: "New title",
+    });
+});
+
 test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에 맞는 값만 바꾼다", async ({
   page,
 }) => {
@@ -377,4 +400,60 @@ test("먼저 보낸 저장의 응답이 늦게 와도 그 뒤에 고친 값을 �
   await expect.poll(() => count).toBe(2);
   await expect(cell(page, 1, "예상 결과")).toHaveText("첫 수정");
   await expect(cell(page, 1, "우선순위")).toHaveText("");
+});
+
+test("셀을 고르고 바로 한글을 조합해 치면 첫 글자부터 빠짐없이 들어간다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click();
+
+  // 운영체제 입력기처럼 키를 누르면 조합이 시작되고, 조합이 끝나면 글자가 확정된다
+  const cdp = await page.context().newCDPSession(page);
+  const compose = async (steps: string[], done: string) => {
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "rawKeyDown",
+      key: "Process",
+      windowsVirtualKeyCode: 229,
+    });
+    for (const text of steps)
+      await cdp.send("Input.imeSetComposition", {
+        text,
+        selectionStart: text.length,
+        selectionEnd: text.length,
+      });
+    await cdp.send("Input.insertText", { text: done });
+  };
+  await compose(["ㅎ", "하", "한"], "한");
+  await compose(["ㄱ", "그", "글"], "글");
+  await page.getByRole("textbox", { name: "예상 결과" }).press("Enter");
+
+  await expect(cell(page, 1, "예상 결과")).toHaveText("한글");
+  expect(
+    calls.find((c) => c.key === "POST /api/v1/test-sets/t1/ops")?.body,
+  ).toMatchObject({
+    ops: [{ type: "set_cell", columnId: "c-exp", value: "한글" }],
+  });
+});
+
+test("글자 셀에서 방향키로 선택 항목 셀로 옮겨도 키보드 조작이 이어진다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Delete");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: null },
+    ]);
 });

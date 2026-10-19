@@ -72,3 +72,31 @@ test("문서가 바뀌면 남은 프레임을 모두 실패로 두고 멈춘다"
   );
   assert.deepEqual([...upload.states.values()], ["done", "failed", "failed"]);
 });
+
+test("실패 이유가 모두 같을 때만 그 이유를 알려준다", async () => {
+  const frames = [
+    { nodeId: "1", name: "A", width: 10, height: 10 },
+    { nodeId: "2", name: "B", width: 10, height: 10 },
+  ];
+  const same = new FrameUpload("s", frames);
+  await same.extract(
+    async () => {
+      throw new Error("IMAGE_TOO_LARGE");
+    },
+    async () => [],
+    () => {},
+    new AbortController().signal,
+  );
+  assert.equal(same.commonFailure, "IMAGE_TOO_LARGE");
+
+  const mixed = new FrameUpload("s", frames);
+  await mixed.extract(
+    async (nodeId) => {
+      throw new Error(nodeId === "1" ? "IMAGE_TOO_LARGE" : "DATA_TOO_LARGE");
+    },
+    async () => [],
+    () => {},
+    new AbortController().signal,
+  );
+  assert.equal(mixed.commonFailure, null);
+});

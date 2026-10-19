@@ -391,3 +391,57 @@ test("늦게 온 내 저장 응답이 그 뒤 다른 사람이 고친 값을 되
   await expect(table).toContainText("수달이 고친 결과");
   await expect(table).toContainText("내가 고친 제목");
 });
+
+test("편집하는 동안 다른 사람이 같은 셀을 바꿔도 입력 중인 글자를 덮지 않는다", async ({
+  page,
+}) => {
+  const first = liveSet.cases[0];
+  const titleId = columnId("c-title");
+  let socket: WebSocketRoute | undefined;
+  await mockApi(
+    page,
+    {
+      "GET /api/v1/auth/me": me(),
+      ...testSetResponses({ "GET /api/v1/test-sets/t1": liveSet }),
+    },
+    {
+      live: (ws) => {
+        socket = ws;
+        ws.onMessage((message) => {
+          if (JSON.parse(String(message)).type === "hello") welcome(ws);
+        });
+      },
+    },
+  );
+  await page.goto("/test-sets/t1");
+  await expect(
+    page.getByRole("listitem", { name: "춤추는 수달 (방문자)" }),
+  ).toBeVisible();
+  const table = page.getByRole("table", { name: "케이스" });
+  await table.getByText(String(first.values[titleId])).click();
+  await page.keyboard.press("Enter");
+  const editor = page.getByRole("textbox", { name: "제목" });
+  await editor.fill("내가 쓰는 중");
+  socket?.send(
+    JSON.stringify({
+      type: "ops",
+      version: testSet.version + 1,
+      ops: [
+        {
+          type: "set_cell",
+          caseId: first.id,
+          columnId: titleId,
+          value: "수달이 먼저 고침",
+        },
+      ],
+      connectionId: "00000000-0000-4000-8000-000000000002",
+      actor: {
+        kind: "visitor",
+        id: "00000000-0000-4000-8000-0000000000b1",
+        name: "춤추는 수달",
+      },
+    }),
+  );
+  await page.waitForTimeout(300);
+  await expect(editor).toHaveValue("내가 쓰는 중");
+});

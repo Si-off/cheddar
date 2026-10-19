@@ -43,6 +43,19 @@ test("사용량은 허용된 숫자만 저장하고 캐시와 추론을 중복 �
     }),
     "0.0046000000",
   );
+  // 새로 쓰는 GPT 모델도 비용을 계산하고, 272K 입력을 넘으면 장문 가격을 쓴다
+  const long = {
+    inputTokens: 1000000,
+    outputTokens: 1000000,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  };
+  assert.equal(costFor("openai:gpt-6-luna", long), "0.9500000000");
+  assert.equal(costFor("openai:gpt-5.6-terra", long), "22.0000000000");
+  assert.equal(
+    costFor("openai:gpt-5.6-terra", { ...long, inputTokens: 200000 }),
+    "12.4000000000",
+  );
   for (const raw of [
     undefined,
     {},
@@ -327,7 +340,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
         const service = f.app.get(AiUsageService);
         const request: AiRequest = {
           definition: DEFINITIONS.screens,
-          model: { provider: "openai", model: "gpt-5.4" },
+          model: { provider: "openai", model: "gpt-5.4", effort: "high" },
           schema: {},
           context,
           sourceData: {},
@@ -366,13 +379,16 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
           assert.equal(rows[0].calculatedCostUsd, "0.004600000000");
           assert.equal(
             (rows[0].pricing as { version: string }).version,
-            "2026-10-19",
+            "2026-10-20",
           );
           assert.doesNotMatch(JSON.stringify(rows), /비밀/);
           await service.generate(
             target,
             { generate: async () => ({ text: "", usage }) },
-            { ...request, model: { provider: "openai", model: "unknown" } },
+            {
+              ...request,
+              model: { provider: "openai", model: "unknown", effort: "high" },
+            },
           );
           await assert.rejects(
             service.generate(
@@ -413,7 +429,11 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
         const service = f.app.get(AiUsageService);
         const request: AiRequest = {
           definition: DEFINITIONS.screens,
-          model: { provider: "anthropic", model: "claude-haiku-5-5" },
+          model: {
+            provider: "anthropic",
+            model: "claude-haiku-5-5",
+            effort: "low",
+          },
           schema: {},
           context,
           sourceData: {},
@@ -545,7 +565,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
         const service = f.app.get(AiUsageService);
         const request: AiRequest = {
           definition: DEFINITIONS.screens,
-          model: { provider: "openai", model: "gpt-5.4" },
+          model: { provider: "openai", model: "gpt-5.4", effort: "high" },
           schema: {},
           context,
           sourceData: {},

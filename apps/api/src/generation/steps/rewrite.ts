@@ -4,7 +4,6 @@ export const rewrite: StepDefinition = {
   key: "rewrite",
   displayStage: null,
   version: "rewrite-2",
-  effort: "high",
   maxTokens: 12000,
   timeoutMs: 180000,
   retries: 2,

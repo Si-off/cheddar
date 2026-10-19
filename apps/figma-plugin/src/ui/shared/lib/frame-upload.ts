@@ -10,6 +10,8 @@ type Extracted = { name: string; document: unknown; images: Blob[] };
 export class FrameUpload {
   private readonly extracted = new Map<string, Extracted>();
   readonly states = new Map<string, FrameState>();
+  /** 실패한 프레임의 이유 코드(예: IMAGE_TOO_LARGE) */
+  readonly failures = new Map<string, string>();
 
   constructor(
     readonly sessionId: string,
@@ -47,8 +49,13 @@ export class FrameUpload {
           images: await slice(image),
         });
         this.states.set(frame.nodeId, "done");
+        this.failures.delete(frame.nodeId);
       } catch (error) {
         this.states.set(frame.nodeId, "failed");
+        this.failures.set(
+          frame.nodeId,
+          error instanceof Error ? error.message : "UNKNOWN",
+        );
         // 세션이 끝났거나 문서가 바뀌면 남은 프레임도 같은 이유로 실패한다
         if (
           error instanceof Error &&
@@ -66,6 +73,12 @@ export class FrameUpload {
       onChange();
     }
     return this.failedCount;
+  }
+
+  /** 실패한 프레임이 모두 같은 이유로 실패했으면 그 코드, 섞였으면 null */
+  get commonFailure() {
+    const codes = new Set(this.failures.values());
+    return codes.size === 1 ? ([...codes][0] ?? null) : null;
   }
 
   /** 서버에 보낼 내용. 모든 프레임을 추출한 뒤에만 부른다. */

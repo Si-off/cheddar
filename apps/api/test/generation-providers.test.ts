@@ -118,6 +118,36 @@ test("두 SDK의 모든 단계 전송 스키마는 공통 지원 키워드만 �
   assert.throws(() => validateSchema({ type: "string", minLength: 1 }, ""));
 });
 
+test("단계에 정한 effort를 Claude와 GPT 요청에 그대로 보낸다", async () => {
+  const sent: unknown[] = [];
+  const fetch: typeof globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    sent.push(body.output_config?.effort ?? body.reasoning?.effort);
+    return new Response(
+      '{"error":{"message":"검사 종료","type":"invalid_request_error"}}',
+      { status: 400 },
+    );
+  };
+  for (const provider of providers(fetch))
+    await assert.rejects(
+      provider.generate({
+        ...request(),
+        model: { ...request().model, effort: "xhigh" },
+      }),
+    );
+  assert.deepEqual(sent, ["xhigh", "xhigh"]);
+  // effort를 받지 않는 모델은 default로 두면 보내지 않는다
+  sent.length = 0;
+  for (const provider of providers(fetch))
+    await assert.rejects(
+      provider.generate({
+        ...request(),
+        model: { ...request().model, effort: "default" },
+      }),
+    );
+  assert.deepEqual(sent, [undefined, undefined]);
+});
+
 test("SDK 사용자 중단 오류로 감싸진 시간 초과는 재시도하고 서버 종료는 재시도하지 않음", async () => {
   const fetch: typeof globalThis.fetch = async (_url, init) =>
     new Promise((_resolve, reject) => {
