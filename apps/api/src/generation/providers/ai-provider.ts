@@ -56,3 +56,7 @@ export function stableInstructions(r: AiRequest) {
     featureGroups: r.context.featureGroups,
   });
 }
+// 제공자 오류 메시지에 키 일부가 섞일 수 있어 키 형태의 문자열을 지운 뒤 기록한다.
+export function failureLog(status: number | undefined, message: string) {
+  return `${status ?? "-"} ${message.replace(/sk-[\w*.-]+/g, "[키 생략]")}`;
+}

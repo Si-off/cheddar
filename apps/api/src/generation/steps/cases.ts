@@ -3,7 +3,7 @@ import type { StepDefinition } from "../types";
 export const cases: StepDefinition = {
   key: "cases",
   displayStage: "cases",
-  version: "cases-1",
+  version: "cases-2",
   effort: "high",
   maxTokens: 32000,
   timeoutMs: 300000,

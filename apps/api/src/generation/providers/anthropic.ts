@@ -1,14 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { Logger } from "@nestjs/common";
 import { SYSTEM_PROMPT } from "../steps";
 import {
   AiFailure,
   type AiProvider,
   type AiRequest,
   type AiResponse,
+  failureLog,
   requestData,
   stableInstructions,
 } from "./ai-provider";
 import { requestSchema } from "./request-schema";
+
+const logger = new Logger("AnthropicProvider");
 
 export class AnthropicProvider implements AiProvider {
   constructor(private readonly client?: Anthropic) {}
@@ -90,6 +94,11 @@ export class AnthropicProvider implements AiProvider {
       if (r.signal?.aborted) throw new AiFailure("AI_ABORTED", false);
       if (deadline.aborted) throw new AiFailure("AI_TIMEOUT", true);
       if (error instanceof AiFailure) throw error;
+      logger.warn(
+        error instanceof Anthropic.APIError
+          ? failureLog(error.status, error.message)
+          : failureLog(undefined, String(error)),
+      );
       if (
         error instanceof Anthropic.RateLimitError ||
         error instanceof Anthropic.APIConnectionError ||

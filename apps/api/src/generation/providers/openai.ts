@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common";
 import OpenAI from "openai";
 import { SYSTEM_PROMPT } from "../steps";
 import {
@@ -5,10 +6,13 @@ import {
   type AiProvider,
   type AiRequest,
   type AiResponse,
+  failureLog,
   requestData,
   stableInstructions,
 } from "./ai-provider";
 import { requestSchema } from "./request-schema";
+
+const logger = new Logger("OpenAIProvider");
 export class OpenAiProvider implements AiProvider {
   constructor(private readonly client?: OpenAI) {}
   async generate(r: AiRequest): Promise<AiResponse> {
@@ -77,6 +81,11 @@ export class OpenAiProvider implements AiProvider {
       if (r.signal?.aborted) throw new AiFailure("AI_ABORTED", false);
       if (deadline.aborted) throw new AiFailure("AI_TIMEOUT", true);
       if (error instanceof AiFailure) throw error;
+      logger.warn(
+        error instanceof OpenAI.APIError
+          ? failureLog(error.status, error.message)
+          : failureLog(undefined, String(error)),
+      );
       if (
         error instanceof OpenAI.RateLimitError ||
         error instanceof OpenAI.APIConnectionError ||

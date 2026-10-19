@@ -3,7 +3,7 @@ import type { StepDefinition } from "../types";
 export const finish: StepDefinition = {
   key: "finish",
   displayStage: "finish",
-  version: "finish-1",
+  version: "finish-2",
   effort: "low",
   maxTokens: 32000,
   timeoutMs: 300000,

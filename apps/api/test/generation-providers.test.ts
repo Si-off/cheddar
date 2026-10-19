@@ -7,6 +7,7 @@ import { validateSchema } from "../src/generation/output-schema";
 import {
   AiFailure,
   type AiRequest,
+  failureLog,
 } from "../src/generation/providers/ai-provider";
 import { AnthropicProvider } from "../src/generation/providers/anthropic";
 import { OpenAiProvider } from "../src/generation/providers/openai";
@@ -59,6 +60,8 @@ function checkSchema(schema: JsonSchema) {
     "minimum",
   ])
     assert.ok(!Object.hasOwn(schema, key), key);
+  // 선택 항목처럼 null을 허용하는 enum도 Anthropic이 거부하지 않는 형태여야 한다
+  if (schema.enum) assert.equal(typeof schema.type, "string");
   if (schema.type === "object") {
     assert.equal(schema.additionalProperties, false);
     assert.deepEqual(schema.required, Object.keys(schema.properties ?? {}));
@@ -146,4 +149,17 @@ test("SDK 사용자 중단 오류로 감싸진 시간 초과는 재시도하고 
       clearTimeout(timer);
     }
   }
+});
+
+test("제공자 오류 기록에는 키가 남지 않음", () => {
+  const log = failureLog(
+    401,
+    "Incorrect API key provided: sk-proj-abc1****wxyz. You can find your API key at ...",
+  );
+  assert.match(log, /^401 /);
+  assert.doesNotMatch(log, /sk-|abc1|wxyz/);
+  assert.doesNotMatch(
+    failureLog(400, "invalid x-api-key sk-ant-api03-Zz_9"),
+    /sk-ant|Zz_9/,
+  );
 });

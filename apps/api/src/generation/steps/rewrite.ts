@@ -3,7 +3,7 @@ import type { StepDefinition } from "../types";
 export const rewrite: StepDefinition = {
   key: "rewrite",
   displayStage: null,
-  version: "rewrite-1",
+  version: "rewrite-2",
   effort: "high",
   maxTokens: 12000,
   timeoutMs: 180000,

@@ -3,7 +3,7 @@ import type { StepDefinition } from "../types";
 export const flows: StepDefinition = {
   key: "flows",
   displayStage: "flows",
-  version: "flows-1",
+  version: "flows-2",
   effort: "high",
   maxTokens: 20000,
   timeoutMs: 240000,
