@@ -4,7 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { currentAccountQuery } from "@/entities/account";
 import { CreateTestSetForm } from "@/features/create-test-set";
 
-export function TestSetNewPage() {
+export function TestSetNewPage({ uploadId }: { uploadId?: string }) {
   const navigate = useNavigate();
   const { data: account } = useSuspenseQuery(currentAccountQuery());
   return (
@@ -20,8 +20,15 @@ export function TestSetNewPage() {
       </div>
       <CreateTestSetForm
         permissions={account.permissions}
-        onCreated={(testSetId) =>
-          navigate({ to: "/test-sets/$testSetId", params: { testSetId } })
+        uploadId={uploadId}
+        onCreated={(testSetId, generating, confirmStart) =>
+          generating
+            ? navigate({
+                to: "/test-sets/$testSetId/generating",
+                params: { testSetId },
+                search: { confirm: confirmStart },
+              })
+            : navigate({ to: "/test-sets/$testSetId", params: { testSetId } })
         }
       />
     </main>

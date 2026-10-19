@@ -1,4 +1,5 @@
 import {
+  Banner,
   Breadcrumb,
   BreadcrumbItem,
   Button,
@@ -16,16 +17,23 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  CircleHelp,
   Columns3,
   Download,
   FileQuestion,
   MoreHorizontal,
   Search,
   SlidersHorizontal,
+  Sparkles,
   Table2,
   Trash2,
 } from "lucide-react";
 import { useDeferredValue, useState } from "react";
+import {
+  currentGenerationQuery,
+  reviewItemsQuery,
+  tempUploadQuery,
+} from "@/entities/generation";
 import {
   type ColumnErrors,
   fromTemplateDraft,
@@ -46,18 +54,28 @@ import {
 import { useCaseOps } from "@/features/edit-cases";
 import { useSaveColumns } from "@/features/edit-test-set-columns";
 import { useExportXlsx } from "@/features/export-xlsx";
+import { GenerateSheet } from "@/features/generate-cases";
 import {
   DeleteTestSetDialog,
   RenameTestSetDialog,
 } from "@/features/manage-test-set";
+import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { useTestSetView } from "@/features/test-set-view";
 import { isApiFailure } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
 import { CaseDialog } from "@/widgets/case-dialog";
 import { CaseTable } from "@/widgets/case-table";
 import { ColumnsEditor } from "@/widgets/columns-editor";
+import { ReviewPanel } from "@/widgets/review-panel";
 
-export function TestSetPage({ testSetId }: { testSetId: string }) {
+export function TestSetPage({
+  testSetId,
+  uploadId,
+}: {
+  testSetId: string;
+  /** 플러그인에서 올린 프레임 묶음(케이스 추가 생성에 쓴다) */
+  uploadId?: string;
+}) {
   const testSet = useQuery({
     ...testSetQuery(testSetId),
     meta: { quietCodes: ["NOT_FOUND"] },
@@ -85,10 +103,16 @@ export function TestSetPage({ testSetId }: { testSetId: string }) {
       </main>
     );
   if (!testSet.data) return null;
-  return <TestSetScreen testSet={testSet.data} />;
+  return <TestSetScreen testSet={testSet.data} uploadId={uploadId} />;
 }
 
-function TestSetScreen({ testSet }: { testSet: TestSet }) {
+function TestSetScreen({
+  testSet,
+  uploadId,
+}: {
+  testSet: TestSet;
+  uploadId?: string;
+}) {
   const navigate = useNavigate();
   const { apply, state } = useCaseOps(testSet.id);
   const [view, setView] = useTestSetView(testSet.id, {
@@ -103,10 +127,33 @@ function TestSetScreen({ testSet }: { testSet: TestSet }) {
   const query = useDeferredValue(search.trim().toLowerCase());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<"columns" | "rename" | "delete" | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<
+    "columns" | "rename" | "delete" | "generate" | null
+  >(null);
   const readOnly = !testSet.access.canEdit;
+  const generation = useQuery(currentGenerationQuery(testSet.id)).data;
+  const active =
+    generation?.status === "queued" || generation?.status === "running";
+  // 다시 작성은 확인 필요 패널에서 보여주므로 케이스 생성만 진행 중으로 본다
+  const running = active && generation?.kind !== "rewrite";
+  const reviewItems = useQuery(reviewItemsQuery(testSet.id)).data ?? [];
+  const reviewCount = reviewItems.filter(
+    (i) => i.status === "pending" || i.status === "rewriting",
+  ).length;
+  // 제외한 항목을 되돌릴 수 있도록 처리하지 않은 항목이 남아 있으면 버튼을 둔다
+  const hasReview = reviewItems.some((i) => i.status !== "resolved");
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const review = useReviewActions(testSet.id);
+  // 다시 작성 중에 새로 고쳤으면 그 작업이 끝날 때를 다시 기다린다
+  useRewriteWatch(
+    testSet.id,
+    active && generation?.kind === "rewrite" ? generation.jobId : null,
+  );
+  const upload = useQuery({
+    ...tempUploadQuery(uploadId ?? ""),
+    enabled: Boolean(uploadId) && !readOnly,
+    meta: { quietCodes: ["NOT_FOUND"] },
+  }).data;
 
   const groupColumn =
     testSet.columns.find(
@@ -165,6 +212,16 @@ function TestSetScreen({ testSet }: { testSet: TestSet }) {
           <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
           {!readOnly && <SaveStatus state={state} />}
           <span className="flex-1" />
+          {!readOnly && (
+            <Button
+              variant="ai"
+              icon={Sparkles}
+              disabled={running}
+              onClick={() => setDialog("generate")}
+            >
+              케이스 추가 생성
+            </Button>
+          )}
           {testSet.access.canExport && (
             <Button
               icon={Download}
@@ -262,6 +319,18 @@ function TestSetScreen({ testSet }: { testSet: TestSet }) {
           </>
         )}
         <span className="flex-1" />
+        {(hasReview || reviewOpen) && (
+          <Button
+            size="sm"
+            icon={CircleHelp}
+            aria-pressed={reviewOpen}
+            onClick={() => setReviewOpen(!reviewOpen)}
+            className="border-warning text-warning"
+          >
+            확인 필요
+            <span className="tabular-nums">{reviewCount}</span>
+          </Button>
+        )}
         {!readOnly && (
           <Button
             size="sm"
@@ -273,56 +342,119 @@ function TestSetScreen({ testSet }: { testSet: TestSet }) {
         )}
       </div>
 
-      {view.view === "card" ? (
-        <CaseBoard
-          columns={testSet.columns}
-          cases={cases}
-          groupColumnId={groupColumn?.id ?? null}
-          readOnly={readOnly}
-          onOps={onOps}
-          onOpenCase={setOpenCaseId}
-          onAddCase={(values) => setOpenCaseId(addCase(values))}
-        />
-      ) : testSet.cases.length === 0 ? (
-        <EmptyState
-          icon={Table2}
-          title="케이스가 없습니다"
+      {running && generation && (
+        <Banner
+          tone="info"
+          title="케이스를 만들고 있습니다"
           actions={
-            !readOnly && <Button onClick={() => addCase()}>케이스 추가</Button>
-          }
-        />
-      ) : groupColumn ? (
-        <div className="flex flex-col gap-6">
-          {groupCases(groupColumn, cases).map((group) => (
-            <section
-              key={group.key}
-              aria-label={group.label}
-              className="flex flex-col gap-2"
+            <Link
+              to="/test-sets/$testSetId/generating"
+              params={{ testSetId: testSet.id }}
+              className={buttonVariants({ size: "sm" })}
             >
-              <h2 className="m-0 text-title-sm text-fg">
-                {group.label}{" "}
-                <span className="text-caption text-fg-muted tabular-nums">
-                  {group.cases.length}
-                </span>
-              </h2>
-              <CaseTable
-                aria-label={`${group.label} 케이스`}
-                cases={group.cases}
-                onAddCase={() => addCase({ [groupColumn.id]: group.value })}
-                {...tableProps}
-              />
-            </section>
-          ))}
-        </div>
-      ) : (
-        <CaseTable
-          aria-label="케이스"
-          cases={cases}
-          onAddCase={() => addCase()}
-          {...tableProps}
+              진행 보기
+            </Link>
+          }
         />
       )}
 
+      <div className="flex flex-col items-start gap-4 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          {view.view === "card" ? (
+            <CaseBoard
+              columns={testSet.columns}
+              cases={cases}
+              groupColumnId={groupColumn?.id ?? null}
+              readOnly={readOnly}
+              onOps={onOps}
+              onOpenCase={setOpenCaseId}
+              onAddCase={(values) => setOpenCaseId(addCase(values))}
+            />
+          ) : testSet.cases.length === 0 ? (
+            <EmptyState
+              icon={Table2}
+              title="케이스가 없습니다"
+              actions={
+                !readOnly && (
+                  <Button onClick={() => addCase()}>케이스 추가</Button>
+                )
+              }
+            />
+          ) : groupColumn ? (
+            <div className="flex flex-col gap-6">
+              {groupCases(groupColumn, cases).map((group) => (
+                <section
+                  key={group.key}
+                  aria-label={group.label}
+                  className="flex flex-col gap-2"
+                >
+                  <h2 className="m-0 text-title-sm text-fg">
+                    {group.label}{" "}
+                    <span className="text-caption text-fg-muted tabular-nums">
+                      {group.cases.length}
+                    </span>
+                  </h2>
+                  <CaseTable
+                    aria-label={`${group.label} 케이스`}
+                    cases={group.cases}
+                    onAddCase={() => addCase({ [groupColumn.id]: group.value })}
+                    {...tableProps}
+                  />
+                </section>
+              ))}
+            </div>
+          ) : (
+            <CaseTable
+              aria-label="케이스"
+              cases={cases}
+              onAddCase={() => addCase()}
+              {...tableProps}
+            />
+          )}
+        </div>
+        {reviewOpen && (
+          <ReviewPanel
+            columns={testSet.columns}
+            items={reviewItems}
+            readOnly={readOnly}
+            onAnswer={(item, answer) => review.update.mutate({ item, answer })}
+            onDraft={(item, columnId, value) =>
+              review.update.mutate({
+                item,
+                draft: { ...item.draft, [columnId]: value },
+              })
+            }
+            onExclude={(item) =>
+              review.update.mutate({ item, status: "excluded" })
+            }
+            onRestore={(item) =>
+              review.update.mutate({ item, status: "pending" })
+            }
+            onAccept={(item) => review.accept.mutate(item)}
+            onRewrite={(item, answer) =>
+              review.rewrite.mutate({ item, answer })
+            }
+            onClose={() => setReviewOpen(false)}
+          />
+        )}
+      </div>
+
+      <GenerateSheet
+        testSetId={testSet.id}
+        upload={
+          upload && upload.frames.length > 0
+            ? { id: upload.id, frameCount: upload.frames.length }
+            : null
+        }
+        open={dialog === "generate"}
+        onOpenChange={(open) => setDialog(open ? "generate" : null)}
+        onStarted={() =>
+          navigate({
+            to: "/test-sets/$testSetId/generating",
+            params: { testSetId: testSet.id },
+          })
+        }
+      />
       <CaseDialog
         columns={testSet.columns}
         testCase={testSet.cases.find((c) => c.id === openCaseId) ?? null}

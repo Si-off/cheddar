@@ -100,3 +100,21 @@ test("테스트 세트를 만들 권한이 없으면 새 테스트 세트 버튼
     0,
   );
 });
+
+test("프레임 없이는 케이스 생성을 시작할 수 없고 직접 작성만 된다", async ({
+  page,
+}) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/projects": { items: [] },
+  });
+  await page.goto("/test-sets/new");
+  await page.getByRole("textbox", { name: "메모" }).fill("설명만 있음");
+  await expect(
+    page.getByRole("button", { name: "케이스 생성" }),
+  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: "직접 작성" })).toBeEnabled();
+  await expect(
+    page.getByText("Figma 플러그인에서 프레임을 올리면 여기에 보입니다"),
+  ).toBeVisible();
+});

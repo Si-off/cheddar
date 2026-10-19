@@ -102,6 +102,8 @@ export function testSetResponses(overrides: Record<string, unknown> = {}) {
     "GET /api/v1/test-sets/t1": testSet,
     "GET /api/v1/test-sets/t1/view": defaultViewResponse,
     "PUT /api/v1/test-sets/t1/view": (_route: unknown, body: unknown) => body,
+    "GET /api/v1/test-sets/t1/generations/current": null,
+    "GET /api/v1/test-sets/t1/review-items": { items: [] },
     ...overrides,
   };
 }

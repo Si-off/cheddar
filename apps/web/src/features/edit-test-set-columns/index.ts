@@ -1,5 +1,6 @@
 import { useToast } from "@cheddar/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { reviewItemsQuery } from "@/entities/generation";
 import { fromTemplateDraft, type TemplateDraft } from "@/entities/project";
 import { type TestSet, testSetQuery } from "@/entities/test-set";
 import { sdk, toApiFailure } from "@/shared/api";
@@ -29,6 +30,10 @@ export function useSaveColumns(testSetId: string) {
             cases: data.cases,
           },
       );
+      // 서버가 확인 필요 초안도 새 양식에 맞게 정리했으니 다시 읽는다
+      void queryClient.invalidateQueries({
+        queryKey: reviewItemsQuery(testSetId).queryKey,
+      });
       toast.show({ message: "저장했습니다", tone: "success" });
     },
     onError: (error) =>

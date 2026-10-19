@@ -31,6 +31,7 @@ import {
 } from "@/pages/project-settings";
 import { ProjectsPage } from "@/pages/projects";
 import { TestSetPage } from "@/pages/test-set";
+import { TestSetGeneratingPage } from "@/pages/test-set-generating";
 import { TestSetNewPage } from "@/pages/test-set-new";
 import { TestSetsPage } from "@/pages/test-sets";
 import { isApiFailure } from "@/shared/api";
@@ -216,23 +217,60 @@ const testSetsRoute = createRoute({
   },
 });
 
+/** Figma 플러그인이 올린 프레임 묶음을 주소로 넘긴다 */
+const uploadSearch = (
+  search: Record<string, unknown>,
+): { upload?: string } => ({
+  upload:
+    typeof search.upload === "string" && /^[0-9a-f-]{36}$/i.test(search.upload)
+      ? search.upload
+      : undefined,
+});
+
 const testSetNewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/test-sets/new",
+  validateSearch: uploadSearch,
   beforeLoad: async ({ context }) => {
     const account = await context.queryClient.query(currentAccountQuery());
     if (!canAnywhere(account.permissions, "test_set.create"))
       throw redirect({ to: "/no-access" });
   },
-  component: TestSetNewPage,
+  component: function TestSetNewRoute() {
+    const { upload } = testSetNewRoute.useSearch();
+    return <TestSetNewPage uploadId={upload} />;
+  },
 });
 
 const testSetRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/test-sets/$testSetId",
+  validateSearch: uploadSearch,
   component: function TestSetRoute() {
     const { testSetId } = testSetRoute.useParams();
-    return <TestSetPage key={testSetId} testSetId={testSetId} />;
+    const { upload } = testSetRoute.useSearch();
+    return (
+      <TestSetPage key={testSetId} testSetId={testSetId} uploadId={upload} />
+    );
+  },
+});
+
+const testSetGeneratingRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/test-sets/$testSetId/generating",
+  validateSearch: (search: Record<string, unknown>): { confirm?: boolean } => ({
+    confirm: search.confirm === true || search.confirm === "true" || undefined,
+  }),
+  component: function TestSetGeneratingRoute() {
+    const { testSetId } = testSetGeneratingRoute.useParams();
+    const { confirm } = testSetGeneratingRoute.useSearch();
+    return (
+      <TestSetGeneratingPage
+        key={testSetId}
+        testSetId={testSetId}
+        confirmStart={confirm === true}
+      />
+    );
   },
 });
 
@@ -380,6 +418,7 @@ const routeTree = rootRoute.addChildren([
     testSetsRoute,
     testSetNewRoute,
     testSetRoute,
+    testSetGeneratingRoute,
     projectsRoute,
     projectRoute.addChildren([
       projectIndexRoute,

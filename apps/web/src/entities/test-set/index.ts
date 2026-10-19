@@ -12,6 +12,7 @@ import type {
   ViewPreference,
 } from "./model";
 
+export * from "./cell-field";
 export * from "./model";
 
 export const testSetsQuery = (filter: TestSetFilter, search: string) =>

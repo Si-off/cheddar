@@ -102,7 +102,7 @@ test("케이스를 추가하면 서버가 붙인 번호가 보이고, 고른 케
     ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
   });
   await page.goto("/test-sets/t1");
-  await page.getByRole("button", { name: "케이스 추가" }).click();
+  await page.getByRole("button", { name: "케이스 추가", exact: true }).click();
   await expect(cell(page, 3, "테스트 ID")).toHaveText("TC-003");
   const added = opsBodies(calls)[0]?.[0];
   expect(added).toMatchObject({ type: "add_case", afterCaseId: "k2" });
