@@ -16,6 +16,13 @@ const draftSchema = {
   additionalProperties: CELL_SCHEMA,
 } as const;
 export class CreateGenerationDto {
+  @ApiPropertyOptional({
+    format: "uuid",
+    description: "같은 요청을 재전송할 때 사용하는 식별자",
+  })
+  @ValidateIf(optional)
+  @IsUUID()
+  clientRequestId?: string;
   @ApiProperty({ enum: ["initial", "append"] })
   @IsIn(["initial", "append"])
   kind!: "initial" | "append";
@@ -80,6 +87,13 @@ export class AcceptReviewItemDto {
   @ApiProperty(draftSchema) @IsObject() draft!: Record<string, CellValue>;
 }
 export class RewriteReviewItemDto {
+  @ApiPropertyOptional({
+    format: "uuid",
+    description: "같은 요청을 재전송할 때 사용하는 식별자",
+  })
+  @ValidateIf(optional)
+  @IsUUID()
+  clientRequestId?: string;
   @ApiProperty({ minLength: 1, maxLength: 2000 })
   @IsString()
   @MinLength(1)

@@ -98,6 +98,8 @@ test("생성과 확인 필요 DTO는 종류, UUID, 길이, null과 알 수 없�
     [CreateGenerationDto, { kind: "append", memo: null }],
     [CreateGenerationDto, { kind: "append", memo: "a".repeat(10001) }],
     [CreateGenerationDto, { kind: "append", model: "bad" }],
+    [CreateGenerationDto, { kind: "append", clientRequestId: "bad" }],
+    [CreateGenerationDto, { kind: "append", clientRequestId: null }],
     [PatchReviewItemDto, { draft: [] }],
     [PatchReviewItemDto, { status: "resolved" }],
     [PatchReviewItemDto, { answer: null }],
@@ -105,6 +107,7 @@ test("생성과 확인 필요 DTO는 종류, UUID, 길이, null과 알 수 없�
     [AcceptReviewItemDto, {}],
     [RewriteReviewItemDto, { answer: "" }],
     [RewriteReviewItemDto, { answer: "a".repeat(2001) }],
+    [RewriteReviewItemDto, { answer: "답변", clientRequestId: "bad" }],
   ] as [new () => object, unknown][])
     assert.ok(
       (
@@ -120,6 +123,7 @@ test("생성과 확인 필요 DTO는 종류, UUID, 길이, null과 알 수 없�
         plainToInstance(CreateGenerationDto, {
           kind: "append",
           memo: "a".repeat(10000),
+          clientRequestId: randomUUID(),
         }),
       )
     ).length,
@@ -457,6 +461,11 @@ test("HTTP DTO 검증과 SSE OpenAPI는 DB 없이 확인", async () => {
       201,
     );
     const document = createDocument(app);
+    for (const path of [
+      "/api/v1/test-sets/{testSetId}/generations",
+      "/api/v1/review-items/{itemId}/rewrite",
+    ])
+      assert.ok(document.paths[path].post?.responses["429"]);
     assert.ok(
       document.paths["/api/v1/generations/{jobId}/events"].get?.responses[
         "200"

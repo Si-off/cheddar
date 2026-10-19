@@ -42,6 +42,10 @@ pnpm install --frozen-lockfile
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | AI 제공자 키. 쓰는 제공자의 키만 넣는다 |
 | `AI_PROVIDER` | `fake`면 외부 호출 없이 합성 결과로 생성한다 |
 | `AI_MODEL_SCREENS` 등 | 단계별 모델. 형식은 `anthropic:<모델>` 또는 `openai:<모델>` |
+| `AI_GENERATION_CONCURRENCY` | 서버 전체 동시 생성 작업 수. 기본 2, 1~8. 최초 생성, 추가 생성과 다시 작성에 적용 |
+| `OPENAI_ADMIN_KEY`, `OPENAI_COST_PROJECT_ID` | OpenAI 비용 동기화용 관리자 키와 프로젝트 ID. 함께 설정 |
+| `ANTHROPIC_ADMIN_KEY`, `ANTHROPIC_COST_WORKSPACE_ID` | Anthropic 비용 동기화용 관리자 키와 워크스페이스 ID. 함께 설정, 기본 워크스페이스는 `default` |
+| `AI_COST_SYNC_INTERVAL_SECONDS` | 비용 동기화 주기. 기본 3600초, 60~86400초. 테스트와 fake에서는 자동 동기화하지 않음 |
 
 ```sh
 pnpm db:migrate

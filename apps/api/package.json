@@ -13,7 +13,8 @@
     "db:migrate": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/migrate.js",
     "openapi:export": "pnpm build && node dist/scripts/export-openapi.js",
     "openapi:check": "pnpm build && node dist/scripts/export-openapi.js --check",
-    "admin:create": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/create-admin.js"
+    "admin:create": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/create-admin.js",
+    "ai:costs:sync": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/sync-ai-costs.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

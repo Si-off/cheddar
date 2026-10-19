@@ -11,11 +11,10 @@ import { LocalStorage } from "../storage/local-storage";
 import { imageMime } from "../temp-uploads/manifest";
 import { CaseOperationsService } from "../test-sets/case-operations.service";
 import { forbidden } from "../test-sets/test-sets.store";
-import { GenerationService } from "./generation.service";
+import { GenerationService, jobFinished } from "./generation.service";
 import type { Stage } from "./model-config";
 import { validateDraft } from "./output-schema";
-import { costFor } from "./pricing";
-import { AiFailure, type AiRequest, type Usage } from "./providers/ai-provider";
+import { AiFailure, type AiRequest } from "./providers/ai-provider";
 import { ProviderService } from "./providers/provider.service";
 import { DEFINITIONS } from "./steps";
 import type {
@@ -25,6 +24,7 @@ import type {
   GenerationInput,
   ScreenOutput,
 } from "./types";
+import { AiUsageService } from "./usage.service";
 import { validatedOutput } from "./validated-output";
 
 export async function boundedMap<T, R>(
@@ -70,6 +70,7 @@ export class StageRunner implements OnModuleDestroy {
     this.shutdown.abort();
   }
   constructor(
+    @Inject(AiUsageService) private readonly usage: AiUsageService,
     @Inject(GenerationService) readonly generation: GenerationService,
     @Inject(ProviderService) private readonly providers: ProviderService,
     @Inject(LocalStorage) private readonly storage: LocalStorage,
@@ -127,26 +128,6 @@ export class StageRunner implements OnModuleDestroy {
             await handle.close();
           }
         }
-    const recordUsage = async (usage: Usage) => {
-      const cost = costFor(
-        `${model.provider}:${model.model}`,
-        usage,
-        this.providers.config.fake,
-      );
-      await this.db
-        .update(generationSteps)
-        .set({
-          inputTokens: sql`coalesce(${generationSteps.inputTokens},0) + ${usage.inputTokens}`,
-          outputTokens: sql`coalesce(${generationSteps.outputTokens},0) + ${usage.outputTokens}`,
-          cacheReadTokens: sql`coalesce(${generationSteps.cacheReadTokens},0) + ${usage.cacheReadTokens}`,
-          cacheCreationTokens: sql`coalesce(${generationSteps.cacheCreationTokens},0) + ${usage.cacheCreationTokens}`,
-          cost:
-            cost === null
-              ? null
-              : sql`coalesce(${generationSteps.cost},0) + ${cost}::numeric`,
-        })
-        .where(where);
-    };
     for (
       let attempt = saved.attempts;
       attempt <= definition.retries;
@@ -162,7 +143,14 @@ export class StageRunner implements OnModuleDestroy {
         .where(where);
       try {
         const response = await validatedOutput(
-          provider,
+          {
+            generate: (request) =>
+              this.usage.generate(
+                { jobId, stepId: saved.id, fake: this.providers.config.fake },
+                provider,
+                request,
+              ),
+          },
           {
             definition,
             model,
@@ -173,7 +161,7 @@ export class StageRunner implements OnModuleDestroy {
             signal: this.shutdown.signal,
           },
           (value) => this.validate(stage, context, value),
-          recordUsage,
+          undefined,
           async () => {
             repairUsed = true;
             await this.db
@@ -211,7 +199,6 @@ export class StageRunner implements OnModuleDestroy {
           error instanceof AiFailure
             ? error
             : new AiFailure("AI_STEP_FAILED", false);
-        if (error instanceof AiFailure) await recordUsage(error.usage);
         const retry = failure.retryable && attempt < definition.retries;
         await this.db
           .update(generationSteps)
@@ -294,6 +281,11 @@ export class StageRunner implements OnModuleDestroy {
         return;
       }
       if (job.currentStage !== stage) return;
+      if (job.expiresAt <= new Date()) {
+        await this.generation.fail(jobId, "GENERATION_EXPIRED");
+        return;
+      }
+      await this.usage.markUnknown(jobId);
       await this.generation.assertActor(job.testSetId, job.requestedBy);
       const [snapshot] = await this.db
         .select()
@@ -308,7 +300,11 @@ export class StageRunner implements OnModuleDestroy {
       if (!input) throw new AiFailure("GENERATION_INPUT_MISSING", false);
       await this.db
         .update(generationJobs)
-        .set({ status: "running", updatedAt: new Date() })
+        .set({
+          status: "running",
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 600_000),
+        })
         .where(eq(generationJobs.id, jobId));
       const outputs = async <T>(key: Stage): Promise<T[]> =>
         (
@@ -408,6 +404,7 @@ export class StageRunner implements OnModuleDestroy {
             .update(generationJobs)
             .set({
               status: "completed",
+              ...jobFinished(),
               currentStage: null,
               updatedAt: new Date(),
             })
@@ -425,7 +422,11 @@ export class StageRunner implements OnModuleDestroy {
       if (next) {
         await this.db
           .update(generationJobs)
-          .set({ currentStage: next, updatedAt: new Date() })
+          .set({
+            currentStage: next,
+            updatedAt: new Date(),
+            expiresAt: new Date(Date.now() + 600_000),
+          })
           .where(eq(generationJobs.id, jobId));
         await this.generation.dispatch(jobId, next);
       } else await this.generation.cleanupJob(jobId);
@@ -522,6 +523,7 @@ export class StageRunner implements OnModuleDestroy {
         .update(generationJobs)
         .set({
           status: "completed",
+          ...jobFinished(),
           currentStage: null,
           addedCount: cases.length,
           reviewCount: output.reviews.length,

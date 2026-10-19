@@ -1,5 +1,10 @@
 import type { ModelConfig } from "../model-config";
 import type { GenerationInput, JsonSchema, StepDefinition } from "../types";
+import type { CallObservation } from "../usage";
+export type ProviderObservation = Omit<
+  CallObservation,
+  "finishedAt" | "durationMs" | "status" | "errorCode"
+>;
 export type Usage = {
   inputTokens: number;
   outputTokens: number;
@@ -22,7 +27,11 @@ export type AiRequest = {
   repair?: { output: string; error: string };
   signal?: AbortSignal;
 };
-export type AiResponse = { text: string; usage: Usage };
+export type AiResponse = {
+  text: string;
+  usage: Usage;
+  observation?: ProviderObservation;
+};
 export interface AiProvider {
   generate(request: AiRequest): Promise<AiResponse>;
 }
@@ -30,7 +39,8 @@ export class AiFailure extends Error {
   constructor(
     readonly code: string,
     readonly retryable: boolean,
-    readonly usage = emptyUsage(),
+    readonly usage?: Usage,
+    readonly observation?: ProviderObservation,
   ) {
     super(code);
   }

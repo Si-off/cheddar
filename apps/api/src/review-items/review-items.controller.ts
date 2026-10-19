@@ -15,9 +15,11 @@ import {
   ApiCookieAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
 import { CurrentAccount } from "../authorization/guards";
+import { ErrorResponseDto } from "../contracts/common.dto";
 import {
   AcceptReviewItemDto,
   AcceptReviewResultDto,
@@ -81,6 +83,11 @@ export class ReviewItemsController {
   })
   @ApiBody({ type: RewriteReviewItemDto })
   @ApiAcceptedResponse({ type: GenerationAcceptedDto })
+  @ApiResponse({
+    status: 429,
+    description: "동시 생성 한도 초과",
+    type: ErrorResponseDto,
+  })
   rewrite(
     @Param("itemId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,

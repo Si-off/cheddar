@@ -100,7 +100,7 @@
 | 권한 | roles, role_permissions, role_assignments, role_assignment_projects |
 | 프로젝트 | projects, project_templates, feature_groups, required_cases, screen_structure_items, project_memos |
 | 테스트 세트 | test_sets(소유자, 프로젝트, 공개 범위, 링크 권한, 링크 토큰), test_set_columns, test_cases, test_case_values, test_set_members, view_preferences |
-| 생성 | generation_jobs, generation_steps, review_items |
+| 생성 | generation_jobs, generation_steps, review_items, ai_call_usage, ai_provider_costs |
 | 임시 자료 | temp_uploads, temp_frames(파일은 만료 삭제) |
 | 연결 | visitor_sessions, plugin_connections |
 
@@ -225,6 +225,21 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 - Figma 글자는 지시가 아니라 자료로 감싸서 보낸다.
 - AI 제공자는 OpenAI와 Anthropic 두 곳을 쓴다. 키는 서버 환경변수(`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)로만 받고 값은 운영자가 넣는다. 단계별로 어느 제공자와 모델을 쓸지는 서버 설정으로 정하며 사용자는 고르지 않는다.
 - 작업 큐는 pg-boss를 의존성으로 추가해 쓴다(2026-10-19 사용자 승인).
+
+## AI 사용량, 비용과 동시 생성 한도
+
+- `AiUsageService`는 단계 실행기의 모든 제공자 호출 전후에 `ai_call_usage`를 한 행씩 기록한다. 단계 시도, 재시도, 검증 오류 후 1회 수정 요청과 확인 필요 다시 작성을 포함하며 `job_id`와 `step_id`로 새 작업과 단계를 가리킨다. 호출 전에는 `running`, 응답을 관찰하면 `completed` 또는 `failed`로 저장한다. JSON 검증 실패는 이미 받은 응답의 사용량을 지우지 않는다.
+- 공급자가 응답한 실제 토큰과 호출 시간을 기록하고 usage는 허용된 숫자 필드만 저장한다. 입력, 이미지, 출력 본문, 키는 계측에 넣지 않는다. 호출의 입력 토큰 합계는 캐시 읽기와 쓰기를 포함한다. 단계의 `input_tokens`는 캐시를 뺀 입력이며 캐시 열은 별도로 더한다. 추론 토큰은 출력에 포함되어 추가 과금 계산에 더하지 않는다.
+- 호출 기록과 단계 합계는 생성 결과 저장과 분리한다. 잘림과 거절, 통신 오류도 관찰한 사용량을 보존하고 응답이 없으면 토큰과 비용은 미확인이다. 계측 저장 실패는 작업, 단계와 호출 식별자만 로그로 남기며 생성 성공과 원래 오류를 바꾸지 않는다. 일부 호출의 비용이 미확인이면 단계 비용도 미확인으로 유지한다.
+- Anthropic 스트림의 최종 `message_delta` 사용량을 받기 전 관찰값은 보존하되 `usage_known=false`와 비용 미확인으로 기록한다. 단계 합계는 단계 행을 잠근 뒤 호출 기록에서 다시 계산하며, 합계 저장 실패 시 미확인으로 바꾸고 다음 호출에서 누락분까지 복구한다.
+- 호출별 계산 비용은 `numeric(24,12)` USD이며 `generation/pricing.ts`의 호출 당시 단가, 버전과 조건을 함께 저장한다. 이 브랜치의 모델별 표준 단가와 긴 문맥 요금을 사용하고 알 수 없는 응답 모델과 비표준 tier는 미확인으로 둔다. fake는 외부 호출 없이 합성 사용량과 비용 0을 기록한다. 단계 합계는 기존 형식을 유지한다.
+- `generation_jobs`는 종료 관찰 시각과 생성 요청 등록부터 종료까지의 전체 실행 시간을 저장한다. 작업은 등록 시와 단계 전환 시 10분의 복구 유효기간을 갖는다. 서버 시작 시와 매분 복구 스캔, 새 생성 요청에서 만료 작업의 실행 잠금을 얻을 수 있을 때만 실패 처리하므로 현재 실행 중인 단계는 만료시키지 않는다. 만료와 재개에서 남은 `running` 호출은 `unknown`으로 바꾸고 확인되지 않은 토큰과 실행 시간은 만들지 않는다. 유효기간 안의 작업은 기존 단계 결과를 재사용해 재개한다.
+- 공급자 관리자 키와 해당 프로젝트 또는 워크스페이스 ID를 함께 설정하면 시작 시와 기본 1시간 간격으로 오늘을 포함한 최근 7 UTC 일의 비용 집계를 `ai_provider_costs`에 동기화한다. 테스트와 `AI_PROVIDER=fake`에서는 자동 동기화하지 않으며 fake 설정은 명시 동기화도 외부 호출 없이 끝낸다. 호출별 계산 비용과 공급자 집계는 별개이고 오늘 집계는 잠정 값이다.
+- 모든 페이지를 검증한 후 해당 공급자, scope와 기간만 advisory 트랜잭션 잠금 안에서 교체한다. 수정과 삭제된 집계를 반영하고 중복 집계를 피하며, 실패한 공급자는 기존 값을 보존한다. `pnpm --filter @cheddar/api ai:costs:sync [UTC_FROM_DATE UTC_UNTIL_DATE_EXCLUSIVE]`로 최근 7일 또는 지정한 1~31일을 동기화한다. 키와 scope의 짝, scope 형식과 주기 60~86400초를 시작 시 검증한다.
+- `ai_provider_cost_syncs`는 공급자, scope와 UTC 일별 동기화 워터마크를 비용 행과 같은 트랜잭션에 저장한다. 빈 보고서에도 워터마크를 남겨 다른 API 프로세스에서 먼저 시작한 동기화가 최신 빈 결과를 덮어쓰지 못하게 한다. 기간이 겹치면 최신 워터마크가 있는 오래된 요청 전체를 건너뛴다.
+- 최초 생성, 추가 생성과 다시 작성은 PostgreSQL advisory 트랜잭션 잠금 안에서 `pending`과 `running` 작업 수를 세고 등록한다. `AI_GENERATION_CONCURRENCY`는 기본 2, 범위 1~8이다. 여러 API 프로세스가 같은 DB의 한도를 공유하며, 한도가 차면 업로드와 양식, 케이스 입력을 읽기 전에 429 `GENERATION_CAPACITY`와 원본 한국어 메시지를 반환한다. 같은 세트의 진행 중 작업은 기존 409 `GENERATION_RUNNING`을 우선한다.
+- 생성과 다시 작성 DTO의 선택형 `clientRequestId`는 요청 계정별로 유일하다. 같은 ID와 요청 내용이면 한도 검사 전에 기존 작업을 반환하고, 대상 세트나 내용이 다르면 409 `REQUEST_REUSED`로 거절한다. ID를 생략한 기존 요청은 그대로 지원한다. 사용량의 화면과 외부 조회 API는 추가하지 않으며 웹과 플러그인 SDK도 생성하지 않는다.
+- 마이그레이션 `0006_ai_usage_accounting`은 호출 기록과 공급자 비용 집계, 작업 종료와 복구 유효기간, 요청 재사용 식별자를 추가한다. 기존 데이터와 마이그레이션은 유지한다. 계측의 수명은 소유 작업과 단계에 종속되며 소유 작업을 삭제하면 함께 삭제된다.
 
 ## Figma 플러그인
 

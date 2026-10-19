@@ -17,11 +17,13 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiProduces,
+  ApiResponse,
   ApiTags,
   getSchemaPath,
 } from "@nestjs/swagger";
 import type { Response } from "express";
 import { CurrentAccount } from "../authorization/guards";
+import { ErrorResponseDto } from "../contracts/common.dto";
 import {
   CreateGenerationDto,
   GenerationAcceptedDto,
@@ -45,6 +47,11 @@ export class GenerationController {
   })
   @ApiBody({ type: CreateGenerationDto })
   @ApiAcceptedResponse({ type: GenerationAcceptedDto })
+  @ApiResponse({
+    status: 429,
+    description: "동시 생성 한도 초과",
+    type: ErrorResponseDto,
+  })
   create(
     @Param("testSetId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,

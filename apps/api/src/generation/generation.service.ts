@@ -1,11 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lte, ne, sql } from "drizzle-orm";
 import {
   activeAccount,
   type IdentityDatabase,
 } from "../authorization/authorization.service";
 import { ApiError, invalid, notFound } from "../common/errors";
+import { API_ENV, type ApiEnv } from "../config/env";
 import type {
   CreateGenerationDto,
   GenerationCurrentDto,
@@ -26,6 +27,12 @@ import { TempUploadsService } from "../temp-uploads/temp-uploads.service";
 import { TestSetsStore } from "../test-sets/test-sets.store";
 import { QueueService } from "./queue.service";
 import type { GenerationInput } from "./types";
+import { AiUsageService } from "./usage.service";
+
+export const jobFinished = () => ({
+  finishedAt: new Date(),
+  durationMs: sql`greatest(0, floor(extract(epoch from (now() - ${generationJobs.createdAt})) * 1000))::bigint`,
+});
 
 export const generationRunning = () =>
   new ApiError(409, "GENERATION_RUNNING", "이미 케이스를 만들고 있습니다.");
@@ -62,7 +69,54 @@ export class GenerationService {
     @Inject(TestSetsStore) readonly store: TestSetsStore,
     @Inject(TempUploadsService) private readonly uploads: TempUploadsService,
     @Inject(QueueService) readonly queue: QueueService,
+    @Inject(API_ENV) private readonly env: ApiEnv,
+    @Inject(AiUsageService) readonly usage: AiUsageService,
   ) {}
+  async admission(tx: DatabaseTransaction) {
+    await tx.execute(sql`select pg_advisory_xact_lock(31015433)`);
+    const [active] = await tx
+      .select({ count: count() })
+      .from(generationJobs)
+      .where(inArray(generationJobs.status, ["pending", "running"]));
+    if (active.count >= (this.env.generationConcurrency ?? 2))
+      throw new ApiError(
+        429,
+        "GENERATION_CAPACITY",
+        "현재 생성 요청이 많습니다. 잠시 후 다시 시도해주세요.",
+      );
+  }
+  requestHash(testSetId: string, request: object) {
+    return createHash("sha256")
+      .update(JSON.stringify({ testSetId, ...request }))
+      .digest("hex");
+  }
+  async repeated(
+    tx: DatabaseTransaction,
+    accountId: string,
+    clientRequestId: string | undefined,
+    hash: string,
+  ) {
+    if (!clientRequestId) return;
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`generation-request:${accountId}:${clientRequestId}`}, 0))`,
+    );
+    const [existing] = await tx
+      .select()
+      .from(generationJobs)
+      .where(
+        and(
+          eq(generationJobs.requestedBy, accountId),
+          eq(generationJobs.clientRequestId, clientRequestId),
+        ),
+      );
+    if (existing && existing.requestHash !== hash)
+      throw new ApiError(
+        409,
+        "REQUEST_REUSED",
+        "이 생성 요청은 이미 사용되었습니다. 생성 상태를 확인해주세요.",
+      );
+    return existing?.id;
+  }
   async assertIdle(testSetId: string, tx: DatabaseTransaction) {
     const [job] = await tx
       .select({ id: generationJobs.id })
@@ -76,12 +130,26 @@ export class GenerationService {
     if (job) throw generationRunning();
   }
   async create(testSetId: string, accountId: string, dto: CreateGenerationDto) {
+    await this.expireJobs();
     const jobId = await this.store.mutate(
       testSetId,
       accountId,
       "canEdit",
       async (tx, row) => {
+        const hash = this.requestHash(testSetId, {
+          kind: dto.kind,
+          uploadId: dto.uploadId ?? null,
+          memo: dto.memo ?? null,
+        });
+        const repeated = await this.repeated(
+          tx,
+          accountId,
+          dto.clientRequestId,
+          hash,
+        );
+        if (repeated) return repeated;
         await this.assertIdle(testSetId, tx);
+        await this.admission(tx);
         if (!dto.uploadId && (!dto.memo?.trim() || dto.kind === "initial"))
           throw invalid();
         let frames: GenerationInput["frames"] = [];
@@ -174,6 +242,9 @@ export class GenerationService {
           dto.kind,
           input,
           dto.uploadId,
+          undefined,
+          dto.clientRequestId,
+          hash,
         );
       },
     );
@@ -188,6 +259,8 @@ export class GenerationService {
     input: GenerationInput,
     uploadId?: string,
     reviewItemId?: string,
+    clientRequestId?: string,
+    requestHash?: string,
   ) {
     const id = randomUUID();
     await tx.insert(generationJobs).values({
@@ -197,6 +270,8 @@ export class GenerationService {
       uploadId,
       kind,
       reviewItemId,
+      clientRequestId,
+      requestHash,
       currentStage: kind === "rewrite" ? "rewrite" : "screens",
     });
     await tx.insert(generationSteps).values({
@@ -248,6 +323,7 @@ export class GenerationService {
     return currentDto(row);
   }
   async recover() {
+    await this.expireJobs();
     const rows = await this.store.database.db
       .select()
       .from(generationJobs)
@@ -257,6 +333,46 @@ export class GenerationService {
         row.id,
         row.currentStage ?? (row.kind === "rewrite" ? "rewrite" : "screens"),
       );
+  }
+  async expireJobs() {
+    const expired = await this.store.database.db
+      .select({ id: generationJobs.id })
+      .from(generationJobs)
+      .where(
+        and(
+          inArray(generationJobs.status, ["pending", "running"]),
+          lte(generationJobs.expiresAt, new Date()),
+        ),
+      );
+    for (const job of expired) {
+      const lease = await this.store.database.pool.connect();
+      let locked = false;
+      try {
+        locked = (
+          await lease.query<{ locked: boolean }>(
+            "select pg_try_advisory_lock(5105, hashtext($1)) as locked",
+            [job.id],
+          )
+        ).rows[0].locked;
+        if (locked) {
+          const [fresh] = await this.store.database.db
+            .select({ expiresAt: generationJobs.expiresAt })
+            .from(generationJobs)
+            .where(eq(generationJobs.id, job.id));
+          if (fresh && fresh.expiresAt <= new Date())
+            await this.fail(job.id, "GENERATION_EXPIRED");
+        }
+      } finally {
+        try {
+          if (locked)
+            await lease.query("select pg_advisory_unlock(5105, hashtext($1))", [
+              job.id,
+            ]);
+        } finally {
+          lease.release();
+        }
+      }
+    }
   }
   async assertActor(
     testSetId: string,
@@ -313,7 +429,12 @@ export class GenerationService {
       if (!job || ["completed", "failed"].includes(job.status)) return;
       await tx
         .update(generationJobs)
-        .set({ status: "failed", errorCode: code, updatedAt: new Date() })
+        .set({
+          status: "failed",
+          errorCode: code,
+          updatedAt: new Date(),
+          ...jobFinished(),
+        })
         .where(eq(generationJobs.id, jobId));
       if (job.reviewItemId) {
         await tx
@@ -329,6 +450,7 @@ export class GenerationService {
         changedSetId = job.testSetId;
       }
     });
+    await this.usage.markUnknown(jobId);
     if (changedSetId)
       await this.store.events.publish({
         type: "resync",

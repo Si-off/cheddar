@@ -163,3 +163,101 @@ test("제공자 오류 기록에는 키가 남지 않음", () => {
     /sk-ant|Zz_9/,
   );
 });
+
+test("SDK의 잘린 응답은 사용량과 공급자 식별자를 보존하고 본문은 계측에서 제외", async () => {
+  const openai = new OpenAiProvider(
+    new OpenAI({
+      apiKey: "synthetic",
+      maxRetries: 0,
+      fetch: async () =>
+        Response.json(
+          {
+            id: "resp_synthetic",
+            model: "gpt-5.4",
+            status: "incomplete",
+            service_tier: "default",
+            incomplete_details: { reason: "max_output_tokens" },
+            output: [],
+            output_text: "출력 비밀",
+            usage: {
+              input_tokens: 100,
+              output_tokens: 20,
+              input_tokens_details: { cached_tokens: 30 },
+              output_tokens_details: { reasoning_tokens: 10 },
+            },
+          },
+          { headers: { "x-request-id": "req_openai" } },
+        ),
+    }),
+  );
+  const events = [
+    {
+      type: "message_start",
+      message: {
+        id: "msg_synthetic",
+        type: "message",
+        role: "assistant",
+        model: "claude-haiku-5-5",
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 0,
+          cache_read_input_tokens: 30,
+          cache_creation_input_tokens: 10,
+          service_tier: "standard",
+        },
+      },
+    },
+    {
+      type: "content_block_start",
+      index: 0,
+      content_block: { type: "text", text: "" },
+    },
+    {
+      type: "content_block_delta",
+      index: 0,
+      delta: { type: "text_delta", text: "출력 비밀" },
+    },
+    { type: "content_block_stop", index: 0 },
+    {
+      type: "message_delta",
+      delta: { stop_reason: "max_tokens", stop_sequence: null },
+      usage: { output_tokens: 20 },
+    },
+    { type: "message_stop" },
+  ];
+  const anthropic = new AnthropicProvider(
+    new Anthropic({
+      apiKey: "synthetic",
+      maxRetries: 0,
+      fetch: async () =>
+        new Response(
+          events
+            .map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`)
+            .join(""),
+          {
+            headers: {
+              "content-type": "text/event-stream",
+              "request-id": "req_anthropic",
+            },
+          },
+        ),
+    }),
+  );
+  for (const [provider, code, requestId] of [
+    [openai, "AI_INCOMPLETE", "req_openai"],
+    [anthropic, "AI_MAX_TOKENS", "req_anthropic"],
+  ] as const) {
+    await assert.rejects(provider.generate(request()), (e) => {
+      assert.ok(e instanceof AiFailure);
+      assert.equal(e.code, code);
+      assert.equal(e.usage?.outputTokens, 20);
+      assert.equal(e.observation?.requestId, requestId);
+      assert.ok(e.observation?.usage);
+      assert.doesNotMatch(JSON.stringify(e), /비밀|synthetic.*key/);
+      return true;
+    });
+  }
+});

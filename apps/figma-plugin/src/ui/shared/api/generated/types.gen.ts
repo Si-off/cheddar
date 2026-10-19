@@ -521,6 +521,10 @@ export type GenerationCurrentDto = {
 };
 
 export type CreateGenerationDto = {
+    /**
+     * 같은 요청을 재전송할 때 사용하는 식별자
+     */
+    clientRequestId?: string;
     kind: 'initial' | 'append';
     uploadId?: string;
     memo?: string;
@@ -566,6 +570,10 @@ export type AcceptReviewResultDto = {
 };
 
 export type RewriteReviewItemDto = {
+    /**
+     * 같은 요청을 재전송할 때 사용하는 식별자
+     */
+    clientRequestId?: string;
     answer: string;
 };
 
@@ -4767,6 +4775,10 @@ export type CreateGenerationErrors = {
      */
     410: ErrorResponseDto;
     /**
+     * 동시 생성 한도 초과
+     */
+    429: ErrorResponseDto;
+    /**
      * 서버 오류
      */
     500: ErrorResponseDto;
@@ -5081,6 +5093,10 @@ export type RewriteReviewItemErrors = {
      * 사용할 수 없는 토큰
      */
     410: ErrorResponseDto;
+    /**
+     * 동시 생성 한도 초과
+     */
+    429: ErrorResponseDto;
     /**
      * 서버 오류
      */

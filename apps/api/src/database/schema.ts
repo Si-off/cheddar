@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   foreignKey,
@@ -483,6 +484,13 @@ export const generationJobs = pgTable(
     addedCount: integer("added_count").notNull().default(0),
     reviewCount: integer("review_count").notNull().default(0),
     reviewItemId: uuid("review_item_id"),
+    clientRequestId: uuid("client_request_id"),
+    requestHash: text("request_hash"),
+    expiresAt: time("expires_at")
+      .notNull()
+      .default(sql`now() + interval '10 minutes'`),
+    finishedAt: time("finished_at"),
+    durationMs: bigint("duration_ms", { mode: "number" }),
     createdAt: created(),
     updatedAt: updated(),
   },
@@ -491,6 +499,7 @@ export const generationJobs = pgTable(
       "generation_jobs_kind",
       sql`${t.kind} IN ('initial', 'append', 'rewrite')`,
     ),
+    unique("generation_jobs_request").on(t.requestedBy, t.clientRequestId),
     uniqueIndex("generation_jobs_active_set")
       .on(t.testSetId)
       .where(sql`${t.status} IN ('pending', 'running')`),
@@ -575,5 +584,94 @@ export const pluginConnections = pgTable(
       sql`${t.status} IN ('pending', 'approved', 'revoked')`,
     ),
     index("plugin_connections_account_idx").on(t.accountId),
+  ],
+);
+
+export const aiCallUsage = pgTable(
+  "ai_call_usage",
+  {
+    id: uuid("id").primaryKey(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => generationJobs.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => generationSteps.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    requestedModel: text("requested_model").notNull(),
+    responseModel: text("response_model"),
+    requestId: text("request_id"),
+    responseId: text("response_id"),
+    serviceTier: text("service_tier"),
+    status: text("status").notNull().default("running"),
+    startedAt: time("started_at").notNull(),
+    finishedAt: time("finished_at"),
+    durationMs: bigint("duration_ms", { mode: "number" }),
+    httpStatus: integer("http_status"),
+    errorCode: text("error_code"),
+    usageKnown: boolean("usage_known").notNull().default(false),
+    inputTokens: bigint("input_tokens", { mode: "number" }),
+    outputTokens: bigint("output_tokens", { mode: "number" }),
+    cachedInputTokens: bigint("cached_input_tokens", { mode: "number" }),
+    cacheWriteTokens: bigint("cache_write_tokens", { mode: "number" }),
+    reasoningTokens: bigint("reasoning_tokens", { mode: "number" }),
+    rawUsage: jsonb("raw_usage"),
+    calculatedCostUsd: numeric("calculated_cost_usd", {
+      precision: 24,
+      scale: 12,
+    }),
+    pricing: jsonb("pricing"),
+  },
+  (t) => [
+    check(
+      "ai_call_usage_status",
+      sql`${t.status} in ('running','completed','failed','unknown')`,
+    ),
+    check(
+      "ai_call_usage_provider",
+      sql`${t.provider} in ('openai','anthropic','fake')`,
+    ),
+    index("ai_call_usage_job_idx").on(t.jobId),
+    index("ai_call_usage_step_idx").on(t.stepId),
+    index("ai_call_usage_provider_time_idx").on(t.provider, t.startedAt),
+  ],
+);
+export const aiProviderCostSyncs = pgTable(
+  "ai_provider_cost_syncs",
+  {
+    provider: text("provider").$type<"openai" | "anthropic">().notNull(),
+    scopeId: text("scope_id").notNull(),
+    bucketStart: time("bucket_start").notNull(),
+    syncedAt: time("synced_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.scopeId, t.bucketStart] }),
+    check(
+      "ai_provider_cost_syncs_provider",
+      sql`${t.provider} in ('openai','anthropic')`,
+    ),
+  ],
+);
+export const aiProviderCosts = pgTable(
+  "ai_provider_costs",
+  {
+    provider: text("provider").$type<"openai" | "anthropic">().notNull(),
+    scopeId: text("scope_id").notNull(),
+    bucketStart: time("bucket_start").notNull(),
+    bucketEnd: time("bucket_end").notNull(),
+    itemKey: text("item_key").notNull(),
+    dimensions: jsonb("dimensions")
+      .$type<Record<string, string | null>>()
+      .notNull(),
+    amountUsd: numeric("amount_usd").notNull(),
+    syncedAt: time("synced_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.scopeId, t.bucketStart, t.itemKey] }),
+    check(
+      "ai_provider_costs_provider",
+      sql`${t.provider} in ('openai','anthropic')`,
+    ),
+    index("ai_provider_costs_time_idx").on(t.provider, t.bucketStart),
   ],
 );

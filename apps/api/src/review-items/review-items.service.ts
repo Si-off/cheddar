@@ -143,47 +143,85 @@ export class ReviewItemsService {
     });
   }
   async rewrite(id: string, accountId: string, dto: RewriteReviewItemDto) {
-    const jobId = await this.mutate(id, accountId, async (tx, row) => {
-      await this.generation.assertIdle(row.testSetId, tx);
-      const previous = reviewDto(row);
-      const input: GenerationInput = {
-        columns: await this.store.columns(row.testSetId, tx),
-        memo: "",
-        frames: [],
-        featureGroups: [],
-        requiredCases: [],
-        screenStructure: [],
-        styleExamples: [],
-        existingCases: similarCases(
-          await this.store.cases(row.testSetId, tx),
-          previous.draft,
-          row.screenDescription,
-        ),
-        review: {
-          screenDescription: row.screenDescription,
-          question: previous.question,
+    await this.generation.expireJobs();
+    const [route] = await this.store.database.db
+      .select({ testSetId: reviewItems.testSetId })
+      .from(reviewItems)
+      .where(eq(reviewItems.id, id));
+    if (!route) throw notFound();
+    const jobId = await this.store.mutate(
+      route.testSetId,
+      accountId,
+      "canEdit",
+      async (tx) => {
+        const hash = this.generation.requestHash(route.testSetId, {
+          kind: "rewrite",
+          reviewItemId: id,
           answer: dto.answer,
-          draft: previous.draft,
-        },
-      };
-      const questions = [...row.questions];
-      const qa = questions.pop();
-      questions.push({ question: qa?.question ?? "", answer: dto.answer });
-      await tx
-        .update(reviewItems)
-        .set({ status: "rewriting", questions, updatedAt: new Date() })
-        .where(eq(reviewItems.id, id));
-      await this.store.bump(row.testSetId, tx);
-      return this.generation.insertJob(
-        tx,
-        row.testSetId,
-        accountId,
-        "rewrite",
-        input,
-        undefined,
-        id,
-      );
-    });
+        });
+        const repeated = await this.generation.repeated(
+          tx,
+          accountId,
+          dto.clientRequestId,
+          hash,
+        );
+        if (repeated) return repeated;
+        await this.generation.assertIdle(route.testSetId, tx);
+        await this.generation.admission(tx);
+        const [row] = await tx
+          .select()
+          .from(reviewItems)
+          .where(eq(reviewItems.id, id))
+          .for("update");
+        if (!row) throw notFound();
+        if (["resolved", "rewriting"].includes(row.status))
+          throw new ApiError(
+            409,
+            "REVIEW_ITEM_LOCKED",
+            "처리 중이거나 추가한 항목은 변경할 수 없습니다.",
+          );
+        const previous = reviewDto(row);
+        const input: GenerationInput = {
+          columns: await this.store.columns(row.testSetId, tx),
+          memo: "",
+          frames: [],
+          featureGroups: [],
+          requiredCases: [],
+          screenStructure: [],
+          styleExamples: [],
+          existingCases: similarCases(
+            await this.store.cases(row.testSetId, tx),
+            previous.draft,
+            row.screenDescription,
+          ),
+          review: {
+            screenDescription: row.screenDescription,
+            question: previous.question,
+            answer: dto.answer,
+            draft: previous.draft,
+          },
+        };
+        const questions = [...row.questions];
+        const qa = questions.pop();
+        questions.push({ question: qa?.question ?? "", answer: dto.answer });
+        await tx
+          .update(reviewItems)
+          .set({ status: "rewriting", questions, updatedAt: new Date() })
+          .where(eq(reviewItems.id, id));
+        await this.store.bump(row.testSetId, tx);
+        return this.generation.insertJob(
+          tx,
+          row.testSetId,
+          accountId,
+          "rewrite",
+          input,
+          undefined,
+          id,
+          dto.clientRequestId,
+          hash,
+        );
+      },
+    );
     await this.generation.dispatch(jobId, "rewrite");
     return { jobId };
   }
