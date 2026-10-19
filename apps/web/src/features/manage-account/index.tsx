@@ -1,17 +1,21 @@
 import {
   Button,
+  Checkbox,
   Dialog,
   IconButton,
+  Popover,
+  RadioGroup,
   Select,
   TextField,
   useToast,
 } from "@cheddar/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Info, Plus, X } from "lucide-react";
+import { ChevronDown, Copy, Info, Plus, Search, X } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import { type Account, type Assignment, expiryToApi } from "@/entities/account";
 import { affiliationsQuery } from "@/entities/affiliation";
 import { permissionCatalog } from "@/entities/permission";
+import { projectsQuery } from "@/entities/project";
 import { expiryRequirement, type Role, rolesQuery } from "@/entities/role";
 import { sdk, toApiFailure } from "@/shared/api";
 import { appLinks } from "@/shared/config/links";
@@ -175,13 +179,6 @@ export function AccountForm({
                   .filter((p) => globalOnlyLabels.has(p))
                   .map((p) => globalOnlyLabels.get(p))
               : [];
-          const scopeItems = [{ value: "global", label: "전체" }];
-          if (assignment.scope === "projects") {
-            scopeItems.push({
-              value: "projects",
-              label: `프로젝트 ${assignment.projectIds.length}개`,
-            });
-          }
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: 같은 역할을 범위만 달리해 여러 번 할당할 수 있어 위치가 식별자다
             <div key={index} className="flex flex-col gap-1">
@@ -198,14 +195,11 @@ export function AccountForm({
                     roleId && updateRow(index, { roleId })
                   }
                 />
-                <Select
-                  aria-label="범위"
-                  className="min-w-0 flex-1"
-                  value={assignment.scope}
-                  items={scopeItems}
-                  onValueChange={(scope) =>
-                    scope === "global" &&
-                    updateRow(index, { scope: "global", projectIds: [] })
+                <ScopePicker
+                  scope={assignment.scope}
+                  projectIds={assignment.projectIds}
+                  onChange={(scope, projectIds) =>
+                    updateRow(index, { scope, projectIds })
                   }
                 />
                 <IconButton
@@ -501,5 +495,148 @@ export function IssuedLinkDialog({ link, onClose }: IssuedLinkDialogProps) {
         </Dialog.Footer>
       </Dialog.Content>
     </Dialog.Root>
+  );
+}
+
+/** 역할을 적용할 범위. 전체 또는 지정한 프로젝트(하나 이상). */
+function ScopePicker({
+  scope,
+  projectIds,
+  onChange,
+}: {
+  scope: Assignment["scope"];
+  projectIds: string[];
+  onChange: (scope: Assignment["scope"], projectIds: string[]) => void;
+}) {
+  const projectsResult = useQuery(projectsQuery());
+  const projects = projectsResult.data ?? [];
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState(scope);
+  const [picked, setPicked] = useState<string[]>(projectIds);
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const nameOf = (id: string) =>
+    projects.find((p) => p.id === id)?.name ?? "알 수 없는 프로젝트";
+  const label = scope === "global" ? "전체" : projectIds.map(nameOf).join(", ");
+  const visible = query
+    ? projects.filter((p) => p.name.toLowerCase().includes(query))
+    : projects;
+
+  return (
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        // 열 때마다 지금 값에서 시작한다
+        if (next) {
+          setKind(scope);
+          setPicked(projectIds);
+          setSearch("");
+        }
+        setOpen(next);
+      }}
+    >
+      <Popover.Trigger
+        render={
+          <button
+            type="button"
+            aria-label={`범위: ${label}`}
+            className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-line bg-surface px-2.5 text-left text-body-sm text-fg outline-none transition-colors duration-fast hover:border-line-strong focus-visible:border-accent data-popup-open:border-accent"
+          />
+        }
+      >
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <ChevronDown
+          size={14}
+          strokeWidth={1.75}
+          aria-hidden
+          className="shrink-0 text-fg-muted"
+        />
+      </Popover.Trigger>
+      <Popover.Popup align="end" aria-label="적용 범위" className="w-80">
+        <div className="flex flex-col gap-2.5 border-line border-b p-3">
+          <RadioGroup
+            aria-label="적용 범위"
+            orientation="horizontal"
+            value={kind}
+            options={[
+              { value: "global", label: "전체" },
+              { value: "projects", label: "프로젝트 지정" },
+            ]}
+            onValueChange={(v) => setKind(v as Assignment["scope"])}
+          />
+          {kind === "projects" && (
+            <TextField
+              size="sm"
+              icon={Search}
+              placeholder="프로젝트 검색"
+              aria-label="프로젝트 검색"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          )}
+        </div>
+        {kind === "projects" && (
+          <fieldset className="m-0 flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto border-0 px-3 py-1.5">
+            <legend className="sr-only">프로젝트</legend>
+            {visible.map((p) => (
+              <div key={p.id} className="py-1.5">
+                <Checkbox
+                  label={p.name}
+                  checked={picked.includes(p.id)}
+                  onCheckedChange={(checked) =>
+                    setPicked(
+                      checked
+                        ? [...picked, p.id]
+                        : picked.filter((id) => id !== p.id),
+                    )
+                  }
+                />
+              </div>
+            ))}
+            {projectsResult.isError ? (
+              <div className="flex items-center gap-2 py-2">
+                <span className="flex-1 text-caption text-fg-muted">
+                  프로젝트를 불러오지 못했습니다
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  loading={projectsResult.isFetching}
+                  onClick={() => projectsResult.refetch()}
+                >
+                  다시 시도
+                </Button>
+              </div>
+            ) : projectsResult.isPending ? (
+              <span className="py-2 text-caption text-fg-muted">
+                불러오는 중
+              </span>
+            ) : (
+              visible.length === 0 && (
+                <span className="py-2 text-caption text-fg-muted">
+                  {query ? "찾는 프로젝트가 없습니다" : "프로젝트가 없습니다"}
+                </span>
+              )
+            )}
+          </fieldset>
+        )}
+        <footer className="flex items-center gap-2 border-line border-t px-3 py-2.5">
+          <span className="flex-1 text-caption text-fg-muted">
+            {kind === "projects" ? `${picked.length}개 선택` : ""}
+          </span>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={kind === "projects" && picked.length === 0}
+            onClick={() => {
+              onChange(kind, kind === "global" ? [] : picked);
+              setOpen(false);
+            }}
+          >
+            완료
+          </Button>
+        </footer>
+      </Popover.Popup>
+    </Popover.Root>
   );
 }

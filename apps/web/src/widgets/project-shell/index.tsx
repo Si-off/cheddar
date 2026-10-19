@@ -1,7 +1,16 @@
-import { Breadcrumb, BreadcrumbItem, NavTab, NavTabs } from "@cheddar/ui";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  IconButton,
+  Menu,
+  NavTab,
+  NavTabs,
+} from "@cheddar/ui";
 import { Link, useMatchRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { MoreHorizontal } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import type { Project } from "@/entities/project";
+import { EditProjectDialog } from "@/features/edit-project";
 
 /** 경로 타입을 지키려고 탭마다 링크를 따로 만든다 */
 function tabsFor(projectId: string) {
@@ -49,6 +58,7 @@ export function ProjectShell({
   children,
 }: ProjectShellProps) {
   const matchRoute = useMatchRoute();
+  const [editing, setEditing] = useState(false);
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-8 pt-6 pb-12">
       <div className="flex flex-col gap-2">
@@ -63,6 +73,24 @@ export function ProjectShell({
             {project.name}
           </h1>
           {actions}
+          {project.canManage && (
+            <Menu.Root>
+              <Menu.Trigger
+                render={
+                  <IconButton
+                    icon={MoreHorizontal}
+                    label="프로젝트 작업"
+                    variant="solid"
+                  />
+                }
+              />
+              <Menu.Popup align="end">
+                <Menu.Item onClick={() => setEditing(true)}>
+                  프로젝트 정보
+                </Menu.Item>
+              </Menu.Popup>
+            </Menu.Root>
+          )}
         </div>
       </div>
       <NavTabs aria-label="프로젝트 설정">
@@ -77,6 +105,11 @@ export function ProjectShell({
         ))}
       </NavTabs>
       {children}
+      <EditProjectDialog
+        project={project}
+        open={editing}
+        onOpenChange={setEditing}
+      />
     </main>
   );
 }

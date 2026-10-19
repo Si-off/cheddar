@@ -33,6 +33,7 @@ export { Field, type FieldOwnProps, type FieldProps } from "./field";
 export { FrameCard, type FrameCardProps } from "./frame-card";
 export { DrawnCheck, Icon, type IconProps, type IconSize } from "./icon";
 export { Menu } from "./menu";
+export { Popover } from "./popover";
 export {
   RadioGroup,
   type RadioGroupProps,

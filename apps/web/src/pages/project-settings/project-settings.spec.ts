@@ -355,3 +355,28 @@ test("메모: 저장을 기다리는 중에 다른 탭으로 가도 입력을 �
     )
     .toEqual({ body: "테스트 카드로만 결제" });
 });
+
+test("프로젝트 정보에서 이름과 설명을 바꾼다", async ({ page }) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...projectSettings(),
+    "PATCH /api/v1/projects/p1": (_route: unknown, body: unknown) => ({
+      ...project,
+      ...(body as object),
+    }),
+  });
+  await page.goto("/projects/p1/template");
+  await page.getByRole("button", { name: "프로젝트 작업" }).click();
+  await page.getByRole("menuitem", { name: "프로젝트 정보" }).click();
+  const dialog = page.getByRole("dialog", { name: "프로젝트 정보" });
+  await dialog
+    .getByRole("textbox", { name: "프로젝트 이름" })
+    .fill("쇼핑몰 앱 2.0");
+  await dialog.getByRole("button", { name: "저장" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "쇼핑몰 앱 2.0" }),
+  ).toBeVisible();
+  expect(
+    calls.find((c) => c.key === "PATCH /api/v1/projects/p1")?.body,
+  ).toEqual({ name: "쇼핑몰 앱 2.0", description: "모바일 쇼핑 앱" });
+});

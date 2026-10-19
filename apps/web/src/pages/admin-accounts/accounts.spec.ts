@@ -324,3 +324,62 @@ test("보던 페이지의 계정이 모두 사라지면 빈 목록 대신 마지
   await expect(page.getByText("조건에 맞는 계정이 없습니다")).toHaveCount(0);
   await expect(page.getByText("계정이 없습니다")).toHaveCount(0);
 });
+
+test("역할 범위를 프로젝트 지정으로 바꾸면 고른 프로젝트로 저장한다", async ({
+  page,
+}) => {
+  const member = account({
+    id: "a7",
+    name: "박민수",
+    assignments: [{ roleId: "r3", scope: "global", projectIds: [] }],
+    expiresAt: "2027-01-16T14:59:59Z",
+  });
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/roles": roles,
+    "GET /api/v1/affiliations": affiliations,
+    "GET /api/v1/accounts/a7": member,
+    "PATCH /api/v1/accounts/a7": member,
+    "GET /api/v1/projects": {
+      items: [
+        {
+          id: "p1",
+          name: "쇼핑몰 앱 리뉴얼",
+          description: "",
+          columnCount: 6,
+          screenCount: 0,
+          canManage: true,
+        },
+        {
+          id: "p2",
+          name: "사내 결재 시스템",
+          description: "",
+          columnCount: 6,
+          screenCount: 0,
+          canManage: true,
+        },
+      ],
+    },
+  });
+  await page.goto("/admin/accounts/a7");
+  await page.getByRole("button", { name: "범위: 전체" }).click();
+  const panel = page.getByRole("dialog", { name: "적용 범위" });
+  await expect(panel.getByRole("button", { name: "완료" })).toBeEnabled();
+  await panel.getByRole("radio", { name: "프로젝트 지정" }).click();
+  await expect(panel.getByRole("button", { name: "완료" })).toBeDisabled();
+  await panel.getByRole("textbox", { name: "프로젝트 검색" }).fill("결재");
+  await expect(
+    panel.getByRole("checkbox", { name: "쇼핑몰 앱 리뉴얼" }),
+  ).toHaveCount(0);
+  await panel.getByRole("checkbox", { name: "사내 결재 시스템" }).click();
+  await panel.getByRole("button", { name: "완료" }).click();
+  await expect(
+    page.getByRole("button", { name: "범위: 사내 결재 시스템" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "저장" }).click();
+  await expect
+    .poll(() => calls.find((c) => c.key === "PATCH /api/v1/accounts/a7")?.body)
+    .toMatchObject({
+      assignments: [{ roleId: "r3", scope: "projects", projectIds: ["p2"] }],
+    });
+});
