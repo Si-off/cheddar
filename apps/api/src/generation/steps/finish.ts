@@ -4,7 +4,7 @@ export const finish: StepDefinition = {
   key: "finish",
   displayStage: "finish",
   version: "finish-2",
-  maxTokens: 32000,
+  maxTokens: 96000,
   timeoutMs: 300000,
   retries: 2,
   prompt:
