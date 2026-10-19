@@ -27,7 +27,9 @@ function useInvalidateRoles() {
     queryClient.invalidateQueries({
       predicate: (query) => {
         const id = (query.queryKey[0] as { _id?: string } | undefined)?._id;
+        // 내 계정에 할당된 역할이면 내 권한도 바뀐다
         return (
+          id === "getMe" ||
           id === "listRoles" ||
           id === "getRole" ||
           id === "listAccounts" ||

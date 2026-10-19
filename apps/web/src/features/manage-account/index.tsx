@@ -23,6 +23,8 @@ export interface AccountDraft {
   assignments: Assignment[];
   /** YYYY-MM-DD */
   expiresOn: string | null;
+  /** 역할의 기본 기간으로 채운 값이면 true. 역할이 바뀌면 다시 계산한다. */
+  expiryAuto: boolean;
 }
 
 export const emptyAccountDraft: AccountDraft = {
@@ -31,6 +33,7 @@ export const emptyAccountDraft: AccountDraft = {
   affiliationId: "",
   assignments: [],
   expiresOn: null,
+  expiryAuto: false,
 };
 
 export function draftFromAccount(account: Account): AccountDraft {
@@ -43,6 +46,7 @@ export function draftFromAccount(account: Account): AccountDraft {
       projectIds: [...a.projectIds],
     })),
     expiresOn: account.expiresOn,
+    expiryAuto: false,
   };
 }
 
@@ -102,8 +106,12 @@ export function AccountForm({
       roles,
       assignments.map((a) => a.roleId),
     );
-    if (nextRequirement?.defaultDays && !value.expiresOn)
-      next.expiresOn = addDays(nextRequirement.defaultDays);
+    // 직접 고른 날짜는 그대로 두고, 비었거나 자동으로 채운 날짜만 현재 역할에 맞춘다
+    if (!value.expiresOn || value.expiryAuto) {
+      const days = nextRequirement?.defaultDays ?? null;
+      next.expiresOn = days ? addDays(days) : null;
+      next.expiryAuto = days !== null;
+    }
     onChange(next);
   };
   const updateRow = (index: number, patch: Partial<Assignment>) =>
@@ -148,7 +156,11 @@ export function AccountForm({
           value={value.expiresOn ?? ""}
           error={errors.expiresOn}
           onChange={(e) =>
-            onChange({ ...value, expiresOn: e.target.value || null })
+            onChange({
+              ...value,
+              expiresOn: e.target.value || null,
+              expiryAuto: false,
+            })
           }
         />
       </div>
@@ -257,9 +269,11 @@ function useInvalidateAccounts() {
     queryClient.invalidateQueries({
       predicate: (query) => {
         const key = query.queryKey[0] as { _id?: string } | undefined;
+        // 내 계정의 역할 할당이 바뀌었을 수 있으므로 내 정보도 다시 읽는다
         return (
           key?._id === "listAccounts" ||
-          (accountId !== undefined && key?._id === "getAccount")
+          (accountId !== undefined &&
+            (key?._id === "getAccount" || key?._id === "getMe"))
         );
       },
     });
@@ -291,14 +305,24 @@ export function useAccountActions(
   const path = { path: { accountId }, throwOnError: true as const };
 
   const update = useMutation({
-    mutationFn: (draft: AccountDraft) =>
+    mutationFn: ({
+      draft,
+      original,
+    }: {
+      draft: AccountDraft;
+      original: Account;
+    }) =>
       sdk.updateAccount({
         ...path,
         body: {
           name: draft.name.trim(),
           affiliationId: draft.affiliationId,
           assignments: toApiAssignments(draft.assignments),
-          expiresAt: expiryToApi(draft.expiresOn),
+          // 날짜 칸은 시각을 버리므로, 날짜를 바꾸지 않았으면 서버의 만료 시각을 그대로 둔다
+          expiresAt:
+            draft.expiresOn === original.expiresOn
+              ? undefined
+              : expiryToApi(draft.expiresOn),
         },
       }),
     onSuccess: () => {

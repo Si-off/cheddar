@@ -100,16 +100,30 @@ export interface AccountFilters {
   status?: AccountStatus;
 }
 
-export const accountsQuery = (filters: AccountFilters) =>
+/** 서버가 한 번에 돌려주는 최대 개수 */
+export const ACCOUNTS_PAGE_SIZE = 100;
+
+/** page는 0부터 센다 */
+export const accountsQuery = (filters: AccountFilters, page = 0) =>
   queryOptions({
-    queryKey: listAccountsQueryKey({ query: { ...filters, limit: 100 } }),
+    queryKey: listAccountsQueryKey({
+      query: {
+        ...filters,
+        limit: ACCOUNTS_PAGE_SIZE,
+        offset: page * ACCOUNTS_PAGE_SIZE,
+      },
+    }),
     queryFn: async ({ signal }) => {
       const { data } = await sdk.listAccounts({
-        query: { ...filters, limit: 100 },
+        query: {
+          ...filters,
+          limit: ACCOUNTS_PAGE_SIZE,
+          offset: page * ACCOUNTS_PAGE_SIZE,
+        },
         signal,
         throwOnError: true,
       });
-      return { items: data.items.map(toAccount), total: data.total };
+      return { items: data.items.map(toAccount), total: data.total, page };
     },
   });
 

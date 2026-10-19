@@ -8,11 +8,12 @@ import {
   Select,
   TextField,
 } from "@cheddar/ui";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus, Search, Users } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import {
+  ACCOUNTS_PAGE_SIZE,
   type Account,
   type AccountStatus,
   accountStatusInfo,
@@ -45,20 +46,41 @@ export function AdminAccountsPage() {
   const [roleId, setRoleId] = useState(ALL);
   const [affiliationId, setAffiliationId] = useState(ALL);
   const [status, setStatus] = useState<AccountStatus | typeof ALL>(ALL);
+  const [page, setPage] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [issued, setIssued] = useState<IssuedLink | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
 
   const roles = useQuery(rolesQuery()).data ?? [];
   const affiliations = useQuery(affiliationsQuery()).data ?? [];
-  const accounts = useQuery(
-    accountsQuery({
-      search: deferredSearch || undefined,
-      roleId: roleId || undefined,
-      affiliationId: affiliationId || undefined,
-      status: status || undefined,
-    }),
-  );
+  // 페이지를 넘기는 동안 이전 목록을 그대로 보여준다
+  const accounts = useQuery({
+    ...accountsQuery(
+      {
+        search: deferredSearch || undefined,
+        roleId: roleId || undefined,
+        affiliationId: affiliationId || undefined,
+        status: status || undefined,
+      },
+      page,
+    ),
+    placeholderData: keepPreviousData,
+  });
+  const total = accounts.data?.total ?? 0;
+  // 범위 표시와 이동 버튼은 지금 보이는 목록의 페이지를 기준으로 한다
+  const shownPage = accounts.data?.page ?? 0;
+  const pageStart = shownPage * ACCOUNTS_PAGE_SIZE;
+  const lastPage = Math.max(0, Math.ceil(total / ACCOUNTS_PAGE_SIZE) - 1);
+  const moving = accounts.isPlaceholderData;
+  // 계정이 줄어 보던 페이지가 범위를 벗어나면 마지막 페이지로 옮긴다
+  if (accounts.data && !moving && page > lastPage) setPage(lastPage);
+  // 조건이 바뀌면 첫 페이지부터 다시 본다
+  const filterBy =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPage(0);
+    };
 
   const columns: DataGridColumn<Account>[] = [
     {
@@ -123,7 +145,7 @@ export function AdminAccountsPage() {
           aria-label="계정 검색"
           className="w-60 max-w-full"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => filterBy(setSearch)(e.target.value)}
         />
         <Select
           size="sm"
@@ -136,7 +158,7 @@ export function AdminAccountsPage() {
               .filter((r) => !r.fixed)
               .map((r) => ({ value: r.id, label: r.name })),
           ]}
-          onValueChange={(v) => setRoleId(v ?? ALL)}
+          onValueChange={(v) => filterBy(setRoleId)(v ?? ALL)}
         />
         <Select
           size="sm"
@@ -147,7 +169,7 @@ export function AdminAccountsPage() {
             { value: ALL, label: "모든 소속" },
             ...affiliations.map((a) => ({ value: a.id, label: a.name })),
           ]}
-          onValueChange={(v) => setAffiliationId(v ?? ALL)}
+          onValueChange={(v) => filterBy(setAffiliationId)(v ?? ALL)}
         />
         <Select
           size="sm"
@@ -162,7 +184,7 @@ export function AdminAccountsPage() {
             })),
           ]}
           onValueChange={(v) =>
-            setStatus((v ?? ALL) as AccountStatus | typeof ALL)
+            filterBy(setStatus)((v ?? ALL) as AccountStatus | typeof ALL)
           }
         />
         <span className="flex-1" />
@@ -180,19 +202,47 @@ export function AdminAccountsPage() {
           title="계정을 불러오지 못했습니다"
           onRetry={() => accounts.refetch()}
         />
-      ) : accounts.data && accounts.data.items.length === 0 ? (
+      ) : accounts.data?.total === 0 ? (
         <EmptyState
           icon={Users}
           title={filtering ? "조건에 맞는 계정이 없습니다" : "계정이 없습니다"}
         />
       ) : (
-        <DataGrid
-          aria-label="계정 목록"
-          selection="none"
-          columns={columns}
-          rows={accounts.data?.items ?? []}
-          getRowId={(a) => a.id}
-        />
+        <>
+          <DataGrid
+            aria-label="계정 목록"
+            selection="none"
+            columns={columns}
+            rows={accounts.data?.items ?? []}
+            getRowId={(a) => a.id}
+          />
+          {/* 범위를 벗어난 응답은 마지막 페이지로 옮기는 동안 범위를 보여주지 않는다 */}
+          {total > ACCOUNTS_PAGE_SIZE && pageStart < total && (
+            <nav
+              aria-label="계정 목록 페이지"
+              className="flex items-center justify-end gap-2"
+            >
+              <span className="text-body-sm text-fg-muted">
+                전체 {total}명 중 {pageStart + 1}–
+                {Math.min(pageStart + ACCOUNTS_PAGE_SIZE, total)}
+              </span>
+              <Button
+                size="sm"
+                disabled={moving || shownPage === 0}
+                onClick={() => setPage(shownPage - 1)}
+              >
+                이전
+              </Button>
+              <Button
+                size="sm"
+                disabled={moving || shownPage >= lastPage}
+                onClick={() => setPage(shownPage + 1)}
+              >
+                다음
+              </Button>
+            </nav>
+          )}
+        </>
       )}
 
       <CreateAccountDialog

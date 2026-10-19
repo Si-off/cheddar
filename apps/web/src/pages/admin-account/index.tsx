@@ -72,7 +72,8 @@ function AccountDetail({ account }: { account: Account }) {
     event.preventDefault();
     const found = validateAccountDraft(draft, roles);
     setErrors(found);
-    if (Object.keys(found).length === 0) actions.update.mutate(draft);
+    if (Object.keys(found).length === 0)
+      actions.update.mutate({ draft, original: account });
   };
 
   const issue = () => {
