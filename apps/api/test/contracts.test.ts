@@ -20,7 +20,7 @@ import {
 } from "../src/contracts/identity.dto";
 import { defaultColumns } from "../src/projects/template";
 
-test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝트 설정 계약을 노출", async () => {
+test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝트·테스트 세트 계약을 노출", async () => {
   const app = await createApp(
     {
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
@@ -48,11 +48,11 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
           ).length,
         0,
       ),
-      49,
+      59,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
-        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects))/.test(
+        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets))/.test(
           p,
         ),
       ),
@@ -67,6 +67,36 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       ajv.addSchema(schema, `#/components/schemas/${name}`);
     for (const name of Object.keys(components))
       assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
+    const ops = ajv.getSchema("#/components/schemas/ApplyOpsDto");
+    assert.ok(ops);
+    const caseId = defaultColumns()[0].id,
+      columnId = defaultColumns()[1].id;
+    for (const value of ["텍스트", null, false, ["태그"]])
+      assert.equal(
+        ops({ ops: [{ type: "set_cell", caseId, columnId, value }] }),
+        true,
+      );
+    assert.equal(
+      ops({ ops: [{ type: "add_case", caseId, afterCaseId: null }] }),
+      true,
+    );
+    assert.equal(ops({ ops: [{ type: "add_case", caseId }] }), false);
+    assert.equal(
+      ops({ ops: [{ type: "set_cell", caseId, columnId, value: 123 }] }),
+      false,
+    );
+    assert.equal(ops({ ops: [] }), false);
+    const binary =
+      document.paths["/api/v1/test-sets/{testSetId}/export"].get?.responses[
+        "200"
+      ];
+    assert.ok(binary && !("$ref" in binary));
+    assert.deepEqual(
+      binary.content?.[
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ].schema,
+      { type: "string", format: "binary" },
+    );
     const template = ajv.getSchema("#/components/schemas/TemplateDto");
     assert.ok(template);
     assert.equal(template({ revision: 1, columns: defaultColumns() }), true);

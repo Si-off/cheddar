@@ -286,6 +286,8 @@ export const testSets = pgTable(
     linkAccess: accessEnum("link_access").notNull().default("view"),
     linkTokenHash: varchar("link_token_hash", { length: 64 }).unique(),
     version: integer("version").notNull().default(0),
+    // 삭제한 케이스의 자동 번호도 다시 사용하지 않는다. 긴 사용자 입력 번호를 보존한다.
+    testIdCounter: text("test_id_counter").notNull().default("0"),
     createdAt: created(),
     updatedAt: updated(),
   },

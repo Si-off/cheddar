@@ -14,6 +14,7 @@ import {
 import { ProjectsModule } from "./projects/projects.module";
 import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
+import { TestSetsModule } from "./test-sets/test-sets.module";
 @Module({})
 export class AppModule {}
 export function appModule(
@@ -32,6 +33,7 @@ export function appModule(
       RolesModule,
       AffiliationsModule,
       ProjectsModule,
+      TestSetsModule,
     ],
     controllers: [HealthController],
     providers: [

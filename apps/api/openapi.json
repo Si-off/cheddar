@@ -5824,11 +5824,1239 @@
           "프로젝트 설정"
         ]
       }
+    },
+    "/api/v1/test-sets": {
+      "get": {
+        "operationId": "listTestSets",
+        "parameters": [
+          {
+            "name": "filter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "shared"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          {
+            "required": false,
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "default": "all",
+              "type": "string"
+            }
+          },
+          {
+            "required": false,
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSetListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "볼 수 있는 테스트 세트 목록",
+        "tags": [
+          "테스트 세트"
+        ]
+      },
+      "post": {
+        "operationId": "createTestSet",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTestSetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "프로젝트 기본 양식으로 테스트 세트 만들기",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}": {
+      "get": {
+        "operationId": "getTestSet",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "테스트 세트 보기",
+        "tags": [
+          "테스트 세트"
+        ]
+      },
+      "patch": {
+        "operationId": "updateTestSet",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTestSetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "테스트 세트 이름과 메모 변경",
+        "tags": [
+          "테스트 세트"
+        ]
+      },
+      "delete": {
+        "operationId": "deleteTestSet",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "테스트 세트 삭제",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}/columns": {
+      "put": {
+        "operationId": "updateTestSetColumns",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateColumnsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnsResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "테스트 세트 양식 변경",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}/ops": {
+      "post": {
+        "operationId": "applyTestSetOps",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyOpsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "테스트 케이스 편집 연산 적용",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}/view": {
+      "get": {
+        "operationId": "getTestSetView",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSetViewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "내 보기 설정 읽기",
+        "tags": [
+          "테스트 세트"
+        ]
+      },
+      "put": {
+        "operationId": "updateTestSetView",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestSetViewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSetViewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "내 보기 설정 저장",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}/export": {
+      "get": {
+        "operationId": "exportTestSet",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment; filename*=UTF-8''<테스트 세트 이름>.xlsx",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "테스트 세트 XLSX 내보내기",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
     }
   },
   "info": {
     "title": "Cheddar API",
-    "description": "계정, 역할, 소속, 세션 인증과 프로젝트 설정 API. 역할 할당의 범위와 권한을 합산합니다.",
+    "description": "계정, 역할, 소속, 세션 인증, 프로젝트 설정과 테스트 세트 API. 역할 할당의 범위와 권한을 합산합니다.",
     "version": "2.0.0",
     "contact": {}
   },
@@ -6953,6 +8181,517 @@
         },
         "required": [
           "body"
+        ],
+        "additionalProperties": false
+      },
+      "SetCellOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "set_cell"
+            ]
+          },
+          "caseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "columnId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 20000,
+                "nullable": true
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "caseId",
+          "columnId",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "AddCaseOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "add_case"
+            ]
+          },
+          "caseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "afterCaseId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20000,
+                  "nullable": true
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "type",
+          "caseId",
+          "afterCaseId"
+        ],
+        "additionalProperties": false
+      },
+      "DeleteCasesOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "delete_cases"
+            ]
+          },
+          "caseIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "caseIds"
+        ],
+        "additionalProperties": false
+      },
+      "MoveCaseOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "move_case"
+            ]
+          },
+          "caseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "afterCaseId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "caseId",
+          "afterCaseId"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetPersonDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/TestSetPersonDto"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "caseCount": {
+            "type": "integer"
+          },
+          "reviewCount": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "isPublic",
+          "caseCount",
+          "reviewCount",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestSetSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CreateTestSetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "memo": {
+            "type": "string",
+            "maxLength": 5000,
+            "default": ""
+          }
+        },
+        "required": [
+          "name",
+          "projectId"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetAccessDto": {
+        "type": "object",
+        "properties": {
+          "canEdit": {
+            "type": "boolean"
+          },
+          "canRename": {
+            "type": "boolean"
+          },
+          "canDelete": {
+            "type": "boolean"
+          },
+          "canExport": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "canEdit",
+          "canRename",
+          "canDelete",
+          "canExport"
+        ],
+        "additionalProperties": false
+      },
+      "CaseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20000,
+                  "nullable": true
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "values"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "memo": {
+            "type": "string"
+          },
+          "project": {
+            "$ref": "#/components/schemas/TestSetPersonDto"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/TestSetPersonDto"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "access": {
+            "$ref": "#/components/schemas/TestSetAccessDto"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateColumnDto"
+            }
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseDto"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "memo",
+          "project",
+          "owner",
+          "isPublic",
+          "version",
+          "access",
+          "columns",
+          "cases",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateTestSetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "memo": {
+            "type": "string",
+            "maxLength": 5000
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateColumnsDto": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "minItems": 2,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateColumnDto"
+            }
+          }
+        },
+        "required": [
+          "columns"
+        ],
+        "additionalProperties": false
+      },
+      "ColumnsResultDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateColumnDto"
+            }
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseDto"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "columns",
+          "cases"
+        ],
+        "additionalProperties": false
+      },
+      "ApplyOpsDto": {
+        "type": "object",
+        "properties": {
+          "ops": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SetCellOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/AddCaseOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/DeleteCasesOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/MoveCaseOpDto"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "ops"
+        ],
+        "additionalProperties": false
+      },
+      "OpsResultDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseDto"
+            }
+          },
+          "deletedCaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "cases",
+          "deletedCaseIds"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetViewDto": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "type": "string",
+            "enum": [
+              "table",
+              "card"
+            ]
+          },
+          "groupByColumnId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "columnWidths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 40,
+              "maximum": 2000
+            }
+          },
+          "rowHeights": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 24,
+              "maximum": 2000
+            }
+          }
+        },
+        "required": [
+          "view",
+          "groupByColumnId",
+          "columnWidths",
+          "rowHeights"
         ],
         "additionalProperties": false
       }

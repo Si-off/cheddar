@@ -6,7 +6,7 @@ export function createDocument(app: INestApplication) {
     .setTitle("Cheddar API")
     .setVersion("2.0.0")
     .setDescription(
-      "계정, 역할, 소속, 세션 인증과 프로젝트 설정 API. 역할 할당의 범위와 권한을 합산합니다.",
+      "계정, 역할, 소속, 세션 인증, 프로젝트 설정과 테스트 세트 API. 역할 할당의 범위와 권한을 합산합니다.",
     )
     .addCookieAuth("cheddar_session")
     .build();
