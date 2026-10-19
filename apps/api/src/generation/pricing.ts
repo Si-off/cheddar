@@ -1,44 +1,66 @@
 import type { Usage } from "./providers/ai-provider";
-// USD / 100만 토큰. 2026-10-19 공식 표 기준. 알 수 없는 모델은 0으로 추정하지 않는다.
+
+// USD / 100만 토큰. 2026-10-20 공식 표 기준. 알 수 없는 모델은 0으로 추정하지 않는다.
 // https://platform.claude.com/docs/en/about-claude/pricing
-// https://developers.openai.com/api/docs/models/gpt-5.4
-export const PRICING: Record<string, [number, number, number, number]> = {
-  "anthropic:claude-opus-5-5": [4, 20, 0.2, 5],
-  "anthropic:claude-sonnet-5-5": [2, 10, 0.2, 2.5],
-  "anthropic:claude-haiku-5-5": [0.1, 0.5, 0.01, 0.125],
-  "openai:gpt-5.4": [2.5, 15, 0.25, 0],
+// https://developers.openai.com/api/docs/pricing
+type Rates = [
+  input: number,
+  output: number,
+  cacheRead: number,
+  cacheCreation: number,
+];
+type Price = { rates: Rates; long?: { above: number; rates: Rates } };
+const OPENAI_LONG = 272000;
+export const PRICING: Record<string, Price> = {
+  "anthropic:claude-opus-5-5": { rates: [4, 20, 0.2, 5] },
+  "anthropic:claude-sonnet-5-5": { rates: [2, 10, 0.2, 2.5] },
+  "anthropic:claude-haiku-5-5": {
+    rates: [0.1, 0.5, 0.01, 0.125],
+    long: { above: 100000, rates: [0.5, 2.5, 0.05, 0.625] },
+  },
+  "openai:gpt-5.4": {
+    rates: [2.5, 15, 0.25, 0],
+    long: { above: OPENAI_LONG, rates: [5, 22.5, 0.5, 0] },
+  },
+  "openai:gpt-6-luna": {
+    rates: [0.1, 0.5, 0.01, 0.125],
+    long: { above: OPENAI_LONG, rates: [0.2, 0.75, 0.02, 0.25] },
+  },
+  "openai:gpt-5.6-terra": {
+    rates: [2, 12, 0.2, 2.5],
+    long: { above: OPENAI_LONG, rates: [4, 18, 0.4, 5] },
+  },
 };
 export function pricingFor(model: string, usage: Usage) {
-  let rates = PRICING[model];
+  const price = PRICING[model];
+  if (!price) return null;
   const promptTokens =
     usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
-  if (model === "anthropic:claude-haiku-5-5" && promptTokens > 100000)
-    rates = [0.5, 2.5, 0.05, 0.625];
-  if (model === "openai:gpt-5.4" && promptTokens > 272000)
-    rates = [5, 22.5, 0.5, 0];
-  return rates
-    ? {
-        version: "2026-10-19",
-        model,
-        currency: "USD",
-        unit: "usd_per_million_tokens",
-        rates: {
-          input: rates[0],
-          output: rates[1],
-          cacheRead: rates[2],
-          cacheCreation: rates[3],
-        },
-        condition:
-          model === "anthropic:claude-haiku-5-5"
-            ? `standard; input ${promptTokens > 100000 ? ">" : "<="} 100000; cache write 5m`
-            : model === "openai:gpt-5.4"
-              ? `standard; input ${promptTokens > 272000 ? ">" : "<="} 272000`
-              : "standard; cache write 5m",
-        source: model.startsWith("openai:")
-          ? "https://developers.openai.com/api/docs/models/gpt-5.4"
-          : "https://platform.claude.com/docs/en/about-claude/pricing",
-      }
-    : null;
+  const longContext = price.long && promptTokens > price.long.above;
+  const rates = longContext && price.long ? price.long.rates : price.rates;
+  const openai = model.startsWith("openai:");
+  return {
+    version: "2026-10-20",
+    model,
+    currency: "USD",
+    unit: "usd_per_million_tokens",
+    rates: {
+      input: rates[0],
+      output: rates[1],
+      cacheRead: rates[2],
+      cacheCreation: rates[3],
+    },
+    condition: [
+      "standard",
+      price.long && `input ${longContext ? ">" : "<="} ${price.long.above}`,
+      !openai && "cache write 5m",
+    ]
+      .filter(Boolean)
+      .join("; "),
+    source: openai
+      ? "https://developers.openai.com/api/docs/pricing"
+      : "https://platform.claude.com/docs/en/about-claude/pricing",
+  };
 }
 export function costFor(
   model: string,

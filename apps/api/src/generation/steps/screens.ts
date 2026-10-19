@@ -4,7 +4,6 @@ export const screens: StepDefinition = {
   key: "screens",
   displayStage: "screens",
   version: "screens-2",
-  effort: "low",
   maxTokens: 12000,
   timeoutMs: 180000,
   retries: 2,

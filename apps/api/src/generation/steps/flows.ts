@@ -4,7 +4,6 @@ export const flows: StepDefinition = {
   key: "flows",
   displayStage: "flows",
   version: "flows-2",
-  effort: "high",
   maxTokens: 20000,
   timeoutMs: 240000,
   retries: 2,

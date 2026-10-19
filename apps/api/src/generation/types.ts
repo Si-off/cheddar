@@ -77,7 +77,6 @@ export type StepDefinition = {
   displayStage: Exclude<Stage, "rewrite"> | null;
   version: string;
   prompt: string;
-  effort: "low" | "high";
   maxTokens: number;
   timeoutMs: number;
   retries: number;

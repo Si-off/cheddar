@@ -6,15 +6,41 @@ export const STAGES = [
   "rewrite",
 ] as const;
 export type Stage = (typeof STAGES)[number];
-export type ModelConfig = { provider: "anthropic" | "openai"; model: string };
-export type AiConfig = { fake: boolean; models: Record<Stage, ModelConfig> };
-const defaults: Record<Stage, string> = {
-  screens: "anthropic:claude-sonnet-5-5",
-  flows: "anthropic:claude-opus-5-5",
-  cases: "anthropic:claude-opus-5-5",
-  finish: "anthropic:claude-haiku-5-5",
-  rewrite: "anthropic:claude-opus-5-5",
+/** Claude와 GPT가 함께 받는 effort 값. default는 effort를 보내지 않아 모델 기본값을 쓴다(effort를 받지 않는 모델용). */
+export const EFFORTS = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "default",
+] as const;
+export type Effort = (typeof EFFORTS)[number];
+export type ModelConfig = {
+  provider: "anthropic" | "openai";
+  model: string;
+  effort: Effort;
 };
+export type AiConfig = { fake: boolean; models: Record<Stage, ModelConfig> };
+
+/** 짧은 이름으로 모델을 고를 수 있게 한다. 전체 이름(`anthropic:<모델>`, `openai:<모델>`)도 받는다. */
+export const MODEL_ALIASES: Record<string, string> = {
+  haiku: "anthropic:claude-haiku-5-5",
+  sonnet: "anthropic:claude-sonnet-5-5",
+  opus: "anthropic:claude-opus-5-5",
+  luna: "openai:gpt-6-luna",
+  terra: "openai:gpt-5.6-terra",
+};
+
+/** 단계별 기본 모델과 effort. 환경변수 AI_MODEL_<단계>, AI_EFFORT_<단계>로 바꾼다. */
+const defaults: Record<Stage, { model: string; effort: Effort }> = {
+  screens: { model: "sonnet", effort: "low" },
+  flows: { model: "terra", effort: "medium" },
+  cases: { model: "terra", effort: "high" },
+  finish: { model: "haiku", effort: "low" },
+  rewrite: { model: "sonnet", effort: "medium" },
+};
+
 export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   if (
     env.AI_PROVIDER &&
@@ -23,11 +49,19 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     throw new Error("AI_PROVIDER 설정을 확인하세요.");
   const models = Object.fromEntries(
     STAGES.map((stage) => {
-      const value = env[`AI_MODEL_${stage.toUpperCase()}`] ?? defaults[stage];
-      const match = /^(anthropic|openai):([^\s:]+)$/.exec(value);
-      if (!match)
-        throw new Error(`AI_MODEL_${stage.toUpperCase()} 설정을 확인하세요.`);
-      return [stage, { provider: match[1], model: match[2] }];
+      const name = stage.toUpperCase();
+      const value = env[`AI_MODEL_${name}`] ?? defaults[stage].model;
+      const match = /^(anthropic|openai):([^\s:]+)$/.exec(
+        MODEL_ALIASES[value] ?? value,
+      );
+      if (!match) throw new Error(`AI_MODEL_${name} 설정을 확인하세요.`);
+      const effort = env[`AI_EFFORT_${name}`] ?? defaults[stage].effort;
+      if (!(EFFORTS as readonly string[]).includes(effort))
+        throw new Error(`AI_EFFORT_${name} 설정을 확인하세요.`);
+      return [
+        stage,
+        { provider: match[1], model: match[2], effort: effort as Effort },
+      ];
     }),
   ) as Record<Stage, ModelConfig>;
   return { fake: env.AI_PROVIDER === "fake", models };

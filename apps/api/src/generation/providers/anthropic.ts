@@ -43,7 +43,7 @@ export class AnthropicProvider implements AiProvider {
             },
           ],
           output_config: {
-            effort: r.definition.effort,
+            ...(r.model.effort === "default" ? {} : { effort: r.model.effort }),
             format: {
               type: "json_schema",
               schema: requestSchema(r.schema) as Record<string, unknown>,

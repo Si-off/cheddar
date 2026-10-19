@@ -48,6 +48,9 @@ export class OpenAiProvider implements AiProvider {
             },
           },
           max_output_tokens: r.definition.maxTokens,
+          ...(r.model.effort === "default"
+            ? {}
+            : { reasoning: { effort: r.model.effort } }),
           store: false,
         },
         {
