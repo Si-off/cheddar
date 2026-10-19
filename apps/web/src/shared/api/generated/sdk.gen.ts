@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInvitationData, AcceptInvitationErrors, AcceptInvitationResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateAffiliationData, CreateAffiliationErrors, CreateAffiliationResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteAffiliationData, DeleteAffiliationErrors, DeleteAffiliationResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DuplicateRoleData, DuplicateRoleErrors, DuplicateRoleResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetAffiliationData, GetAffiliationErrors, GetAffiliationResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRoleData, GetRoleErrors, GetRoleResponses, InspectInvitationData, InspectInvitationErrors, InspectInvitationResponses, InspectPasswordResetData, InspectPasswordResetErrors, InspectPasswordResetResponses, IssuePasswordResetData, IssuePasswordResetErrors, IssuePasswordResetResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListAffiliationsData, ListAffiliationsErrors, ListAffiliationsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReissueInvitationData, ReissueInvitationErrors, ReissueInvitationResponses, ResetPasswordData, ResetPasswordErrors, ResetPasswordResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateAffiliationData, UpdateAffiliationErrors, UpdateAffiliationResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses } from './types.gen';
+import type { AcceptInvitationData, AcceptInvitationErrors, AcceptInvitationResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateAffiliationData, CreateAffiliationErrors, CreateAffiliationResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectRequiredCaseData, CreateProjectRequiredCaseErrors, CreateProjectRequiredCaseResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteAffiliationData, DeleteAffiliationErrors, DeleteAffiliationResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseErrors, DeleteProjectRequiredCaseResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DuplicateRoleData, DuplicateRoleErrors, DuplicateRoleResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetAffiliationData, GetAffiliationErrors, GetAffiliationResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRoleData, GetRoleErrors, GetRoleResponses, InspectInvitationData, InspectInvitationErrors, InspectInvitationResponses, InspectPasswordResetData, InspectPasswordResetErrors, InspectPasswordResetResponses, IssuePasswordResetData, IssuePasswordResetErrors, IssuePasswordResetResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListAffiliationsData, ListAffiliationsErrors, ListAffiliationsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectRequiredCasesData, ListProjectRequiredCasesErrors, ListProjectRequiredCasesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReissueInvitationData, ReissueInvitationErrors, ReissueInvitationResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ResetPasswordData, ResetPasswordErrors, ResetPasswordResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateAffiliationData, UpdateAffiliationErrors, UpdateAffiliationResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseErrors, UpdateProjectRequiredCaseResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -354,6 +354,323 @@ export const updateAffiliation = <ThrowOnError extends boolean = false>(options:
             type: 'apiKey'
         }],
     url: '/api/v1/affiliations/{affiliationId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 볼 수 있는 프로젝트 목록
+ */
+export const listProjects = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsData, ThrowOnError>): RequestResult<ListProjectsResponses, ListProjectsErrors, ThrowOnError> => (options?.client ?? client).get<ListProjectsResponses, ListProjectsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects',
+    ...options
+});
+
+/**
+ * 프로젝트와 기본 설정 만들기
+ */
+export const createProject = <ThrowOnError extends boolean = false>(options: Options<CreateProjectData, ThrowOnError>): RequestResult<CreateProjectResponses, CreateProjectErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectResponses, CreateProjectErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 프로젝트 보기
+ */
+export const getProject = <ThrowOnError extends boolean = false>(options: Options<GetProjectData, ThrowOnError>): RequestResult<GetProjectResponses, GetProjectErrors, ThrowOnError> => (options.client ?? client).get<GetProjectResponses, GetProjectErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}',
+    ...options
+});
+
+/**
+ * 프로젝트 수정
+ */
+export const updateProject = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectData, ThrowOnError>): RequestResult<UpdateProjectResponses, UpdateProjectErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectResponses, UpdateProjectErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 기본 양식 보기
+ */
+export const getProjectTemplate = <ThrowOnError extends boolean = false>(options: Options<GetProjectTemplateData, ThrowOnError>): RequestResult<GetProjectTemplateResponses, GetProjectTemplateErrors, ThrowOnError> => (options.client ?? client).get<GetProjectTemplateResponses, GetProjectTemplateErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/template',
+    ...options
+});
+
+/**
+ * 기본 양식 저장
+ */
+export const updateProjectTemplate = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectTemplateData, ThrowOnError>): RequestResult<UpdateProjectTemplateResponses, UpdateProjectTemplateErrors, ThrowOnError> => (options.client ?? client).put<UpdateProjectTemplateResponses, UpdateProjectTemplateErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/template',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 기능 그룹 목록
+ */
+export const listProjectFeatureGroups = <ThrowOnError extends boolean = false>(options: Options<ListProjectFeatureGroupsData, ThrowOnError>): RequestResult<ListProjectFeatureGroupsResponses, ListProjectFeatureGroupsErrors, ThrowOnError> => (options.client ?? client).get<ListProjectFeatureGroupsResponses, ListProjectFeatureGroupsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/feature-groups',
+    ...options
+});
+
+/**
+ * 기능 그룹 추가
+ */
+export const createProjectFeatureGroup = <ThrowOnError extends boolean = false>(options: Options<CreateProjectFeatureGroupData, ThrowOnError>): RequestResult<CreateProjectFeatureGroupResponses, CreateProjectFeatureGroupErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectFeatureGroupResponses, CreateProjectFeatureGroupErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/feature-groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 기능 그룹 삭제
+ */
+export const deleteProjectFeatureGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectFeatureGroupData, ThrowOnError>): RequestResult<DeleteProjectFeatureGroupResponses, DeleteProjectFeatureGroupErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectFeatureGroupResponses, DeleteProjectFeatureGroupErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/feature-groups/{groupId}',
+    ...options
+});
+
+/**
+ * 기능 그룹 수정
+ */
+export const updateProjectFeatureGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectFeatureGroupData, ThrowOnError>): RequestResult<UpdateProjectFeatureGroupResponses, UpdateProjectFeatureGroupErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectFeatureGroupResponses, UpdateProjectFeatureGroupErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/feature-groups/{groupId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 기능 그룹 순서 변경
+ */
+export const reorderProjectFeatureGroups = <ThrowOnError extends boolean = false>(options: Options<ReorderProjectFeatureGroupsData, ThrowOnError>): RequestResult<ReorderProjectFeatureGroupsResponses, ReorderProjectFeatureGroupsErrors, ThrowOnError> => (options.client ?? client).put<ReorderProjectFeatureGroupsResponses, ReorderProjectFeatureGroupsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/feature-groups/order',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 필수 케이스 목록
+ */
+export const listProjectRequiredCases = <ThrowOnError extends boolean = false>(options: Options<ListProjectRequiredCasesData, ThrowOnError>): RequestResult<ListProjectRequiredCasesResponses, ListProjectRequiredCasesErrors, ThrowOnError> => (options.client ?? client).get<ListProjectRequiredCasesResponses, ListProjectRequiredCasesErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/required-cases',
+    ...options
+});
+
+/**
+ * 필수 케이스 추가
+ */
+export const createProjectRequiredCase = <ThrowOnError extends boolean = false>(options: Options<CreateProjectRequiredCaseData, ThrowOnError>): RequestResult<CreateProjectRequiredCaseResponses, CreateProjectRequiredCaseErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectRequiredCaseResponses, CreateProjectRequiredCaseErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/required-cases',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 추가한 필수 케이스 삭제
+ */
+export const deleteProjectRequiredCase = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectRequiredCaseData, ThrowOnError>): RequestResult<DeleteProjectRequiredCaseResponses, DeleteProjectRequiredCaseErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectRequiredCaseResponses, DeleteProjectRequiredCaseErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/required-cases/{caseId}',
+    ...options
+});
+
+/**
+ * 필수 케이스 수정
+ */
+export const updateProjectRequiredCase = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectRequiredCaseData, ThrowOnError>): RequestResult<UpdateProjectRequiredCaseResponses, UpdateProjectRequiredCaseErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectRequiredCaseResponses, UpdateProjectRequiredCaseErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/required-cases/{caseId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 화면 구조 목록
+ */
+export const listProjectScreens = <ThrowOnError extends boolean = false>(options: Options<ListProjectScreensData, ThrowOnError>): RequestResult<ListProjectScreensResponses, ListProjectScreensErrors, ThrowOnError> => (options.client ?? client).get<ListProjectScreensResponses, ListProjectScreensErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screens',
+    ...options
+});
+
+/**
+ * 화면 추가
+ */
+export const createProjectScreen = <ThrowOnError extends boolean = false>(options: Options<CreateProjectScreenData, ThrowOnError>): RequestResult<CreateProjectScreenResponses, CreateProjectScreenErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectScreenResponses, CreateProjectScreenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screens',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 하위 화면이 없는 화면 삭제
+ */
+export const deleteProjectScreen = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectScreenData, ThrowOnError>): RequestResult<DeleteProjectScreenResponses, DeleteProjectScreenErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectScreenResponses, DeleteProjectScreenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screens/{itemId}',
+    ...options
+});
+
+/**
+ * 화면 수정
+ */
+export const updateProjectScreen = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectScreenData, ThrowOnError>): RequestResult<UpdateProjectScreenResponses, UpdateProjectScreenErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectScreenResponses, UpdateProjectScreenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screens/{itemId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 메모 보기
+ */
+export const getProjectMemo = <ThrowOnError extends boolean = false>(options: Options<GetProjectMemoData, ThrowOnError>): RequestResult<GetProjectMemoResponses, GetProjectMemoErrors, ThrowOnError> => (options.client ?? client).get<GetProjectMemoResponses, GetProjectMemoErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/memo',
+    ...options
+});
+
+/**
+ * 메모 저장
+ */
+export const updateProjectMemo = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectMemoData, ThrowOnError>): RequestResult<UpdateProjectMemoResponses, UpdateProjectMemoErrors, ThrowOnError> => (options.client ?? client).put<UpdateProjectMemoResponses, UpdateProjectMemoErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/memo',
     ...options,
     headers: {
         'Content-Type': 'application/json',

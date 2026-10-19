@@ -40,6 +40,7 @@ export {
 } from "./radio-group";
 export { ReviewCard, type ReviewCardProps } from "./review-card";
 export { Select, type SelectItem, type SelectProps } from "./select";
+export { SortableList, type SortableListProps } from "./sortable-list";
 export {
   type SaveState,
   SaveStatus,

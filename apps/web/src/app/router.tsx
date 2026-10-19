@@ -23,6 +23,14 @@ import { LoginPage } from "@/pages/login";
 import { NoAccessPage } from "@/pages/no-access";
 import { PasswordSetupPage } from "@/pages/password-setup";
 import { PlaceholderPage } from "@/pages/placeholder";
+import {
+  ProjectFeatureGroupsPage,
+  ProjectMemoPage,
+  ProjectRequiredCasesPage,
+  ProjectScreensPage,
+  ProjectTemplatePage,
+} from "@/pages/project-settings";
+import { ProjectsPage } from "@/pages/projects";
 import { isApiFailure } from "@/shared/api";
 import { AdminShell } from "@/widgets/admin-shell";
 import { AppHeader } from "@/widgets/app-header";
@@ -202,7 +210,65 @@ const testSetsRoute = createRoute({
 const projectsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/projects",
-  component: () => <PlaceholderPage title="프로젝트" />,
+  component: ProjectsPage,
+});
+
+const projectRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/projects/$projectId",
+});
+
+const projectIndexRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/",
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: "/projects/$projectId/template", params });
+  },
+});
+
+const projectTemplateRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/template",
+  component: function ProjectTemplateRoute() {
+    const { projectId } = projectRoute.useParams();
+    return <ProjectTemplatePage projectId={projectId} />;
+  },
+});
+
+const projectFeatureGroupsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/feature-groups",
+  component: function ProjectFeatureGroupsRoute() {
+    const { projectId } = projectRoute.useParams();
+    return <ProjectFeatureGroupsPage projectId={projectId} />;
+  },
+});
+
+const projectRequiredCasesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/required-cases",
+  component: function ProjectRequiredCasesRoute() {
+    const { projectId } = projectRoute.useParams();
+    return <ProjectRequiredCasesPage projectId={projectId} />;
+  },
+});
+
+const projectScreensRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/screens",
+  component: function ProjectScreensRoute() {
+    const { projectId } = projectRoute.useParams();
+    return <ProjectScreensPage projectId={projectId} />;
+  },
+});
+
+const projectMemoRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "/memo",
+  component: function ProjectMemoRoute() {
+    const { projectId } = projectRoute.useParams();
+    return <ProjectMemoPage projectId={projectId} />;
+  },
 });
 
 const noAccessRoute = createRoute({
@@ -284,6 +350,14 @@ const routeTree = rootRoute.addChildren([
     homeRoute,
     testSetsRoute,
     projectsRoute,
+    projectRoute.addChildren([
+      projectIndexRoute,
+      projectTemplateRoute,
+      projectFeatureGroupsRoute,
+      projectRequiredCasesRoute,
+      projectScreensRoute,
+      projectMemoRoute,
+    ]),
     noAccessRoute,
     adminRoute.addChildren([
       adminIndexRoute,

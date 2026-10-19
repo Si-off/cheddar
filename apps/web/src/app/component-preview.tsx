@@ -18,6 +18,7 @@ import {
   ReviewCard,
   SaveStatus,
   Select,
+  SortableList,
   StepList,
   Switch,
   Tabs,
@@ -187,6 +188,27 @@ function GridDemo() {
           케이스 추가
         </Button>
       }
+    />
+  );
+}
+
+function SortableDemo() {
+  const [items, setItems] = useState(["회원가입", "로그인", "상품 목록"]);
+  return (
+    <SortableList
+      aria-label="순서 바꾸기 예시"
+      className="w-72 rounded-lg border border-line bg-surface"
+      divided
+      items={items}
+      getId={(item) => item}
+      getHandleLabel={(item) => `${item} 순서 이동`}
+      onReorder={setItems}
+      renderItem={(item, handle) => (
+        <div className="flex items-center gap-2 px-3 py-2 text-body-sm">
+          {handle}
+          {item}
+        </div>
+      )}
     />
   );
 }
@@ -441,6 +463,10 @@ function Preview() {
             다음 단계
           </Button>
         </Row>
+      </Section>
+
+      <Section title="순서 바꾸기">
+        <SortableDemo />
       </Section>
 
       <Section title="표">

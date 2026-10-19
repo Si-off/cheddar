@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvitation, createAccount, createAffiliation, createRole, deactivateAccount, deleteAffiliation, deleteRole, duplicateRole, getAccount, getAffiliation, getLiveness, getMe, getReadiness, getRole, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listRoles, login, logout, type Options, reactivateAccount, reissueInvitation, resetPassword, updateAccount, updateAffiliation, updateRole } from '../sdk.gen';
-import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListRolesData, ListRolesError, ListRolesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse } from '../types.gen';
+import { acceptInvitation, createAccount, createAffiliation, createProject, createProjectFeatureGroup, createProjectRequiredCase, createProjectScreen, createRole, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectRequiredCase, deleteProjectScreen, deleteRole, duplicateRole, getAccount, getAffiliation, getLiveness, getMe, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listProjectFeatureGroups, listProjectRequiredCases, listProjects, listProjectScreens, listRoles, login, logout, type Options, reactivateAccount, reissueInvitation, reorderProjectFeatureGroups, resetPassword, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectRequiredCase, updateProjectScreen, updateProjectTemplate, updateRole } from '../sdk.gen';
+import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectRequiredCaseData, CreateProjectRequiredCaseError, CreateProjectRequiredCaseResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseError, DeleteProjectRequiredCaseResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectRequiredCasesData, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListRolesData, ListRolesError, ListRolesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseError, UpdateProjectRequiredCaseResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -569,6 +569,370 @@ export const updateAffiliationMutation = (options?: Partial<Options<UpdateAffili
     const mutationOptions: UseMutationOptions<UpdateAffiliationResponse, UpdateAffiliationError, Options<UpdateAffiliationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateAffiliation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listProjectsQueryKey = (options?: Options<ListProjectsData>) => createQueryKey('listProjects', options);
+
+/**
+ * 볼 수 있는 프로젝트 목록
+ */
+export const listProjectsOptions = (options?: Options<ListProjectsData>) => queryOptions<ListProjectsResponse, ListProjectsError, ListProjectsResponse, ReturnType<typeof listProjectsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProjects({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProjectsQueryKey(options)
+});
+
+/**
+ * 프로젝트와 기본 설정 만들기
+ */
+export const createProjectMutation = (options?: Partial<Options<CreateProjectData>>): UseMutationOptions<CreateProjectResponse, CreateProjectError, Options<CreateProjectData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectResponse, CreateProjectError, Options<CreateProjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createProject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getProjectQueryKey = (options: Options<GetProjectData>) => createQueryKey('getProject', options);
+
+/**
+ * 프로젝트 보기
+ */
+export const getProjectOptions = (options: Options<GetProjectData>) => queryOptions<GetProjectResponse, GetProjectError, GetProjectResponse, ReturnType<typeof getProjectQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getProject({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getProjectQueryKey(options)
+});
+
+/**
+ * 프로젝트 수정
+ */
+export const updateProjectMutation = (options?: Partial<Options<UpdateProjectData>>): UseMutationOptions<UpdateProjectResponse, UpdateProjectError, Options<UpdateProjectData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectResponse, UpdateProjectError, Options<UpdateProjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getProjectTemplateQueryKey = (options: Options<GetProjectTemplateData>) => createQueryKey('getProjectTemplate', options);
+
+/**
+ * 기본 양식 보기
+ */
+export const getProjectTemplateOptions = (options: Options<GetProjectTemplateData>) => queryOptions<GetProjectTemplateResponse, GetProjectTemplateError, GetProjectTemplateResponse, ReturnType<typeof getProjectTemplateQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getProjectTemplate({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getProjectTemplateQueryKey(options)
+});
+
+/**
+ * 기본 양식 저장
+ */
+export const updateProjectTemplateMutation = (options?: Partial<Options<UpdateProjectTemplateData>>): UseMutationOptions<UpdateProjectTemplateResponse, UpdateProjectTemplateError, Options<UpdateProjectTemplateData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectTemplateResponse, UpdateProjectTemplateError, Options<UpdateProjectTemplateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectTemplate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listProjectFeatureGroupsQueryKey = (options: Options<ListProjectFeatureGroupsData>) => createQueryKey('listProjectFeatureGroups', options);
+
+/**
+ * 기능 그룹 목록
+ */
+export const listProjectFeatureGroupsOptions = (options: Options<ListProjectFeatureGroupsData>) => queryOptions<ListProjectFeatureGroupsResponse, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ReturnType<typeof listProjectFeatureGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProjectFeatureGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProjectFeatureGroupsQueryKey(options)
+});
+
+/**
+ * 기능 그룹 추가
+ */
+export const createProjectFeatureGroupMutation = (options?: Partial<Options<CreateProjectFeatureGroupData>>): UseMutationOptions<CreateProjectFeatureGroupResponse, CreateProjectFeatureGroupError, Options<CreateProjectFeatureGroupData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectFeatureGroupResponse, CreateProjectFeatureGroupError, Options<CreateProjectFeatureGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createProjectFeatureGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 기능 그룹 삭제
+ */
+export const deleteProjectFeatureGroupMutation = (options?: Partial<Options<DeleteProjectFeatureGroupData>>): UseMutationOptions<DeleteProjectFeatureGroupResponse, DeleteProjectFeatureGroupError, Options<DeleteProjectFeatureGroupData>> => {
+    const mutationOptions: UseMutationOptions<DeleteProjectFeatureGroupResponse, DeleteProjectFeatureGroupError, Options<DeleteProjectFeatureGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteProjectFeatureGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 기능 그룹 수정
+ */
+export const updateProjectFeatureGroupMutation = (options?: Partial<Options<UpdateProjectFeatureGroupData>>): UseMutationOptions<UpdateProjectFeatureGroupResponse, UpdateProjectFeatureGroupError, Options<UpdateProjectFeatureGroupData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectFeatureGroupResponse, UpdateProjectFeatureGroupError, Options<UpdateProjectFeatureGroupData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectFeatureGroup({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 기능 그룹 순서 변경
+ */
+export const reorderProjectFeatureGroupsMutation = (options?: Partial<Options<ReorderProjectFeatureGroupsData>>): UseMutationOptions<ReorderProjectFeatureGroupsResponse, ReorderProjectFeatureGroupsError, Options<ReorderProjectFeatureGroupsData>> => {
+    const mutationOptions: UseMutationOptions<ReorderProjectFeatureGroupsResponse, ReorderProjectFeatureGroupsError, Options<ReorderProjectFeatureGroupsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reorderProjectFeatureGroups({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listProjectRequiredCasesQueryKey = (options: Options<ListProjectRequiredCasesData>) => createQueryKey('listProjectRequiredCases', options);
+
+/**
+ * 필수 케이스 목록
+ */
+export const listProjectRequiredCasesOptions = (options: Options<ListProjectRequiredCasesData>) => queryOptions<ListProjectRequiredCasesResponse, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ReturnType<typeof listProjectRequiredCasesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProjectRequiredCases({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProjectRequiredCasesQueryKey(options)
+});
+
+/**
+ * 필수 케이스 추가
+ */
+export const createProjectRequiredCaseMutation = (options?: Partial<Options<CreateProjectRequiredCaseData>>): UseMutationOptions<CreateProjectRequiredCaseResponse, CreateProjectRequiredCaseError, Options<CreateProjectRequiredCaseData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectRequiredCaseResponse, CreateProjectRequiredCaseError, Options<CreateProjectRequiredCaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createProjectRequiredCase({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 추가한 필수 케이스 삭제
+ */
+export const deleteProjectRequiredCaseMutation = (options?: Partial<Options<DeleteProjectRequiredCaseData>>): UseMutationOptions<DeleteProjectRequiredCaseResponse, DeleteProjectRequiredCaseError, Options<DeleteProjectRequiredCaseData>> => {
+    const mutationOptions: UseMutationOptions<DeleteProjectRequiredCaseResponse, DeleteProjectRequiredCaseError, Options<DeleteProjectRequiredCaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteProjectRequiredCase({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 필수 케이스 수정
+ */
+export const updateProjectRequiredCaseMutation = (options?: Partial<Options<UpdateProjectRequiredCaseData>>): UseMutationOptions<UpdateProjectRequiredCaseResponse, UpdateProjectRequiredCaseError, Options<UpdateProjectRequiredCaseData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectRequiredCaseResponse, UpdateProjectRequiredCaseError, Options<UpdateProjectRequiredCaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectRequiredCase({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listProjectScreensQueryKey = (options: Options<ListProjectScreensData>) => createQueryKey('listProjectScreens', options);
+
+/**
+ * 화면 구조 목록
+ */
+export const listProjectScreensOptions = (options: Options<ListProjectScreensData>) => queryOptions<ListProjectScreensResponse, ListProjectScreensError, ListProjectScreensResponse, ReturnType<typeof listProjectScreensQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProjectScreens({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProjectScreensQueryKey(options)
+});
+
+/**
+ * 화면 추가
+ */
+export const createProjectScreenMutation = (options?: Partial<Options<CreateProjectScreenData>>): UseMutationOptions<CreateProjectScreenResponse, CreateProjectScreenError, Options<CreateProjectScreenData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectScreenResponse, CreateProjectScreenError, Options<CreateProjectScreenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createProjectScreen({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 하위 화면이 없는 화면 삭제
+ */
+export const deleteProjectScreenMutation = (options?: Partial<Options<DeleteProjectScreenData>>): UseMutationOptions<DeleteProjectScreenResponse, DeleteProjectScreenError, Options<DeleteProjectScreenData>> => {
+    const mutationOptions: UseMutationOptions<DeleteProjectScreenResponse, DeleteProjectScreenError, Options<DeleteProjectScreenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteProjectScreen({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 화면 수정
+ */
+export const updateProjectScreenMutation = (options?: Partial<Options<UpdateProjectScreenData>>): UseMutationOptions<UpdateProjectScreenResponse, UpdateProjectScreenError, Options<UpdateProjectScreenData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectScreenResponse, UpdateProjectScreenError, Options<UpdateProjectScreenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectScreen({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getProjectMemoQueryKey = (options: Options<GetProjectMemoData>) => createQueryKey('getProjectMemo', options);
+
+/**
+ * 메모 보기
+ */
+export const getProjectMemoOptions = (options: Options<GetProjectMemoData>) => queryOptions<GetProjectMemoResponse, GetProjectMemoError, GetProjectMemoResponse, ReturnType<typeof getProjectMemoQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getProjectMemo({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getProjectMemoQueryKey(options)
+});
+
+/**
+ * 메모 저장
+ */
+export const updateProjectMemoMutation = (options?: Partial<Options<UpdateProjectMemoData>>): UseMutationOptions<UpdateProjectMemoResponse, UpdateProjectMemoError, Options<UpdateProjectMemoData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectMemoResponse, UpdateProjectMemoError, Options<UpdateProjectMemoData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectMemo({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
