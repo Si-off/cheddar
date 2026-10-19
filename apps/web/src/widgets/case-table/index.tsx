@@ -40,8 +40,8 @@ export interface CaseTableProps {
   rowHeights?: Record<string, number>;
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
   onRowHeightsChange?: (heights: Record<string, number>) => void;
-  /** 표 아래 "케이스 추가". 없으면 버튼을 두지 않는다. */
-  onAddCase?: () => void;
+  /** 표 아래 "케이스 추가". 없으면 버튼을 두지 않는다. 만든 케이스 ID를 돌려주면 그 제목 셀을 고른다. */
+  onAddCase?: () => string | undefined;
   /** 다른 사람이 선택한 셀 */
   presence?: GridPresence[];
   /** 내가 고른 셀이 바뀌면 알린다(다른 사람에게 보여주기 위해) */
@@ -120,6 +120,19 @@ export function CaseTable({
       grid.querySelector<HTMLElement>("table")
     )?.focus();
   }, [active]);
+  // "케이스 추가"로 만든 케이스가 표에 나타나면 제목 셀을 골라 바로 입력할 수 있게 한다
+  const added = useRef<string | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 케이스 목록이 바뀔 때만 확인한다
+  useLayoutEffect(() => {
+    const caseId = added.current;
+    if (!caseId || !cases.some((c) => c.id === caseId)) return;
+    added.current = null;
+    const column = columns.find((c) => c.systemKey === "title") ?? columns[0];
+    if (!column) return;
+    setActive({ rowId: caseId, columnId: column.id });
+    onActiveCellChange?.({ caseId, columnId: column.id });
+    focusGrid();
+  }, [cases]);
 
   const columnOf = (id: string) => columns.find((c) => c.id === id);
   const caseOf = (id: string) => cases.find((c) => c.id === id);
@@ -354,7 +367,14 @@ export function CaseTable({
         onRowHeightsChange={onRowHeightsChange}
         footer={
           onAddCase && !readOnly ? (
-            <Button variant="ghost" size="sm" icon={Plus} onClick={onAddCase}>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Plus}
+              onClick={() => {
+                added.current = onAddCase() ?? null;
+              }}
+            >
               케이스 추가
             </Button>
           ) : undefined

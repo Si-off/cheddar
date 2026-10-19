@@ -369,7 +369,7 @@ export function DataGrid<Row>({
                 <span className="block truncate">{column.header}</span>
                 <ColumnResizeHandle
                   label={
-                    typeof column.header === "string"
+                    typeof column.header === "string" && column.header
                       ? `${column.header} 너비`
                       : "열 너비"
                   }

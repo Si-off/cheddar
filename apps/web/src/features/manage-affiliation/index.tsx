@@ -143,6 +143,7 @@ function RenameForm({
         <TextField
           label="소속 이름"
           required
+          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
         />

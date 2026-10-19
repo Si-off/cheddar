@@ -118,6 +118,29 @@ test("케이스를 추가하면 서버가 붙인 번호가 보이고, 고른 케
   ]);
 });
 
+test("케이스를 추가한 뒤 바로 치면 새 케이스의 제목이 된다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await page.getByRole("button", { name: "케이스 추가", exact: true }).click();
+  await expect(cell(page, 3, "테스트 ID")).toHaveText("TC-003");
+  await page.keyboard.type("New title");
+  await page.keyboard.press("Enter");
+  // 목 서버는 셀 변경을 응답에 담지 않으므로 보낸 변경으로 확인한다
+  await expect
+    .poll(() => opsBodies(calls).flat())
+    .toContainEqual({
+      type: "set_cell",
+      caseId: expect.any(String),
+      columnId: "c-title",
+      value: "New title",
+    });
+});
+
 test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에 맞는 값만 바꾼다", async ({
   page,
 }) => {

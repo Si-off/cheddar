@@ -146,15 +146,12 @@ function SharedScreen({
     (p) => p.connectionId !== live.me?.connectionId,
   );
   const addCase = () => {
+    const caseId = crypto.randomUUID();
     const last = testSet.cases[testSet.cases.length - 1];
     apply([
-      {
-        type: "add_case",
-        caseId: crypto.randomUUID(),
-        afterCaseId: last?.id ?? null,
-        values: {},
-      },
+      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values: {} },
     ]);
+    return caseId;
   };
 
   return (

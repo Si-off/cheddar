@@ -82,6 +82,7 @@ function RenameForm({
           label="테스트 세트 이름"
           required
           maxLength={100}
+          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
