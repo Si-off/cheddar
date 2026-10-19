@@ -7,6 +7,7 @@ import {
   readdir,
   realpath,
   rename,
+  rm,
   unlink,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -65,11 +66,11 @@ export class LocalStorage implements FileStorage {
       await handle.close();
     }
   }
-  async publish(projectId: string, fileId: string) {
-    this.uuid(projectId);
+  async publish(uploadId: string, fileId: string) {
+    this.uuid(uploadId);
     this.uuid(fileId);
     await this.check();
-    const parent = join(this.root, projectId);
+    const parent = join(this.root, uploadId);
     await mkdir(parent, { recursive: true, mode: 0o700 });
     await this.directory(parent);
     // fileId is a fresh UUID backed by a unique DB primary key; never overwrite an existing blob.
@@ -96,15 +97,37 @@ export class LocalStorage implements FileStorage {
         throw error;
     }
   }
+  async cleanupStages(before: Date) {
+    await this.check();
+    const folder = join(this.root, ".incoming");
+    for (const fileId of await readdir(folder)) {
+      if (!isUUID(fileId)) continue;
+      try {
+        const entry = await lstat(join(folder, fileId));
+        if (entry.isFile() && !entry.isSymbolicLink() && entry.mtime <= before)
+          await this.discardStage(fileId);
+      } catch (error) {
+        // 업로드 게시나 다른 서버의 정리가 먼저 끝난 경우다.
+        if (
+          !(
+            error instanceof Error &&
+            "code" in error &&
+            error.code === "ENOENT"
+          )
+        )
+          throw error;
+      }
+    }
+  }
   async open(storageKey: string) {
     const parts = storageKey.split("/");
     if (parts.length !== 2) throw new Error("Invalid storage key.");
-    const [projectId, fileId] = parts;
-    this.uuid(projectId);
+    const [uploadId, fileId] = parts;
+    this.uuid(uploadId);
     this.uuid(fileId);
     await this.check();
-    await this.directory(join(this.root, projectId));
-    const path = join(this.root, projectId, fileId);
+    await this.directory(join(this.root, uploadId));
+    const path = join(this.root, uploadId, fileId);
     // O_NOFOLLOW is not enforced on Windows; inspect the directory entry too.
     const entry = await lstat(path);
     if (!entry.isFile() || entry.isSymbolicLink())
@@ -117,6 +140,20 @@ export class LocalStorage implements FileStorage {
     } catch (error) {
       await handle.close();
       throw error;
+    }
+  }
+  async removeUpload(uploadId: string) {
+    this.uuid(uploadId);
+    await this.check();
+    const path = join(this.root, uploadId);
+    try {
+      await this.directory(path);
+      await rm(path, { recursive: true });
+    } catch (error) {
+      if (
+        !(error instanceof Error && "code" in error && error.code === "ENOENT")
+      )
+        throw error;
     }
   }
 }

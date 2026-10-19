@@ -1,1 +1,0 @@
-export { TestCaseTable } from "./table";

@@ -4,10 +4,10 @@ import {
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from "@nestjs/common";
-import { and, eq, gt, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { DatabaseService } from "../database/database.service";
-import { aiProviderCosts } from "../database/schema";
+import { aiProviderCostSyncs, aiProviderCosts } from "../database/schema";
 import { fetchCosts } from "./provider-costs";
 import type { AiProvider } from "./usage";
 
@@ -24,6 +24,12 @@ export class ProviderCostsService
   ) {}
 
   onApplicationBootstrap() {
+    if (
+      this.env.ai?.fake ||
+      process.env.AI_PROVIDER === "fake" ||
+      process.env.NODE_ENV === "test"
+    )
+      return;
     if (!this.env.costSync?.openai && !this.env.costSync?.anthropic) return;
     void this.sync().catch(() => undefined);
     this.timer = setInterval(() => {
@@ -35,6 +41,7 @@ export class ProviderCostsService
   // Re-fetch the trailing 7 UTC days, including the current partial day.
   // Replace only after all pages validate, so delayed/corrected reports converge.
   sync(start?: Date, end?: Date): Promise<void> {
+    if (this.env.ai?.fake) return Promise.resolve();
     if (this.active) return this.active;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
@@ -82,9 +89,17 @@ export class ProviderCostsService
             lt(aiProviderCosts.bucketStart, end),
           );
           const newer = await tx
-            .select({ itemKey: aiProviderCosts.itemKey })
-            .from(aiProviderCosts)
-            .where(and(range, gt(aiProviderCosts.syncedAt, syncedAt)))
+            .select({ bucketStart: aiProviderCostSyncs.bucketStart })
+            .from(aiProviderCostSyncs)
+            .where(
+              and(
+                eq(aiProviderCostSyncs.provider, provider),
+                eq(aiProviderCostSyncs.scopeId, source.scopeId),
+                gte(aiProviderCostSyncs.bucketStart, start),
+                lt(aiProviderCostSyncs.bucketStart, end),
+                gte(aiProviderCostSyncs.syncedAt, syncedAt),
+              ),
+            )
             .limit(1);
           if (newer.length) return;
           await tx.delete(aiProviderCosts).where(range);
@@ -96,6 +111,30 @@ export class ProviderCostsService
                   .slice(offset, offset + 200)
                   .map((row) => ({ ...row, syncedAt })),
               );
+          // 빈 보고서도 UTC 일별 워터마크를 남겨 오래된 요청의 재삽입을 막는다.
+          const buckets = [];
+          for (
+            let day = start.getTime();
+            day < end.getTime();
+            day += 86_400_000
+          )
+            buckets.push({
+              provider,
+              scopeId: source.scopeId,
+              bucketStart: new Date(day),
+              syncedAt,
+            });
+          await tx
+            .insert(aiProviderCostSyncs)
+            .values(buckets)
+            .onConflictDoUpdate({
+              target: [
+                aiProviderCostSyncs.provider,
+                aiProviderCostSyncs.scopeId,
+                aiProviderCostSyncs.bucketStart,
+              ],
+              set: { syncedAt },
+            });
         });
         process.stdout.write(
           `${JSON.stringify({ event: "ai_costs_synced", provider, rows: rows.length })}\n`,

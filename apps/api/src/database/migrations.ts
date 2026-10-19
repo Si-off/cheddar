@@ -1,6 +1,7 @@
+import { getTableName, is, Table } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import type { DatabaseService } from "./database.service";
-
+import * as schema from "./schema";
 export async function checkMigrations(
   database: DatabaseService,
   folder: string,
@@ -15,29 +16,11 @@ export async function checkMigrations(
     expected.some((m, i) => m.hash !== applied.rows[i].hash)
   )
     throw new Error("Migration history differs.");
-  await database.pool.query("SELECT id FROM projects LIMIT 0");
-  await database.pool.query("SELECT project_id FROM project_analysis LIMIT 0");
-  await database.pool.query("SELECT id FROM files LIMIT 0");
-  await database.pool.query(
-    "SELECT finished_at, duration_ms FROM generation_jobs LIMIT 0",
-  );
-  await database.pool.query(
-    "SELECT id, flow_job_id FROM ai_call_usage LIMIT 0",
-  );
-  await database.pool.query("SELECT provider FROM ai_provider_costs LIMIT 0");
-  await database.pool.query("SELECT id FROM uploads LIMIT 0");
-  await database.pool.query("SELECT id FROM upload_frames LIMIT 0");
-  await database.pool.query("SELECT id FROM ia_items LIMIT 0");
-  await database.pool.query("SELECT project_id FROM project_templates LIMIT 0");
-  await database.pool.query("SELECT id FROM test_scenarios LIMIT 0");
-  await database.pool.query("SELECT id FROM test_scenario_columns LIMIT 0");
-  await database.pool.query(
-    "SELECT column_id FROM test_scenario_column_views LIMIT 0",
-  );
-  await database.pool.query("SELECT id FROM test_cases LIMIT 0");
-  await database.pool.query("SELECT case_id FROM test_case_values LIMIT 0");
-  await database.pool.query(
-    "SELECT case_id FROM test_case_frame_links LIMIT 0",
-  );
-  await database.pool.query("SELECT case_id FROM test_case_ia_links LIMIT 0");
+  // Only names exported from the local Drizzle schema enter this SQL.
+  for (const table of Object.values(schema)) {
+    if (is(table, Table))
+      await database.pool.query(
+        `SELECT 1 FROM "${getTableName(table)}" LIMIT 0`,
+      );
+  }
 }

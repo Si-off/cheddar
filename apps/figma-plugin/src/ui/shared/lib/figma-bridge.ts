@@ -5,6 +5,7 @@ import {
   type FrameSelection,
   isMainToUiMessage,
   isResourceId,
+  isToken,
   type MainToUiMessage,
   type UiToMainMessage,
 } from "../../../protocol/messages";
@@ -78,17 +79,34 @@ export function requestFrameThumbnail(
     "frame-thumbnail",
   );
 }
-export function openUploadInWeb(projectId: string, uploadId: string) {
-  if (!isResourceId(projectId) || !isResourceId(uploadId))
+export function openUploadInWeb(uploadId: string) {
+  if (!isResourceId(uploadId))
     return Promise.reject(new FigmaExportError("WEB_UNAVAILABLE"));
   return request(
-    {
-      type: "open-upload-web",
-      requestId: createRequestId(),
-      projectId,
-      uploadId,
-    },
+    { type: "open-upload-web", requestId: createRequestId(), uploadId },
     "upload-web-opened",
+  );
+}
+export function openConnectInWeb(requestToken: string) {
+  if (!isToken(requestToken))
+    return Promise.reject(new FigmaExportError("WEB_UNAVAILABLE"));
+  return request(
+    { type: "open-connect-web", requestId: createRequestId(), requestToken },
+    "connect-web-opened",
+  );
+}
+export async function loadAuthToken() {
+  return (
+    await request(
+      { type: "load-auth", requestId: createRequestId() },
+      "auth-loaded",
+    )
+  ).token;
+}
+export async function saveAuthToken(token: string | null) {
+  await request(
+    { type: "save-auth", requestId: createRequestId(), token },
+    "auth-saved",
   );
 }
 export function prepareFrameUpload(selectionVersion: number) {

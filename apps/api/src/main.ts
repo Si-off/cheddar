@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { createApp } from "./common/application";
 import { readEnv } from "./config/env";
 import { DatabaseService } from "./database/database.service";
+import { checkMigrations } from "./database/migrations";
 import { LocalStorage } from "./storage/local-storage";
 
 async function main() {
@@ -11,13 +12,7 @@ async function main() {
   try {
     await app.get(LocalStorage).initialize();
     const database = app.get(DatabaseService);
-    const pending = await database.pool.query<{ count: string }>(
-      "SELECT count(*) FROM files WHERE status = 'pending'",
-    );
-    if (Number(pending.rows[0].count))
-      process.stderr.write(
-        `Database has ${pending.rows[0].count} unfinished upload(s); no rows deleted.\n`,
-      );
+    await checkMigrations(database, resolve(process.cwd(), "migrations"));
     app.enableShutdownHooks();
     await app.listen(config.port, "127.0.0.1");
     process.stdout.write(

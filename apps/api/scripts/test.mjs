@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const output = await mkdtemp(
-  join(await realpath(tmpdir()), "cheddar-stage-1-tests-"),
+  join(await realpath(tmpdir()), "cheddar-foundation-tests-"),
 );
 try {
   const compile = spawnSync(
@@ -24,7 +24,12 @@ try {
     await symlink(resolve("node_modules"), join(output, "node_modules"), "dir");
     const tests = spawnSync(
       process.execPath,
-      ["--test", "--test-concurrency=1", join(output, "test", "*.test.js")],
+      [
+        "--test",
+        "--test-concurrency=1",
+        ...process.argv.slice(2),
+        join(output, "test", "*.test.js"),
+      ],
       {
         stdio: "inherit",
         env: { ...process.env, API_SOURCE_ROOT: process.cwd() },

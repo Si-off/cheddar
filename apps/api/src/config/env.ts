@@ -1,5 +1,7 @@
 import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
+import { type AiConfig, readAiConfig } from "../generation/model-config";
+
 import type { CostSource } from "../generation/provider-costs";
 
 export const API_ENV = Symbol("API_ENV");
@@ -8,18 +10,17 @@ export interface ApiEnv {
   storageRoot: string;
   port: number;
   corsOrigins: string[];
+  allowFigmaNullOrigin?: boolean;
+  production?: boolean;
   generationConcurrency?: number;
   costSync?: {
     openai?: CostSource;
     anthropic?: CostSource;
     intervalMs: number;
   };
-  ai?: {
-    anthropicKey?: string;
-    openaiKey?: string;
-    anthropicModel: string;
-    openaiModel: string;
-  };
+  ai?: AiConfig;
+  queuePollingSeconds?: number;
+  workersEnabled?: boolean;
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
@@ -66,7 +67,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   if (allowNullOrigin === "true") {
     if (env.NODE_ENV !== "development")
       throw new Error("ALLOW_FIGMA_NULL_ORIGIN requires NODE_ENV=development.");
-    corsOrigins.push("null");
   }
   const costSource = (key: string, scope: string): CostSource | undefined => {
     const adminKey = env[key]?.trim();
@@ -91,6 +91,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     storageRoot: resolve(storageRoot),
     port,
     corsOrigins,
+    allowFigmaNullOrigin: allowNullOrigin === "true",
+    production: env.NODE_ENV === "production",
     generationConcurrency,
     costSync: {
       openai: costSource("OPENAI_ADMIN_KEY", "OPENAI_COST_PROJECT_ID"),
@@ -100,12 +102,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       ),
       intervalMs: interval * 1000,
     },
-    ai: {
-      anthropicKey: env.ANTHROPIC_API_KEY?.trim() || undefined,
-      openaiKey: env.OPENAI_API_KEY?.trim() || undefined,
-      anthropicModel: env.ANTHROPIC_MODEL?.trim() || "claude-haiku-5-5",
-      openaiModel: env.OPENAI_MODEL?.trim() || "gpt-6-luna",
-    },
+    ai: readAiConfig(env),
   };
 }
 

@@ -1,0 +1,213 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  StreamableFile,
+} from "@nestjs/common";
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiCreatedResponse,
+  ApiExtraModels,
+  ApiHeader,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiQuery,
+  ApiTags,
+} from "@nestjs/swagger";
+import { CurrentAccount } from "../authorization/guards";
+import { ApiError } from "../common/errors";
+import {
+  AddCaseOpDto,
+  ApplyOpsDto,
+  ColumnsResultDto,
+  CreateTestSetDto,
+  DeleteCasesOpDto,
+  MoveCaseOpDto,
+  OpsResultDto,
+  SetCellOpDto,
+  TestSetDto,
+  TestSetListDto,
+  TestSetQueryDto,
+  TestSetViewDto,
+  UpdateColumnsDto,
+  UpdateTestSetDto,
+} from "../contracts/test-set.dto";
+import { CaseOperationsService } from "./case-operations.service";
+import { TestSetsService } from "./test-sets.service";
+
+@ApiTags("테스트 세트")
+@ApiCookieAuth()
+@ApiExtraModels(SetCellOpDto, AddCaseOpDto, DeleteCasesOpDto, MoveCaseOpDto)
+@Controller("api/v1/test-sets")
+export class TestSetsController {
+  constructor(
+    @Inject(TestSetsService) private readonly service: TestSetsService,
+    @Inject(CaseOperationsService)
+    private readonly operations: CaseOperationsService,
+  ) {}
+  @Get()
+  @ApiOperation({
+    operationId: "listTestSets",
+    summary: "볼 수 있는 테스트 세트 목록",
+  })
+  @ApiQuery({ type: TestSetQueryDto })
+  @ApiOkResponse({ type: TestSetListDto })
+  list(@CurrentAccount() accountId: string, @Query() query: TestSetQueryDto) {
+    return this.service.list(accountId, query);
+  }
+
+  @Post()
+  @ApiOperation({
+    operationId: "createTestSet",
+    summary: "프로젝트 기본 양식으로 테스트 세트 만들기",
+  })
+  @ApiBody({ type: CreateTestSetDto })
+  @ApiCreatedResponse({ type: TestSetDto })
+  create(@CurrentAccount() accountId: string, @Body() dto: CreateTestSetDto) {
+    return this.service.create(accountId, dto);
+  }
+
+  @Get(":testSetId")
+  @ApiOperation({ operationId: "getTestSet", summary: "테스트 세트 보기" })
+  @ApiOkResponse({ type: TestSetDto })
+  async detail(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+  ) {
+    try {
+      return await this.service.detail(id, accountId);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "NOT_FOUND")
+        await this.service.denyDetail(id);
+      throw error;
+    }
+  }
+
+  @Patch(":testSetId")
+  @ApiOperation({
+    operationId: "updateTestSet",
+    summary: "테스트 세트 이름과 메모 변경",
+  })
+  @ApiBody({ type: UpdateTestSetDto })
+  @ApiOkResponse({ type: TestSetDto })
+  update(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: UpdateTestSetDto,
+  ) {
+    return this.service.update(id, accountId, dto);
+  }
+
+  @Delete(":testSetId")
+  @HttpCode(204)
+  @ApiOperation({ operationId: "deleteTestSet", summary: "테스트 세트 삭제" })
+  @ApiNoContentResponse()
+  remove(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+  ) {
+    return this.service.remove(id, accountId);
+  }
+
+  @Put(":testSetId/columns")
+  @ApiOperation({
+    operationId: "updateTestSetColumns",
+    summary: "테스트 세트 양식 변경",
+  })
+  @ApiBody({ type: UpdateColumnsDto })
+  @ApiOkResponse({ type: ColumnsResultDto })
+  columns(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: UpdateColumnsDto,
+  ) {
+    return this.service.saveColumns(id, accountId, dto);
+  }
+
+  @Post(":testSetId/ops")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "applyTestSetOps",
+    summary: "테스트 케이스 편집 연산 적용",
+  })
+  @ApiBody({ type: ApplyOpsDto })
+  @ApiOkResponse({ type: OpsResultDto })
+  @ApiHeader({
+    name: "x-cheddar-connection",
+    required: false,
+    schema: { type: "string", format: "uuid" },
+  })
+  ops(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: ApplyOpsDto,
+    @Headers("x-cheddar-connection") connectionId?: string,
+  ) {
+    return this.operations.apply(id, accountId, dto, connectionId ?? null);
+  }
+
+  @Get(":testSetId/view")
+  @ApiOperation({ operationId: "getTestSetView", summary: "내 보기 설정 읽기" })
+  @ApiOkResponse({ type: TestSetViewDto })
+  view(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+  ) {
+    return this.service.view(id, accountId);
+  }
+
+  @Put(":testSetId/view")
+  @ApiOperation({
+    operationId: "updateTestSetView",
+    summary: "내 보기 설정 저장",
+  })
+  @ApiOkResponse({ type: TestSetViewDto })
+  saveView(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: TestSetViewDto,
+  ) {
+    return this.service.saveView(id, accountId, dto);
+  }
+
+  @Get(":testSetId/export")
+  @ApiOperation({
+    operationId: "exportTestSet",
+    summary: "테스트 세트 XLSX 내보내기",
+  })
+  @ApiProduces(
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  )
+  @ApiOkResponse({
+    schema: { type: "string", format: "binary" },
+    headers: {
+      "Content-Disposition": {
+        description: "attachment; filename*=UTF-8''<테스트 세트 이름>.xlsx",
+        schema: { type: "string" },
+      },
+    },
+  })
+  async export(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+  ) {
+    const { fileName, data } = await this.service.export(id, accountId);
+    return new StreamableFile(data, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      disposition: `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    });
+  }
+}

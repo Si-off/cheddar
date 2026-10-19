@@ -5,71 +5,50 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1792030257175,
-      "tag": "0000_fair_power_pack",
+      "when": 1792324982966,
+      "tag": "0000_salty_killer_shrike",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1792036824917,
-      "tag": "0001_neat_saracen",
+      "when": 1792376048660,
+      "tag": "0001_striped_justice",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1792037134846,
-      "tag": "0002_shocking_wiccan",
+      "when": 1792381986967,
+      "tag": "0002_zippy_shen",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1792042880855,
-      "tag": "0003_youthful_sister_grimm",
+      "when": 1792393920891,
+      "tag": "0003_ai_generation",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1792115931402,
-      "tag": "0004_overrated_inhumans",
+      "when": 1792400000000,
+      "tag": "0004_sharing_live",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1792117937140,
-      "tag": "0005_feature-terminology",
+      "when": 1792401452249,
+      "tag": "0005_plugin_connection_tokens",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1792128250194,
-      "tag": "0006_futuristic_mordo",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1792129504212,
-      "tag": "0007_tired_the_hunter",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1792130479398,
-      "tag": "0008_needy_wolverine",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1792301485117,
-      "tag": "0009_ai_usage_accounting",
+      "when": 1792407775908,
+      "tag": "0006_ai_usage_accounting",
       "breakpoints": true
     }
   ]

@@ -2,80 +2,76 @@ import assert from "node:assert/strict";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { readMigrationFiles } from "drizzle-orm/migrator";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import type { PoolClient } from "pg";
 import { DatabaseService } from "../src/database/database.service";
 import { checkMigrations } from "../src/database/migrations";
 
-/** A dedicated test DB lease; register only project UUIDs created by this test. */
 export async function openTestDatabase() {
   const databaseUrl = process.env.TEST_DATABASE_URL;
-  assert.ok(databaseUrl, "TEST_DATABASE_URL is required; no skipped DB tests.");
+  assert.ok(
+    databaseUrl,
+    "TEST_DATABASE_URL이 필요합니다. 실제 PostgreSQL 검증을 건너뛰지 않습니다.",
+  );
   const target = new URL(databaseUrl);
   assert.ok(["postgres:", "postgresql:"].includes(target.protocol));
   assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(target.hostname));
   assert.equal(decodeURIComponent(target.pathname), "/cheddar_stage1_test");
   assert.equal(decodeURIComponent(target.username), "cheddar_stage1");
-  const runtime = new URL(process.env.DATABASE_URL ?? databaseUrl);
-  assert.notEqual(
-    decodeURIComponent(runtime.pathname),
-    decodeURIComponent(target.pathname),
-    "Runtime DB must differ from test DB.",
-  );
+  if (process.env.DATABASE_URL) {
+    const runtime = new URL(process.env.DATABASE_URL);
+    assert.notEqual(
+      decodeURIComponent(runtime.pathname),
+      decodeURIComponent(target.pathname),
+      "실행 DB와 테스트 DB가 달라야 합니다.",
+    );
+  }
   const storageRoot = await mkdtemp(
-    join(await realpath(tmpdir()), "cheddar-api-test-"),
+    join(await realpath(tmpdir()), "cheddar-foundation-tests-"),
   );
   const config = {
     databaseUrl,
     storageRoot,
     port: 3101,
     corsOrigins: ["http://127.0.0.1:5173"],
+    production: false,
   };
   const database = new DatabaseService(config);
-  const projects: string[] = [];
+  const accountIds: string[] = [],
+    roleIds: string[] = [],
+    affiliationIds: string[] = [];
   let lock: PoolClient | undefined;
-  let locked = false,
-    closed = false;
+  let locked = false;
   const close = async () => {
-    if (closed) return;
-    closed = true;
     try {
-      if (lock && locked && projects.length) {
-        // Child-first deletion, scoped only to this lease's project UUIDs.
-        for (const table of ["test_case_frame_links", "test_case_ia_links"])
-          await lock.query(
-            `DELETE FROM ${table} WHERE project_id = ANY($1::uuid[])`,
-            [projects],
-          );
+      if (lock && locked && accountIds.length) {
+        // Only this test's UUIDs; no TRUNCATE, DROP or global data reset.
         await lock.query(
-          "DELETE FROM test_case_values WHERE test_scenario_id IN (SELECT id FROM test_scenarios WHERE project_id = ANY($1::uuid[]))",
-          [projects],
+          "DELETE FROM test_sets WHERE owner_id = ANY($1::uuid[])",
+          [accountIds],
         );
         await lock.query(
-          "DELETE FROM test_scenario_column_views WHERE test_scenario_id IN (SELECT id FROM test_scenarios WHERE project_id = ANY($1::uuid[]))",
-          [projects],
+          "DELETE FROM projects WHERE created_by = ANY($1::uuid[])",
+          [accountIds],
         );
-        for (const table of [
-          "ai_call_usage",
-          "generation_jobs",
-          "project_analysis",
-          "test_cases",
-          "test_scenario_columns",
-          "test_scenarios",
-          "ia_items",
-          "project_templates",
-          "upload_frames",
-          "uploads",
-          "files",
-        ])
-          await lock.query(
-            `DELETE FROM ${table} WHERE project_id = ANY($1::uuid[])`,
-            [projects],
-          );
-        await lock.query("DELETE FROM projects WHERE id = ANY($1::uuid[])", [
-          projects,
+        await lock.query(
+          "DELETE FROM temp_uploads WHERE account_id = ANY($1::uuid[])",
+          [accountIds],
+        );
+        await lock.query("DELETE FROM accounts WHERE id = ANY($1::uuid[])", [
+          accountIds,
         ]);
       }
+      if (lock && locked && roleIds.length)
+        await lock.query("DELETE FROM roles WHERE id = ANY($1::uuid[])", [
+          roleIds,
+        ]);
+      if (lock && locked && affiliationIds.length)
+        await lock.query(
+          "DELETE FROM affiliations WHERE id = ANY($1::uuid[])",
+          [affiliationIds],
+        );
     } finally {
       try {
         if (lock && locked)
@@ -99,19 +95,43 @@ export async function openTestDatabase() {
         "SELECT pg_try_advisory_lock(31015432) locked",
       )
     ).rows[0].locked;
-    assert.equal(
-      locked,
-      true,
-      "Another test process owns this DB; coordinate a slot.",
-    );
+    assert.ok(locked, "다른 테스트가 이 DB를 사용 중입니다.");
     const folder = resolve(
       process.env.API_SOURCE_ROOT ?? process.cwd(),
       "migrations",
     );
+    const history = await lock.query<{ exists: string | null }>(
+      "SELECT to_regclass('drizzle.__drizzle_migrations') AS exists",
+    );
+    if (history.rows[0].exists) {
+      const applied = await lock.query<{ hash: string }>(
+        "SELECT hash FROM drizzle.__drizzle_migrations ORDER BY created_at, id",
+      );
+      const expected = readMigrationFiles({ migrationsFolder: folder });
+      assert.ok(
+        applied.rows.length === 0 ||
+          (applied.rows.length <= expected.length &&
+            applied.rows.every((r, i) => r.hash === expected[i].hash)),
+        "구형 마이그레이션 DB입니다. 새 기준 전용 테스트 DB를 준비해주세요.",
+      );
+    }
     await migrate(database.db, { migrationsFolder: folder });
     await migrate(database.db, { migrationsFolder: folder });
     await checkMigrations(database, folder);
-    return { config, database, lock, projects, folder, close };
+    assert.equal(
+      (await lock.query("SELECT id FROM accounts LIMIT 1")).rows.length,
+      0,
+      "첫 관리자 테스트용 DB에 다른 계정이 있습니다. 데이터를 지우지 않습니다.",
+    );
+    return {
+      config,
+      database,
+      folder,
+      accountIds,
+      roleIds,
+      affiliationIds,
+      close,
+    };
   } catch (error) {
     await close();
     throw error;

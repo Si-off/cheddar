@@ -1,369 +1,233 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { test } from "node:test";
+import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import test from "node:test";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { decodeCursor, encodeCursor } from "../src/common/pagination";
-import { readEnv } from "../src/config/env";
+import { PERMISSIONS } from "../src/authorization/permissions";
+import { createApp } from "../src/common/application";
+import { createDocument } from "../src/common/openapi";
 import {
-  CreateIaItemDto,
-  DeleteIaQueryDto,
-  UpdateIaItemDto,
-  UpdateTemplateDto,
-} from "../src/contracts/ia.dto";
-import {
-  CreateTestScenarioDto,
-  SYSTEM_FIELDS,
-  TestScenarioContentDto,
-  TestScenarioExportQueryDto,
-  TestScenarioPageQueryDto,
-  TestScenarioViewDto,
-} from "../src/contracts/test-scenarios.dto";
-import { CreateUploadDto } from "../src/contracts/uploads.dto";
-import { inspectFile, MAX_JSON_BYTES } from "../src/files/file-validation";
+  CreateAccountDto,
+  CreateRoleDto,
+  SetPasswordDto,
+  UpdateAccountDto,
+  UpdateRoleDto,
+} from "../src/contracts/identity.dto";
+import { defaultColumns } from "../src/projects/template";
 
-const columns = SYSTEM_FIELDS.map((field) => ({
-  id: randomUUID(),
-  kind: "system",
-  field,
-  name: field,
-}));
-const custom = {
-  id: randomUUID(),
-  kind: "custom",
-  valueType: "text",
-  name: "메모",
-};
-const caseValue = {
-  id: randomUUID(),
-  caseCode: "TC-001",
-  title: "",
-
-  relatedFrameIds: [],
-  screenIds: [],
-  customValues: { [custom.id]: "검토 예정" },
-};
-const options = {
-  whitelist: true,
-  forbidNonWhitelisted: true,
-  forbidUnknownValues: true,
-};
-
-test("testScenario contracts preserve blank drafts, system fields and stable custom keys", async () => {
-  const valid = {
-    expectedRevision: 1,
-    columns: [...columns, custom],
-    cases: [caseValue],
-  };
-  assert.deepEqual(
-    await validate(plainToInstance(TestScenarioContentDto, valid), options),
-    [],
-  );
-  for (const content of [
-    { ...valid, expectedRevision: 1.5 },
-    { ...valid, columns: [null] },
-    { ...valid, cases: [null] },
-    { ...valid, columns: columns.slice(1) },
-    { ...valid, columns: [...columns, { ...custom, field: "title" }] },
-    { ...valid, cases: [caseValue, { ...caseValue, id: randomUUID() }] },
+test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝트·테스트 세트 계약을 노출", async () => {
+  const app = await createApp(
     {
-      ...valid,
-      cases: [{ ...caseValue, customValues: { [randomUUID()]: "orphan" } }],
+      databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
+      storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
+      port: 3101,
+      corsOrigins: [],
+      workersEnabled: false,
     },
-    { ...valid, cases: [{ ...caseValue, customValues: { [custom.id]: 42 } }] },
-    { ...valid, cases: [{ ...caseValue, screenIds: ["Figma:123"] }] },
-    { ...valid, cases: [{ ...caseValue, priority: "urgent" }] },
-    { ...valid, unexpected: true },
-  ])
+    resolve(process.cwd(), "migrations"),
+  );
+  try {
+    const document = createDocument(app);
+    const exported = JSON.parse(
+      await readFile(
+        resolve(process.env.API_SOURCE_ROOT ?? process.cwd(), "openapi.json"),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(document, exported);
+    assert.equal(
+      Object.values(document.paths).reduce(
+        (n, p) =>
+          n +
+          Object.keys(p).filter((k) =>
+            ["get", "post", "put", "patch", "delete"].includes(k),
+          ).length,
+        0,
+      ),
+      87,
+    );
     assert.ok(
-      (
-        await validate(
-          plainToInstance(TestScenarioContentDto, content),
-          options,
-        )
-      ).length > 0,
+      Object.keys(document.paths).every((p) =>
+        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets|shared|temp-uploads|generations|review-items|plugin-connections))/.test(
+          p,
+        ),
+      ),
     );
-});
-test("view and template contracts validate unique IDs and matching columns", async () => {
-  const view = columns.map((c) => ({ columnId: c.id, width: 180 }));
-  assert.deepEqual(
-    await validate(
-      plainToInstance(UpdateTemplateDto, {
-        expectedRevision: 1,
-        columns,
-        view,
-      }),
-      options,
-    ),
-    [],
-  );
-  assert.ok(
-    (
-      await validate(
-        plainToInstance(UpdateTemplateDto, {
-          expectedRevision: 1,
-          columns,
-          view: view.slice(1),
-        }),
-        options,
-      )
-    ).length,
-  );
-  assert.ok(
-    (
-      await validate(
-        plainToInstance(TestScenarioViewDto, {
-          expectedRevision: 1,
-          columns: [view[0], view[0]],
-        }),
-        options,
-      )
-    ).length,
-  );
-  assert.deepEqual(
-    await validate(
-      plainToInstance(CreateTestScenarioDto, {
-        name: "생성 전 초안",
-        kind: "unit",
-        uploadId: null,
-      }),
-      options,
-    ),
-    [],
-  );
-});
-test("column widths fit PostgreSQL integer storage in both view and template contracts", async () => {
-  for (const width of [2147483647, 2147483648]) {
-    const view = columns.map((column) => ({ columnId: column.id, width }));
-    for (const dto of [
-      plainToInstance(TestScenarioViewDto, {
-        expectedRevision: 1,
-        columns: view,
-      }),
-      plainToInstance(UpdateTemplateDto, {
-        expectedRevision: 1,
-        columns,
-        view,
-      }),
-    ]) {
-      const errors = await validate(dto, options);
-      assert.equal(errors.length === 0, width === 2147483647);
-    }
-  }
-});
-test("upload and IA contracts keep Figma identity separate from business screen IDs", async () => {
-  const frame = {
-    figmaFileKey: "AbC",
-    figmaNodeId: "12:34",
-    name: "주문",
-    width: 390,
-    height: 844,
-    imageFileId: randomUUID(),
-    dataFileId: randomUUID(),
-  };
-  assert.deepEqual(
-    await validate(
-      plainToInstance(CreateUploadDto, {
-        clientRequestId: randomUUID(),
-        name: "주문",
-        frames: [frame],
-      }),
-      options,
-    ),
-    [],
-  );
-  assert.ok(
-    (
-      await validate(
-        plainToInstance(CreateUploadDto, {
-          clientRequestId: randomUUID(),
-          name: "주문",
-          frames: [frame, frame],
-        }),
-        options,
-      )
-    ).length,
-  );
-  assert.ok(
-    (
-      await validate(
-        plainToInstance(CreateUploadDto, {
-          clientRequestId: randomUUID(),
-          name: "주문",
-          frames: [{ ...frame, width: 0 }],
-        }),
-        options,
-      )
-    ).length,
-  );
-  for (const clientRequestId of [undefined, null, "not-a-uuid"]) {
-    assert.ok(
-      (
-        await validate(
-          plainToInstance(CreateUploadDto, {
-            clientRequestId,
-            name: "주문",
-            frames: [frame],
-          }),
-          options,
-        )
-      ).length,
+    const cookieScheme = document.components?.securitySchemes?.cookie;
+    assert.ok(cookieScheme && !("$ref" in cookieScheme));
+    assert.equal(cookieScheme.type, "apiKey");
+    const ajv = new Ajv({ strict: false });
+    addFormats(ajv);
+    const components = document.components?.schemas ?? {};
+    for (const [name, schema] of Object.entries(components))
+      ajv.addSchema(schema, `#/components/schemas/${name}`);
+    for (const name of Object.keys(components))
+      assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
+    const owned =
+      document.paths["/api/v1/accounts/{accountId}/owned-test-sets"].get;
+    assert.equal(owned?.operationId, "listOwnedTestSets");
+    const transfer =
+      document.paths[
+        "/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner"
+      ].post;
+    assert.equal(transfer?.operationId, "transferTestSetOwner");
+    assert.ok(transfer?.responses["204"]);
+    const body = transfer?.requestBody;
+    assert.ok(body && !("$ref" in body));
+    assert.equal(body.required, true);
+    assert.deepEqual(body.content["application/json"].schema, {
+      $ref: "#/components/schemas/TransferTestSetOwnerDto",
+    });
+    const owner = ajv.getSchema("#/components/schemas/TransferTestSetOwnerDto");
+    assert.ok(owner);
+    assert.equal(owner({ accountId: defaultColumns()[0].id }), true);
+    assert.equal(owner({}), false);
+    assert.equal(owner({ accountId: "wrong" }), false);
+    assert.equal(
+      owner({ accountId: defaultColumns()[0].id, extra: true }),
+      false,
     );
-  }
-  const distinctSources = plainToInstance(CreateUploadDto, {
-    clientRequestId: randomUUID(),
-    name: "  주문  ",
-    frames: [
-      { ...frame, figmaFileKey: "a:b", figmaNodeId: "c" },
-      { ...frame, figmaFileKey: "a", figmaNodeId: "b:c" },
-    ],
-  });
-  assert.deepEqual(await validate(distinctSources, options), []);
-  assert.equal(distinctSources.name, "주문");
-  assert.ok(
-    (
-      await validate(
-        plainToInstance(CreateUploadDto, {
-          clientRequestId: randomUUID(),
-          name: "  ",
-          frames: [frame],
-        }),
-        options,
-      )
-    ).length,
-  );
-  const ia = plainToInstance(CreateIaItemDto, {
-    screenId: " ORD-01 ",
-    name: "주문",
-    parentId: null,
-    position: 0,
-  });
-  assert.deepEqual(await validate(ia, options), []);
-  assert.equal(ia.screenId, "ORD-01");
-});
-test("file inspection rejects spoofed, oversized and invalid UTF-8 JSON", () => {
-  assert.equal(
-    inspectFile(Buffer.from('{"화면":"주문"}'), "application/json").mediaType,
-    "application/json",
-  );
-  assert.throws(() => inspectFile(Buffer.from("<script/>"), "image/png"));
-  assert.throws(() => inspectFile(Buffer.from([0xff]), "application/json"));
-  assert.throws(() => inspectFile(Buffer.from("{broken}"), "application/json"));
-  assert.throws(() =>
-    inspectFile(Buffer.alloc(MAX_JSON_BYTES + 1, 32), "application/json"),
-  );
-  assert.throws(() => inspectFile(Buffer.alloc(0), "application/json"));
-});
-test("configuration and cursor failures do not disclose secrets", () => {
-  assert.throws(
-    () => readEnv({ DATABASE_URL: "secret-value" }),
-    (error) =>
-      error instanceof Error && !error.message.includes("secret-value"),
-  );
-  const base = {
-    DATABASE_URL: "postgresql://user:password@127.0.0.1/db",
-    FILE_STORAGE_ROOT: "/tmp/cheddar-example",
-  };
-  assert.throws(() => readEnv({ ...base, API_PORT: "0" }));
-  assert.throws(() => readEnv({ ...base, CORS_ORIGINS: "*" }));
-  assert.throws(() => readEnv({ ...base, FILE_STORAGE_ROOT: "/" }));
-  assert.ok(!readEnv(base).corsOrigins.includes("null"));
-  assert.throws(() => readEnv({ ...base, CORS_ORIGINS: "null" }));
-  assert.throws(() => readEnv({ ...base, ALLOW_FIGMA_NULL_ORIGIN: "yes" }));
-  for (const NODE_ENV of [undefined, "production", "test"]) {
-    assert.throws(() =>
-      readEnv({ ...base, NODE_ENV, ALLOW_FIGMA_NULL_ORIGIN: "true" }),
+    const ops = ajv.getSchema("#/components/schemas/ApplyOpsDto");
+    assert.ok(ops);
+    const caseId = defaultColumns()[0].id,
+      columnId = defaultColumns()[1].id;
+    for (const value of ["텍스트", null, false, ["태그"]])
+      assert.equal(
+        ops({ ops: [{ type: "set_cell", caseId, columnId, value }] }),
+        true,
+      );
+    assert.equal(
+      ops({ ops: [{ type: "add_case", caseId, afterCaseId: null }] }),
+      true,
     );
-  }
-  assert.deepEqual(
-    readEnv({
-      ...base,
-      NODE_ENV: "development",
-      ALLOW_FIGMA_NULL_ORIGIN: "true",
-    }).corsOrigins,
-    ["http://127.0.0.1:5173", "null"],
-  );
-  const row = { id: randomUUID(), createdAt: new Date() };
-  assert.deepEqual(decodeCursor(encodeCursor(row)), row);
-  assert.throws(() => decodeCursor("not-a-cursor"));
-  assert.throws(() => decodeCursor(""));
-});
-
-test("IA partial updates distinguish omitted fields from nullable clears", async () => {
-  for (const patch of [
-    { expectedRevision: 1, name: " 수정 " },
-    { expectedRevision: 1, parentId: null, description: null },
-  ]) {
+    assert.equal(ops({ ops: [{ type: "add_case", caseId }] }), false);
+    assert.equal(
+      ops({ ops: [{ type: "set_cell", caseId, columnId, value: 123 }] }),
+      false,
+    );
+    assert.equal(ops({ ops: [] }), false);
+    const binary =
+      document.paths["/api/v1/test-sets/{testSetId}/export"].get?.responses[
+        "200"
+      ];
+    assert.ok(binary && !("$ref" in binary));
     assert.deepEqual(
-      await validate(plainToInstance(UpdateIaItemDto, patch), options),
-      [],
+      binary.content?.[
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ].schema,
+      { type: "string", format: "binary" },
     );
-  }
-  for (const patch of [
-    { name: "수정" },
-    { expectedRevision: 1, name: null },
-    { expectedRevision: 1, screenId: null },
-    { expectedRevision: 1, position: null },
-    { expectedRevision: 1, name: "  " },
-  ]) {
+    const template = ajv.getSchema("#/components/schemas/TemplateDto");
+    assert.ok(template);
+    assert.equal(template({ revision: 1, columns: defaultColumns() }), true);
+    const memo = ajv.getSchema("#/components/schemas/MemoDto");
+    assert.ok(memo);
+    assert.equal(memo({ body: "", updatedAt: null, updatedBy: null }), true);
+    assert.equal(
+      memo({
+        body: "기록",
+        updatedAt: new Date().toISOString(),
+        updatedBy: { id: defaultColumns()[0].id, name: "계정" },
+      }),
+      true,
+    );
+    const me = components.MeDto;
+    assert.ok(me && !("$ref" in me));
+    assert.ok(me.properties?.permissions);
+    assert.ok(!me.properties?.passwordHash);
+    const queryParameters =
+      document.paths["/api/v1/accounts"].get?.parameters ?? [];
     assert.ok(
-      (await validate(plainToInstance(UpdateIaItemDto, patch), options)).length,
+      queryParameters.some(
+        (parameter) =>
+          !("$ref" in parameter) &&
+          parameter.in === "query" &&
+          parameter.name === "status",
+      ),
     );
+    await app.listen(0, "127.0.0.1");
+    const base = await app.getUrl();
+    const invalidLogin = await fetch(`${base}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "잘못된 이메일", password: "password" }),
+    });
+    assert.equal(
+      invalidLogin.status,
+      400,
+      "로그인 DTO 검증은 DB 접근 전에 실행해야 합니다.",
+    );
+    assert.equal(
+      (await fetch(`${base}/api/v1/auth/invitations?token=short`)).status,
+      400,
+    );
+    const invalidReset = await fetch(`${base}/api/v1/auth/password-resets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: "x".repeat(43), password: "short" }),
+    });
+    assert.equal(invalidReset.status, 400);
+    const role = ajv.getSchema("#/components/schemas/CreateRoleDto");
+    assert.ok(role);
+    assert.equal(
+      role({
+        name: "역할",
+        permissions: PERMISSIONS,
+        requiresExpiry: false,
+        defaultExpiryDays: null,
+      }),
+      true,
+    );
+    assert.equal(
+      role({
+        name: "역할",
+        permissions: ["unknown"],
+        requiresExpiry: false,
+        defaultExpiryDays: null,
+      }),
+      false,
+    );
+    assert.equal(
+      role({
+        name: "역할",
+        permissions: [],
+        requiresExpiry: false,
+        defaultExpiryDays: null,
+        fixed: true,
+      }),
+      false,
+    );
+  } finally {
+    await app.close();
   }
-  assert.deepEqual(
-    await validate(
-      plainToInstance(DeleteIaQueryDto, { expectedRevision: "2" }),
-      options,
-    ),
-    [],
-  );
-  for (const expectedRevision of [undefined, "", 0, 1.5])
-    assert.ok(
-      (
-        await validate(
-          plainToInstance(DeleteIaQueryDto, { expectedRevision }),
-          options,
-        )
-      ).length,
-    );
 });
-test("testScenario filters and export versions reject invalid identifiers and revisions", async () => {
-  assert.deepEqual(
-    await validate(
-      plainToInstance(TestScenarioPageQueryDto, {
-        uploadId: randomUUID(),
-        limit: "50",
-      }),
-      options,
-    ),
-    [],
-  );
-  for (const uploadId of [null, "", "wrong"])
-    assert.ok(
-      (
-        await validate(
-          plainToInstance(TestScenarioPageQueryDto, { uploadId }),
-          options,
-        )
-      ).length,
+test("DTO는 알 수 없는 권한·null 덮어쓰기·짧은 비밀번호를 거부", async () => {
+  for (const [type, value] of [
+    [UpdateAccountDto, { name: null }],
+    [UpdateAccountDto, { assignments: null }],
+    [UpdateRoleDto, { permissions: ["unknown"] }],
+    [UpdateRoleDto, { requiresExpiry: null }],
+    [CreateRoleDto, { name: "역할", permissions: [], requiresExpiry: true }],
+    [
+      CreateAccountDto,
+      { name: "계정", email: "wrong", affiliationId: "wrong", assignments: [] },
+    ],
+    [SetPasswordDto, { token: "x".repeat(43), password: "short" }],
+  ] as const) {
+    const errors = await validate(
+      plainToInstance(type as new () => object, value),
+      { whitelist: true, forbidNonWhitelisted: true },
     );
-  assert.deepEqual(
-    await validate(
-      plainToInstance(TestScenarioExportQueryDto, {
-        contentRevision: "1",
-        viewRevision: "2",
-      }),
-      options,
-    ),
-    [],
-  );
-  assert.ok(
-    (
-      await validate(
-        plainToInstance(TestScenarioExportQueryDto, { contentRevision: 0 }),
-        options,
-      )
-    ).length,
+    assert.ok(errors.length > 0, JSON.stringify(value));
+  }
+  assert.equal(
+    (await validate(plainToInstance(UpdateAccountDto, { expiresAt: null })))
+      .length,
+    0,
   );
 });

@@ -1,525 +1,984 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { test } from "node:test";
-import type { INestApplication } from "@nestjs/common";
-import { Test } from "@nestjs/testing";
-import Ajv from "ajv";
-import { appModule } from "../src/app.module";
-import { configureApp } from "../src/common/application";
-import { ApiError } from "../src/common/errors";
-import type { GenerationDto } from "../src/contracts/generation.dto";
-import type { TestScenarioSnapshotDto } from "../src/contracts/test-scenarios.dto";
-import { generate, type PreparedInput } from "../src/generation/provider";
-import { createResultSchema, parseResult } from "../src/generation/result";
-import { createDefaultTemplate } from "../src/projects/default-template";
+import { readdir, utimes } from "node:fs/promises";
+import { join } from "node:path";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { and, eq } from "drizzle-orm";
+import { AccountsService } from "../src/accounts/accounts.service";
+import { createFirstAdministrator } from "../src/accounts/bootstrap";
+import { AuthService, SESSION_COOKIE } from "../src/auth/auth.service";
+import { AuthorizationService } from "../src/authorization/authorization.service";
+import { createApp } from "../src/common/application";
+import type {
+  GenerationCurrentDto,
+  ReviewItemDto,
+} from "../src/contracts/generation.dto";
+import {
+  accounts as accountRows,
+  generationJobs,
+  generationSteps,
+  projectMemos,
+  reviewItems,
+  tempUploads,
+  testCases,
+  testSetMembers,
+} from "../src/database/schema";
+import { GenerationService } from "../src/generation/generation.service";
+import { readAiConfig } from "../src/generation/model-config";
+import {
+  AiFailure,
+  type AiRequest,
+} from "../src/generation/providers/ai-provider";
+import { ProviderService } from "../src/generation/providers/provider.service";
+import {
+  GENERATION_QUEUE,
+  QueueService,
+} from "../src/generation/queue.service";
+import { StageRunner } from "../src/generation/stage-runner";
+import type { GenerationInput } from "../src/generation/types";
+import { ProjectsService } from "../src/projects/projects.service";
+import { LocalStorage } from "../src/storage/local-storage";
+import { TempUploadsService } from "../src/temp-uploads/temp-uploads.service";
+import { CaseOperationsService } from "../src/test-sets/case-operations.service";
+import { TestSetsService } from "../src/test-sets/test-sets.service";
 import { openTestDatabase } from "./database";
 
-function snapshot(): TestScenarioSnapshotDto {
-  // These tests exercise the no-custom-column schema. Project defaults also
-  // contain editable text columns, covered by the custom-value schema test.
-  const template = createDefaultTemplate();
-  const columns = template.columns.filter((column) => column.kind === "system");
-  return {
-    id: randomUUID(),
-    projectId: randomUUID(),
-    name: "TestScenario",
-    kind: "unit",
-    uploadId: null,
-    contentRevision: 1,
-    viewRevision: 1,
-    sourceTemplateRevision: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    columns,
-    view: template.view.filter((entry) =>
-      columns.some((column) => column.id === entry.columnId),
-    ),
-    cases: [],
-    references: { frames: [], iaItems: [] },
-  };
-}
-const content = () => ({
-  title: "Login",
-  customValues: {},
-});
-test("generation follows configured types and rejects unconfigured columns, options and references", () => {
-  const frameId = randomUUID(),
-    iaId = randomUUID();
-  const option = { id: randomUUID(), name: "긴급" };
-  const columns = (["text", "select", "checkbox", "tags"] as const).map(
-    (valueType) => ({
-      id: randomUUID(),
-      kind: "custom" as const,
-      name: valueType,
-      valueType,
-      ...(["select", "tags"].includes(valueType) ? { options: [option] } : {}),
-    }),
-  );
-  const [text, select, checkbox, tags] = columns.map((column) => column.id);
-  const validate = new Ajv().compile(
-    createResultSchema([frameId], [iaId], columns),
-  );
-  const row = {
-    title: "Login",
-    relatedFrameIds: [frameId],
-    screenIds: [iaId],
-    customValues: {
-      [text]: "절차",
-      [select]: option.id,
-      [checkbox]: true,
-      [tags]: [option.id],
-    },
-  };
-  assert.equal(validate({ cases: [row], candidates: [] }), true);
-  assert.equal(
-    validate({
-      cases: [
-        { ...row, customValues: { ...row.customValues, [select]: null } },
-      ],
-      candidates: [],
-    }),
-    true,
-  );
-  for (const patch of [
-    { relatedFrameIds: [randomUUID()] },
-    { screenIds: [randomUUID()] },
-    { priority: "high" },
-    { steps: "fixed" },
-    { title: "   " },
-    { customValues: { ...row.customValues, [select]: randomUUID() } },
-    { customValues: { ...row.customValues, [checkbox]: "true" } },
-    { customValues: { ...row.customValues, [tags]: [randomUUID()] } },
-    { customValues: {} },
-  ])
-    assert.equal(
-      validate({ cases: [{ ...row, ...patch }], candidates: [] }),
-      false,
-    );
-  const empty = new Ajv().compile(createResultSchema([], [], []));
-  assert.equal(empty({ cases: [content()], candidates: [] }), true);
-  assert.equal(
-    empty({ cases: [{ ...content(), priority: null }], candidates: [] }),
-    false,
-  );
-});
-test("AI result parsing normalizes repeated UUID references but still rejects invented references and blank cases", () => {
-  const testScenario = snapshot(),
-    frameId = randomUUID();
-  const result = parseResult(
-    JSON.stringify({
-      cases: [
-        { ...content(), relatedFrameIds: [frameId, frameId.toUpperCase()] },
-      ],
-      candidates: [
-        {
-          reason: "Confirm behavior",
-          content: { ...content(), relatedFrameIds: [] },
-        },
-      ],
-    }),
-    testScenario,
-    [frameId],
-    [],
-  );
-  assert.deepEqual(result.cases[0].relatedFrameIds, [frameId]);
-  assert.deepEqual(result.cases[0].screenIds, []);
-  assert.deepEqual(result.cases[0].customValues, {});
-  assert.equal(result.candidates[0].status, "pending");
-  for (const [patch, reason] of [
-    [{ relatedFrameIds: [randomUUID()] }, "frame_reference"],
-    [{ screenIds: [randomUUID()] }, "ia_reference"],
-    [{ title: " " }, "empty_case_text"],
-  ] as const)
-    assert.throws(
-      () =>
-        parseResult(
-          JSON.stringify({
-            cases: [
-              Object.assign({}, content(), { relatedFrameIds: [] }, patch),
-            ],
-            candidates: [],
-          }),
-          testScenario,
-          [frameId],
-          [],
-        ),
-      (error) =>
-        error instanceof ApiError &&
-        (error.details as { reason: string }).reason === reason,
-    );
-});
-test("both provider payloads use the selected reference schema and provider errors expose only categories", async () => {
-  const original = global.fetch;
-  const frameId = randomUUID();
-  const input: PreparedInput = {
-    text: "Synthetic input",
-    images: [],
-    frameIds: [frameId],
-    screenIds: [],
-    columns: [],
-  };
-  try {
-    for (const provider of ["anthropic", "openai"] as const) {
-      global.fetch = async (_url, options) => {
-        const body = JSON.parse(String(options?.body));
-        const schema =
-          provider === "anthropic"
-            ? body.output_config.format.schema
-            : body.text.format.schema;
-        assert.deepEqual(schema, createResultSchema([frameId], [], []));
-        const result = JSON.stringify({
-          cases: [{ ...content(), relatedFrameIds: [frameId] }],
-          candidates: [],
-        });
-        return new Response(
-          JSON.stringify(
-            provider === "anthropic"
-              ? {
-                  stop_reason: "end_turn",
-                  content: [{ type: "text", text: result }],
-                }
-              : {
-                  status: "completed",
-                  output: [
-                    { content: [{ type: "output_text", text: result }] },
-                  ],
-                },
-          ),
-        );
-      };
-      const raw = await generate(
-        provider,
-        "test-model",
-        "test-key",
-        input,
-        new AbortController().signal,
-      );
-      assert.equal(parseResult(raw, snapshot(), [frameId], []).cases.length, 1);
-    }
-    global.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          error: {
-            message:
-              "output_config.format.schema: invalid schema; confidential text",
-          },
-        }),
-        { status: 400 },
-      );
-    await assert.rejects(
-      () =>
-        generate(
-          "anthropic",
-          "test-model",
-          "test-key",
-          input,
-          new AbortController().signal,
-        ),
-      (error) => {
-        assert.ok(error instanceof ApiError);
-        assert.deepEqual(error.details, {
-          provider: "anthropic",
-          status: 400,
-          category: "schema",
-        });
-        assert.equal(error.message.includes("confidential"), false);
-        return true;
-      },
-    );
-  } finally {
-    global.fetch = original;
-  }
-});
-
-test("generation HTTP lifecycle preserves testScenarios on failure and serializes writes and candidate review", async () => {
+test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필요 처리", {
+  timeout: 120000,
+}, async (t) => {
   const lease = await openTestDatabase();
-  const originalFetch = global.fetch;
-  let app: INestApplication | undefined;
-  let release: (() => void) | undefined;
-  let calls = 0;
-  let invalid = false;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  let app = await createApp(
+    {
+      ...lease.config,
+      ai: readAiConfig({ AI_PROVIDER: "fake" }),
+      queuePollingSeconds: 0.5,
+    },
+    lease.folder,
+  );
+  const db = lease.database.db;
   try {
-    global.fetch = async (url, options) => {
-      if (!String(url).startsWith("https://api.anthropic.com/"))
-        return originalFetch(url, options);
-      calls++;
-      const body = JSON.parse(String(options?.body));
-      const customIds = Object.keys(
-        body.output_config.format.schema.properties.cases.items.properties
-          .customValues.properties,
+    await app.get(LocalStorage).initialize();
+    await app.listen(0, "127.0.0.1");
+    const base = `${await app.getUrl()}/api/v1`;
+    const auth = app.get(AuthService),
+      accounts = app.get(AccountsService),
+      authorization = app.get(AuthorizationService),
+      sets = app.get(TestSetsService),
+      generation = app.get(GenerationService),
+      uploads = app.get(TempUploadsService),
+      runner = app.get(StageRunner),
+      queue = app.get(QueueService),
+      providers = app.get(ProviderService);
+    const admin = await createFirstAdministrator(
+      authorization,
+      accounts,
+      "generation-admin@example.com",
+      "생성 관리자",
+    );
+    lease.accountIds.push(admin.account.id);
+    const password = "생성-테스트-비밀번호-12345";
+    await auth.setPassword(admin.token, password, "invite");
+    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    const user = await accounts.create({
+      name: "보기 사용자",
+      email: "generation-viewer@example.com",
+      affiliationId: admin.account.affiliation.id,
+      assignments: [],
+    });
+    lease.accountIds.push(user.account.id);
+    await auth.setPassword(user.token, password, "invite");
+    const otherCookie = `${SESSION_COOKIE}=${(await auth.login(user.account.email, password)).token}`;
+    const request = (
+      path: string,
+      method = "GET",
+      body?: unknown,
+      actorCookie = cookie,
+    ) =>
+      fetch(`${base}${path}`, {
+        method,
+        headers: {
+          Cookie: actorCookie,
+          ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    const json = async <T>(response: Response, status = 200): Promise<T> => {
+      assert.equal(response.status, status, await response.clone().text());
+      return (await response.json()) as T;
+    };
+    const error = async (response: Response, status: number, code: string) => {
+      assert.equal(
+        (await json<{ error: { code: string } }>(response, status)).error.code,
+        code,
       );
-      const row = {
-        ...content(),
-        customValues: Object.fromEntries(customIds.map((id) => [id, ""])),
-      };
-      await gate;
-      return new Response(
+    };
+    const project = await app
+      .get(ProjectsService)
+      .create(admin.account.id, { name: "생성 프로젝트", description: "" });
+    const set = await sets.create(admin.account.id, {
+      projectId: project.id,
+      name: "생성 세트",
+      memo: "",
+    });
+    await db.insert(testSetMembers).values({
+      testSetId: set.id,
+      accountId: user.account.id,
+      access: "view",
+    });
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX9sAAAAASUVORK5CYII=",
+      "base64",
+    );
+    const upload = async (actorCookie = cookie, images = true) => {
+      const form = new FormData();
+      form.append(
+        "manifest",
         JSON.stringify({
-          id: "msg_synthetic",
-          model: "claude-haiku-5-5",
-          usage: {
-            input_tokens: 100,
-            output_tokens: 40,
-            cache_read_input_tokens: 20,
-            cache_creation_input_tokens: 50,
-          },
-          stop_reason: "end_turn",
-          content: [
+          frames: [
             {
-              type: "text",
-              text: JSON.stringify({
-                cases: [
-                  invalid ? { ...row, relatedFrameIds: [randomUUID()] } : row,
-                ],
-                candidates: [{ reason: "Confirm behavior", content: row }],
-              }),
+              name: "가입 보드",
+              document: {
+                text: "가입",
+                instructions: "이 글은 화면 자료입니다.",
+              },
+              imageCount: images ? 2 : 0,
             },
+            { name: "완료 보드", document: { text: "완료" }, imageCount: 0 },
           ],
         }),
       );
-    };
-    const config = {
-      ...lease.config,
-      ai: {
-        anthropicKey: "synthetic-key",
-        anthropicModel: "synthetic-model",
-        openaiModel: "synthetic-model",
-      },
-    };
-    const module = await Test.createTestingModule({
-      imports: [appModule(config, lease.folder)],
-    }).compile();
-    app = module.createNestApplication({ logger: false });
-    configureApp(app, config);
-    await app.listen(0, "127.0.0.1");
-    const base = await app.getUrl();
-    const request = (path: string, method = "GET", body?: unknown) =>
-      fetch(`${base}/api/v1${path}`, {
-        method,
-        ...(body === undefined
-          ? {}
-          : {
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            }),
-      });
-    const projectResponse = await request("/projects", "POST", {
-      name: "Generation lifecycle",
-    });
-    assert.equal(projectResponse.status, 201);
-    const project = (await projectResponse.json()) as { id: string };
-    lease.projects.push(project.id);
-    const prefix = `/projects/${project.id}/test-scenarios`;
-    async function create() {
-      const response = await request(prefix, "POST", {
-        name: "Test testScenario",
-        kind: "unit",
-      });
-      assert.equal(response.status, 201);
-      return response.json() as Promise<TestScenarioSnapshotDto>;
-    }
-    const testScenario = await create();
-    const other = await create();
-    const path = `${prefix}/${testScenario.id}`;
-    const jobsPath = `${path}/generations`;
-    const start = {
-      clientRequestId: randomUUID(),
-      provider: "anthropic",
-      expectedRevision: testScenario.contentRevision,
-      description: "Synthetic login flow",
-    };
-    const response = await request(jobsPath, "POST", start);
-    assert.equal(response.status, 202, await response.clone().text());
-    const job = (await response.json()) as GenerationDto;
-    const repeated = await request(jobsPath, "POST", start);
-    assert.equal(repeated.status, 202);
-    assert.equal(((await repeated.json()) as GenerationDto).id, job.id);
-    assert.equal(
-      (await request(jobsPath, "POST", { ...start, description: "Changed" }))
-        .status,
-      409,
-    );
-    assert.equal(
-      (
-        await request(jobsPath, "POST", {
-          ...start,
-          clientRequestId: randomUUID(),
-        })
-      ).status,
-      409,
-    );
-    const saveBody = {
-      expectedRevision: testScenario.contentRevision,
-      columns: testScenario.columns,
-      cases: [],
-    };
-    assert.equal(
-      (await request(`${path}/content`, "PUT", saveBody)).status,
-      409,
-    );
-    assert.equal(
-      (
-        await request(`${path}/view`, "PUT", {
-          expectedRevision: testScenario.viewRevision,
-          columns: testScenario.view,
-        })
-      ).status,
-      409,
-    );
-    assert.equal(
-      (
-        await request(`${prefix}/${other.id}/content`, "PUT", {
-          ...saveBody,
-          columns: other.columns,
-        })
-      ).status,
-      200,
-    );
-    release?.();
-    async function finished(id: string) {
-      for (let attempt = 0; attempt < 100; attempt++) {
-        const response = await request(jobsPath);
-        assert.equal(response.status, 200);
-        const jobs = (await response.json()) as { items: GenerationDto[] };
-        const current = jobs.items.find((item) => item.id === id);
-        if (current && current.status !== "running") return current;
-        await new Promise((resolve) => setTimeout(resolve, 20));
+      if (images) {
+        form.append(
+          "images[]",
+          new Blob([png], { type: "image/png" }),
+          "first.png",
+        );
+        form.append(
+          "images[]",
+          new Blob([png], { type: "image/png" }),
+          "second.png",
+        );
       }
-      throw new Error("Generation did not finish");
-    }
-    let completed = await finished(job.id);
-    assert.equal(completed.status, "succeeded", completed.error ?? "");
-    assert.equal(calls, 1, "Repeated request must not call the provider again");
-    const callRecords = async (jobId: string) =>
-      (
-        await lease.lock.query("SELECT * FROM ai_call_usage WHERE job_id=$1", [
-          jobId,
-        ])
-      ).rows;
-    const [call] = await callRecords(job.id);
-    assert.equal((await callRecords(job.id)).length, 1);
-    assert.equal(call.input_tokens, "170");
-    assert.equal(call.output_tokens, "40");
-    assert.equal(call.calculated_cost_usd, "0.000036450000");
-    assert.equal(call.status, "succeeded");
-    assert.equal(call.usage_known, true);
-    const timing = (
-      await lease.lock.query(
-        "SELECT finished_at,duration_ms FROM generation_jobs WHERE id=$1",
-        [job.id],
-      )
-    ).rows[0];
-    assert.ok(timing.finished_at instanceof Date);
-    assert.ok(Number(timing.duration_ms) >= Number(call.duration_ms));
-    const generated = (await (
-      await request(path)
-    ).json()) as TestScenarioSnapshotDto;
-    assert.equal(generated.cases.length, 1);
-    assert.equal(generated.cases[0].title, content().title);
-    const candidatePath = `${jobsPath}/${job.id}/results/${completed.results[0].id}`;
-    for (const action of ["exclude", "restore", "edit", "add"] as const) {
-      const before = completed.revision;
-      const review = await request(candidatePath, "PUT", {
-        expectedRevision: before,
-        action,
-        ...(action === "edit"
-          ? {
-              content: {
-                ...completed.results[0].content,
-                title: "Reviewed",
-              },
-            }
-          : {}),
+      return fetch(`${base}/temp-uploads`, {
+        method: "POST",
+        headers: { Cookie: actorCookie },
+        body: form,
       });
-      assert.equal(review.status, 200, await review.clone().text());
-      completed = (await review.json()) as GenerationDto;
-      assert.equal(completed.revision, before + 1);
-      assert.equal(
-        completed.results[0].status,
-        action === "exclude"
-          ? "excluded"
-          : action === "add"
-            ? "added"
-            : "pending",
-      );
-    }
+    };
+    const waitJob = async (id: string): Promise<GenerationCurrentDto> => {
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        const job = await generation.visibleJob(id, admin.account.id);
+        if (["succeeded", "failed"].includes(job.status)) return job;
+        await delay(30);
+      }
+      assert.fail(`작업 완료 시간 초과: ${id}`);
+    };
+    const reviews = async () =>
+      (
+        await json<{ items: ReviewItemDto[] }>(
+          await request(`/test-sets/${set.id}/review-items`),
+        )
+      ).items;
+    let uploaded!: { id: string; frames: { id: string; imageCount: number }[] };
+    await t.test(
+      "업로드는 전체 plugin.upload만 허용하고 본인 자료와 첫 이미지만 반환",
+      async () => {
+        await error(await upload(otherCookie), 403, "FORBIDDEN");
+        uploaded = await json(await upload(), 201);
+        assert.deepEqual(
+          uploaded.frames.map((f) => f.imageCount),
+          [2, 0],
+        );
+        await error(
+          await request(
+            `/temp-uploads/${uploaded.id}`,
+            "GET",
+            undefined,
+            otherCookie,
+          ),
+          404,
+          "NOT_FOUND",
+        );
+        await error(
+          await request(
+            `/temp-uploads/${uploaded.id}/frames/${uploaded.frames[0].id}/thumbnail`,
+            "GET",
+            undefined,
+            otherCookie,
+          ),
+          404,
+          "NOT_FOUND",
+        );
+        const thumbnail = await request(
+          `/temp-uploads/${uploaded.id}/frames/${uploaded.frames[0].id}/thumbnail`,
+        );
+        assert.equal(thumbnail.headers.get("content-type"), "image/png");
+        assert.deepEqual(Buffer.from(await thumbnail.arrayBuffer()), png);
+        await error(
+          await request(
+            `/temp-uploads/${uploaded.id}/frames/${uploaded.frames[1].id}/thumbnail`,
+          ),
+          404,
+          "NOT_FOUND",
+        );
+      },
+    );
+    await t.test(
+      "생성은 편집 권한과 입력, 자료 소유자를 검사하고 진행 중에는 409",
+      async () => {
+        await error(
+          await request(
+            `/test-sets/${set.id}/generations`,
+            "POST",
+            { kind: "initial", uploadId: uploaded.id },
+            otherCookie,
+          ),
+          403,
+          "FORBIDDEN",
+        );
+        await error(
+          await request(`/test-sets/${set.id}/generations`, "POST", {
+            kind: "append",
+          }),
+          400,
+          "VALIDATION_ERROR",
+        );
+        await error(
+          await request(`/test-sets/${set.id}/generations`, "POST", {
+            kind: "initial",
+            memo: "설명만으로 최초 생성 불가",
+          }),
+          400,
+          "VALIDATION_ERROR",
+        );
+        assert.equal(await generation.current(set.id, admin.account.id), null);
+        await db
+          .update(testSetMembers)
+          .set({ access: "edit" })
+          .where(eq(testSetMembers.testSetId, set.id));
+        await error(
+          await request(
+            `/test-sets/${set.id}/generations`,
+            "POST",
+            { kind: "initial", uploadId: uploaded.id },
+            otherCookie,
+          ),
+          404,
+          "NOT_FOUND",
+        );
+        await db
+          .update(testSetMembers)
+          .set({ access: "view" })
+          .where(eq(testSetMembers.testSetId, set.id));
+        await queue.boss.offWork(GENERATION_QUEUE);
+        const { jobId } = await json<{ jobId: string }>(
+          await request(`/test-sets/${set.id}/generations`, "POST", {
+            kind: "initial",
+            uploadId: uploaded.id,
+          }),
+          202,
+        );
+        await error(
+          await request(`/test-sets/${set.id}/generations`, "POST", {
+            kind: "append",
+            memo: "추가",
+          }),
+          409,
+          "GENERATION_RUNNING",
+        );
+        const streamAbort = new AbortController();
+        t.after(() => streamAbort.abort());
+        const stream = await fetch(`${base}/generations/${jobId}/events`, {
+          headers: { Cookie: cookie },
+          signal: streamAbort.signal,
+        });
+        assert.equal(stream.headers.get("content-type"), "text/event-stream");
+        const reader = stream.body?.getReader();
+        assert.ok(reader);
+        let streamText = new TextDecoder().decode((await reader.read()).value);
+        assert.match(streamText, /event: progress/);
+        await queue.boss.work<{ jobId: string; stage: string }>(
+          GENERATION_QUEUE,
+          { pollingIntervalSeconds: 0.5 },
+          async (jobs) => {
+            for (const job of jobs)
+              await runner.process(
+                job.data.jobId,
+                job.data.stage as Parameters<StageRunner["process"]>[1],
+              );
+          },
+        );
+        const result = await waitJob(jobId);
+        assert.equal(result.status, "succeeded", result.errorMessage ?? "");
+        assert.equal(result.addedCount, 2);
+        assert.equal(result.reviewCount, 1);
+        for (;;) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          streamText += new TextDecoder().decode(chunk.value);
+        }
+        for (const stage of ["screens", "flows", "cases", "finish"])
+          assert.ok(streamText.includes(`"stage":"${stage}"`), streamText);
+        assert.match(streamText, /event: done/);
+        const done = await request(`/generations/${jobId}/events`);
+        assert.match(
+          await done.text(),
+          /event: done\ndata: \{"status":"succeeded","addedCount":2,"reviewCount":1\}/,
+        );
+        const cases = (await sets.detail(set.id, admin.account.id)).cases;
+        assert.equal(cases.length, 2);
+        assert.deepEqual(
+          cases.map((c) => c.values[set.columns[0].id]),
+          ["TC-001", "TC-002"],
+        );
+        const authors = await db
+          .select()
+          .from(testCases)
+          .where(eq(testCases.testSetId, set.id));
+        assert.ok(authors.every((c) => c.createdBy === admin.account.id));
+        const steps = await db
+          .select()
+          .from(generationSteps)
+          .where(eq(generationSteps.jobId, jobId));
+        assert.ok(steps.every((s) => s.input === null && s.output === null));
+        assert.ok(
+          steps
+            .filter((s) => s.stage !== "context")
+            .every(
+              (s) =>
+                s.promptVersion &&
+                s.model === "fake" &&
+                s.cost === "0.0000000000",
+            ),
+        );
+        // job 완료 후 파일 정리는 별도 복구 가능한 작업이므로 완료될 때까지 짧게 확인한다.
+        for (let i = 0; i < 100; i++) {
+          if (
+            !(
+              await db
+                .select()
+                .from(tempUploads)
+                .where(eq(tempUploads.id, uploaded.id))
+            ).length
+          )
+            break;
+          await delay(10);
+        }
+        await error(
+          await request(`/temp-uploads/${uploaded.id}`),
+          404,
+          "NOT_FOUND",
+        );
+        await assert.rejects(
+          readdir(join(lease.config.storageRoot, uploaded.id)),
+          { code: "ENOENT" },
+        );
+        assert.equal((await reviews()).length, 1);
+        assert.equal(
+          (await sets.list(admin.account.id, { filter: "all", search: "" }))
+            .items[0].reviewCount,
+          1,
+        );
+      },
+    );
+    await t.test(
+      "append는 메모만으로 생성하고 같은 자료의 중복을 피함",
+      async () => {
+        const first = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "새로운 비밀번호 변경",
+        });
+        assert.equal((await waitJob(first.jobId)).addedCount, 2);
+        const second = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "새로운 비밀번호 변경",
+        });
+        assert.equal((await waitJob(second.jobId)).addedCount, 0);
+        assert.equal(
+          (await sets.detail(set.id, admin.account.id)).cases.length,
+          4,
+        );
+      },
+    );
+    await t.test(
+      "확인 필요는 보기 권한, 수정과 제외 복원, 다시 작성과 추가를 지원",
+      async () => {
+        let item = (await reviews())[0];
+        await error(
+          await request(
+            `/review-items/${item.id}`,
+            "PATCH",
+            { answer: "수정" },
+            otherCookie,
+          ),
+          403,
+          "FORBIDDEN",
+        );
+        await error(
+          await request(`/review-items/${item.id}`, "PATCH", {
+            draft: { [set.columns[5].id]: "잘못된 선택" },
+          }),
+          400,
+          "VALIDATION_FAILED",
+        );
+        item = await json(
+          await request(`/review-items/${item.id}`, "PATCH", {
+            answer: "완료 화면",
+            status: "excluded",
+          }),
+        );
+        assert.equal(item.status, "excluded");
+        item = await json(
+          await request(`/review-items/${item.id}`, "PATCH", {
+            status: "pending",
+            draft: item.draft,
+          }),
+        );
+        const { jobId } = await json<{ jobId: string }>(
+          await request(`/review-items/${item.id}/rewrite`, "POST", {
+            answer: "완료 화면으로 이동",
+          }),
+          202,
+        );
+        await error(
+          await request(`/review-items/${item.id}`, "PATCH", {
+            answer: "동시 변경",
+          }),
+          409,
+          "REVIEW_ITEM_LOCKED",
+        );
+        assert.equal((await waitJob(jobId)).status, "succeeded");
+        item = (await reviews()).find((r) => r.id === item.id) as ReviewItemDto;
+        assert.equal(item.status, "pending");
+        assert.match(
+          String(item.draft[set.columns[1].id]),
+          /완료 화면으로 이동/,
+        );
+        const accepted = await json<{
+          item: ReviewItemDto;
+          case: { values: Record<string, string> };
+          version: number;
+        }>(
+          await request(`/review-items/${item.id}/accept`, "POST", {
+            draft: item.draft,
+          }),
+        );
+        assert.equal(accepted.item.status, "resolved");
+        assert.equal(accepted.case.values[set.columns[0].id], "TC-005");
+        await error(
+          await request(`/review-items/${item.id}/accept`, "POST", {
+            draft: item.draft,
+          }),
+          409,
+          "REVIEW_ITEM_LOCKED",
+        );
+      },
+    );
+    await t.test(
+      "재개는 저장된 화면 결과를 재사용하고 끝나지 않은 단계만 실행",
+      async () => {
+        await queue.boss.offWork(GENERATION_QUEUE);
+        const { jobId } = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "재개 테스트",
+        });
+        const [context] = await db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "context"),
+            ),
+          );
+        const data = context.input as GenerationInput;
+        await runner.step(
+          jobId,
+          "screens",
+          "memo",
+          { ...data, frames: [] },
+          { frames: [], memo: data.memo },
+        );
+        let screensCalled = 0;
+        const original = providers.fake.generate.bind(providers.fake);
+        providers.fake.generate = async (r) => {
+          if (r.definition.key === "screens") screensCalled++;
+          return original(r);
+        };
+        try {
+          await generation.recover();
+          await runner.process(jobId, "screens");
+          await runner.process(jobId, "flows");
+          await runner.process(jobId, "cases");
+          await runner.process(jobId, "finish");
+          await runner.process(jobId, "finish");
+          assert.equal((await waitJob(jobId)).status, "succeeded");
+          assert.equal(screensCalled, 0);
+        } finally {
+          providers.fake.generate = original;
+        }
+      },
+    );
+    await t.test(
+      "출력 실패는 케이스를 남기지 않고 재작성 실패는 이전 초안을 보존",
+      async () => {
+        const original = providers.fake.generate.bind(providers.fake);
+        let calls = 0;
+        providers.fake.generate = async (r: AiRequest) => {
+          calls++;
+          if (r.definition.key === "finish" || r.definition.key === "rewrite")
+            throw new AiFailure("AI_REFUSAL", false);
+          return original(r);
+        };
+        try {
+          const before = (await sets.detail(set.id, admin.account.id)).cases
+            .length;
+          const { jobId } = await generation.create(set.id, admin.account.id, {
+            kind: "append",
+            memo: "실패 테스트",
+          });
+          for (const stage of ["screens", "flows", "cases", "finish"] as const)
+            await runner.process(jobId, stage);
+          const failed = await waitJob(jobId);
+          assert.equal(failed.status, "failed");
+          assert.match(
+            failed.errorMessage ?? "",
+            /설명으로 케이스 추가 생성을 실행하세요/,
+          );
+          assert.doesNotMatch(failed.errorMessage ?? "", /입력 내용을 확인/);
+          assert.equal(
+            (await sets.detail(set.id, admin.account.id)).cases.length,
+            before,
+          );
+          const item = (await reviews()).find((r) => r.status === "pending");
+          assert.ok(item);
+          const result = await json<{ jobId: string }>(
+            await request(`/review-items/${item.id}/rewrite`, "POST", {
+              answer: "답변",
+            }),
+            202,
+          );
+          await runner.process(result.jobId, "rewrite");
+          assert.equal((await waitJob(result.jobId)).status, "failed");
+          const after = (await reviews()).find((r) => r.id === item.id);
+          assert.equal(after?.status, "pending");
+          assert.deepEqual(after.draft, item.draft);
+          assert.ok(calls >= 5);
+        } finally {
+          providers.fake.generate = original;
+        }
+      },
+    );
+    await t.test(
+      "프로젝트 메모는 입력에서 빠지고 만료 정리는 사용 중 업로드를 보존",
+      async () => {
+        await db
+          .insert(projectMemos)
+          .values({
+            projectId: project.id,
+            authorId: admin.account.id,
+            body: "절대 생성 입력에 넣지 않을 프로젝트 메모",
+          })
+          .onConflictDoUpdate({
+            target: projectMemos.projectId,
+            set: { body: "절대 생성 입력에 넣지 않을 프로젝트 메모" },
+          });
+        const unused = await json<{ id: string }>(
+          await upload(cookie, false),
+          201,
+        );
+        const active = await json<{ id: string }>(
+          await upload(cookie, false),
+          201,
+        );
+        const { jobId } = await generation.create(set.id, admin.account.id, {
+          kind: "initial",
+          uploadId: active.id,
+        });
+        const [snapshot] = await db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "context"),
+            ),
+          );
+        assert.ok(!JSON.stringify(snapshot.input).includes("절대 생성 입력"));
+        await db
+          .update(tempUploads)
+          .set({ expiresAt: new Date(Date.now() - 1000) })
+          .where(eq(tempUploads.id, unused.id));
+        await db
+          .update(tempUploads)
+          .set({ expiresAt: new Date(Date.now() - 1000) })
+          .where(eq(tempUploads.id, active.id));
+        await uploads.cleanup();
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(tempUploads)
+              .where(eq(tempUploads.id, unused.id))
+          ).length,
+          0,
+        );
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(tempUploads)
+              .where(eq(tempUploads.id, active.id))
+          ).length,
+          1,
+        );
+        await generation.fail(jobId, "TEST_FINISHED");
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(tempUploads)
+              .where(eq(tempUploads.id, active.id))
+          ).length,
+          0,
+        );
+      },
+    );
+    await t.test(
+      "일시 오류는 최대 2회 재시도하고 완료한 분할 결과를 재사용",
+      async () => {
+        const { jobId } = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "재시도 테스트",
+        });
+        const [snapshot] = await db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "context"),
+            ),
+          );
+        const context = snapshot.input as GenerationInput;
+        const original = providers.fake.generate.bind(providers.fake);
+        let calls = 0;
+        providers.fake.generate = async (r) => {
+          calls++;
+          if (calls <= 2) throw new AiFailure("AI_UNAVAILABLE", true);
+          return original(r);
+        };
+        try {
+          await runner.step(jobId, "screens", "memo", context, {
+            frames: [],
+            memo: context.memo,
+          });
+          await runner.step(jobId, "screens", "memo", context, {
+            frames: [],
+            memo: context.memo,
+          });
+          assert.equal(calls, 3);
+          const [step] = await db
+            .select()
+            .from(generationSteps)
+            .where(
+              and(
+                eq(generationSteps.jobId, jobId),
+                eq(generationSteps.stage, "screens"),
+              ),
+            );
+          assert.equal(step.attempts, 3);
+          assert.equal(step.status, "completed");
+        } finally {
+          providers.fake.generate = original;
+          await generation.fail(jobId, "TEST_FINISHED");
+        }
+      },
+    );
+    await t.test(
+      "열 변경은 확인 필요 초안도 케이스와 같은 규칙으로 정리하고 수정과 추가를 허용",
+      async () => {
+        const target = await sets.create(admin.account.id, {
+          projectId: project.id,
+          name: "초안 양식",
+          memo: "",
+        });
+        const custom = (type: "text" | "select" | "tags" | "checkbox") => ({
+          id: randomUUID(),
+          name: type,
+          type,
+          systemKey: null,
+          description: "",
+          options: type === "select" || type === "tags" ? ["가", "나"] : [],
+        });
+        const removed = custom("text"),
+          select = custom("select"),
+          tags = custom("tags"),
+          checkbox = custom("checkbox");
+        const columns = [...target.columns, removed, select, tags, checkbox];
+        await sets.saveColumns(target.id, admin.account.id, { columns });
+        const values = {
+          [removed.id]: "삭제",
+          [select.id]: "가",
+          [tags.id]: ["가", "나"],
+          [checkbox.id]: true,
+          [target.columns[1].id]: "보존",
+        };
+        await app
+          .get(CaseOperationsService)
+          .apply(target.id, admin.account.id, {
+            ops: [
+              {
+                type: "add_case",
+                caseId: randomUUID(),
+                afterCaseId: null,
+                values,
+              },
+            ],
+          });
+        const items = await db
+          .insert(reviewItems)
+          .values(
+            ["pending", "excluded", "resolved", "rewriting"].map((status) => ({
+              testSetId: target.id,
+              screenDescription: "화면",
+              questions: [],
+              draft: values,
+              status,
+            })),
+          )
+          .returning();
+        const changed = columns
+          .filter((c) => c.id !== removed.id)
+          .map((c) =>
+            c.id === select.id || c.id === tags.id
+              ? { ...c, options: ["나"] }
+              : c.id === checkbox.id
+                ? { ...c, type: "text" as const }
+                : c,
+          );
+        // 열 편집 중 실패하면 초안도 함께 롤백된다.
+        await assert.rejects(
+          sets.saveColumns(target.id, admin.account.id, {
+            columns: [...changed, set.columns[2]],
+          }),
+        );
+        assert.deepEqual(
+          (
+            await db
+              .select()
+              .from(reviewItems)
+              .where(eq(reviewItems.id, items[0].id))
+          )[0].draft,
+          values,
+        );
+        const result = await sets.saveColumns(target.id, admin.account.id, {
+          columns: changed,
+        });
+        const expected = {
+          [tags.id]: ["나"],
+          [checkbox.id]: "예",
+          [target.columns[1].id]: "보존",
+        };
+        for (const item of await db
+          .select()
+          .from(reviewItems)
+          .where(eq(reviewItems.testSetId, target.id))) {
+          assert.deepEqual(item.draft, expected);
+          assert.equal(
+            item.status,
+            items.find((before) => before.id === item.id)?.status,
+          );
+        }
+        const caseValues = { ...result.cases[0].values };
+        delete caseValues[target.columns[0].id];
+        assert.deepEqual(caseValues, expected);
+        const patched = await json<ReviewItemDto>(
+          await request(`/review-items/${items[0].id}`, "PATCH", {
+            draft: expected,
+            answer: "확인",
+          }),
+        );
+        const accepted = await json<{
+          case: { values: Record<string, unknown> };
+        }>(
+          await request(`/review-items/${items[0].id}/accept`, "POST", {
+            draft: patched.draft,
+          }),
+        );
+        assert.equal(accepted.case.values[checkbox.id], "예");
+      },
+    );
+    await t.test(
+      "만료 정리는 중단된 스테이징만 삭제하고 최근 파일과 게시된 파일을 보존",
+      async () => {
+        const storage = app.get(LocalStorage);
+        const stale = randomUUID(),
+          fresh = randomUUID(),
+          published = randomUUID(),
+          uploadId = randomUUID();
+        for (const fileId of [stale, fresh, published])
+          await storage.stage(fileId, png);
+        const old = new Date(Date.now() - 7200000);
+        await utimes(
+          join(lease.config.storageRoot, ".incoming", stale),
+          old,
+          old,
+        );
+        await storage.publish(uploadId, published);
+        await utimes(
+          join(lease.config.storageRoot, uploadId, published),
+          old,
+          old,
+        );
+        await uploads.cleanup();
+        const incoming = await readdir(
+          join(lease.config.storageRoot, ".incoming"),
+        );
+        assert.ok(!incoming.includes(stale));
+        assert.ok(incoming.includes(fresh));
+        assert.ok(
+          (await readdir(join(lease.config.storageRoot, uploadId))).includes(
+            published,
+          ),
+        );
+        // 반복 실행도 이미 삭제된 파일을 허용한다.
+        await uploads.cleanup();
+      },
+    );
+    await t.test(
+      "SSE는 연결 후 계정이 비활성화되거나 만료되면 추가 이벤트 없이 종료",
+      async () => {
+        const { jobId } = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "권한 확인",
+        });
+        try {
+          for (const change of [
+            { status: "inactive" as const },
+            { expiresAt: new Date(Date.now() - 1000) },
+          ]) {
+            const abort = new AbortController();
+            const timer = setTimeout(() => abort.abort(), 3000);
+            try {
+              const stream = await fetch(
+                `${base}/generations/${jobId}/events`,
+                { headers: { Cookie: cookie }, signal: abort.signal },
+              );
+              assert.equal(stream.status, 200);
+              const reader = stream.body?.getReader();
+              assert.ok(reader);
+              assert.match(
+                new TextDecoder().decode((await reader.read()).value),
+                /event: progress/,
+              );
+              await db
+                .update(accountRows)
+                .set(change)
+                .where(eq(accountRows.id, admin.account.id));
+              await assert.rejects(
+                generation.visibleJob(jobId, admin.account.id),
+              );
+              const next = await reader.read();
+              assert.equal(next.done, true);
+            } finally {
+              clearTimeout(timer);
+              abort.abort();
+              await db
+                .update(accountRows)
+                .set({ status: "active", expiresAt: null })
+                .where(eq(accountRows.id, admin.account.id));
+            }
+          }
+        } finally {
+          await generation.fail(jobId, "TEST_FINISHED");
+        }
+      },
+    );
+    await t.test(
+      "앱을 종료하고 다시 시작해도 미완료 단계부터 자동 실행",
+      async () => {
+        const { jobId } = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "실제 재시작",
+        });
+        const [snapshot] = await db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "context"),
+            ),
+          );
+        const context = snapshot.input as GenerationInput;
+        await runner.step(jobId, "screens", "memo", context, {
+          frames: [],
+          memo: context.memo,
+        });
+        const [saved] = await db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "screens"),
+            ),
+          );
+        await app.close();
+        app = await createApp(
+          {
+            ...lease.config,
+            ai: readAiConfig({ AI_PROVIDER: "fake" }),
+            queuePollingSeconds: 0.5,
+          },
+          lease.folder,
+        );
+        await app.get(LocalStorage).initialize();
+        await app.listen(0, "127.0.0.1");
+        const restarted = app.get(GenerationService);
+        let status = "queued";
+        for (let i = 0; i < 600; i++) {
+          status = (await restarted.visibleJob(jobId, admin.account.id)).status;
+          if (status === "succeeded" || status === "failed") break;
+          await delay(30);
+        }
+        assert.equal(status, "succeeded");
+        const [reused] = await db
+          .select()
+          .from(generationSteps)
+          .where(eq(generationSteps.id, saved.id));
+        assert.equal(reused.attempts, 1);
+        assert.equal(
+          reused.completedAt?.getTime(),
+          saved.completedAt?.getTime(),
+        );
+        assert.equal(reused.input, null);
+        assert.equal(reused.output, null);
+      },
+    );
     assert.equal(
       (
-        await request(candidatePath, "PUT", {
-          expectedRevision: completed.revision,
-          action: "add",
-        })
-      ).status,
-      409,
+        await db
+          .select()
+          .from(reviewItems)
+          .where(eq(reviewItems.testSetId, set.id))
+      ).length >= 3,
+      true,
     );
-    const reviewed = (await (
-      await request(path)
-    ).json()) as TestScenarioSnapshotDto;
-    assert.equal(reviewed.cases.length, 2);
-    assert.equal(reviewed.cases[1].title, "Reviewed");
-    invalid = true;
-    const failedResponse = await request(jobsPath, "POST", {
-      ...start,
-      clientRequestId: randomUUID(),
-      expectedRevision: reviewed.contentRevision,
-    });
-    assert.equal(failedResponse.status, 202);
-    const failedJob = (await failedResponse.json()) as GenerationDto;
-    assert.equal((await finished(failedJob.id)).status, "failed");
-    const [failedCall] = await callRecords(failedJob.id);
-    assert.equal(failedCall.usage_known, true);
-    assert.equal(failedCall.calculated_cost_usd, call.calculated_cost_usd);
-    assert.equal(
-      failedCall.status,
-      "succeeded",
-      "Provider success remains recorded when result validation fails",
-    );
-    const preserved = (await (
-      await request(path)
-    ).json()) as TestScenarioSnapshotDto;
-    assert.deepEqual(preserved.cases, reviewed.cases);
-    assert.equal(preserved.contentRevision, reviewed.contentRevision);
-    assert.equal(
+    assert.ok(
       (
-        await request(`${path}/content`, "PUT", {
-          expectedRevision: preserved.contentRevision,
-          columns: preserved.columns,
-          cases: preserved.cases,
-        })
-      ).status,
-      200,
-      "Failed generation must release the testScenario lock",
-    );
-    const interruptedCallId = randomUUID();
-    await lease.lock.query(
-      "UPDATE generation_jobs SET status='running',finished_at=NULL,duration_ms=NULL,expires_at=now()-interval '1 second' WHERE id=$1",
-      [failedJob.id],
-    );
-    await lease.lock.query(
-      "INSERT INTO ai_call_usage(id,job_id,project_id,provider,requested_model,started_at) VALUES ($1,$2,$3,'anthropic','synthetic-model',now())",
-      [interruptedCallId, failedJob.id, project.id],
-    );
-    await request(jobsPath);
-    const interrupted = (await callRecords(failedJob.id)).find(
-      (row) => row.id === interruptedCallId,
-    );
-    assert.equal(interrupted.status, "unknown");
-    assert.equal(interrupted.usage_known, false);
-    assert.equal(interrupted.duration_ms, null);
-    assert.equal(interrupted.calculated_cost_usd, null);
-    assert.equal(
-      (await callRecords(failedJob.id)).find((row) => row.id === failedCall.id)
-        .status,
-      "succeeded",
+        await db
+          .select()
+          .from(generationJobs)
+          .where(eq(generationJobs.testSetId, set.id))
+      ).length >= 8,
     );
   } finally {
-    release?.();
-    await app?.close();
-    global.fetch = originalFetch;
+    await app.close();
     await lease.close();
   }
 });

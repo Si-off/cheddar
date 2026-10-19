@@ -7,102 +7,152 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Put,
+  Res,
 } from "@nestjs/common";
 import {
   ApiAcceptedResponse,
   ApiBody,
+  ApiCookieAuth,
+  ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiResponse,
   ApiTags,
+  getSchemaPath,
 } from "@nestjs/swagger";
+import type { Response } from "express";
+import { CurrentAccount } from "../authorization/guards";
 import { ErrorResponseDto } from "../contracts/common.dto";
 import {
-  AddGeneratedCasesDto,
-  GenerationDto,
-  GenerationListDto,
-  GenerationProvidersDto,
-  ReviewGenerationResultDto,
-  StartGenerationDto,
+  CreateGenerationDto,
+  GenerationAcceptedDto,
+  GenerationCurrentDto,
 } from "../contracts/generation.dto";
 import { GenerationService } from "./generation.service";
-@ApiTags("generation")
-@Controller("api/v1/generation")
-export class GenerationProvidersController {
-  constructor(
-    @Inject(GenerationService) private readonly service: GenerationService,
-  ) {}
-  @Get("providers")
-  @ApiOperation({ operationId: "listGenerationProviders" })
-  @ApiOkResponse({ type: GenerationProvidersDto })
-  providers() {
-    return this.service.providers();
-  }
-}
-@ApiTags("generation")
-@ApiResponse({ status: 400, type: ErrorResponseDto })
-@ApiResponse({ status: 404, type: ErrorResponseDto })
-@ApiResponse({ status: 409, type: ErrorResponseDto })
-@ApiResponse({ status: 503, type: ErrorResponseDto })
-@Controller(
-  "api/v1/projects/:projectId/test-scenarios/:testScenarioId/generations",
-)
+import { formatEvent, heartbeat, jobEvent } from "./sse";
+@ApiTags("AI 생성")
+@ApiCookieAuth()
+@ApiExtraModels(GenerationCurrentDto)
+@Controller("api/v1")
 export class GenerationController {
   constructor(
     @Inject(GenerationService) private readonly service: GenerationService,
   ) {}
-  @Get()
-  @ApiOperation({ operationId: "listGenerations" })
-  @ApiOkResponse({ type: GenerationListDto })
-  list(
-    @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
-  ) {
-    return this.service.list(projectId, testScenarioId);
-  }
-  @Post()
-  @ApiResponse({ status: 429, type: ErrorResponseDto })
+  @Post("test-sets/:testSetId/generations")
   @HttpCode(202)
-  @ApiOperation({ operationId: "startGeneration" })
-  @ApiBody({ type: StartGenerationDto })
-  @ApiAcceptedResponse({ type: GenerationDto })
-  start(
-    @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
-    @Body() input: StartGenerationDto,
+  @ApiOperation({
+    operationId: "createGeneration",
+    summary: "케이스 생성 시작",
+  })
+  @ApiBody({ type: CreateGenerationDto })
+  @ApiAcceptedResponse({ type: GenerationAcceptedDto })
+  @ApiResponse({
+    status: 429,
+    description: "동시 생성 한도 초과",
+    type: ErrorResponseDto,
+  })
+  create(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: CreateGenerationDto,
   ) {
-    return this.service.start(projectId, testScenarioId, input);
+    return this.service.create(id, accountId, dto);
   }
-  @Post(":jobId/add")
-  @ApiOperation({ operationId: "addGeneratedCases" })
-  @ApiBody({ type: AddGeneratedCasesDto })
-  @ApiOkResponse({ type: GenerationDto })
-  add(
-    @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
-    @Param("jobId", new ParseUUIDPipe()) jobId: string,
-    @Body() input: AddGeneratedCasesDto,
+  @Get("test-sets/:testSetId/generations/current")
+  @ApiOperation({
+    operationId: "getCurrentGeneration",
+    summary: "최근 생성 작업 보기",
+  })
+  @ApiOkResponse({
+    schema: {
+      allOf: [{ $ref: getSchemaPath(GenerationCurrentDto) }],
+      nullable: true,
+    },
+  })
+  current(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
   ) {
-    return this.service.add(projectId, testScenarioId, jobId, input);
+    return this.service.current(id, accountId);
   }
-  @Put(":jobId/results/:resultId")
-  @ApiOperation({ operationId: "reviewGenerationResult" })
-  @ApiBody({ type: ReviewGenerationResultDto })
-  @ApiOkResponse({ type: GenerationDto })
-  review(
-    @Param("projectId", new ParseUUIDPipe()) projectId: string,
-    @Param("testScenarioId", new ParseUUIDPipe()) testScenarioId: string,
-    @Param("jobId", new ParseUUIDPipe()) jobId: string,
-    @Param("resultId", new ParseUUIDPipe()) resultId: string,
-    @Body() input: ReviewGenerationResultDto,
+  @Get("generations/:jobId/events")
+  @ApiOperation({
+    operationId: "getGenerationEvents",
+    summary: "생성 단계 진행 받기",
+  })
+  @ApiProduces("text/event-stream")
+  @ApiOkResponse({
+    content: {
+      "text/event-stream": {
+        schema: {
+          type: "string",
+          description: "progress, done 이벤트와 15초 간격 연결 유지 주석",
+        },
+      },
+    },
+  })
+  async events(
+    @Param("jobId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Res() response: Response,
   ) {
-    return this.service.review(
-      projectId,
-      testScenarioId,
-      jobId,
-      resultId,
-      input,
-    );
+    const initial = await this.service.visibleJob(id, accountId);
+    response.setHeader("Content-Type", "text/event-stream");
+    response.setHeader("Cache-Control", "no-cache");
+    response.setHeader("X-Accel-Buffering", "no");
+    response.flushHeaders();
+    let last = jobEvent(initial);
+    const order = ["screens", "flows", "cases", "finish"];
+    let lastStage =
+      initial.status === "running" ? order.indexOf(initial.stage ?? "") : -1;
+    response.write(last);
+    if (["succeeded", "failed"].includes(initial.status)) {
+      response.end();
+      return;
+    }
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const keepAlive = setInterval(() => {
+      response.write(heartbeat);
+    }, 15000);
+    const stop = () => {
+      stopped = true;
+      clearTimeout(timer);
+      clearInterval(keepAlive);
+    };
+    response.on("close", stop);
+    const poll = async () => {
+      try {
+        const job = await this.service.visibleJob(id, accountId);
+        if (stopped) return;
+        // 짧은 단계가 폴링 사이에 끝나도 저장된 단계 기록으로 순서대로 전한다.
+        if (job.kind !== "rewrite") {
+          for (const stage of await this.service.startedStages(id)) {
+            const index = order.indexOf(stage);
+            if (index > lastStage) {
+              last = formatEvent("progress", { stage, status: "running" });
+              response.write(last);
+              lastStage = index;
+            }
+          }
+        }
+        const event = jobEvent(job);
+        if (last !== event) {
+          response.write(event);
+          last = event;
+        }
+        if (["succeeded", "failed"].includes(job.status)) {
+          stop();
+          response.end();
+          return;
+        }
+        timer = setTimeout(poll, 250);
+      } catch {
+        stop();
+        response.end();
+      }
+    };
+    timer = setTimeout(poll, 250);
   }
 }

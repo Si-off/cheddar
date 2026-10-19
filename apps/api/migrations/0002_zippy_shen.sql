@@ -1,0 +1,1 @@
+ALTER TABLE "test_sets" ADD COLUMN "test_id_counter" text DEFAULT '0' NOT NULL;

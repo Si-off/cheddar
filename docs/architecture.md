@@ -1,154 +1,264 @@
 # 프로젝트 구조
 
-이 문서는 합의된 시스템 구조·기술 선택·운영 제약을 설명한다. 구현 진행과 검증 이력은 커밋·PR에 남기고 여기에는 현재 상태만 적는다. 실제 적용 여부는 코드와 설정으로 확인한다.
+이 문서는 합의된 시스템 구조, 기술 선택, 코드 규칙, 운영 제약을 설명한다. 구현 진행과 검증 이력은 커밋과 PR에 남긴다.
+
+2026-10-18부터 2026-10-19까지의 전면 개편으로 코드가 이 문서의 구조를 따른다.
 
 ## 설계 범위와 환경
 
-- 설계 범위: 웹·Figma 플러그인·저장 및 AI 생성 백엔드. AI 실행 구조는 아래 [MVP AI 생성](#mvp-ai-생성)을 따른다.
-- 저장소 구성: pnpm workspace 기반 모노레포.
-- 개발 도구: Claude Code(오케스트레이션·프런트엔드 구현)와 Codex(리뷰·백엔드 위임). 역할 분담은 루트 `AGENTS.md`.
-- 필요한 구성요소: Figma 플러그인, 웹사이트, 백엔드 서버.
-- 앱 위치: 웹 `apps/web/`, Figma 플러그인 `apps/figma-plugin/`, 백엔드 `apps/api/`.
-- 공통 패키지 위치: `packages/ui/`, `packages/design-tokens/`.
-- 백엔드: NestJS + Drizzle + PostgreSQL. API DTO·DB 모델·화면 모델을 분리한다.
-- 초기 환경: 로그인·검색 노출 없이 개발자 PC에서 로컬 검증. 백엔드·DB도 로컬 실행한다.
-- 사내 배포 환경과 방식은 추후 결정한다.
-- 현재 제품·구조 문서: `docs/`.
+- 구성요소: Figma 플러그인 `apps/figma-plugin/`, 웹 `apps/web/`, 백엔드 `apps/api/`. 공통 패키지 `packages/ui/`, `packages/design-tokens/`, `packages/contracts/`(신규).
+- 저장소: pnpm workspace 모노레포. Node는 `.nvmrc`, pnpm은 `packageManager`로 고정한다. 라이브러리 버전은 각 `package.json`과 `pnpm-lock.yaml`이 기준이고 실행 명령은 [README](../README.md)에 있다.
+- 개발 도구: Claude Code(오케스트레이션과 UI 구현), Codex(백엔드 위임과 리뷰). 역할 분담은 루트 `AGENTS.md`.
+- 초기 환경: 개발자 PC에서 백엔드와 DB를 로컬로 실행한다. 사내 배포 방식은 추후 결정한다.
 
-## 웹·플러그인 기술 결정
+## 기술 선택
 
-| 영역 | 확정된 선택 |
+| 영역 | 선택 |
 | --- | --- |
-| 공통 언어 | TypeScript |
-| 기본 UI 스택 | React, Vite, Tailwind CSS, Motion |
-| 공통 UI 기반 | shadcn/ui의 Base UI 구성, 프로젝트 토큰과 스타일로 커스텀 |
-| 데이터·상태 도구 | TanStack Query, Zustand |
+| 언어 | TypeScript |
+| UI | React, Vite, Tailwind CSS 4(CSS 설정), motion(motion.dev) |
+| 공통 UI 기반 | Base UI 위에 Tailwind 클래스와 cva로 직접 작성. lucide-react 아이콘 |
+| 데이터와 상태 | TanStack Query(서버 데이터), Zustand(화면 상태), TanStack Router, TanStack Table과 TanStack Virtual(큰 표) |
+| API 코드 생성 | Nest Swagger로 OpenAPI 명세 → `@hey-api/openapi-ts`로 타입, SDK, Query 헬퍼 |
+| 실시간 | 공동 편집은 WebSocket, 생성 진행은 SSE |
+| 백엔드 | NestJS(Express), Drizzle, PostgreSQL 17, pg-boss(작업 큐) |
 | 린터 | Biome |
-| 웹 라우터 | TanStack Router |
-| API 코드 생성 | `@hey-api/openapi-ts`로 타입·SDK·TanStack Query 코드 생성 |
-| UI 구조 | 웹과 플러그인 UI 모두 FSD 적용, 필요한 레이어만 구성 |
+| 테스트 | API는 `node:test`와 실제 PostgreSQL, 웹은 Playwright |
 
-Node는 `.nvmrc`의 24.22.0 LTS, pnpm은 `packageManager`의 12.11.2로 고정한다. 라이브러리 버전은 각 `package.json`과 `pnpm-lock.yaml`이 기준이며 실행 명령은 [README](../README.md)에 있다.
+## 웹 구조(FSD)
 
-## 구성요소 경계와 공유
+아래 레이어는 위 레이어를 가져오지 않는다. 같은 레이어의 슬라이스끼리도 가져오지 않는다(entities만 예외로 다른 entity의 공개 타입을 가져올 수 있다). 슬라이스 밖에는 `index`로 공개한 것만 보이며, 이 경계는 루트 `biome.json`의 `noRestrictedImports` overrides로 강제한다.
 
-- 플러그인은 직접 선택한 Frame과 선택 Section 내부의 최상위 Frame 데이터를 업로드한다. Section은 자식 순서로 탐색하고 Frame을 만나면 그 하위 탐색을 멈춘다. 같은 nodeId와 이미 수집한 조상 Frame에 포함된 Frame은 중복 등록하지 않는다. 빈 Section이나 지원하지 않는 직접 선택이 섞이면 사용자가 선택을 수정하도록 안내한다. 테스트 케이스 생성·편집은 웹에서 수행한다.
-- Figma 문서 접근 코드는 React UI와 분리한다. main은 IIFE JavaScript, UI는 폰트·CSS를 포함한 단일 HTML로 별도 빌드한다. `protocol/`에서 연결·선택·경량 이미지·업로드 준비·프레임 추출·완료 전 검증·웹 열기 메시지를 구분한다. 썸네일은 긴 변 240px, 미리보기는 960px 이하로 별도 추출하고 선택 버전별로 캐시한다. 업로드 원본 추출과 분리하며 선택 변경 후 오래된 이미지 응답을 반영하지 않는다. 실제 Figma 중첩 iframe relay는 정확한 Figma Origin과 manifest pluginId를 검사하고, opaque-origin UI 요청 UUID는 crypto.getRandomValues로 보완한다.
-- 기본 UI와 디자인 토큰은 공유한다.
-- 화면·업무 기능·상태 저장소는 앱별로 관리한다.
-- 웹은 TanStack Table 기반 표·상세 편집과 별도 초안·저장 모델을 구현한다. 필수 열은 테스트 ID·제목이며 사용자 열은 텍스트·선택·체크박스·태그다. 표시 문자열 부분 검색을 사용한다. TanStack Query는 서버 데이터, Zustand/화면 상태는 미저장 입력·선택·검색을 담당한다.
-- 실제 공유 링크는 후속 범위이며 초기 읽기 전용, 향후 링크별 편집 권한을 계획한다. 현재 시나리오 미리보기와 구분한다.
-- API는 프로젝트·파일·업로드 묶음·IA·기본 양식·시나리오를 저장하며, 저장된 전체 시나리오를 ExcelJS로 XLSX 내보내기 한다. 사용자 문자열을 수식으로 변환하지 않고 표현 불가능한 데이터는 잘라내지 않고 오류로 알린다. AI 실행은 아래 MVP LangGraph 흐름을 따른다.
+| 레이어 | 슬라이스 | 하는 일 |
+| --- | --- | --- |
+| app | router, providers, `global.css` | 라우트 트리, 로그인과 권한 경계, Query와 motion 설정 |
+| pages | login, password-setup(초대 수락과 재설정), no-access, admin-accounts, admin-account, admin-roles, admin-role, admin-affiliations, test-sets, test-set-new, test-set-generating, test-set, shared-test-set(공개 링크), projects(목록과 만들기), project-settings, plugin-connect | 화면 조립. 데이터 가져오기와 레이아웃만 |
+| widgets | app-header, admin-shell, auth-card, project-shell, case-table, case-board, case-dialog, columns-editor, review-panel, share-dialog, no-access-notice | 여러 기능이 모인 화면 덩어리 |
+| features | auth, manage-account(계정 양식, 만들기, 초대와 재설정 링크, 계정 작업), transfer-ownership(소유 테스트 세트 넘기기), manage-role, manage-affiliation, create-project, edit-project, edit-project-memo, edit-template, manage-feature-groups, manage-required-cases, manage-screens, create-test-set, manage-test-set, edit-test-set-columns, edit-cases, test-set-view, collaborate-test-set, generate-cases, resolve-review, export-xlsx, share-test-set | 사용자 행동 하나와 그 상태 |
+| entities | test-set(케이스 포함), generation(생성 작업과 확인 필요), project, account, role, affiliation, permission | 도메인 타입, 생성 API 타입을 도메인 타입으로 바꾸는 변환, Query 키와 조회 훅 |
+| shared | api(생성 코드와 클라이언트 설정, 오류 변환), config(환경, 공유 링크 경로), testing(e2e용 API 응답 합성) | 도메인을 모르는 도구 |
 
-## 백엔드 기반
+- 플러그인 UI(`apps/figma-plugin/src/ui/`)는 app, pages, shared 레이어만 쓴다. `main/`(Figma 문서 접근)과 `protocol/`(main과 UI 사이 메시지 계약)은 FSD 밖에 둔다.
+- 권한은 `entities/permission`의 `can(permission, projectId)` 하나로 묻는다. 화면은 역할 이름을 모르고 권한 키만 안다.
+- 라우트는 코드로 정의하고, 페이지 진입 전에 로그인과 권한을 확인한다.
 
-- NestJS Express adapter, Drizzle node-postgres, PostgreSQL 17, API 전용 CommonJS TypeScript 빌드와 decorator metadata를 사용한다. 정확한 패키지 버전은 lockfile 기준이다.
-- `src/contracts/`는 외부 DTO, `database/schema.ts`는 DB 모델, 각 앱 모델은 화면 책임이다. 서로의 내부 타입을 직접 공유하지 않는다.
-- `projects/`·`files/`는 controller → service → repository, `storage/`는 파일 바이트 처리를 담당한다. `common/`은 입력 검증·안전한 오류·요청 ID·명세 설정을 소유한다.
-- 파일은 전용 루트의 `.incoming/`에 기록·검증한 뒤 프로젝트/파일 UUID 키로 이동하고 DB에서 ready로 확정한다. DB와 파일시스템의 실패를 분리하며 불완전 파일을 공개하지 않는다. 시작 시 잔여 pending/작업 파일을 보고하고 자동 삭제하지 않는다.
-- 저장 루트는 `FILE_STORAGE_ROOT`로 설정하며 DB에 절대 경로를 넣지 않는다. 프로젝트와 파일은 현재 삭제 API가 없다.
-- 실행 DB는 `cheddar_stage1`, 테스트 DB는 `cheddar_stage1_test`, role은 `cheddar_stage1`. 로컬 기본 저장 위치는 `/Users/sion/Library/Application Support/Cheddar/stage-1/files`다. 다른 환경에서는 설정을 변경한다.
-- API는 loopback에 바인딩한다. 웹 Origin을 명시적으로 허용하며 인증·사용자 권한으로 간주하지 않는다. 로컬 Figma iframe은 `NODE_ENV=development`와 `ALLOW_FIGMA_NULL_ORIGIN=true`를 함께 설정할 때만 null Origin을 허용한다. AI 키·모델은 서버 환경변수로만 관리한다.
-- schema에서 생성한 SQL migration을 검토·명시 적용한다. 서버 시작 시 migration/push를 실행하지 않는다. readiness는 DB migration hash와 테이블·저장 접근을 확인한다.
-- 실제 경로만 OpenAPI에 포함하며 프로젝트·파일·업로드·IA·기본 양식·시나리오·XLSX·AI 생성·분석 결과·생성 결과 경로와 양쪽 SDK를 생성한다. export는 DB 접속·listen·저장소 생성 없이 실행한다.
-- 생성 명세와 Drizzle meta는 Biome 포맷 대상에서 제외하고 명세 재생성 비교·계약 테스트·migration 재현으로 검증한다. 기존 소스 검사를 완화하지 않는다.
-- API 테스트는 `node:test`, `@nestjs/testing`, 실제 PostgreSQL·HTTP를 사용한다. 컴파일·SDK 실행 테스트·파일 fixture는 OS 임시 경로를 사용한다. 테스트 데이터는 이 실행이 만든 UUID 행만 정리한다.
-- 프로젝트 생성 시 기본 양식을 같은 트랜잭션에서 저장하고, 기존 프로젝트에는 migration으로 누락분만 보충한다. 시나리오는 생성 시 양식을 독립 UUID로 복사하며 이후 기본 양식 변경의 영향을 받지 않는다. 시나리오 내용과 보기는 별도 revision으로 저장하고 충돌 시 덮어쓰지 않는다.
-- 업로드 공통 스키마는 `uploads`·`upload_frames`다. 프로젝트별 요청 UUID의 유일성, 프레임 순서·Figma 식별자 중복, 프로젝트·파일 소속을 DB에서 보장한다. ready 상태·MIME과 묶음 전체 등록·재시도 응답은 uploads 서비스가 검사한다. 신규 등록201, 같은 요청 키·같은 입력200, 같은 키·다른 입력409를 반환한다.
+## 코드 규칙
 
-## 시나리오 캔버스
+### 결합도
 
-- 화면 조작은 React Flow, 명시적인 흐름 자동 정렬은 ELK를 사용한다. 라이브러리 노드와 좌표는 캔버스 내부에 한정한다. 기존 편집기는 보기 선택, 케이스 전달, 상세 편집·자료 열기·이탈 보호 콜백을 연결한다.
-- 케이스 본문은 기존 `test_cases`·`test_case_values`, 흐름과 배치는 `scenario_canvases`, 독립 AI 흐름 작업은 `scenario_flow_jobs`에 저장한다. 흐름에는 케이스 UUID만 있으며 본문을 복사하지 않는다. 흐름·배치는 각각 revision으로 충돌을 검사한다. 케이스 삭제와 참조 정리는 같은 트랜잭션이다.
-- 서버 공통 배치와 브라우저 화면 중심·배율·선택을 분리한다. 미저장 흐름·배치·검토 초안을 브라우저에 보관하고 이탈 전에 각 저장 상태를 확인한다. 케이스 내보내기는 이 저장 경로에 의존하지 않는다.
-- AI 흐름 생성은 기존 제공자 transport와 프레임 준비를 재사용한다. 결과는 검토용 구조 초안으로만 저장한다. 반영 시 케이스·흐름·배치 revision과 연결 자료 지문을 검사하며 교체 이전 구조·배치를 서버에 한 개 보관한다.
+- 공통 컴포넌트는 도메인을 모른다. 예를 들어 표는 `DataGrid`로 열 정의와 셀 렌더러를 받는다. "케이스", "테스트 세트"라는 말은 entities 위에서만 나온다.
+- 참거짓 props를 늘리지 않는다. 모양은 `variant`, `tone`, `size` 같은 값 하나로 받고 조합은 cva로 정의한다.
+- 구조가 바뀔 수 있는 컴포넌트(Dialog, Menu, Select, Tabs)는 `Dialog.Root`, `Dialog.Title`처럼 조각을 children으로 받는다. 정해진 자리 하나만 바뀌면 `icon`, `trailing` 같은 ReactNode prop으로 받는다.
+- 각 컴포넌트는 감싸는 요소의 기본 속성 타입을 확장해 그대로 넘긴다. `className`은 tailwind-merge로 합친다. 다른 요소로 그려야 하면 Base UI의 `render` prop을 쓴다.
+- 입력형 컴포넌트는 모두 `value`, `defaultValue`, `onValueChange`를 같은 이름으로 지원한다.
+- 생성 API 타입은 entities에서 멈춘다. widgets와 pages는 도메인 타입만 받는다. 백엔드 계약이 바뀌면 entities의 변환 함수만 고친다.
+- 권한, 실시간 연결, 생성 진행은 훅 하나로 감싼다. `useTestSetSession(testSetId)`는 연결, 접속자, 셀 선택, 연산 전송을 숨긴다.
 
-## 공통 디자인 기준
+### 응집도
 
-웹·Figma 플러그인 UI·공통 UI에 동일하게 적용한다.
+- 다른 파일이 가져가지 않는 작은 기능(하위 컴포넌트, 훅, 상수, 변환 함수)은 쓰는 파일 안에 둔다.
+- 두 곳 이상에서 쓰일 때만 파일을 나누고, 나눌 때도 같은 슬라이스 안에 먼저 둔다.
+- 슬라이스 안 세그먼트 폴더(ui, model, api)는 파일이 여러 개가 될 때만 만든다.
+- 테스트는 사용자에게 의미 있는 동작 기준으로 쓴다. 클래스 이름이나 DOM 구조를 고정하지 않는다.
 
-라이트 모드의 톤앤매너와 디자인 원칙은 [DESIGN.md](../DESIGN.md)를 따른다.
+### 스타일
 
-- UI의 폰트·컬러·radius와 공통 타이포그래피·간격은 `packages/design-tokens/src/theme.css`의 토큰을 반드시 사용한다.
-- primary 컬러는 `#515299`다. hover·subtle·배경·텍스트·경계선 컬러는 공통 의미별 토큰으로 정의한다.
-- 기본 폰트는 Noto Sans다. 한글은 Noto Sans KR로 보완하며, Fontsource 패키지로 폰트 파일을 자체 호스팅한다.
-- 앱과 공통 UI에 원시 색상값, 임의의 폰트·radius 값, 토큰을 우회하는 Tailwind arbitrary 값을 직접 넣지 않는다. 의미가 맞는 기존 토큰을 사용하고 부족하면 공통 토큰에 정의한다.
-- 앱은 공통 토큰을 로드한다. 앱별 스타일이나 컴포넌트에서 같은 의미의 디자인 값을 별도로 재정의하지 않는다.
-- 디자인 기준 자체를 변경하는 경우에는 사용자 결정을 먼저 반영한다. 기술적 기본값을 새로운 디자인 결정으로 임의 확대하지 않는다.
+- CSS 파일은 `packages/design-tokens/src/theme.css`(토큰만, Tailwind `@theme`)와 앱별 `global.css`만 둔다. 컴포넌트와 페이지별 CSS 파일을 만들지 않는다.
+- `global.css`에는 Tailwind 가져오기, 토큰 가져오기, `@source`, 기본 요소 스타일, 스크롤바, 움직임 줄이기 설정만 둔다.
+- 컴포넌트 스타일은 Tailwind 클래스로만 쓴다. 원시 값과 임의 값(`w-[13px]` 같은 것)을 쓰지 않고, 필요한 값은 토큰에 먼저 추가한다.
+- 디자인 기준은 [DESIGN.md](../DESIGN.md)를 따른다.
 
-## 소스 경로의 역할
+## 백엔드 구조
 
-| 경로 | 역할 |
+| 모듈 | 하는 일 |
 | --- | --- |
-| `apps/web/src/app/` | 웹 초기화·프로바이더·라우트·앱 스타일 |
-| `apps/web/src/pages/test-case-editor/` | 테스트 케이스 생성·편집 화면 |
-| `apps/web/src/pages/shared-test-cases/` | 읽기 전용 시나리오 미리보기와 공유 경로의 빈 상태. 실제 공유 링크는 후속 |
-| `apps/web/src/widgets/test-case-table/` | 편집·열람 화면에서 사용하는 표 |
-| `apps/web/src/entities/test-case/` | 웹 내부에서 사용하는 테스트 케이스 모델과 관련 처리 |
-| `apps/web/src/shared/` | 웹 전용 API 연결·설정·라이브러리·기본 UI |
-| `apps/figma-plugin/src/main/` | Figma 문서 접근과 프레임 데이터·이미지 추출 |
-| `apps/figma-plugin/src/protocol/` | Figma 실행 코드와 React UI 사이의 메시지 계약 |
-| `apps/figma-plugin/src/ui/` | React UI의 FSD 루트: 앱 초기화·프레임 업로드 화면·플러그인 UI 전용 공통 코드 |
-| 각 앱의 `shared/api/generated/` | `@hey-api/openapi-ts`로 생성할 API 코드의 위치 |
-| `packages/ui/src/` | 앱에 종속되지 않는 기본 UI 컴포넌트 |
-| `packages/design-tokens/src/` | 앱에서 공유하는 디자인 토큰 |
+| auth | 로그인, 로그아웃, 세션 쿠키, 초대 수락, 비밀번호 설정과 재설정 토큰 |
+| accounts | 계정 만들기, 수정, 비활성화, 만료 처리, 소유 테스트 세트 넘기기, 첫 관리자 CLI |
+| roles, affiliations | 역할과 권한, 할당과 범위, 소속 이름표 |
+| authorization | 권한 키 목록, 할당 합산 계산, 모든 컨트롤러에 붙는 Guard와 데코레이터 |
+| projects | 프로젝트, 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모 설정 |
+| test-sets | 목록(전체, 내 것, 공유받은 것), 만들기(양식 복사), 이름 변경, 삭제, 양식 편집, 사람별 보기 설정 |
+| collaboration | 테스트 세트별 WebSocket 방, 셀과 행 연산 적용과 전파, 접속자와 셀 선택, 권한 변경 때 연결 끊기 |
+| sharing | 공개 범위, 링크 권한, 링크 토큰 재발급, 사람 초대, 방문자 세션과 자동 이름 |
+| temp-uploads | 프로젝트 없는 임시 업로드, 사용 표시, 만료 삭제 |
+| generation | 단계 실행기, 단계 이벤트(SSE), 확인 필요 항목, 답변으로 다시 작성 |
+| exports | XLSX 내보내기 |
+| plugin-connections | 플러그인 연결 요청, 브라우저 승인, 토큰 발급과 폐기 |
 
-웹은 `app`, `pages`, `widgets`, `entities`, `shared` 레이어로 시작한다. 플러그인의 FSD 적용 범위는 `src/ui/`이며 `app`, `pages`, `shared` 레이어로 시작한다. `main/`과 `protocol/`은 React UI의 FSD 루트 밖에 둔다.
+- `src/contracts/`는 외부 DTO, `database/schema.ts`는 DB 모델이다. 서로의 내부 타입을 직접 공유하지 않는다.
+- OpenAPI에 담기지 않는 WebSocket과 SSE 메시지 형식은 `packages/contracts`에 두고 API와 웹과 플러그인이 함께 쓴다.
+- 모든 요청은 권한 키와 프로젝트로 확인하고, 역할 이름에 묶인 분기를 두지 않는다. 방문자 요청은 해당 테스트 세트로만 범위를 묶는다.
+- 계약을 바꾸면 명세를 다시 내보내고 웹과 플러그인 SDK를 다시 생성한다. 생성 코드는 직접 편집하지 않는다.
+- API는 loopback에 바인딩하고 웹 Origin을 명시적으로 허용한다. AI 키와 모델은 서버 환경변수로만 관리한다.
+- 마이그레이션은 schema에서 생성한 SQL을 검토해 명시적으로 적용한다. 서버 시작 시 실행하지 않는다. 개편 시작에서 기존 마이그레이션을 지우고 새 기준 마이그레이션 하나로 시작한다(운영 데이터 없음).
 
-앱의 화면·업무 기능·상태 저장소는 공통 패키지로 이동하지 않는다. 공통 패키지는 앱을 역으로 참조하지 않는다. 앱 내부 슬라이스의 세부 세그먼트와 추가 레이어는 필요성과 경로를 제시하고 구조 변경 승인 후 추가한다.
+## 데이터 모델
 
-현재 구성은 다음과 같다.
+| 묶음 | 테이블 |
+| --- | --- |
+| 계정 | accounts, auth_tokens(초대, 재설정), sessions, affiliations |
+| 권한 | roles, role_permissions, role_assignments, role_assignment_projects |
+| 프로젝트 | projects, project_templates, feature_groups, required_cases, screen_structure_items, project_memos |
+| 테스트 세트 | test_sets(소유자, 프로젝트, 공개 범위, 링크 권한, 링크 토큰), test_set_columns, test_cases, test_case_values, test_set_members, view_preferences |
+| 생성 | generation_jobs, generation_steps, review_items, ai_call_usage, ai_provider_costs |
+| 임시 자료 | temp_uploads, temp_frames(파일은 만료 삭제) |
+| 연결 | visitor_sessions, plugin_connections |
 
-- 웹 라우트: `/`, `/share/$shareId`, `/projects/$projectId/{uploads, uploads/$uploadId, settings, test-scenarios, test-scenarios/$testScenarioId}`. 접이식 사이드바로 시나리오·Figma 자료·설정을 이동한다. 생성·확인 항목·화면 분석은 시트에서 여는 모달이고 별도 결과 경로는 없다. 케이스 편집과 관련 자료는 단일 inspector의 탭이며 좁은 화면에서는 Dialog로 연다. 설정의 기본 정보·화면 구조·기본 양식 탭은 미저장 이동 확인과 revision 보호를 유지한다.
-- 플러그인: main/UI 메시지 연결과 Zustand 연결 상태, 프로젝트 검색, 선택 프레임 썸네일·미리보기, 추출·이미지·데이터·등록 진행 상태. 업로드 완료 후 `figma.openExternal`로 해당 웹 자료를 연다. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`(HTTP(S)만 허용, serve 기본 `http://127.0.0.1:5173`, build/watch는 명시)에서 읽는다.
-- 공통 UI: shadcn/ui Base UI 기반 Button, Input, Textarea, Checkbox, RadioGroup, Switch, Label, Dialog, Select, Combobox, Tabs, Tooltip, Popover, Surface. `packages/ui/src/styles.css`가 토큰을 사용하며 두 앱의 스타일 진입점에서 로드한다. `components.json`이 각 workspace의 shadcn 경로를 연결한다.
-- 토큰: 라이트 팔레트, 타이포그래피, 크기(툴바 32px·폼 40px·표 최소 행 48px), 모서리, 그림자, 레이어, 모션(120/180/240ms). Motion 프로바이더는 `reducedMotion="user"`로 시스템 동작 줄이기를 반영한다. `packages/design-tokens/build-preview.mjs`가 `docs/design-foundations.html`을 생성하며, 실제 컴포넌트는 개발 전용 `/design-system.html`에서 확인한다.
-- 브라우저 초안: 시나리오 편집기는 IndexedDB 초안 + Router blocker + beforeunload. 확인 항목 수정·질문 답변 초안은 프로젝트·시나리오별 localStorage 키. revision 충돌 시 최신 내용과 초안을 비교하고, 초안 보관 실패 시 이탈을 막는다. 업로드 상세의 testScenarioGateway는 POST를 자동 재시도하지 않는다.
-- API 코드 생성: `OPENAPI_INPUT`(현재 `apps/api/openapi.json`) → 각 앱 `shared/api/generated/`의 `client/`·`core/`·`@tanstack/`. 명세 변경 후 재생성하며 생성 코드는 직접 편집하지 않는다.
-- 주소: Figma 플러그인 ID `1692417282897261384`. 웹 API `http://127.0.0.1:3101`, 플러그인 개발 API `http://localhost:3102`. 플러그인 빌드 주소와 개발 manifest 허용 주소를 일치시키고 배포용 네트워크 허용은 `none`이다.
-- 검증 도구: API·플러그인 로직은 Node 테스트, UI는 Playwright/Chromium. 명령과 환경은 [README](../README.md#검증과-api-코드-생성).
+- 필수 시스템 항목은 테스트 ID와 제목이다. 사용자 항목은 UUID, 이름, 형식, 선택 항목, 항목 설명을 가진다. 값은 항목 UUID로 연결하므로 이름과 순서를 바꿔도 값이 유지된다.
+- 케이스와 프레임, 요구사항, 화면 구조의 연결은 저장하지 않는다.
+
+### 2단계 계정·권한 구현
+
+백엔드는 auth, accounts, roles, affiliations, authorization과 기반 모듈로 전환했다. 프로젝트 설정 API는 아래 4단계, 테스트 세트 API는 5a단계에서 구현했다. 생성·공유·플러그인 연결의 스키마는 정의했지만 API와 작업 실행기는 후속 단계다. 기존 업무 API와 LangGraph 실행기는 제거했다. 이 단계에서는 OpenAPI만 내보내고 웹·플러그인 SDK는 갱신하지 않는다.
+
+- 계정의 저장 상태는 `invited | active | inactive`다. 외부 응답의 `expired`는 `active`이면서 `expires_at <= 현재 시각`일 때 계산한다. 소속은 필수이며 이메일은 공백 제거·소문자화 후 유일하다. 계정 삭제 API는 없다.
+- 비밀번호는 Node 내장 `crypto.scrypt`(N=32768, r=8, p=1, 임의 16바이트 salt, 64바이트 결과)로 해시한다. 설정·재설정 비밀번호 길이는 12~128자다.
+- 세션은 임의 32바이트 토큰을 `cheddar_session` 쿠키로 발급한다. `HttpOnly; SameSite=Lax; Path=/`, 운영(`NODE_ENV=production`)에서는 `Secure`다. 고정 유효기간은 30일이며 연장하지 않는다. DB에는 SHA-256만 저장하고, 매 요청에 세션·계정 만료와 상태를 확인한다. 비활성화·비밀번호 변경은 해당 계정의 세션을 삭제한다.
+- 초대와 재설정 토큰도 임의 32바이트를 쓰며 해시·용도·7일 만료·사용 시각을 저장한다. 재발급은 같은 용도의 이전 토큰을 폐기한다. 수락·재설정은 한 번만 허용하며 기존 세션을 폐기한다. 만료·비활성 계정은 링크로도 활성화할 수 없다. 만료일 연장·재활성화는 관리 API에서 먼저 처리한다. 비밀번호가 없는 계정을 재활성화하면 초대됨으로 돌아가므로 초대 링크를 다시 발급한다.
+- 계정·역할 변경과 토큰 사용은 공통 트랜잭션 advisory lock으로 직렬화한다. 커밋 전에 전체 범위 `role.manage`를 가진 활성·미만료 계정이 남는지 확인한다. 설치 중 첫 관리자 생성·초대 수락·로그인은 이 사후 조건의 예외이며 같은 lock을 사용한다.
+- 역할 이름은 인가에 쓰지 않는다. `global` 할당은 해당 권한을 모든 프로젝트에 적용하고, `projects`는 비어 있지 않은 프로젝트 UUID 목록이다. 전체만 권한은 후자의 할당에서 제외한다. `can(accountId, permission)`처럼 프로젝트가 없으면 전체 범위만 통과한다. 유효 권한 응답은 권한 키마다 전체 범위 또는 프로젝트 합집합을 반환한다.
+- `@Public()` 외 컨트롤러는 전역 Guard에서 세션을 검사한다. `@RequirePermission(key, { source: "params" | "body", key: "projectId" })`는 프로젝트 UUID를 읽어 권한을 검사한다. 계정 관리는 `account.manage`, 역할·소속 관리는 `role.manage`를 요구한다.
+- 역할 할당은 수정 요청의 목록으로 교체한다. 필수 만료일을 기본 기간으로 자동 저장하지 않고 명시적으로 받는다. 응답의 `defaultExpiryDays`는 만료일 필수 역할들의 기본 기간 중 최솟값이다. 역할에 만료일 필수를 추가할 때 기존 할당 계정에 만료일이 없으면 거부한다.
+- `account.manage` 계정은 `GET /api/v1/accounts/:accountId/owned-test-sets`로 소유 세트를 이름순으로 조회하고, `POST /api/v1/accounts/:accountId/owned-test-sets/:testSetId/owner`로 한 세트의 소유자를 넘긴다. 원 소유자는 비활성, 받는 계정은 활성·미만료여야 한다. 세트 행 잠금 안에서 소유자를 확인하고 새 소유자의 구성원 행을 정리한다. 커밋 후 기존 계정 변경 알림으로 live 연결 권한을 재검사한다.
+- 기본 역할·소속은 `db:migrate`의 별도 트랜잭션으로 초기화한다. 초기 데이터가 있으면 이름·권한을 덮어쓰지 않는다. `admin:create --email --name`은 계정이 없는 DB에서만 첫 관리자 역할의 전체 범위 계정과 초대 토큰을 만든다. 링크 경로는 웹이 결정하며 CLI는 토큰과 만료 시각을 출력한다.
+- DB 필수 테이블 검사는 Drizzle 스키마의 전체 테이블을 사용한다. 서버 시작 시 마이그레이션 이력과 테이블을 확인하며 마이그레이션 자체는 실행하지 않는다.
+
+### 4단계 프로젝트 설정 구현
+
+- `projects` 모듈이 `/api/v1/projects` 아래 프로젝트, 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모 API를 제공한다. 하나의 프로젝트 설정 경계이므로 별도 하위 모듈로 나누지 않았다. 웹 SDK는 이 명세로 다시 생성했고, 플러그인 SDK는 플러그인을 다시 만드는 7단계에서 생성한다.
+- `AuthorizationService.projectAccess`와 `canViewProject`는 유효 권한 중 해당 프로젝트에 적용되는 권한이 하나라도 있으면 보기를 허용한다. 전체 범위 권한은 모든 프로젝트에 적용되므로 계정 관리와 역할 관리 계정도 모든 프로젝트를 본다. 보이지 않는 프로젝트의 모든 GET은 `404 NOT_FOUND`다. `canManage`는 별도로 `project.manage`를 계산한다. 만들기는 전체 `project.create`, 설정 쓰기는 기존 `RequirePermission`의 URL 프로젝트 검사를 사용한다. 만든 계정에 새 역할을 자동 할당하지 않는다.
+- 프로젝트 만들기는 하나의 트랜잭션으로 기본 양식(시스템 항목 2개를 포함한 6개, revision 1), 켜진 기본 필수 케이스 12개, 생성 계정이 마지막 수정자인 빈 메모를 저장한다. 기능 그룹과 화면 구조는 행 없이 시작한다.
+- 기존 `0000`을 유지하고 Drizzle로 생성한 `0001`에서 프로젝트 설명, 필수 케이스의 `is_default`, 메모의 프로젝트 유일 제약을 추가했다. 메모의 DB 컬럼 `author_id`는 유지하며 API에서는 마지막 수정 계정인 `updatedBy`로 노출한다. 메모가 없는 기존 프로젝트는 빈 본문과 null 수정 정보를 반환하고 PUT으로 upsert한다. 기존 중복 메모를 임의로 삭제하거나 합치지 않으므로 기존 DB에 중복 행이 있다면 마이그레이션 전에 별도 판단이 필요하다.
+- 설정 쓰기는 프로젝트 행의 `FOR UPDATE` 잠금으로 직렬화한다. 양식 저장은 revision을 조건으로 갱신하며 불일치는 `409 TEMPLATE_CONFLICT`다. 양식 DTO와 업무 규칙을 전용 검증 함수에서 함께 검사해 `400 VALIDATION_FAILED`와 한국어 오류를 반환한다. 문자열은 공백을 제거하며 텍스트와 체크박스의 선택 값은 빈 배열로 저장한다.
+- 기능 그룹은 현재 전체 ID 집합과 같은 목록만 정렬하고 다르면 `409 STALE_ORDER`다. 필수 케이스 중 기본 항목은 설명 수정과 삭제를 거부하고 켜고 끄기만 허용한다. 화면은 같은 프로젝트 부모만 허용하고 조상 경로를 검사해 다단계 순환을 거부한다. 부모 변경 시 새 부모의 마지막 순서로 옮기고, 하위 화면이 있으면 삭제를 거부한다. 화면 조회는 부모 다음 하위 화면 순서다.
+- 메모는 사람 간 기록으로 유지하며 AI 생성 입력에 연결하지 않는다. 기존 프로젝트의 기본 데이터 일괄 보충은 이번 계약에 없으므로 수행하지 않는다.
+
+### 5a단계 테스트 세트 구현
+
+- `test-sets` 모듈이 `/api/v1/test-sets` 아래 목록, 직접 만들기, 상세, 이름과 메모 변경, 삭제, 열 편집, 케이스 연산, 사람별 보기 설정을 제공한다. AI 생성, 확인 필요 처리, 공유 변경, 공개 링크와 WebSocket은 포함하지 않는다. 이번 단계에서는 OpenAPI만 갱신하며 웹과 플러그인 SDK는 다시 생성하지 않는다.
+- 소유자와 view/edit 멤버, 해당 프로젝트의 `test_set.view_all` 계정만 세트를 본다. 프로젝트 보기 권한이나 공개 여부만으로는 이 API에서 세트를 볼 수 없다. 편집과 이름 변경은 소유자 또는 edit 멤버, 삭제는 소유자만 가능하다. 내보내기는 보기와 해당 프로젝트의 `test_set.export`를 모두 요구한다. 보이지 않는 세트는 모든 경로에서 404, 보이지만 작업 권한이 없으면 403이다. 만들기는 프로젝트 보기 확인 후 `test_set.create`를 검사한다.
+- 만들기는 프로젝트 행을 잠그고 현재 기본 양식을 새 열 UUID로 복사하며 케이스 없이 시작한다. 기본 양식과 이후 양식 사본은 서로 영향을 주지 않는다. 이름은 DTO에서 1~100자로 제한하고 DB의 200자 컬럼은 유지한다. 메모는 최대 5000자이며 입력한 공백을 보존한다. 목록은 최근 수정순이며 전체, 소유, 초대받음 필터와 이름의 대소문자 무시 부분 검색을 지원한다. 확인 필요 수는 이 단계에서 0을 반환한다.
+- 세트 쓰기는 세트 행의 `FOR UPDATE` 잠금 안에서 권한을 확인하고 처리한다. 이름과 메모, 양식, 케이스 연산의 성공은 version과 updated_at을 올린다. 보기 설정은 세트 내용 버전을 바꾸지 않는다. `CaseOperationsService.apply`는 HTTP에 의존하지 않으며 권한 확인부터 연산 검증과 트랜잭션까지 포함해 6단계 WebSocket에서도 재사용한다. 한 요청의 연산은 순서대로 적용되고 하나라도 실패하면 전체를 되돌린다. 같은 셀은 나중 연산의 값으로 저장한다.
+- 셀은 열 UUID로 연결하며 텍스트 최대 20000자, 선택 항목 소속, 체크박스 boolean, 태그 소속과 중복을 검증한다. 추가할 때 작성 계정과 당시 이름을 저장한다. 비어 있는 테스트 ID는 `TC-001`부터 세 자리 이상 번호를 채운다. 큰 사용자 지정 번호도 정밀도 손실 없이 처리하고 삭제한 번호를 다시 사용하지 않도록 마지막 번호를 문자열로 저장하는 `test_sets.test_id_counter`를 Drizzle `0002`로 추가했다. 기존 0000과 0001은 유지한다. 기존 세트의 현재 번호도 연산 시작 시 합산한다.
+- 열 편집은 프로젝트의 `validateTemplate`을 그대로 재사용한다. 삭제한 열의 값은 함께 지우고 형식과 선택 항목이 바뀌면 유효한 값만 남긴다. 태그는 남은 선택 값만 유지하고 텍스트 변환은 태그를 `, `로 연결하고 체크박스를 `예`/빈 문자열로 바꾼다. 모든 사람의 보기 설정에서 삭제된 열 너비와 사용할 수 없는 묶기 기준을 정리한다. 케이스 삭제는 해당 행 높이도 정리한다.
+- 보기 설정은 계정별로 따로 upsert하며 기본값은 표 보기, 묶기 없음, 빈 크기 맵이다. 묶기는 같은 세트의 선택, 태그, 체크박스 열만 허용한다. 크기 맵은 같은 세트의 열과 케이스만 참조하고 너비 40~2000, 높이 24~2000 정수만 저장한다. 세트 삭제는 묶기 열의 RESTRICT FK에 걸리지 않도록 보기 설정부터 삭제한다.
+- XLSX는 `exceljs@4.4.0`으로 만든다. 시트 하나에 현재 열 이름을 머리글로, 저장된 케이스를 화면 순서로 넣는다. 태그는 ", "로 잇고 체크박스는 "예"/빈칸이다. 파일 이름은 테스트 세트 이름이며 `Content-Disposition`에 UTF-8로 인코딩한다.
+- DB 없는 DTO, 값 검증과 변환, 접근 계산, HTTP 400 테스트와 PostgreSQL 계약 테스트를 분리했다. PostgreSQL 테스트는 기존 전용 `TEST_DATABASE_URL`과 안전 검사를 그대로 쓰며 권한, 목록, 양식 복사와 값 정리, 연산의 원자성과 세트 경계, 번호, 작성자, 개인 보기를 검증한다. XLSX는 머리글과 응답 헤더를 검증한다. 실제 DB 실행 여부는 검증 결과에서 별도로 보고한다.
+
+### 5b단계 AI 생성 구현
+
+- `kind: initial`은 요청자 소유의 `uploadId`가 필수다. 메모만으로 최초 생성할 수 없다. `kind: append`는 업로드 없이 비어 있지 않은 메모만으로 실행할 수 있으며 업로드와 메모가 모두 없으면 400이다.
+- 제공자 전송용 스키마는 [Anthropic 지원 범위](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations)와 [OpenAI strict 지원 범위](https://developers.openai.com/api/docs/guides/structured-outputs#supported-schemas)의 공통 부분집합을 사용한다. 글자 수, 배열 개수와 중복, 숫자 최솟값 제약은 전송 시 설명으로 옮기고 원본 스키마로 서버에서 검증한다. OpenAI의 fine-tuned 모델에도 같은 전송 형식을 쓴다. SDK가 요청 시간 초과를 사용자 중단 오류로 감싸더라도 시간 초과는 재시도하며 서버 종료에 의한 중단은 재개용으로 보존한다.
+- 열 저장 트랜잭션에서 모든 상태의 확인 필요 초안도 케이스와 같은 값 정리 규칙을 적용한다. 삭제된 열은 제거하고, 선택지와 형식 변경은 유효한 값만 보존하거나 텍스트로 변환한다. 만료 정리는 `.incoming`의 수정 시각이 1시간 이상 지난 UUID 일반 파일도 제거하며 최근 스테이징과 게시된 파일은 보존한다. SSE의 반복 조회는 계정 활성 상태와 만료 시각도 확인하며 더 이상 유효하지 않으면 연결을 닫는다.
+
+- `temp-uploads`, `generation`, `review-items`가 임시 업로드, 생성 시작과 최근 작업, SSE, 확인 필요 목록과 수정, 제외와 복원, 케이스 추가와 다시 작성을 제공한다. 기존 세트의 보기와 편집 권한을 재사용한다. 보이지 않는 세트와 다른 계정의 업로드는 404, 보이지만 편집할 수 없는 세트는 403이다. 업로드 만들기는 전체 `plugin.upload` 권한을 요구한다.
+- multipart는 `manifest` JSON 문자열과 프레임 순서의 `images[]`를 받는다. 프레임은 1~200개이며 `imageCount` 합계가 파일 수와 같아야 한다. PNG/JPEG 서명과 MIME, 장당 10MB, multipart 본문 전체 200MB를 검사한다. 인증을 기다리는 동안 크기 검사기가 본문을 소비하지 않도록 스트림을 멈추고 multer가 준비되면 재개한다. 파일은 기존 로컬 저장소의 UUID 경로에 저장한다. 업로드 행을 파일보다 먼저 기록해 기록 중 종료된 요청도 만료 정리가 찾을 수 있게 한다.
+- pg-boss는 `DATABASE_URL`의 PostgreSQL과 기본 `pgboss` 스키마를 쓴다. 서버 초기화 때 큐 스키마와 워커, 매분 정리 예약을 준비하고 미완료 작업을 큐에 다시 넣는다. 명세를 위한 앱 생성 자체는 연결하지 않는다. DB 없는 HTTP 검사에서만 주입 설정 `workersEnabled: false`를 사용하며 실제 서버 기본값은 워커 시작이다. 테스트는 `AI_PROVIDER=fake`와 0.5초 큐 폴링을 사용한다.
+- 화면, 흐름, 케이스, 마무리는 각각 pg-boss 작업으로 실행한다. 보드별 화면 분석과 기능 그룹별 케이스 작성의 동시 실행 상한은 3이다. 작업별 PostgreSQL advisory lock이 여러 워커의 중복 실행을 막고, `generation_steps`의 작업+단계+분할 키로 완료 결과를 재사용한다. DB 작업 행이 큐 전송의 영속 기준이며 전송 중 종료된 작업은 시작 시와 매분 스캔으로 다시 넣는다. 종료 신호는 제공자 호출과 백오프를 중단하며 미완료 작업과 입력은 재개용으로 보존한다.
+- 요청 당시 양식, 세트 메모, 화면 문서와 이미지 키, 프로젝트 기능 그룹, 켜진 필수 케이스, 화면 구조, 요청자가 볼 수 있는 최근 세트의 스타일 예시를 `context` 단계에 잠시 저장한다. 스타일 예시는 최근 5개 세트에서 세트별 최대 3개, 총 6개이며 현재 열의 이름과 형식으로 매핑한다. append는 기존 케이스도 입력에 포함한다. 프로젝트 메모는 조회하거나 입력에 넣지 않는다. Figma 글자와 메모, 답변은 신뢰하지 않는 자료로 감싸 시스템 지시와 분리한다.
+- 단계 정의 파일마다 프롬프트와 버전, 화면 단계, 출력 스키마, effort, 출력 한도, 요청 시간 제한, 재시도 2회를 둔다. Anthropic과 OpenAI는 공식 SDK를 `AiProvider` 인터페이스로 감싸고 SDK 자동 재시도는 끈다. 연결과 속도 제한, 서버 오류, 출력 길이 초과는 단계에서 지수 백오프로 재시도한다. 거절과 요청 설정 오류는 바로 실패한다. 제공자 키는 환경에서만 읽으며 실제 AI를 호출하는 테스트는 두지 않는다.
+- 출력 JSON 스키마는 세트 열 UUID에서 만들고 테스트 ID는 서버가 붙인다. 선택과 태그는 enum, 객체는 필수 키와 추가 키 금지를 사용한다. 서버에서 파싱, 스키마, 셀 값, 화면과 기능 그룹 참조, 최종 필수 케이스 집계를 다시 검증하고 잘못된 출력에는 검증 오류를 붙여 1회만 수정 요청한다. 마무리는 필수 케이스 보충과 의미상 중복 합치기를 요청하고 서버도 번호를 제외한 셀 값이 같은 케이스를 제거한다.
+- 마무리에서 세트 행을 잠그고 요청 계정의 현재 활성 상태와 편집 권한을 다시 검사한다. `CaseOperationsService.applyInTransaction`으로 세트 끝에 케이스를 추가하며 작성 계정과 자동 번호를 기존 연산과 동일하게 처리한다. 케이스, 확인 필요, 완료 상태와 개수, 단계 입력과 출력 제거는 하나의 트랜잭션이다. 실패하면 추가된 케이스가 없다. 완료 후 파일과 임시 업로드 행을 지우며, 파일 정리 중 종료돼도 다음 예약 실행이 이어서 정리한다. 사용하지 않은 업로드는 1시간 뒤 정리하고 생성 중인 업로드는 보존한다.
+- 확인 필요의 `rewriting`과 `resolved`는 수정과 중복 추가를 409 `REVIEW_ITEM_LOCKED`로 막는다. 추가는 케이스 삽입과 resolved 변경을 같은 트랜잭션에서 처리한다. 다시 작성은 화면 설명, 질문과 답변, 양식, 같은 세트 케이스를 입력으로 단계 하나를 실행한다. 성공하면 초안을 바꾸고 pending으로 돌리며, 실패하면 초안을 보존하고 pending으로 돌린다. 세트 목록의 확인 필요 수는 pending과 rewriting만 센다. 한 세트에서는 생성과 다시 작성을 합해 하나의 작업만 진행할 수 있다.
+- SSE는 즉시 현재 상태를 보내고 `progress`에 화면 단계와 상태만, `done`에 성공 개수 또는 짧은 한국어 오류만 보낸 뒤 종료한다. 15초마다 주석을 쓰고 연결 해제 시 타이머를 정리한다. 권한을 다시 확인하며 여러 서버에서도 DB 상태로 진행을 읽는다. 폴링 사이에 끝난 짧은 단계도 저장된 단계 시작 기록에서 순서대로 전달한다. rewrite는 별도 화면 단계를 노출하지 않는다. OpenAPI에 `text/event-stream`으로 명시하며 웹과 플러그인 SDK는 생성하지 않는다.
+- Drizzle `0003_ai_generation`은 활성 작업의 세트별 유일 인덱스, 작업 개수와 재작성 대상, 캐시 토큰과 실패 코드, 합친 수와 수정 횟수, 확인 필요 이유와 rewriting 상태를 추가한다. 기존 `0000`~`0002`는 유지한다. 단계에는 모델, 토큰, 시간, 비용, 프롬프트 버전, 필수 충족 여부와 근거, 확인 필요 비율을 기록하며 HTTP 응답에는 노출하지 않는다.
+- 비용은 [Anthropic 가격표](https://platform.claude.com/docs/en/about-claude/pricing)와 [OpenAI GPT-5.4 가격표](https://developers.openai.com/api/docs/models/gpt-5.4)를 확인한 2026-10-19 USD 단가 상수로 추산한다. 캐시와 Haiku 100,000 토큰 경계, GPT-5.4 272,000 토큰 경계를 반영한다. 기본 Anthropic 모델 3개와 명시적으로 고를 수 있는 GPT-5.4의 단가를 포함한다. 다른 모델 이름도 설정할 수 있으나 등록 단가가 없으면 비용은 null로 기록하며 0으로 추정하지 않는다. 실제 청구 금액 검증은 이번 범위에 없다.
+
+### 새 기준 스키마의 저장 단위
+
+UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다. 아래 27개 테이블은 Drizzle 기준 마이그레이션 `0000`으로 만들고 4단계 변경은 `0001`, 5a단계 변경은 `0002`로 추가한다. 개편 전 0000~0008 이력과의 호환·데이터 변환은 제공하지 않으며, 실제 DB를 자동으로 초기화하지 않는다.
+
+| 테이블 | 핵심 컬럼과 제약 |
+| --- | --- |
+| affiliations | 이름 유일. 계정의 소속 FK는 삭제 제한 |
+| accounts | 이름, 정규화된 유일 이메일, 필수 소속, 비밀번호 해시, 저장 상태, 만료 시각. 활성 상태는 비밀번호 해시 필수 |
+| auth_tokens | 계정, invite/reset 용도, 유일 토큰 해시, 만료·사용 시각. 재발급과 단일 사용은 트랜잭션으로 검증 |
+| sessions | 계정, 유일 토큰 해시, 만료·생성 시각 |
+| roles | 유일 이름, seed 식별용 system_key, fixed, requires_expiry, default_expiry_days. 필수 만료는 양의 기본 기간 필수. fixed는 link_visitor에만 허용 |
+| role_permissions | 역할+권한 enum 복합 PK. 고정 역할의 export 전용 규칙은 서비스에서 검사 |
+| role_assignments | 계정, 역할, global/projects 범위. 할당된 역할은 FK와 서비스로 삭제 제한. 고정 역할 할당 금지·범위별 목록 검증은 서비스에서 수행 |
+| role_assignment_projects | 할당+프로젝트 복합 PK. 프로젝트별 권한 합산에 사용 |
+| projects | 이름, 설명, 생성 계정, 생성·수정 시각. 테스트 세트의 프로젝트 FK는 삭제 제한 |
+| project_templates | 프로젝트당 1행, UUID를 가진 열 정의 JSONB 배열, 양의 revision. 생성 시 테스트 세트 열로 복사 |
+| feature_groups | 프로젝트, 이름, 설명, 순서. 프로젝트 안 이름 유일 |
+| required_cases | 프로젝트, 설명, 사용 여부, 기본 항목 여부, 순서. 프로젝트 API가 기본 12개를 생성 |
+| screen_structure_items | 프로젝트, 화면 ID, 이름, 상위 항목, 설명, 순서. 화면 ID는 프로젝트 안 유일, 상위 항목도 같은 프로젝트여야 하며 자기 참조 금지 |
+| project_memos | 프로젝트당 1행, 마지막 수정 계정(author_id), 본문, 생성·수정 시각. 생성 입력과 분리 |
+| test_sets | 프로젝트, 소유 계정, 이름, 메모, private/public, view/edit 링크 권한, 유일 원문 링크 토큰(link_token, 32바이트 base64url), version, 마지막 테스트 ID 번호. 공유 창에서 링크를 다시 복사해야 하므로 0004에서 해시를 원문으로 바꾸며 기존 해시 링크는 비공개로 전환해 무효화한다. 기본 private, 공개일 때 링크 필수, 링크 만료 컬럼 없음 |
+| test_set_columns | 세트, 열 UUID, 이름, 형식 enum, 설명, 선택 값 배열, 순서. 시스템 키 test_id/title은 세트 안 유일하고 text 형식 |
+| test_cases | 세트, 순서, 작성 계정과 작성 당시 이름, 시각. 프레임·요구사항·화면 구조 근거 FK 없음 |
+| test_case_values | 케이스+열 복합 PK, JSONB 값. 세트 ID를 포함한 복합 FK로 다른 세트의 케이스·열 연결 금지 |
+| test_set_members | 세트+계정 복합 PK, view/edit 권한 |
+| view_preferences | 세트, 계정 또는 방문자 중 정확히 하나, table/card, 묶기 열, 열 너비·행 높이 맵. 사람별 1행, 묶기 열·방문자는 같은 세트 FK |
+| generation_jobs | 세트, 요청 계정, 임시 업로드, initial/append/rewrite, 작업 상태, 표시 단계, 오류 코드. 임시 업로드 삭제 시 FK만 비움 |
+| generation_steps | 작업, 단계, 분할 실행 키, 상태, 시도 횟수, 임시 입력·출력, prompt 버전, 모델·토큰·시간·비용·필수 충족률·확인 필요 비율. 작업+단계+실행 키 유일 |
+| review_items | 세트, 이유, 남겨 둘 화면 설명, 질문·답변 배열, 초안, pending/rewriting/excluded/resolved. 임시 프레임과 영속 FK로 연결하지 않음 |
+| temp_uploads | 업로드 계정, 기본 1시간 만료, 사용 시작 시각. 프로젝트·업로드 이름 없음 |
+| temp_frames | 임시 업로드, 이름, 화면 문서, 이미지 저장 키 배열, 순서. 업로드 삭제 시 행 삭제 |
+| visitor_sessions | 세트, 브라우저 토큰 해시, 표시 이름. 같은 세트의 브라우저·이름 각각 유일 |
+| plugin_connections | 요청 토큰 해시, 승인 계정, 계정 토큰 해시, pending/approved/revoked, 만료·승인·폐기 시각 |
+
+- 7단계 플러그인 연결은 10분 요청을 브라우저 세션으로 승인하고 30일 Bearer 토큰을 한 번 발급한다(`token_expires_at` 별도 저장). Bearer는 `GET /api/v1/auth/me`, `POST /api/v1/temp-uploads`, `DELETE /api/v1/plugin-connections/current`만 허용하며, 계정 비활성화·비밀번호 변경 시 함께 폐기한다. 업로드는 전체 `plugin.upload` 권한을 요구한다.
+- `ALLOW_FIGMA_NULL_ORIGIN=true`는 development에서 위 세 경로와 연결 요청 생성·토큰 교환에만 `Origin: null`을 credentials 없이 허용한다. 운영 환경의 Figma Origin 허용 방식은 배포 때 다시 정한다.
+
+아직 없는 API에서 지켜야 할 조건은 후속 구현에 남는다. 테스트 세트의 프로젝트 불변, 테스트 세트 안의 필수 시스템 열 2개 보호, JSONB 셀 값의 열 형식·선택 값 검증, 생성 종료 시 임시 자료·단계 입력/출력 삭제, 공개 권한 변경 시 연결 종료는 이번 단계의 스키마만으로 완성되지 않는다. 프로젝트 기본 양식의 시스템 항목 보호와 화면 구조의 다단계 순환 금지는 4단계 서비스에서 검사한다.
+
+
+## 공동 편집
+
+- 셀 값 설정과 행 추가·삭제·이동은 기존 HTTP ops로 저장하고 WebSocket은 커밋 뒤 전파와 접속자·선택 표시에 쓴다. 웹의 대기열·재전송·결과 불명 처리를 재사용하며 같은 셀은 나중에 온 값이 이긴다. 단일 API 프로세스에서 test_sets.version과 방별 최근 500묶음으로 누락을 복구하고, 열·이름·메모·AI·확인 필요·공유 변경은 resync로 다시 읽는다. 전송 계약은 @cheddar/contracts의 빌드 결과를 공유한다.
+- 서버는 연산마다 권한을 확인하고 정규화된 테이블에 바로 저장한 뒤 같은 방에 전파한다. 연산에는 순번을 붙여 재연결 때 빠진 연산을 받는다.
+- 접속자와 셀 선택은 저장하지 않고 방 안에서만 전파한다.
+- 권한 변경, 링크 재발급, 비공개 전환, 계정 비활성화가 일어나면 해당 연결을 바로 끊는다.
+
+## AI 생성
+
+자세한 설계는 [AI 생성 설계](https://claude.ai/artifact/TsZSVkvJA3KYV3AMGm7KNa)에 있다.
+
+- LangGraph를 쓰지 않고 직접 만든 단계 실행기를 쓴다. 단계 정의는 키, 화면 단계, 입력과 출력 스키마, 실행 함수, 재시도 횟수, 시간 제한이며, 단계 하나는 파일 하나에 프롬프트와 함께 둔다.
+- 단계마다 pg-boss 작업으로 실행하고 결과를 `generation_steps`에 저장한다. 재시작하면 끝나지 않은 단계부터 다시 실행한다. 보드별, 기능 그룹별 병렬 실행에는 동시 실행 상한을 둔다.
+- 단계: 화면 살펴보기(보드별 화면 카드) → 사용 흐름 이해하기(기능 지도) → 테스트 케이스 작성하기(기능 그룹별) → 마무리하기(필수 케이스 대조, 중복 합치기, 스키마 검증과 1회 수정).
+- 진행은 화면 단계 키만 SSE로 보낸다. 내부 단계와 화면 단계의 대응은 generation 모듈 한 곳에 둔다.
+- 출력 스키마는 테스트 세트 양식에서 만들고, 선택과 태그는 허용 값만 받는다.
+- 단계별 모델, 토큰, 시간, 비용, 필수 케이스 충족률, 확인 필요 비율을 기록한다. 프롬프트에는 버전을 붙인다.
+- 끝나면 프레임, 화면 문서, 단계 결과를 지우고 확인 필요 항목의 화면 설명 글만 남긴다.
+- Figma 글자는 지시가 아니라 자료로 감싸서 보낸다.
+- AI 제공자는 OpenAI와 Anthropic 두 곳을 쓴다. 키는 서버 환경변수(`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`)로만 받고 값은 운영자가 넣는다. 단계별로 어느 제공자와 모델을 쓸지는 서버 설정으로 정하며 사용자는 고르지 않는다.
+- 작업 큐는 pg-boss를 의존성으로 추가해 쓴다(2026-10-19 사용자 승인).
+
+## AI 사용량, 비용과 동시 생성 한도
+
+- `AiUsageService`는 단계 실행기의 모든 제공자 호출 전후에 `ai_call_usage`를 한 행씩 기록한다. 단계 시도, 재시도, 검증 오류 후 1회 수정 요청과 확인 필요 다시 작성을 포함하며 `job_id`와 `step_id`로 새 작업과 단계를 가리킨다. 호출 전에는 `running`, 응답을 관찰하면 `completed` 또는 `failed`로 저장한다. JSON 검증 실패는 이미 받은 응답의 사용량을 지우지 않는다.
+- 공급자가 응답한 실제 토큰과 호출 시간을 기록하고 usage는 허용된 숫자 필드만 저장한다. 입력, 이미지, 출력 본문, 키는 계측에 넣지 않는다. 호출의 입력 토큰 합계는 캐시 읽기와 쓰기를 포함한다. 단계의 `input_tokens`는 캐시를 뺀 입력이며 캐시 열은 별도로 더한다. 추론 토큰은 출력에 포함되어 추가 과금 계산에 더하지 않는다.
+- 호출 기록과 단계 합계는 생성 결과 저장과 분리한다. 잘림과 거절, 통신 오류도 관찰한 사용량을 보존하고 응답이 없으면 토큰과 비용은 미확인이다. 계측 저장 실패는 작업, 단계와 호출 식별자만 로그로 남기며 생성 성공과 원래 오류를 바꾸지 않는다. 일부 호출의 비용이 미확인이면 단계 비용도 미확인으로 유지한다.
+- Anthropic 스트림의 최종 `message_delta` 사용량을 받기 전 관찰값은 보존하되 `usage_known=false`와 비용 미확인으로 기록한다. 단계 합계는 단계 행을 잠근 뒤 호출 기록에서 다시 계산하며, 합계 저장 실패 시 미확인으로 바꾸고 다음 호출에서 누락분까지 복구한다.
+- 호출별 계산 비용은 `numeric(24,12)` USD이며 `generation/pricing.ts`의 호출 당시 단가, 버전과 조건을 함께 저장한다. 이 브랜치의 모델별 표준 단가와 긴 문맥 요금을 사용하고 알 수 없는 응답 모델과 비표준 tier는 미확인으로 둔다. fake는 외부 호출 없이 합성 사용량과 비용 0을 기록한다. 단계 합계는 기존 형식을 유지한다.
+- `generation_jobs`는 종료 관찰 시각과 생성 요청 등록부터 종료까지의 전체 실행 시간을 저장한다. 작업은 등록 시와 단계 전환 시 10분의 복구 유효기간을 갖는다. 서버 시작 시와 매분 복구 스캔, 새 생성 요청에서 만료 작업의 실행 잠금을 얻을 수 있을 때만 실패 처리하므로 현재 실행 중인 단계는 만료시키지 않는다. 만료와 재개에서 남은 `running` 호출은 `unknown`으로 바꾸고 확인되지 않은 토큰과 실행 시간은 만들지 않는다. 유효기간 안의 작업은 기존 단계 결과를 재사용해 재개한다.
+- 공급자 관리자 키와 해당 프로젝트 또는 워크스페이스 ID를 함께 설정하면 시작 시와 기본 1시간 간격으로 오늘을 포함한 최근 7 UTC 일의 비용 집계를 `ai_provider_costs`에 동기화한다. 테스트와 `AI_PROVIDER=fake`에서는 자동 동기화하지 않으며 fake 설정은 명시 동기화도 외부 호출 없이 끝낸다. 호출별 계산 비용과 공급자 집계는 별개이고 오늘 집계는 잠정 값이다.
+- 모든 페이지를 검증한 후 해당 공급자, scope와 기간만 advisory 트랜잭션 잠금 안에서 교체한다. 수정과 삭제된 집계를 반영하고 중복 집계를 피하며, 실패한 공급자는 기존 값을 보존한다. `pnpm --filter @cheddar/api ai:costs:sync [UTC_FROM_DATE UTC_UNTIL_DATE_EXCLUSIVE]`로 최근 7일 또는 지정한 1~31일을 동기화한다. 키와 scope의 짝, scope 형식과 주기 60~86400초를 시작 시 검증한다.
+- `ai_provider_cost_syncs`는 공급자, scope와 UTC 일별 동기화 워터마크를 비용 행과 같은 트랜잭션에 저장한다. 빈 보고서에도 워터마크를 남겨 다른 API 프로세스에서 먼저 시작한 동기화가 최신 빈 결과를 덮어쓰지 못하게 한다. 기간이 겹치면 최신 워터마크가 있는 오래된 요청 전체를 건너뛴다.
+- 최초 생성, 추가 생성과 다시 작성은 PostgreSQL advisory 트랜잭션 잠금 안에서 `pending`과 `running` 작업 수를 세고 등록한다. `AI_GENERATION_CONCURRENCY`는 기본 2, 범위 1~8이다. 여러 API 프로세스가 같은 DB의 한도를 공유하며, 한도가 차면 업로드와 양식, 케이스 입력을 읽기 전에 429 `GENERATION_CAPACITY`와 원본 한국어 메시지를 반환한다. 같은 세트의 진행 중 작업은 기존 409 `GENERATION_RUNNING`을 우선한다.
+- 생성과 다시 작성 DTO의 선택형 `clientRequestId`는 요청 계정별로 유일하다. 같은 ID와 요청 내용이면 한도 검사 전에 기존 작업을 반환하고, 대상 세트나 내용이 다르면 409 `REQUEST_REUSED`로 거절한다. ID를 생략한 기존 요청은 그대로 지원한다. 사용량의 화면과 외부 조회 API는 추가하지 않으며 웹과 플러그인 SDK도 생성하지 않는다.
+- 마이그레이션 `0006_ai_usage_accounting`은 호출 기록과 공급자 비용 집계, 작업 종료와 복구 유효기간, 요청 재사용 식별자를 추가한다. 기존 데이터와 마이그레이션은 유지한다. 계측의 수명은 소유 작업과 단계에 종속되며 소유 작업을 삭제하면 함께 삭제된다.
+
+## Figma 플러그인
+
+- 직접 선택한 Frame과 선택한 Section 안의 최상위 Frame을 모은다. 중복은 한 번만 포함한다.
+- 원본 JSON 대신 보드별 화면 문서를 만든다. 남기는 것: 글자(읽는 순서), 프레임과 인스턴스 이름, 컴포넌트 속성 값, 연결선, Dev Mode 주석. 버리는 것: 숨김 노드, 벡터와 아이콘과 장식, 스타일, 절대 좌표. 같은 컴포넌트가 반복되는 목록과 표 행은 처음 두 개와 개수로 접는다.
+- 이미지는 보드 단위로 렌더하고, 큰 보드는 겹치게 타일로 자른다. 높이 2000px까지는 한 장, 넘으면 1600px 타일을 200px씩 겹친다(플러그인 UI의 canvas에서 자른다).
+- 화면 문서 형식은 `schemaVersion: 2`의 `{ board, texts, tree, links, notes }`다. 보드 밖으로 가는 연결 대상 이름은 main이 노드를 찾아 채우고, 찾지 못한 연결은 버린다.
+- 플러그인 계정 토큰은 iframe이 저장소를 쓸 수 없어 main의 `figma.clientStorage`에 둔다.
+- main은 IIFE JavaScript, UI는 단일 HTML로 따로 빌드한다. 실제 Figma iframe relay는 Figma Origin과 manifest pluginId를 검사한다.
+- 플러그인 ID `1692417282897261384`. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`, API 주소는 `VITE_API_BASE_URL`에서 읽는다. 배포용 네트워크 허용은 `none`이며 배포 전 다시 정한다.
 
 ## 미정
 
 | 항목 | 상태 |
 | --- | --- |
-| 슬라이스 내부 세그먼트와 향후 추가 레이어·슬라이스 | 필요 시 별도 결정 |
-| 공통 UI·디자인 토큰 확장 | 라이트 foundations 토큰 구현안·스탠드얼론 미리보기 구성. 세부 값은 사용자 시각 검토 후 조정 |
 | CI | 미구성. 도입 방식은 미정 |
-| 공유 링크 접근 방식 | 후속 |
-| 사내 배포·릴리스·관측 방식 | 추후 결정 |
+| 사내 배포, 릴리스, 관측 방식 | 추후 결정 |
+| 파일 저장소 | 로컬 디스크. 배포 환경에서 다시 정함 |
 
 ## 갱신 기준
 
 구조가 결정되면 이 문서에 현재 상태를 반영한다. 선택 이유가 이후 판단에 필요하면 해당 절에 한두 문장으로 남긴다.
-
-## MVP AI 생성
-
-`apps/api/src/generation/`의 LangGraph는 입력 준비 → 모델 생성 → 형식·참조 검사 → 저장의 단일 흐름이며 자동 재시도·분할 생성은 초기 범위에서 제외한다. 생성 작업과 후보는 DB에 저장하고, 대상 시나리오만 편집을 잠근다. 키·모델은 서버 환경변수에서 관리한다. 생성 요청 ID로 중복 실행을 막고, 프로젝트 쓰기 잠금 안에서 생성 모드별 시나리오 반영과 성공 상태를 한 트랜잭션으로 저장한다. 웹의 `append`는 기존 케이스·양식·번호를 보존하며 명확한 결과와 근거 연결을 원자적으로 추가하고 일반 행으로 반환한다. 기존 `replace`·`review` API 계약은 유지한다. 시나리오 자동 저장과 후보 추가도 같은 잠금 규칙을 따른다. 모델 호출 동안 DB 트랜잭션을 열어두지 않는다.
-
-## QA 작성과 분석 결과 편집
-
-- `uploads/`의 analysis 서비스는 프로젝트별 `project_analysis`에 자료 항목과 요구사항의 케이스 연결을 JSON 문서로 저장한다. 프로젝트 PK와 revision을 사용하고 참조의 프로젝트 소속, 영역 범위, 부모 순환과 링크 중복을 검사한다. 업로드 바이트는 유지한다.
-- `generation/`의 `append`·`review`는 입력 준비 → AI 자료 정리 → 테스트 케이스 생성 → 형식과 근거 검사 → 저장으로 실행한다. `append`는 명확한 결과를 즉시 추가하고 불확실한 항목만 대기로 남긴다. `review`는 결과 전체를 검토 대상으로 보관하며 기존 `replace`와 함께 유지한다. 개별 프레임과 요구사항 선택, 요구사항 UUID 근거 연결을 지원한다.
-- 자료 정리에서는 선택한 원본 노드의 후보를 제공하고 AI는 해당 ID만 선택해 화면, 상태, 요구사항과 관계를 구성한다. 텍스트 원문과 영역은 서버가 원본에서 유지한다. 원본 파일 밖 설명과 벡터만으로 확정할 수 없는 화살표는 자동 확정을 보장하지 않는다.
-- 확인 항목 추가는 생성 작업 revision과 시나리오 revision을 함께 검사한다. 질문 답변을 함께 반영할 때는 분석 revision도 검사한다. 시나리오 저장, 후보 상태, 답변과 근거 연결은 프로젝트 쓰기 잠금 안에서 한 트랜잭션으로 저장한다. 모델 호출은 잠금 밖에서 수행한다.
-- 웹의 관련 자료, 확인 항목 비교와 화면 분석은 기존 시나리오 편집 경로 안에 제공한다. 화면 분석은 화면 분석·확인 질문·요구사항 연결을 포함한 하나의 모달이며 케이스 상세 inspector와 구분한다. 기능 소스는 승인된 `project-uploads`와 `test-case-editor` 폴더에 둔다. 표시 패널은 서버 업무 데이터와 분리한다.
-
-## 사용자 양식과 생성 결과
-
-필수 시스템 열은 `caseCode`·`title` 두 개다. 사용자 열은 UUID·이름·`valueType`·선택 항목·선택적인 작성 기준을 가진다. 형식은 `text`·`select`·`checkbox`·`tags`이며 선택 항목도 UUID와 이름을 분리한다. 사용자 값은 열 UUID로 연결하고 문자열·옵션 UUID 또는 null·boolean·옵션 UUID 배열로 저장한다. 이름·순서 변경으로 값의 연결을 바꾸지 않는다.
-
-AI 결과 스키마는 생성 작업이 보관한 시나리오 양식에서 만든다. 사용자 열은 모두 정의된 형식으로 반환하고, 선택과 태그는 해당 열의 허용 항목만 참조한다. 제목과 근거 연결은 별도 필드이며 사전 조건·수행 절차·예상 결과·우선순위는 고정 출력 필드가 아니다. 저장 전에 열 ID·형식·옵션 소속을 검사한다.
-
-사용자가 개발 데이터 초기화를 승인했다. 구형 고정 필드의 호환·데이터 변환은 제공하지 않으며 명시적으로 로컬 개발 데이터를 초기화한 뒤 새 스키마를 적용한다. 신규 양식에서 이름·순서 변경 시 UUID와 값 연결은 유지한다. 화면·자료·요구사항 연결은 사용자 열과 별도 데이터다.
-
-## AI 사용량, 비용과 동시 생성 한도
-
-- 모델 호출 전후의 서버 코드 훅이 PostgreSQL `ai_call_usage`에 호출별 메타데이터를 기록한다. 테스트 케이스 생성의 자료 정리·생성 호출은 `job_id`, 캔버스 흐름 생성 호출은 `flow_job_id`로 작업을 가리키며 둘 중 하나만 채운다. 에이전트 실행이나 별도 계측 서비스가 필요하지 않다. `generation_jobs`에는 종료 관찰 시각과 전체 실행 시간을 저장한다.
-- 공급자가 응답한 실제 토큰과 호출 시간을 기록하며, usage는 허용된 숫자 필드만 보관한다. 입력·이미지·출력 본문·키는 계측 데이터에 넣지 않는다. 입력 토큰 합계에는 캐시 읽기·쓰기가 포함되며 세부 토큰을 중복 합산하지 않는다.
-- 호출 기록은 시나리오 저장 트랜잭션과 분리한다. 출력 잘림·검증·시나리오 저장 실패에도 수신한 usage를 보존하며, 계측 저장 실패는 식별자만 로그로 남기고 생성 결과를 바꾸지 않는다. 응답이 없으면 토큰과 비용을 미확인으로 둔다. 서버 중단 후 생성 작업이 만료되면 남은 running 호출을 unknown으로 바꾸며 확인되지 않은 실행 시간은 만들지 않는다.
-- 계산 비용은 `numeric(24,12)` USD이며 호출 당시 단가와 조건을 함께 저장한다. 기본 Haiku·Luna의 2026-10-15 공식 표준·글로벌 단가만 계산하고, 다른 응답 모델·tier는 비용을 미확인으로 둔다. 추론 토큰은 출력 토큰에 포함되며 Haiku의 입력 100,000토큰 초과 요금과 캐시 TTL을 구분한다.
-- 관리자 키와 공급자 전용 프로젝트/워크스페이스 ID가 설정되면 시작 시와 기본 1시간 간격으로 최근 7 UTC 일의 비용 집계를 `ai_provider_costs`에 동기화한다. 공급자 금액과 호출별 계산 비용은 별개다. 오늘 집계는 잠정 값이며 최종 청구서는 공급자 기준으로 확인한다.
-- 비용 보고서의 모든 페이지를 검증한 후 해당 공급자·scope·기간만 한 트랜잭션으로 교체해 수정·삭제된 집계와 중복 동기화를 처리한다. 실패한 공급자는 기존 집계를 보존한다. 과거 기간의 명시 재동기화는 `scripts/sync-ai-costs.ts` CLI를 사용한다. 자동 모델 재호출은 추가하지 않는다.
-- 사용량 조회는 DB 쿼리로 제공한다. 화면·외부 API 노출, 보관 만료·자동 삭제와 과거 호출 사용량 복원은 포함하지 않는다.
-- 테스트 케이스 생성 시작은 PostgreSQL advisory 트랜잭션 잠금 안에서 실행 중인 작업 수를 세어 `AI_GENERATION_CONCURRENCY`(기본 2)를 넘으면 입력을 읽기 전에 429로 거절한다. 여러 API 프로세스가 같은 DB의 한도를 공유하고 대기열은 두지 않는다. 같은 요청 ID 재요청은 한도 검사 전에 기존 작업을 돌려준다. 흐름 생성은 이 한도에 포함하지 않는다.

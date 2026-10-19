@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "@cheddar/design-tokens/theme.css";
+@source "../../../../../../packages/ui/src";
+
+@layer base {
+  html {
+    @apply bg-surface font-sans text-body text-fg antialiased;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* 스크롤바: 투명 트랙 위 둥근 손잡이 하나. 손잡이는 가장자리에서 3px 떨어진다. */
+  * {
+    scrollbar-color: var(--color-scroll-thumb) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: var(--radius-full);
+    background: var(--color-scroll-thumb) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-scroll-thumb-hover);
+  }
+
+  /* 움직임 줄이기: 유틸리티의 전환 시간보다 우선해야 해서 !important를 쓴다 */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      /* biome-ignore lint/complexity/noImportantStyles: 모든 유틸리티 전환보다 우선해야 한다 */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: 모든 유틸리티 전환보다 우선해야 한다 */
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

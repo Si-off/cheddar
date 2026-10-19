@@ -39,6 +39,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return;
     }
     let error: ApiError;
+    const databaseCode = (value: unknown): string | undefined => {
+      if (!value || typeof value !== "object") return undefined;
+      if (
+        "code" in value &&
+        typeof value.code === "string" &&
+        /^23[0-9]{3}$/.test(value.code)
+      )
+        return value.code;
+      return "cause" in value ? databaseCode(value.cause) : undefined;
+    };
+    const sqlState = databaseCode(exception);
     if (exception instanceof ApiError) error = exception;
     else if (exception instanceof HttpException) {
       const status = exception.getStatus();
@@ -76,7 +87,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
       exception.status === 400
     ) {
       error = invalid();
-    } else
+    } else if (sqlState === "23505")
+      error = new ApiError(409, "DUPLICATE", "이미 등록된 값입니다.");
+    else if (sqlState === "23503")
+      error = new ApiError(
+        409,
+        "REFERENCE_IN_USE",
+        "연결된 항목을 확인해주세요.",
+      );
+    else if (sqlState === "23514") error = invalid();
+    else
       error = new ApiError(
         500,
         "INTERNAL_ERROR",

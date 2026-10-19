@@ -5,6 +5,7 @@ import {
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
+import { Public } from "../authorization/guards";
 import { unavailable } from "../common/errors";
 import { ErrorResponseDto, HealthDto } from "../contracts/common.dto";
 import { DatabaseService } from "../database/database.service";
@@ -12,6 +13,7 @@ import { checkMigrations } from "../database/migrations";
 import { LocalStorage } from "../storage/local-storage";
 
 export const MIGRATIONS_FOLDER = Symbol("MIGRATIONS_FOLDER");
+@Public()
 @ApiTags("health")
 @Controller("health")
 export class HealthController {

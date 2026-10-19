@@ -1,346 +1,461 @@
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
-import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
-import { ApiError } from "../common/errors";
+import { createHash, randomUUID } from "node:crypto";
+import { Inject, Injectable } from "@nestjs/common";
+import { and, count, desc, eq, inArray, lte, ne, sql } from "drizzle-orm";
+import {
+  activeAccount,
+  type IdentityDatabase,
+} from "../authorization/authorization.service";
+import { ApiError, invalid, notFound } from "../common/errors";
 import { API_ENV, type ApiEnv } from "../config/env";
 import type {
-  AddGeneratedCasesDto,
-  ReviewGenerationResultDto,
-  StartGenerationDto,
+  CreateGenerationDto,
+  GenerationCurrentDto,
 } from "../contracts/generation.dto";
-import { FilesService } from "../files/files.service";
-import { extractAnalysis } from "../uploads/extract-analysis";
+import type { DatabaseTransaction } from "../database/database.service";
 import {
-  GenerationRepository,
-  type Job,
-  present,
-} from "./generation.repository";
-import { prepareFrame } from "./prepare-frame";
-import { generate, type PreparedInput } from "./provider";
-import { type GenerationResult, parseResult } from "./result";
-import {
-  parseSources,
-  structureInstructions,
-  structureSchema,
-} from "./structure-sources";
+  accounts,
+  featureGroups,
+  generationJobs,
+  generationSteps,
+  requiredCases,
+  reviewItems,
+  screenStructureItems,
+  tempUploads,
+  testSets,
+} from "../database/schema";
+import { TempUploadsService } from "../temp-uploads/temp-uploads.service";
+import { TestSetsStore } from "../test-sets/test-sets.store";
+import { QueueService } from "./queue.service";
+import type { GenerationInput } from "./types";
 import { AiUsageService } from "./usage.service";
 
-const usageTarget = (job: Job) => ({
-  kind: "generation" as const,
-  id: job.id,
-  projectId: job.projectId,
-  provider: job.provider,
-  model: job.model,
+export const jobFinished = () => ({
+  finishedAt: new Date(),
+  durationMs: sql`greatest(0, floor(extract(epoch from (now() - ${generationJobs.createdAt})) * 1000))::bigint`,
 });
-const State = Annotation.Root({
-  input: Annotation<PreparedInput>(),
-  raw: Annotation<string>(),
-  result: Annotation<GenerationResult>(),
-});
+
+export const generationRunning = () =>
+  new ApiError(409, "GENERATION_RUNNING", "이미 케이스를 만들고 있습니다.");
+export const generationErrorMessage =
+  "케이스를 만들지 못했습니다. 테스트 세트에서 설명으로 케이스 추가 생성을 실행하세요.";
+export const rewriteErrorMessage =
+  "다시 작성하지 못했습니다. 답변을 확인하고 다시 시도해주세요.";
+export function currentDto(
+  job: typeof generationJobs.$inferSelect,
+): GenerationCurrentDto {
+  return {
+    jobId: job.id,
+    kind: job.kind,
+    status:
+      job.status === "pending"
+        ? "queued"
+        : job.status === "completed"
+          ? "succeeded"
+          : job.status,
+    stage: job.kind === "rewrite" ? null : job.currentStage,
+    addedCount: job.addedCount,
+    reviewCount: job.reviewCount,
+    errorMessage:
+      job.status === "failed"
+        ? job.kind === "rewrite"
+          ? rewriteErrorMessage
+          : generationErrorMessage
+        : null,
+  };
+}
 @Injectable()
-export class GenerationService implements OnModuleDestroy {
-  private readonly active = new Map<
-    string,
-    { abort: AbortController; task: Promise<void> }
-  >();
+export class GenerationService {
   constructor(
+    @Inject(TestSetsStore) readonly store: TestSetsStore,
+    @Inject(TempUploadsService) private readonly uploads: TempUploadsService,
+    @Inject(QueueService) readonly queue: QueueService,
     @Inject(API_ENV) private readonly env: ApiEnv,
-    @Inject(GenerationRepository)
-    private readonly repository: GenerationRepository,
-    @Inject(FilesService) private readonly files: FilesService,
-    @Inject(AiUsageService) private readonly usage: AiUsageService,
+    @Inject(AiUsageService) readonly usage: AiUsageService,
   ) {}
-  providers() {
-    return {
-      items: [
-        {
-          id: "anthropic" as const,
-          model: this.env.ai?.anthropicModel ?? "claude-haiku-5-5",
-          configured: Boolean(this.env.ai?.anthropicKey),
-        },
-        {
-          id: "openai" as const,
-          model: this.env.ai?.openaiModel ?? "gpt-6-luna",
-          configured: Boolean(this.env.ai?.openaiKey),
-        },
-      ],
-    };
-  }
-  async start(
-    projectId: string,
-    testScenarioId: string,
-    request: StartGenerationDto,
-  ) {
-    const provider = this.providers().items.find(
-      (p) => p.id === request.provider,
-    );
-    const key =
-      request.provider === "anthropic"
-        ? this.env.ai?.anthropicKey
-        : this.env.ai?.openaiKey;
-    if (!provider || !key)
+  async admission(tx: DatabaseTransaction) {
+    await tx.execute(sql`select pg_advisory_xact_lock(31015433)`);
+    const [active] = await tx
+      .select({ count: count() })
+      .from(generationJobs)
+      .where(inArray(generationJobs.status, ["pending", "running"]));
+    if (active.count >= (this.env.generationConcurrency ?? 2))
       throw new ApiError(
-        503,
-        "AI_KEY_MISSING",
-        "AI의 API 키가 설정되지 않았습니다. 서버 설정 후 다시 시도해주세요.",
+        429,
+        "GENERATION_CAPACITY",
+        "현재 생성 요청이 많습니다. 잠시 후 다시 시도해주세요.",
       );
-    const { job, created } = await this.repository.start(
-      projectId.toLowerCase(),
-      testScenarioId.toLowerCase(),
-      {
-        ...request,
-        clientRequestId: request.clientRequestId.toLowerCase(),
-        uploadId:
-          request.uploadId === null ? null : request.uploadId?.toLowerCase(),
-        frameIds: request.frameIds?.map((id) => id.toLowerCase()),
-        requirementIds: request.requirementIds?.map((id) => id.toLowerCase()),
-        exampleTestScenarioId: request.exampleTestScenarioId?.toLowerCase(),
-      },
-      provider.model,
-      this.env.generationConcurrency ?? 2,
+  }
+  requestHash(testSetId: string, request: object) {
+    return createHash("sha256")
+      .update(JSON.stringify({ testSetId, ...request }))
+      .digest("hex");
+  }
+  async repeated(
+    tx: DatabaseTransaction,
+    accountId: string,
+    clientRequestId: string | undefined,
+    hash: string,
+  ) {
+    if (!clientRequestId) return;
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`generation-request:${accountId}:${clientRequestId}`}, 0))`,
     );
-    if (created) {
-      const abort = new AbortController();
-      const task = this.run(job, key, abort.signal).finally(() =>
-        this.active.delete(job.id),
+    const [existing] = await tx
+      .select()
+      .from(generationJobs)
+      .where(
+        and(
+          eq(generationJobs.requestedBy, accountId),
+          eq(generationJobs.clientRequestId, clientRequestId),
+        ),
       );
-      this.active.set(job.id, { abort, task });
-    }
-    return present(job);
-  }
-  list(projectId: string, testScenarioId: string) {
-    return this.repository.list(
-      projectId.toLowerCase(),
-      testScenarioId.toLowerCase(),
-    );
-  }
-  add(
-    projectId: string,
-    testScenarioId: string,
-    jobId: string,
-    input: AddGeneratedCasesDto,
-  ) {
-    return this.repository.add(
-      projectId.toLowerCase(),
-      testScenarioId.toLowerCase(),
-      jobId.toLowerCase(),
-      input,
-    );
-  }
-  review(
-    projectId: string,
-    testScenarioId: string,
-    jobId: string,
-    resultId: string,
-    input: ReviewGenerationResultDto,
-  ) {
-    return this.repository.review(
-      projectId.toLowerCase(),
-      testScenarioId.toLowerCase(),
-      jobId.toLowerCase(),
-      resultId.toLowerCase(),
-      input,
-    );
-  }
-  private async prepare(job: Job): Promise<PreparedInput> {
-    const context = await this.repository.context(job);
-    const images: PreparedInput["images"] = [];
-    const frames: unknown[] = [];
-    let totalBytes = 0;
-    const sourceCandidates: import("../contracts/analysis.dto").AnalysisItemDto[] =
-      [];
-    for (const frame of context.frames) {
-      const buffers: Buffer[] = [];
-      for (const fileId of [frame.dataFileId, frame.imageFileId]) {
-        const download = await this.files.download(job.projectId, fileId);
-        const parts: Buffer[] = [];
-        for await (const part of download.stream) {
-          totalBytes += part.length;
-          if (totalBytes > 20 * 1024 * 1024)
-            throw new ApiError(
-              413,
-              "AI_INPUT_TOO_LARGE",
-              "Figma 자료가 생성 입력 크기 제한을 초과했습니다. 프레임 분할 업로드 후 다시 생성해주세요.",
-            );
-          parts.push(Buffer.from(part));
-        }
-        buffers.push(Buffer.concat(parts));
-      }
-      const raw = JSON.parse(buffers[0].toString("utf8"));
-      if (
-        (job.request.mode === "review" || job.request.mode === "append") &&
-        !context.analysis?.items.some((i) => i.frameId === frame.id)
-      )
-        sourceCandidates.push(...extractAnalysis(raw, frame.id));
-      frames.push({
-        id: frame.id,
-        name: frame.name,
-        node: prepareFrame(raw),
-      });
-      images.push({ id: frame.id, data: buffers[1].toString("base64") });
-    }
-    const text = JSON.stringify({
-      kind: job.snapshot.kind,
-      description: job.request.description ?? "",
-      columns: job.snapshot.columns,
-      exampleCases: context.example.cases,
-      ia: context.ia,
-      frames,
-    });
-    if (text.length > 350_000)
+    if (existing && existing.requestHash !== hash)
       throw new ApiError(
-        413,
-        "AI_INPUT_TOO_LARGE",
-        "프레임 데이터와 예시가 너무 큽니다. 업로드 범위나 예시 테스트 케이스를 줄여주세요.",
+        409,
+        "REQUEST_REUSED",
+        "이 생성 요청은 이미 사용되었습니다. 생성 상태를 확인해주세요.",
       );
-    return {
-      text,
-      images,
-      sourceCandidates,
-      sourceItems: context.analysis?.items ?? [],
-      sourceRevision: context.analysis?.revision ?? 0,
-      frameIds: context.frames.map((f) => f.id),
-      screenIds: context.ia.map((i) => i.id),
-      columns: job.snapshot.columns,
-    };
+    return existing?.id;
   }
-  private async structure(
-    job: Job,
-    input: PreparedInput,
-    signal: AbortSignal,
-  ): Promise<PreparedInput> {
-    let sources = input.sourceItems ?? [];
-    if (input.sourceCandidates?.length) {
-      const text = JSON.stringify({ sourceCandidates: input.sourceCandidates });
-      if (text.length > 350000)
-        throw new ApiError(
-          413,
-          "AI_INPUT_TOO_LARGE",
-          "자료의 설명이 분석 한도를 넘었습니다. 화면 선택을 줄여주세요.",
+  async assertIdle(testSetId: string, tx: DatabaseTransaction) {
+    const [job] = await tx
+      .select({ id: generationJobs.id })
+      .from(generationJobs)
+      .where(
+        and(
+          eq(generationJobs.testSetId, testSetId),
+          inArray(generationJobs.status, ["pending", "running"]),
+        ),
+      );
+    if (job) throw generationRunning();
+  }
+  async create(testSetId: string, accountId: string, dto: CreateGenerationDto) {
+    await this.expireJobs();
+    const jobId = await this.store.mutate(
+      testSetId,
+      accountId,
+      "canEdit",
+      async (tx, row) => {
+        const hash = this.requestHash(testSetId, {
+          kind: dto.kind,
+          uploadId: dto.uploadId ?? null,
+          memo: dto.memo ?? null,
+        });
+        const repeated = await this.repeated(
+          tx,
+          accountId,
+          dto.clientRequestId,
+          hash,
         );
-      const raw = await generate(
-        job.provider,
-        job.model,
-        job.provider === "anthropic"
-          ? (this.env.ai?.anthropicKey ?? "")
-          : (this.env.ai?.openaiKey ?? ""),
-        { ...input, text },
-        AbortSignal.any([signal, AbortSignal.timeout(240_000)]),
-        { schema: structureSchema, instructions: structureInstructions },
-        this.usage.hooks(usageTarget(job)),
-      );
-      sources = [...sources, ...parseSources(raw, input.sourceCandidates)];
-    }
-    const requested = job.request.requirementIds;
-    const selected = sources.filter((i) =>
-      requested?.length
-        ? requested.includes(i.id) || i.kind === "relation"
-        : !i.frameId || input.frameIds.includes(i.frameId) || i.useAsRule,
-    );
-    const requirements = selected.filter(
-      (i) => i.kind === "requirement" || i.kind === "question",
-    );
-    const text = JSON.stringify({
-      ...JSON.parse(input.text),
-      sources: selected.map((i) => ({
-        ...i,
-        useAsRule: i.useAsRule || requested?.includes(i.id),
-        answer: i.useAsRule || requested?.includes(i.id) ? i.answer : undefined,
-      })),
-    });
-    if (text.length > 350000)
-      throw new ApiError(
-        413,
-        "AI_INPUT_TOO_LARGE",
-        "자료와 예시가 생성 한도를 넘었습니다. 화면 선택이나 설명을 줄여주세요.",
-      );
-    return {
-      ...input,
-      text,
-      sourceItems: sources,
-      requirementIds: requirements.map((i) => i.id),
-    };
-  }
-  private async run(job: Job, key: string, abort: AbortSignal) {
-    const started = performance.now();
-    try {
-      const signal = AbortSignal.any([abort, AbortSignal.timeout(480_000)]);
-      const graph = new StateGraph(State)
-        .addNode("prepare", async () => ({ input: await this.prepare(job) }))
-        .addNode("structure", async (state) => ({
-          input: await this.structure(job, state.input, signal),
-        }))
-        .addNode("generate", async (state) => ({
-          raw: await generate(
-            job.provider,
-            job.model,
-            key,
-            state.input,
-            AbortSignal.any([signal, AbortSignal.timeout(240_000)]),
-            undefined,
-            this.usage.hooks(usageTarget(job)),
-          ),
-        }))
-        .addNode("validate", (state) => {
-          const result = parseResult(
-            state.raw,
-            job.snapshot,
-            state.input.frameIds,
-            state.input.screenIds,
-            state.input.requirementIds,
+        if (repeated) return repeated;
+        await this.assertIdle(testSetId, tx);
+        await this.admission(tx);
+        if (!dto.uploadId && (!dto.memo?.trim() || dto.kind === "initial"))
+          throw invalid();
+        let frames: GenerationInput["frames"] = [];
+        if (dto.uploadId) {
+          const upload = await this.uploads.owned(
+            dto.uploadId,
+            accountId,
+            tx,
+            true,
           );
-          if (job.request.mode === "review" || job.request.mode === "append") {
-            result.sources = [
-              ...(state.input.sourceItems ?? []),
-              ...result.candidates.map((c) => ({
-                id: c.id,
-                kind: "question" as const,
-                title: c.content.title.slice(0, 255),
-                text: c.reason,
-                frameId: c.content.relatedFrameIds[0],
-                useAsRule: false,
-              })),
-            ];
-            result.sourceRevision = state.input.sourceRevision;
+          if (upload.claimedAt) throw notFound();
+          frames = await this.uploads.frames(dto.uploadId, tx);
+          await tx
+            .update(tempUploads)
+            .set({ claimedAt: new Date() })
+            .where(eq(tempUploads.id, dto.uploadId));
+        }
+        // 다른 세트의 스타일 예시도 요청자에게 보이는 자료만 사용한다.
+        const recent = await tx
+          .select()
+          .from(testSets)
+          .where(
+            and(
+              eq(testSets.projectId, row.projectId),
+              ne(testSets.id, testSetId),
+            ),
+          )
+          .orderBy(desc(testSets.updatedAt))
+          .limit(5);
+        const styleExamples: GenerationInput["styleExamples"] = [];
+        for (const set of recent) {
+          try {
+            await this.store.visible(set.id, accountId, tx);
+          } catch (error) {
+            if (error instanceof ApiError && error.getStatus() === 404)
+              continue;
+            throw error;
           }
-          return { result };
-        })
-        .addNode("save", async (state) => {
-          signal.throwIfAborted();
-          await this.repository.succeed(job, state.result, started);
-          return {};
-        })
-        .addEdge(START, "prepare")
-        .addEdge("prepare", "structure")
-        .addEdge("structure", "generate")
-        .addEdge("generate", "validate")
-        .addEdge("validate", "save")
-        .addEdge("save", END)
-        .compile();
-      await graph.invoke({}, { signal });
-    } catch (error) {
-      // Generation validators/providers only attach categorical diagnostics; no input or keys.
-      if (
-        error instanceof ApiError &&
-        ["INVALID_AI_RESULT", "AI_REQUEST_FAILED"].includes(error.code)
-      )
-        process.stderr.write(
-          `${JSON.stringify({ event: "generation_failed", jobId: job.id, provider: job.provider, code: error.code, details: error.details })}\n`,
+          // 열 UUID는 세트별로 달라 이름과 형식이 같은 현재 열로 매핑한다.
+          const oldColumns = await this.store.columns(set.id, tx);
+          const columns = await this.store.columns(testSetId, tx);
+          for (const c of (await this.store.cases(set.id, tx)).slice(0, 3))
+            styleExamples.push({
+              id: c.id,
+              values: Object.fromEntries(
+                columns.flatMap((column) => {
+                  const old = oldColumns.find(
+                    (o) => o.name === column.name && o.type === column.type,
+                  );
+                  return old && c.values[old.id] !== undefined
+                    ? [[column.id, c.values[old.id]]]
+                    : [];
+                }),
+              ),
+            });
+          if (styleExamples.length >= 6) break;
+        }
+        const input: GenerationInput = {
+          columns: await this.store.columns(testSetId, tx),
+          memo: dto.memo ?? row.memo,
+          frames,
+          featureGroups: await tx
+            .select()
+            .from(featureGroups)
+            .where(eq(featureGroups.projectId, row.projectId))
+            .orderBy(featureGroups.position, featureGroups.id),
+          requiredCases: await tx
+            .select()
+            .from(requiredCases)
+            .where(
+              and(
+                eq(requiredCases.projectId, row.projectId),
+                eq(requiredCases.enabled, true),
+              ),
+            )
+            .orderBy(requiredCases.position, requiredCases.id),
+          screenStructure: await tx
+            .select()
+            .from(screenStructureItems)
+            .where(eq(screenStructureItems.projectId, row.projectId))
+            .orderBy(screenStructureItems.position, screenStructureItems.id),
+          styleExamples: styleExamples.slice(0, 6),
+          existingCases:
+            dto.kind === "append" ? await this.store.cases(testSetId, tx) : [],
+        };
+        return this.insertJob(
+          tx,
+          testSetId,
+          accountId,
+          dto.kind,
+          input,
+          dto.uploadId,
+          undefined,
+          dto.clientRequestId,
+          hash,
         );
-      const message =
-        error instanceof ApiError
-          ? error.message
-          : "생성을 완료하지 못했습니다. 기존 시나리오는 유지됩니다. 입력과 서버 연결 확인 후 다시 생성해주세요.";
-      await this.repository.fail(job, message, started).catch(() => {
-        process.stderr.write(
-          "Generation failure status could not be saved; lease will expire.\n",
-        );
-      });
+      },
+    );
+    await this.dispatch(jobId, "screens");
+    return { jobId };
+  }
+  async insertJob(
+    tx: DatabaseTransaction,
+    testSetId: string,
+    accountId: string,
+    kind: "initial" | "append" | "rewrite",
+    input: GenerationInput,
+    uploadId?: string,
+    reviewItemId?: string,
+    clientRequestId?: string,
+    requestHash?: string,
+  ) {
+    const id = randomUUID();
+    await tx.insert(generationJobs).values({
+      id,
+      testSetId,
+      requestedBy: accountId,
+      uploadId,
+      kind,
+      reviewItemId,
+      clientRequestId,
+      requestHash,
+      currentStage: kind === "rewrite" ? "rewrite" : "screens",
+    });
+    await tx.insert(generationSteps).values({
+      jobId: id,
+      stage: "context",
+      workKey: "context",
+      status: "completed",
+      input,
+    });
+    return id;
+  }
+  async dispatch(jobId: string, stage: string) {
+    // jobs가 영속 outbox다. 큐 전송 중 종료되거나 연결이 끊겨도 복구 스캔이 다시 넣는다.
+    try {
+      await this.queue.enqueue(jobId, stage);
+    } catch {
+      process.stderr.write(`생성 작업 전송 대기: ${jobId}\n`);
     }
   }
-  async onModuleDestroy() {
-    for (const item of this.active.values()) item.abort.abort();
-    await Promise.allSettled(
-      [...this.active.values()].map((item) => item.task),
+  async current(
+    testSetId: string,
+    accountId: string,
+  ): Promise<GenerationCurrentDto | null> {
+    await this.store.visible(testSetId, accountId);
+    const [row] = await this.store.database.db
+      .select()
+      .from(generationJobs)
+      .where(eq(generationJobs.testSetId, testSetId))
+      .orderBy(
+        sql`case when ${generationJobs.status} in ('pending','running') then 0 else 1 end`,
+        desc(generationJobs.createdAt),
+        desc(generationJobs.id),
+      )
+      .limit(1);
+    return row ? currentDto(row) : null;
+  }
+  async visibleJob(jobId: string, accountId: string) {
+    const [account] = await this.store.database.db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, accountId), activeAccount()));
+    if (!account) throw notFound();
+    const [row] = await this.store.database.db
+      .select()
+      .from(generationJobs)
+      .where(eq(generationJobs.id, jobId));
+    if (!row) throw notFound();
+    await this.store.visible(row.testSetId, accountId);
+    return currentDto(row);
+  }
+  async recover() {
+    await this.expireJobs();
+    const rows = await this.store.database.db
+      .select()
+      .from(generationJobs)
+      .where(inArray(generationJobs.status, ["pending", "running"]));
+    for (const row of rows)
+      await this.dispatch(
+        row.id,
+        row.currentStage ?? (row.kind === "rewrite" ? "rewrite" : "screens"),
+      );
+  }
+  async expireJobs() {
+    const expired = await this.store.database.db
+      .select({ id: generationJobs.id })
+      .from(generationJobs)
+      .where(
+        and(
+          inArray(generationJobs.status, ["pending", "running"]),
+          lte(generationJobs.expiresAt, new Date()),
+        ),
+      );
+    for (const job of expired) {
+      const lease = await this.store.database.pool.connect();
+      let locked = false;
+      try {
+        locked = (
+          await lease.query<{ locked: boolean }>(
+            "select pg_try_advisory_lock(5105, hashtext($1)) as locked",
+            [job.id],
+          )
+        ).rows[0].locked;
+        if (locked) {
+          const [fresh] = await this.store.database.db
+            .select({ expiresAt: generationJobs.expiresAt })
+            .from(generationJobs)
+            .where(eq(generationJobs.id, job.id));
+          if (fresh && fresh.expiresAt <= new Date())
+            await this.fail(job.id, "GENERATION_EXPIRED");
+        }
+      } finally {
+        try {
+          if (locked)
+            await lease.query("select pg_advisory_unlock(5105, hashtext($1))", [
+              job.id,
+            ]);
+        } finally {
+          lease.release();
+        }
+      }
+    }
+  }
+  async assertActor(
+    testSetId: string,
+    accountId: string,
+    db: IdentityDatabase = this.store.database.db,
+  ) {
+    const [account] = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, accountId), activeAccount()));
+    if (!account) throw notFound();
+    const { access } = await this.store.visible(testSetId, accountId, db);
+    if (!access.canEdit)
+      throw new ApiError(403, "FORBIDDEN", "이 작업을 할 권한이 없습니다.");
+  }
+  async startedStages(jobId: string) {
+    const rows = await this.store.database.db
+      .select({ stage: generationSteps.stage })
+      .from(generationSteps)
+      .where(
+        and(
+          eq(generationSteps.jobId, jobId),
+          sql`${generationSteps.startedAt} is not null`,
+        ),
+      );
+    const stages = new Set(rows.map((r) => r.stage));
+    return ["screens", "flows", "cases", "finish"].filter((stage) =>
+      stages.has(stage),
     );
+  }
+  async cleanupJob(jobId: string) {
+    await this.store.database.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(generationJobs)
+        .where(eq(generationJobs.id, jobId))
+        .for("update");
+      if (!row || !["completed", "failed"].includes(row.status)) return;
+      await tx
+        .update(generationSteps)
+        .set({ input: null, output: null })
+        .where(eq(generationSteps.jobId, jobId));
+      if (row.uploadId) await this.uploads.remove(row.uploadId, tx);
+    });
+  }
+  async fail(jobId: string, code: string) {
+    let changedSetId: string | undefined;
+    await this.store.database.db.transaction(async (tx) => {
+      const [job] = await tx
+        .select()
+        .from(generationJobs)
+        .where(eq(generationJobs.id, jobId))
+        .for("update");
+      if (!job || ["completed", "failed"].includes(job.status)) return;
+      await tx
+        .update(generationJobs)
+        .set({
+          status: "failed",
+          errorCode: code,
+          updatedAt: new Date(),
+          ...jobFinished(),
+        })
+        .where(eq(generationJobs.id, jobId));
+      if (job.reviewItemId) {
+        await tx
+          .update(reviewItems)
+          .set({ status: "pending", updatedAt: new Date() })
+          .where(
+            and(
+              eq(reviewItems.id, job.reviewItemId),
+              eq(reviewItems.status, "rewriting"),
+            ),
+          );
+        await this.store.bump(job.testSetId, tx);
+        changedSetId = job.testSetId;
+      }
+    });
+    await this.usage.markUnknown(jobId);
+    if (changedSetId)
+      await this.store.events.publish({
+        type: "resync",
+        testSetId: changedSetId,
+      });
+    await this.cleanupJob(jobId);
   }
 }

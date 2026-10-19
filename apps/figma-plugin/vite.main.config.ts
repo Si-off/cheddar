@@ -26,18 +26,10 @@ export default defineConfig(({ mode, command }) => {
       emptyOutDir: false,
       minify: false,
       lib: {
-        entry: fileURLToPath(
-          new URL(
-            mode === "prototype"
-              ? "./src/main/design-prototype.ts"
-              : "./src/main/index.ts",
-            import.meta.url,
-          ),
-        ),
+        entry: fileURLToPath(new URL("./src/main/index.ts", import.meta.url)),
         name: "CheddarPlugin",
         formats: ["iife"],
-        fileName: () =>
-          mode === "prototype" ? "design-prototype-main.js" : "main.js",
+        fileName: () => "main.js",
       },
     },
   };

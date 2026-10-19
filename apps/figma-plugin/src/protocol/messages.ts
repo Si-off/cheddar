@@ -41,12 +41,10 @@ export type UiToMainMessage =
       nodeId: string;
       size: "thumbnail" | "preview";
     }
-  | {
-      type: "open-upload-web";
-      requestId: string;
-      projectId: string;
-      uploadId: string;
-    }
+  | { type: "open-upload-web"; requestId: string; uploadId: string }
+  | { type: "open-connect-web"; requestId: string; requestToken: string }
+  | { type: "load-auth"; requestId: string }
+  | { type: "save-auth"; requestId: string; token: string | null }
   | { type: "prepare-upload"; requestId: string; selectionVersion: number }
   | {
       type: "export-frame";
@@ -67,6 +65,9 @@ export type MainToUiMessage =
       image: Uint8Array;
     }
   | { type: "upload-web-opened"; requestId: string }
+  | { type: "connect-web-opened"; requestId: string }
+  | { type: "auth-loaded"; requestId: string; token: string | null }
+  | { type: "auth-saved"; requestId: string }
   | {
       type: "upload-prepared";
       requestId: string;
@@ -84,6 +85,11 @@ export type MainToUiMessage =
     }
   | { type: "upload-validated"; requestId: string; sessionId: string }
   | { type: "export-error"; requestId: string; code: ExportErrorCode };
+
+// 플러그인 연결 요청 토큰과 계정 토큰은 base64url 32바이트(43자)다
+const TOKEN = /^[A-Za-z0-9_-]{43}$/;
+export const isToken = (value: unknown): value is string =>
+  typeof value === "string" && TOKEN.test(value);
 
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -115,8 +121,11 @@ export function isUiToMainMessage(value: unknown): value is UiToMainMessage {
   if (value.type === "ui-ready") return true;
   if (value.type === "release-upload") return text(value.sessionId, 100);
   if (!text(value.requestId, 100)) return false;
-  if (value.type === "open-upload-web")
-    return isResourceId(value.projectId) && isResourceId(value.uploadId);
+  if (value.type === "open-upload-web") return isResourceId(value.uploadId);
+  if (value.type === "open-connect-web") return isToken(value.requestToken);
+  if (value.type === "load-auth") return true;
+  if (value.type === "save-auth")
+    return value.token === null || isToken(value.token);
   if (value.type === "thumbnail-frame")
     return (
       Number.isSafeInteger(value.selectionVersion) &&
@@ -164,7 +173,14 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
       "SESSION_EXPIRED",
       "WEB_UNAVAILABLE",
     ].includes(String(value.code));
-  if (value.type === "upload-web-opened") return true;
+  if (
+    value.type === "upload-web-opened" ||
+    value.type === "connect-web-opened" ||
+    value.type === "auth-saved"
+  )
+    return true;
+  if (value.type === "auth-loaded")
+    return value.token === null || isToken(value.token);
   if (value.type === "frame-thumbnail")
     return (
       Number.isSafeInteger(value.selectionVersion) &&

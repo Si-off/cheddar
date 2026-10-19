@@ -3,12 +3,13 @@ export type NumericUsage = { [key: string]: number | NumericUsage };
 export type CallObservation = {
   finishedAt: Date;
   durationMs: number;
-  status: "succeeded" | "failed";
+  status: "completed" | "failed";
   requestId?: string;
   responseId?: string;
   responseModel?: string;
   serviceTier?: string;
   usage?: unknown;
+  usageComplete?: boolean;
   httpStatus?: number;
   errorCode?: string;
 };
@@ -114,70 +115,6 @@ export function normalizeUsage(provider: AiProvider, value: unknown) {
 }
 
 export type NormalizedUsage = ReturnType<typeof normalizeUsage>;
-export type PriceSnapshot = {
-  version: string;
-  model: string;
-  currency: "USD";
-  unit: "nanodollars_per_token";
-  input: number;
-  cachedInput: number;
-  cacheWrite: number;
-  cacheWrite1h: number;
-  output: number;
-  condition: string;
-  source: string;
-};
-
-export function estimateCost(
-  provider: AiProvider,
-  model: string,
-  usage: NormalizedUsage,
-  serviceTier?: string,
-): { cost: string; pricing: PriceSnapshot } | null {
-  if (
-    !usage.known ||
-    (serviceTier && !["default", "standard"].includes(serviceTier))
-  )
-    return null;
-  if (
-    (provider === "openai" && model !== "gpt-6-luna") ||
-    (provider === "anthropic" && model !== "claude-haiku-5-5")
-  )
-    return null;
-  const input = usage.inputTokens as number;
-  const output = usage.outputTokens as number;
-  const cached = usage.cachedInputTokens as number;
-  const written = usage.cacheWriteTokens as number;
-  const multiplier = provider === "anthropic" && input > 100_000 ? 5 : 1;
-  const pricing: PriceSnapshot = {
-    version: "2026-10-15",
-    model,
-    currency: "USD",
-    unit: "nanodollars_per_token",
-    input: 100 * multiplier,
-    cachedInput: 10 * multiplier,
-    cacheWrite: 125 * multiplier,
-    cacheWrite1h: 200 * multiplier,
-    output: 500 * multiplier,
-    condition: `standard-global; input ${input > 100_000 ? ">" : "<="} 100000; no hosted tools`,
-    source:
-      provider === "openai"
-        ? "https://developers.openai.com/api/docs/models/gpt-6-luna"
-        : "https://platform.claude.com/docs/en/about-claude/pricing",
-  };
-  const write1h = provider === "anthropic" ? (usage.write1hTokens ?? 0) : 0;
-  const nano =
-    BigInt(input - cached - written) * BigInt(pricing.input) +
-    BigInt(cached) * BigInt(pricing.cachedInput) +
-    BigInt(written - write1h) * BigInt(pricing.cacheWrite) +
-    BigInt(write1h) * BigInt(pricing.cacheWrite1h) +
-    BigInt(output) * BigInt(pricing.output);
-  return {
-    cost: `${nano / 1_000_000_000n}.${String(nano % 1_000_000_000n).padStart(9, "0")}`,
-    pricing,
-  };
-}
-
 // Convert decimal cents/dollars exactly; never multiply money using float arithmetic.
 export function money(value: unknown, cents = false): string {
   const match = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(value));
