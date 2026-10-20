@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { eq, inArray } from "drizzle-orm";
 import { AccountsService } from "../src/accounts/accounts.service";
@@ -655,6 +657,77 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
       },
     );
 
+    await t.test(
+      "원격 플러그인 UI Origin은 지정 경로에만 credentials 없이 허용",
+      async () => {
+        const pluginUiOrigin = "https://plugin.example.com";
+        const remote = await createApp(
+          { ...config, allowFigmaNullOrigin: false, pluginUiOrigin },
+          lease.folder,
+        );
+        try {
+          await remote.listen(0, "127.0.0.1");
+          const remoteBase = `${await remote.getUrl()}/api/v1`;
+          const preflight = (path: string, method: string, origin: string) =>
+            fetch(`${remoteBase}${path}`, {
+              method: "OPTIONS",
+              headers: {
+                Origin: origin,
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "authorization,content-type",
+              },
+            });
+          for (const [path, method, allowed] of [
+            ["/auth/me", "GET", true],
+            ["/projects", "GET", true],
+            ["/temp-uploads", "POST", true],
+            ["/plugin-connections/token", "POST", true],
+            ["/auth/login", "POST", false],
+            ["/projects", "POST", false],
+            ["/temp-uploads", "GET", false],
+          ] as const) {
+            const response = await preflight(path, method, pluginUiOrigin);
+            assert.equal(
+              response.headers.get("access-control-allow-origin"),
+              allowed ? pluginUiOrigin : null,
+              `${method} ${path}`,
+            );
+            assert.equal(
+              response.headers.get("access-control-allow-credentials"),
+              null,
+            );
+          }
+          // 원격 UI가 열려 있어도 번들 UI의 null Origin은 플래그 없이 막는다
+          assert.equal(
+            (await preflight("/auth/me", "GET", "null")).headers.get(
+              "access-control-allow-origin",
+            ),
+            null,
+          );
+          const created = await create();
+          const approve = await fetch(
+            `${remoteBase}/plugin-connections/requests/${created.requestToken}/approve`,
+            {
+              method: "POST",
+              headers: { Cookie: cookie, Origin: pluginUiOrigin },
+            },
+          );
+          assert.equal(approve.status, 403);
+          assert.equal((await row(created.requestToken)).status, "pending");
+          const browser = await fetch(`${remoteBase}/auth/me`, {
+            headers: { Cookie: cookie, Origin: config.corsOrigins[0] },
+          });
+          assert.equal(browser.status, 200);
+          assert.equal(
+            browser.headers.get("access-control-allow-credentials"),
+            "true",
+          );
+        } finally {
+          await remote.close();
+        }
+      },
+    );
+
     await t.test("OpenAPI operationId와 인증, 교환 DTO 검증 계약", async () => {
       const document = createDocument(app);
       for (const [path, method, operationId] of [
@@ -739,5 +812,44 @@ test("환경 설정은 null Origin 플래그를 일반 CORS 목록과 분리하�
       NODE_ENV: "production",
       ALLOW_FIGMA_NULL_ORIGIN: "true",
     }),
+  );
+});
+
+test("원격 플러그인 UI Origin은 명시적 Origin만 받고 웹 Origin과 섞지 않는다", () => {
+  const env = {
+    DATABASE_URL: "postgresql://unused@127.0.0.1/unused",
+    FILE_STORAGE_ROOT: join(tmpdir(), "cheddar-env-test"),
+    NODE_ENV: "development",
+    AI_PROVIDER: "fake",
+    CORS_ORIGINS: "http://127.0.0.1:5173",
+  };
+  assert.equal(readEnv(env).pluginUiOrigin, undefined);
+  assert.equal(
+    readEnv({ ...env, PLUGIN_UI_ORIGIN: "http://localhost:5174" })
+      .pluginUiOrigin,
+    "http://localhost:5174",
+  );
+  for (const value of [
+    "http://localhost:5174/",
+    "https://plugin.example.com/ui",
+    "null",
+    "ftp://plugin.example.com",
+    "http://127.0.0.1:5173",
+  ])
+    assert.throws(() => readEnv({ ...env, PLUGIN_UI_ORIGIN: value }), value);
+  assert.throws(() =>
+    readEnv({
+      ...env,
+      NODE_ENV: "production",
+      PLUGIN_UI_ORIGIN: "http://plugin.example.com",
+    }),
+  );
+  assert.equal(
+    readEnv({
+      ...env,
+      NODE_ENV: "production",
+      PLUGIN_UI_ORIGIN: "https://plugin.example.com",
+    }).pluginUiOrigin,
+    "https://plugin.example.com",
   );
 });

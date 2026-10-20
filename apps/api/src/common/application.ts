@@ -14,6 +14,21 @@ import { createDocument } from "./openapi";
 import { isPluginCorsRequest } from "./plugin-cors";
 import { validationPipe } from "./validation";
 
+// Figma 플러그인 UI가 보내는 Origin. 번들 UI는 null, 원격 UI는 PLUGIN_UI_ORIGIN이다.
+// 둘 다 지정한 플러그인 경로에만 credentials 없이 허용한다.
+function pluginOrigin(config: ApiEnv, origin: string | undefined) {
+  return (
+    origin === "null" ||
+    (config.pluginUiOrigin !== undefined && origin === config.pluginUiOrigin)
+  );
+}
+function pluginAllowed(config: ApiEnv, req: Request) {
+  return (
+    (req.headers.origin !== "null" || config.allowFigmaNullOrigin === true) &&
+    isPluginCorsRequest(req)
+  );
+}
+
 export function configureApp(app: INestApplication, config: ApiEnv) {
   app.useWebSocketAdapter(new WsAdapter(app));
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -54,8 +69,8 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
     const origin = req.headers.origin;
     if (
       origin &&
-      !(origin === "null"
-        ? config.allowFigmaNullOrigin && isPluginCorsRequest(req)
+      !(pluginOrigin(config, origin)
+        ? pluginAllowed(config, req)
         : config.corsOrigins.includes(origin)) &&
       !["GET", "HEAD", "OPTIONS"].includes(req.method)
     ) {
@@ -72,17 +87,13 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
   });
   (app as NestExpressApplication).useBodyParser("json", { limit: "5mb" });
   app.enableCors((req: Request, callback: CorsOptionsCallback) => {
-    const pluginOrigin = req.headers.origin === "null";
+    const plugin = pluginOrigin(config, req.headers.origin);
     callback(null, {
-      origin: pluginOrigin
-        ? config.allowFigmaNullOrigin === true && isPluginCorsRequest(req)
-          ? "null"
-          : false
+      origin: plugin
+        ? pluginAllowed(config, req) && (req.headers.origin as string)
         : config.corsOrigins.filter((origin) => origin !== "null"),
-      credentials: !pluginOrigin,
-      ...(pluginOrigin
-        ? { allowedHeaders: ["Authorization", "Content-Type"] }
-        : {}),
+      credentials: !plugin,
+      ...(plugin ? { allowedHeaders: ["Authorization", "Content-Type"] } : {}),
       exposedHeaders: ["X-Request-Id", "Content-Disposition"],
     });
   });

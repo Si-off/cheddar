@@ -11,6 +11,8 @@ export interface ApiEnv {
   port: number;
   corsOrigins: string[];
   allowFigmaNullOrigin?: boolean;
+  /** 원격으로 호스팅한 플러그인 UI의 Origin. 플러그인 경로에만 credentials 없이 허용한다 */
+  pluginUiOrigin?: string;
   production?: boolean;
   generationConcurrency?: number;
   costSync?: {
@@ -68,6 +70,25 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     if (env.NODE_ENV !== "development")
       throw new Error("ALLOW_FIGMA_NULL_ORIGIN requires NODE_ENV=development.");
   }
+  const pluginUiOrigin = env.PLUGIN_UI_ORIGIN?.trim() || undefined;
+  if (pluginUiOrigin) {
+    let url: URL;
+    try {
+      url = new URL(pluginUiOrigin);
+    } catch {
+      throw new Error("PLUGIN_UI_ORIGIN must be an explicit HTTP origin.");
+    }
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.origin !== pluginUiOrigin
+    )
+      throw new Error("PLUGIN_UI_ORIGIN must be an explicit HTTP origin.");
+    if (env.NODE_ENV === "production" && url.protocol !== "https:")
+      throw new Error("PLUGIN_UI_ORIGIN must use HTTPS in production.");
+    // 쿠키를 함께 받는 웹 Origin과 섞으면 플러그인 경로 제한이 사라진다
+    if (corsOrigins.includes(pluginUiOrigin))
+      throw new Error("PLUGIN_UI_ORIGIN must not be listed in CORS_ORIGINS.");
+  }
   const costSource = (key: string, scope: string): CostSource | undefined => {
     const adminKey = env[key]?.trim();
     const scopeId = env[scope]?.trim();
@@ -92,6 +113,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     port,
     corsOrigins,
     allowFigmaNullOrigin: allowNullOrigin === "true",
+    pluginUiOrigin,
     production: env.NODE_ENV === "production",
     generationConcurrency,
     costSync: {
