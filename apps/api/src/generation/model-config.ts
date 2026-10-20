@@ -34,11 +34,11 @@ export const MODEL_ALIASES: Record<string, string> = {
 
 /** 단계별 기본 모델과 effort. 환경변수 AI_MODEL_<단계>, AI_EFFORT_<단계>로 바꾼다. */
 const defaults: Record<Stage, { model: string; effort: Effort }> = {
-  screens: { model: "sonnet", effort: "low" },
+  screens: { model: "terra", effort: "low" },
   flows: { model: "terra", effort: "medium" },
   cases: { model: "terra", effort: "high" },
-  finish: { model: "haiku", effort: "low" },
-  rewrite: { model: "sonnet", effort: "medium" },
+  finish: { model: "luna", effort: "low" },
+  rewrite: { model: "terra", effort: "medium" },
 };
 
 export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {

@@ -147,6 +147,7 @@
 
 ### 5b단계 AI 생성 구현
 
+- 기본 모델은 `screens`·`flows`·`cases`·`rewrite`에 `terra`(GPT-5.6 Terra), `finish`에 `luna`(GPT-6 Luna)를 쓴다. 모델 변경과 별개로 단계별 출력 토큰 한도와 effort는 유지한다.
 - `kind: initial`은 요청자 소유의 `uploadId`가 필수다. 메모만으로 최초 생성할 수 없다. `kind: append`는 업로드 없이 비어 있지 않은 메모만으로 실행할 수 있으며 업로드와 메모가 모두 없으면 400이다.
 - 제공자 전송용 스키마는 [Anthropic 지원 범위](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations)와 [OpenAI strict 지원 범위](https://developers.openai.com/api/docs/guides/structured-outputs#supported-schemas)의 공통 부분집합을 사용한다. 글자 수, 배열 개수와 중복, 숫자 최솟값 제약은 전송 시 설명으로 옮기고 원본 스키마로 서버에서 검증한다. OpenAI의 fine-tuned 모델에도 같은 전송 형식을 쓴다. SDK가 요청 시간 초과를 사용자 중단 오류로 감싸더라도 시간 초과는 재시도하며 서버 종료에 의한 중단은 재개용으로 보존한다.
 - 열 저장 트랜잭션에서 모든 상태의 확인 필요 초안도 케이스와 같은 값 정리 규칙을 적용한다. 삭제된 열은 제거하고, 선택지와 형식 변경은 유효한 값만 보존하거나 텍스트로 변환한다. 만료 정리는 `.incoming`의 수정 시각이 1시간 이상 지난 UUID 일반 파일도 제거하며 최근 스테이징과 게시된 파일은 보존한다. SSE의 반복 조회는 계정 활성 상태와 만료 시각도 확인하며 더 이상 유효하지 않으면 연결을 닫는다.
