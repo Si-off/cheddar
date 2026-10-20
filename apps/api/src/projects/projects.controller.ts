@@ -12,6 +12,7 @@ import {
   Put,
 } from "@nestjs/common";
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiCookieAuth,
   ApiCreatedResponse,
@@ -20,7 +21,11 @@ import {
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
-import { CurrentAccount, RequirePermission } from "../authorization/guards";
+import {
+  AllowPluginToken,
+  CurrentAccount,
+  RequirePermission,
+} from "../authorization/guards";
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
@@ -54,7 +59,10 @@ export class ProjectsController {
   constructor(
     @Inject(ProjectsService) private readonly service: ProjectsService,
   ) {}
+  // 플러그인이 업로드할 프로젝트를 고를 때도 쓴다
   @Get()
+  @AllowPluginToken()
+  @ApiBearerAuth()
   @ApiOperation({
     operationId: "listProjects",
     summary: "볼 수 있는 프로젝트 목록",

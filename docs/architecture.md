@@ -201,8 +201,8 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | visitor_sessions | 세트, 브라우저 토큰 해시, 표시 이름. 같은 세트의 브라우저·이름 각각 유일 |
 | plugin_connections | 요청 토큰 해시, 승인 계정, 계정 토큰 해시, pending/approved/revoked, 만료·승인·폐기 시각 |
 
-- 7단계 플러그인 연결은 10분 요청을 브라우저 세션으로 승인하고 30일 Bearer 토큰을 한 번 발급한다(`token_expires_at` 별도 저장). Bearer는 `GET /api/v1/auth/me`, `POST /api/v1/temp-uploads`, `DELETE /api/v1/plugin-connections/current`만 허용하며, 계정 비활성화·비밀번호 변경 시 함께 폐기한다. 업로드는 전체 `plugin.upload` 권한을 요구한다.
-- `ALLOW_FIGMA_NULL_ORIGIN=true`는 development에서 위 세 경로와 연결 요청 생성·토큰 교환에만 `Origin: null`을 credentials 없이 허용한다. 운영 환경의 Figma Origin 허용 방식은 배포 때 다시 정한다.
+- 7단계 플러그인 연결은 10분 요청을 브라우저 세션으로 승인하고 30일 Bearer 토큰을 한 번 발급한다(`token_expires_at` 별도 저장). Bearer는 `GET /api/v1/auth/me`, `GET /api/v1/projects`, `POST /api/v1/temp-uploads`, `DELETE /api/v1/plugin-connections/current`만 허용하며, 계정 비활성화·비밀번호 변경 시 함께 폐기한다. 업로드는 전체 `plugin.upload` 권한을 요구한다.
+- `ALLOW_FIGMA_NULL_ORIGIN=true`는 development에서 위 네 경로와 연결 요청 생성·토큰 교환에만 `Origin: null`을 credentials 없이 허용한다. 운영 환경의 Figma Origin 허용 방식은 배포 때 다시 정한다.
 
 아직 없는 API에서 지켜야 할 조건은 후속 구현에 남는다. 테스트 세트의 프로젝트 불변, 테스트 세트 안의 필수 시스템 열 2개 보호, JSONB 셀 값의 열 형식·선택 값 검증, 생성 종료 시 임시 자료·단계 입력/출력 삭제, 공개 권한 변경 시 연결 종료는 이번 단계의 스키마만으로 완성되지 않는다. 프로젝트 기본 양식의 시스템 항목 보호와 화면 구조의 다단계 순환 금지는 4단계 서비스에서 검사한다.
 
@@ -250,7 +250,8 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 - 원본 JSON 대신 보드별 화면 문서를 만든다. 남기는 것: 글자(읽는 순서), 프레임과 인스턴스 이름, 컴포넌트 속성 값, 연결선, Dev Mode 주석. 버리는 것: 숨김 노드, 벡터와 아이콘과 장식, 스타일, 절대 좌표. 같은 컴포넌트가 반복되는 목록과 표 행은 처음 두 개와 개수로 접는다.
 - 이미지는 보드 단위로 렌더하고, 큰 보드는 겹치게 타일로 자른다. 높이 2000px까지는 한 장, 넘으면 1600px 타일을 200px씩 겹친다(플러그인 UI의 canvas에서 자른다).
 - 화면 문서 형식은 `schemaVersion: 2`의 `{ board, texts, tree, links, notes }`다. 보드 밖으로 가는 연결 대상 이름은 main이 노드를 찾아 채우고, 찾지 못한 연결은 버린다.
-- 플러그인 계정 토큰은 iframe이 저장소를 쓸 수 없어 main의 `figma.clientStorage`에 둔다.
+- 플러그인 계정 토큰과 지난번 고른 프로젝트 ID는 iframe이 저장소를 쓸 수 없어 main의 `figma.clientStorage`에 둔다.
+- 고른 프로젝트는 임시 업로드에 저장하지 않고 웹 주소(`/test-sets/new?upload=<id>&project=<id>`)로 넘긴다. 고를 수 있는 프로젝트는 `/auth/me` 권한의 `test_set.create`로 웹과 같은 규칙으로 거른다.
 - main은 IIFE JavaScript, UI는 단일 HTML로 따로 빌드한다. 실제 Figma iframe relay는 Figma Origin과 manifest pluginId를 검사한다.
 - 플러그인 ID `1692417282897261384`. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`, API 주소는 `VITE_API_BASE_URL`에서 읽는다. 배포용 네트워크 허용은 `none`이며 배포 전 다시 정한다.
 

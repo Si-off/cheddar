@@ -239,18 +239,30 @@ const uploadSearch = (
       : undefined,
 });
 
+/** 플러그인이 고른 프로젝트도 함께 받는다 */
+const newTestSetSearch = (
+  search: Record<string, unknown>,
+): { upload?: string; project?: string } => ({
+  ...uploadSearch(search),
+  project:
+    typeof search.project === "string" &&
+    /^[0-9a-f-]{36}$/i.test(search.project)
+      ? search.project
+      : undefined,
+});
+
 const testSetNewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/test-sets/new",
-  validateSearch: uploadSearch,
+  validateSearch: newTestSetSearch,
   beforeLoad: async ({ context }) => {
     const account = await context.queryClient.query(currentAccountQuery());
     if (!canAnywhere(account.permissions, "test_set.create"))
       throw redirect({ to: "/no-access" });
   },
   component: function TestSetNewRoute() {
-    const { upload } = testSetNewRoute.useSearch();
-    return <TestSetNewPage uploadId={upload} />;
+    const { upload, project } = testSetNewRoute.useSearch();
+    return <TestSetNewPage uploadId={upload} projectId={project} />;
   },
 });
 

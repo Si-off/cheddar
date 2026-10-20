@@ -1,6 +1,7 @@
 import {
   type ExportErrorCode,
   type FrameSelection,
+  isResourceId,
   isToken,
   isUiToMainMessage,
   MAX_FRAME_DATA_BYTES,
@@ -18,6 +19,7 @@ import {
 
 declare const __WEB_BASE_URL__: string;
 const AUTH_KEY = "cheddar.pluginToken";
+const PROJECT_KEY = "cheddar.lastProjectId";
 
 figma.showUI(__html__, { width: 360, height: 560, themeColors: true });
 type Session = {
@@ -138,7 +140,7 @@ async function handle(
   if (message.type === "open-upload-web") {
     if (!__WEB_BASE_URL__) throw new Error("WEB_UNAVAILABLE");
     figma.openExternal(
-      `${__WEB_BASE_URL__}/test-sets/new?upload=${encodeURIComponent(message.uploadId)}`,
+      `${__WEB_BASE_URL__}/test-sets/new?upload=${encodeURIComponent(message.uploadId)}&project=${encodeURIComponent(message.projectId)}`,
     );
     send({ type: "upload-web-opened", requestId: message.requestId });
     return;
@@ -149,6 +151,12 @@ async function handle(
       `${__WEB_BASE_URL__}/plugin-connect?request=${encodeURIComponent(message.requestToken)}`,
     );
     send({ type: "connect-web-opened", requestId: message.requestId });
+    return;
+  }
+  if (message.type === "open-home-web") {
+    if (!__WEB_BASE_URL__) throw new Error("WEB_UNAVAILABLE");
+    figma.openExternal(`${__WEB_BASE_URL__}/test-sets`);
+    send({ type: "home-web-opened", requestId: message.requestId });
     return;
   }
   // 플러그인 iframe은 저장소를 쓸 수 없어 계정 토큰은 main의 clientStorage에 둔다
@@ -166,6 +174,23 @@ async function handle(
       await figma.clientStorage.setAsync(AUTH_KEY, message.token);
     else await figma.clientStorage.deleteAsync(AUTH_KEY);
     send({ type: "auth-saved", requestId: message.requestId });
+    return;
+  }
+  // 지난번 고른 프로젝트를 다음 업로드의 기본값으로 쓴다
+  if (message.type === "load-project") {
+    const projectId: unknown = await figma.clientStorage.getAsync(PROJECT_KEY);
+    send({
+      type: "project-loaded",
+      requestId: message.requestId,
+      projectId: isResourceId(projectId) ? projectId : null,
+    });
+    return;
+  }
+  if (message.type === "save-project") {
+    if (message.projectId)
+      await figma.clientStorage.setAsync(PROJECT_KEY, message.projectId);
+    else await figma.clientStorage.deleteAsync(PROJECT_KEY);
+    send({ type: "project-saved", requestId: message.requestId });
     return;
   }
   if (message.type === "thumbnail-frame") {

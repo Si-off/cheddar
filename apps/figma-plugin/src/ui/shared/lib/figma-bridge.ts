@@ -79,12 +79,23 @@ export function requestFrameThumbnail(
     "frame-thumbnail",
   );
 }
-export function openUploadInWeb(uploadId: string) {
-  if (!isResourceId(uploadId))
+export function openUploadInWeb(uploadId: string, projectId: string) {
+  if (!isResourceId(uploadId) || !isResourceId(projectId))
     return Promise.reject(new FigmaExportError("WEB_UNAVAILABLE"));
   return request(
-    { type: "open-upload-web", requestId: createRequestId(), uploadId },
+    {
+      type: "open-upload-web",
+      requestId: createRequestId(),
+      uploadId,
+      projectId,
+    },
     "upload-web-opened",
+  );
+}
+export function openHomeInWeb() {
+  return request(
+    { type: "open-home-web", requestId: createRequestId() },
+    "home-web-opened",
   );
 }
 export function openConnectInWeb(requestToken: string) {
@@ -107,6 +118,20 @@ export async function saveAuthToken(token: string | null) {
   await request(
     { type: "save-auth", requestId: createRequestId(), token },
     "auth-saved",
+  );
+}
+export async function loadLastProject() {
+  return (
+    await request(
+      { type: "load-project", requestId: createRequestId() },
+      "project-loaded",
+    )
+  ).projectId;
+}
+export async function saveLastProject(projectId: string | null) {
+  await request(
+    { type: "save-project", requestId: createRequestId(), projectId },
+    "project-saved",
   );
 }
 export function prepareFrameUpload(selectionVersion: number) {

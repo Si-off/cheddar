@@ -500,18 +500,26 @@ test("web open accepts resource IDs only and uses the configured web base", asyn
     type: "open-upload-web",
     requestId: "open",
     uploadId: "20000000-0000-4000-8000-000000000002",
+    projectId: "30000000-0000-4000-8000-000000000003",
   };
   assert.equal((await subject.send(message)).type, "upload-web-opened");
   assert.deepEqual(subject.opened, [
-    "http://127.0.0.1:5176/test-sets/new?upload=20000000-0000-4000-8000-000000000002",
+    "http://127.0.0.1:5176/test-sets/new?upload=20000000-0000-4000-8000-000000000002&project=30000000-0000-4000-8000-000000000003",
   ]);
+  for (const bad of [
+    { uploadId: "https://evil.test" },
+    { projectId: "../x" },
+    { projectId: undefined },
+  ])
+    assert.equal(
+      subject.protocol.isUiToMainMessage({ ...message, ...bad }),
+      false,
+    );
   assert.equal(
-    subject.protocol.isUiToMainMessage({
-      ...message,
-      uploadId: "https://evil.test",
-    }),
-    false,
+    (await subject.send({ type: "open-home-web", requestId: "home" })).type,
+    "home-web-opened",
   );
+  assert.equal(subject.opened.at(-1), "http://127.0.0.1:5176/test-sets");
   const token = "a".repeat(43);
   assert.equal(
     (
@@ -556,4 +564,27 @@ test("the account token is kept in client storage and can be cleared", async () 
     (await subject.send({ type: "load-auth", requestId: "l3" })).token,
     null,
   );
+});
+test("the last project is remembered and only project IDs are accepted", async () => {
+  const subject = setup();
+  const projectId = "30000000-0000-4000-8000-000000000003";
+  const load = async (requestId) =>
+    (await subject.send({ type: "load-project", requestId })).projectId;
+  assert.equal(await load("p1"), null);
+  await subject.send({ type: "save-project", requestId: "p2", projectId });
+  assert.equal(await load("p3"), projectId);
+  assert.equal(
+    subject.protocol.isUiToMainMessage({
+      type: "save-project",
+      requestId: "bad",
+      projectId: "../x",
+    }),
+    false,
+  );
+  await subject.send({
+    type: "save-project",
+    requestId: "p4",
+    projectId: null,
+  });
+  assert.equal(await load("p5"), null);
 });
