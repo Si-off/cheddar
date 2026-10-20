@@ -16,6 +16,7 @@ import type {
   CreatedPluginConnectionDto,
   PluginConnectionTokenDto,
 } from "../src/contracts/plugin-connection.dto";
+import type { ProjectListDto } from "../src/contracts/project.dto";
 import {
   accounts as accountRows,
   pluginConnections,
@@ -341,7 +342,8 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           second = await issue();
         for (const [path, method] of [
           ["/accounts", "GET"],
-          ["/projects", "GET"],
+          ["/projects", "POST"],
+          ["/projects/00000000-0000-4000-8000-000000000000", "GET"],
           ["/auth/logout", "POST"],
           ["/plugin-connections/requests/unknown", "GET"],
           [
@@ -451,6 +453,37 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
     });
 
     await t.test(
+      "플러그인 토큰은 볼 수 있는 프로젝트 목록만 받는다",
+      async () => {
+        const project = await app
+          .get(ProjectsService)
+          .create(admin.account.id, {
+            name: "플러그인 목록 프로젝트",
+            description: "",
+          });
+        const ids = async (token: string) =>
+          (
+            await json<ProjectListDto>(
+              await request("/projects", "GET", undefined, bearer(token)),
+            )
+          ).items.map((item) => item.id);
+        const adminConnection = await issue();
+        assert.ok((await ids(adminConnection.token)).includes(project.id));
+        assert.deepEqual(
+          await ids(adminConnection.token),
+          (
+            await json<ProjectListDto>(
+              await request("/projects", "GET", undefined, { Cookie: cookie }),
+            )
+          ).items.map((item) => item.id),
+          "브라우저와 같은 목록을 받는다.",
+        );
+        const personConnection = await issue(personCookie);
+        assert.ok(!(await ids(personConnection.token)).includes(project.id));
+      },
+    );
+
+    await t.test(
       "계정 만료 확인, 비활성화와 비밀번호 변경 시 모든 연결 영구 폐기",
       async () => {
         const first = await issue(personCookie),
@@ -516,12 +549,14 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           ["/plugin-connections", "POST"],
           ["/plugin-connections/token", "POST"],
           ["/auth/me", "GET"],
+          ["/projects", "GET"],
           ["/temp-uploads", "POST"],
           ["/plugin-connections/current", "DELETE"],
         ];
         const blocked = [
           ["/auth/login", "POST"],
-          ["/projects", "GET"],
+          ["/projects", "POST"],
+          ["/projects/unknown", "GET"],
           ["/plugin-connections/requests/unknown", "GET"],
           ["/plugin-connections/requests/unknown/approve", "POST"],
           ["/temp-uploads/unknown", "GET"],
@@ -648,6 +683,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
         assert.equal(document.paths[path][method]?.operationId, operationId);
       for (const operation of [
         document.paths["/api/v1/auth/me"].get,
+        document.paths["/api/v1/projects"].get,
         document.paths["/api/v1/temp-uploads"].post,
       ]) {
         assert.deepEqual(

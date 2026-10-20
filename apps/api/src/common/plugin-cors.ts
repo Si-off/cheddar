@@ -8,7 +8,8 @@ export function isPluginCorsRequest(request: Request) {
       : request.method;
   const path = request.path.replace(/\/$/, "").toLowerCase();
   return (
-    (method === "GET" && path === "/api/v1/auth/me") ||
+    (method === "GET" &&
+      ["/api/v1/auth/me", "/api/v1/projects"].includes(path)) ||
     (method === "POST" &&
       [
         "/api/v1/temp-uploads",

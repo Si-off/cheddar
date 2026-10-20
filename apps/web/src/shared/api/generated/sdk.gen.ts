@@ -451,7 +451,7 @@ export const listProjects = <ThrowOnError extends boolean = false>(options?: Opt
             in: 'cookie',
             name: 'cheddar_session',
             type: 'apiKey'
-        }],
+        }, { scheme: 'bearer', type: 'http' }],
     url: '/api/v1/projects',
     ...options
 });
