@@ -97,7 +97,12 @@ test("프로젝트 DTO는 공백, 길이, null, 형식과 알 수 없는 속성�
 
 test("양식 검증은 시스템 항목, UUID, 이름, 형식, 선택 값과 경계를 지킴", () => {
   const valid = () => ({ revision: 1, columns: defaultColumns() });
-  assert.equal(validateTemplate(valid()).columns.length, 6);
+  assert.equal(validateTemplate(valid()).columns.length, 14);
+  const choice = (dto: ReturnType<typeof valid>) => {
+    const column = dto.columns.find((c) => c.name === "사용자/관리자");
+    assert.ok(column);
+    return column;
+  };
   assert.equal(DEFAULT_REQUIRED_CASES.length, 12);
   const mutations: ((dto: ReturnType<typeof valid>) => void)[] = [
     (dto) => {
@@ -143,20 +148,20 @@ test("양식 검증은 시스템 항목, UUID, 이름, 형식, 선택 값과 경
       dto.columns[2].description = "a".repeat(2001);
     },
     (dto) => {
-      dto.columns[5].options = [];
+      choice(dto).options = [];
     },
     (dto) => {
-      dto.columns[5].options = [" "];
+      choice(dto).options = [" "];
     },
     (dto) => {
-      dto.columns[5].options = ["높음", " 높음 "];
+      choice(dto).options = ["높음", " 높음 "];
     },
     (dto) => {
-      dto.columns[5].type = "tags";
-      dto.columns[5].options = ["a".repeat(101)];
+      choice(dto).type = "tags";
+      choice(dto).options = ["a".repeat(101)];
     },
     (dto) => {
-      dto.columns[5].options = Array.from({ length: 51 }, (_, i) => String(i));
+      choice(dto).options = Array.from({ length: 51 }, (_, i) => String(i));
     },
   ];
   for (const mutate of mutations) {
@@ -177,13 +182,13 @@ test("양식 검증은 시스템 항목, UUID, 이름, 형식, 선택 값과 경
   dto.columns[0].description = "  설명 변경 가능  ";
   dto.columns[2].type = "checkbox";
   dto.columns[2].options = ["저장하지 않음"];
-  dto.columns[5].type = "tags";
-  dto.columns[5].options = ["  값  "];
+  choice(dto).type = "tags";
+  choice(dto).options = ["  값  "];
   const normalized = validateTemplate(dto);
   assert.deepEqual(normalized.columns[0].options, []);
   assert.equal(normalized.columns[0].description, "설명 변경 가능");
   assert.deepEqual(normalized.columns[2].options, []);
-  assert.deepEqual(normalized.columns[5].options, ["값"]);
+  assert.deepEqual(choice(normalized).options, ["값"]);
   const max = valid();
   while (max.columns.length < 50)
     max.columns.push({

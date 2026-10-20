@@ -53,20 +53,107 @@ export function validateTemplate(input: unknown): UpdateTemplateDto {
   return dto;
 }
 export function defaultColumns(): TemplateColumnDto[] {
-  return [
-    "테스트 ID",
-    "제목",
-    "사전 조건",
-    "수행 절차",
-    "예상 결과",
-    "우선순위",
-  ].map((name, index) => ({
+  const columns: Omit<TemplateColumnDto, "id" | "systemKey">[] = [
+    {
+      name: "테스트 ID",
+      type: "text",
+      description: "각 테스트 케이스를 구분하는 번호입니다.",
+      options: [],
+    },
+    {
+      name: "제목",
+      type: "text",
+      description: "확인할 작업이나 조건을 한 문장으로 적습니다.",
+      options: [],
+    },
+    {
+      name: "테스트 환경",
+      type: "text",
+      description:
+        "앱, 웹, 관리자 화면 등 테스트할 환경을 적습니다. 확인되지 않은 환경은 비워둡니다.",
+      options: [],
+    },
+    {
+      name: "테스트 케이스",
+      type: "text",
+      description: "테스트 대상 화면과 확인할 기능을 적습니다.",
+      options: [],
+    },
+    {
+      name: "사용자/관리자",
+      type: "select",
+      description:
+        "테스트를 수행할 계정 유형을 고릅니다. 확인되지 않으면 비워둡니다.",
+      options: ["사용자", "관리자"],
+    },
+    {
+      name: "화면 ID 또는 URL",
+      type: "text",
+      description:
+        "제공된 화면 ID나 화면 주소를 적습니다. 확인되지 않은 값은 만들지 않고 비워둡니다.",
+      options: [],
+    },
+    {
+      name: "수행 절차",
+      type: "text",
+      description:
+        "시작 화면과 필요한 사전 조건을 포함해 수행할 행동을 번호 순서로 적습니다.",
+      options: [],
+    },
+    {
+      name: "예상 결과",
+      type: "text",
+      description:
+        "절차를 수행했을 때 확인할 화면, 문구, 상태와 동작을 구체적으로 적습니다.",
+      options: [],
+    },
+    {
+      name: "QA 결과",
+      type: "select",
+      description:
+        "실제 테스트 후 결과를 고릅니다. 테스트를 수행하기 전에는 비워둡니다.",
+      options: ["Pass", "Fail", "Deferred", "N/A", "-", "추가 요청"],
+    },
+    {
+      name: "QA 담당자",
+      type: "text",
+      description:
+        "배정된 QA 담당자를 적습니다. 담당자가 정해지지 않았으면 비워둡니다.",
+      options: [],
+    },
+    {
+      name: "결과 및 의견",
+      type: "text",
+      description:
+        "실제 테스트에서 확인한 결과와 의견을 적습니다. 테스트를 수행하기 전에는 비워둡니다.",
+      options: [],
+    },
+    {
+      name: "개발 진행 상태",
+      type: "select",
+      description:
+        "개발 작업의 현재 상태를 고릅니다. 확인되지 않은 상태는 비워둡니다.",
+      options: ["완료", "수정중", "수정 완료", "보류", "기타", "-"],
+    },
+    {
+      name: "개발 담당자",
+      type: "text",
+      description:
+        "배정된 개발 담당자를 적습니다. 담당자가 정해지지 않았으면 비워둡니다.",
+      options: [],
+    },
+    {
+      name: "추가 정보",
+      type: "text",
+      description:
+        "해당 테스트 케이스에 필요한 참고 사항을 적습니다. 참고 사항이 없으면 비워둡니다.",
+      options: [],
+    },
+  ];
+  return columns.map((column, index) => ({
+    ...column,
     id: randomUUID(),
-    name,
     systemKey: index === 0 ? "test_id" : index === 1 ? "title" : null,
-    type: index === 5 ? "select" : "text",
-    description: "",
-    options: index === 5 ? ["높음", "보통", "낮음"] : [],
   }));
 }
 export const DEFAULT_REQUIRED_CASES = [

@@ -685,9 +685,11 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
     await t.test(
       "방문자 보기 설정은 사람별로 저장하며 내보내기는 고정 역할을 따름",
       async () => {
+        const select = set.columns.find((column) => column.type === "select");
+        assert.ok(select);
         const view: TestSetViewDto = {
           view: "card",
-          groupByColumnId: set.columns[5].id,
+          groupByColumnId: select.id,
           columnWidths: { [set.columns[1].id]: 150 },
           rowHeights: {},
         };

@@ -172,7 +172,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         await projects.saveTemplate(p.id, template);
         assert.equal(
           (await sets.detail(first.id, admin.account.id)).columns[2].name,
-          "사전 조건",
+          "테스트 환경",
         );
         await error(
           await request(

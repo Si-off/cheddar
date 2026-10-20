@@ -141,18 +141,45 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           [
             "테스트 ID",
             "제목",
-            "사전 조건",
+            "테스트 환경",
+            "테스트 케이스",
+            "사용자/관리자",
+            "화면 ID 또는 URL",
             "수행 절차",
             "예상 결과",
-            "우선순위",
+            "QA 결과",
+            "QA 담당자",
+            "결과 및 의견",
+            "개발 진행 상태",
+            "개발 담당자",
+            "추가 정보",
           ],
         );
         assert.deepEqual(
-          template.columns.map((c) => c.systemKey),
-          ["test_id", "title", null, null, null, null],
+          template.columns.filter((c) => c.systemKey).map((c) => c.systemKey),
+          ["test_id", "title"],
         );
-        assert.deepEqual(template.columns[5].options, ["높음", "보통", "낮음"]);
-        assert.equal(new Set(template.columns.map((c) => c.id)).size, 6);
+        assert.deepEqual(
+          template.columns
+            .filter((c) => c.type === "select")
+            .map((c) => ({
+              name: c.name,
+              options: c.options,
+            })),
+          [
+            { name: "사용자/관리자", options: ["사용자", "관리자"] },
+            {
+              name: "QA 결과",
+              options: ["Pass", "Fail", "Deferred", "N/A", "-", "추가 요청"],
+            },
+            {
+              name: "개발 진행 상태",
+              options: ["완료", "수정중", "수정 완료", "보류", "기타", "-"],
+            },
+          ],
+        );
+        assert.ok(template.columns.every((c) => c.description.length > 0));
+        assert.equal(new Set(template.columns.map((c) => c.id)).size, 14);
         const cases = await asJson<RequiredCaseListDto>(
           await request(`/${first.id}/required-cases`),
         );
@@ -178,7 +205,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           [first.id, second.id],
         );
         assert.ok(
-          list.items.every((p) => p.columnCount === 6 && p.screenCount === 0),
+          list.items.every((p) => p.columnCount === 14 && p.screenCount === 0),
         );
       },
     );

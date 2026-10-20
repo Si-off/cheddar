@@ -407,6 +407,8 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
       "확인 필요는 보기 권한, 수정과 제외 복원, 다시 작성과 추가를 지원",
       async () => {
         let item = (await reviews())[0];
+        const select = set.columns.find((column) => column.type === "select");
+        assert.ok(select);
         await error(
           await request(
             `/review-items/${item.id}`,
@@ -419,7 +421,9 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
         );
         await error(
           await request(`/review-items/${item.id}`, "PATCH", {
-            draft: { [set.columns[5].id]: "잘못된 선택" },
+            draft: {
+              [select.id]: "잘못된 선택",
+            },
           }),
           400,
           "VALIDATION_FAILED",

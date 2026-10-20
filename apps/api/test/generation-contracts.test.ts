@@ -148,10 +148,23 @@ test("양식 스키마는 UUID 키, 선택 enum, 태그 중복과 필수 항목�
   validateSchema(r.schema, output);
   const draft = output.cases[0];
   validateDraft(context.columns, draft);
+  const select = context.columns.find((column) => column.type === "select");
+  const tags = context.columns.find((column) => column.type === "tags");
+  const checkbox = context.columns.find((column) => column.type === "checkbox");
+  assert.ok(select && tags && checkbox);
   for (const bad of [
-    { ...draft, [context.columns[5].id]: "なし" },
-    { ...draft, [context.columns[6].id]: ["화면", "화면"] },
-    { ...draft, [context.columns[7].id]: null },
+    {
+      ...draft,
+      [select.id]: "なし",
+    },
+    {
+      ...draft,
+      [tags.id]: ["화면", "화면"],
+    },
+    {
+      ...draft,
+      [checkbox.id]: null,
+    },
     { ...draft, [randomUUID()]: "외부 열" },
     {},
   ])
