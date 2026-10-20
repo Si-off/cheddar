@@ -33,6 +33,59 @@ const running = {
   errorMessage: null,
 };
 
+test("진행 이벤트를 받은 뒤 이전 단계로 돌아가며 깜빡이지 않는다", async ({
+  page,
+}) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/test-sets/t1": testSet,
+    "GET /api/v1/test-sets/t1/generations/current": running,
+  });
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(`${API}/api/v1/generations/*/events`, async (route) => {
+    await ready;
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "access-control-allow-origin": "http://127.0.0.1:5173",
+        "access-control-allow-credentials": "true",
+      },
+      contentType: "text/event-stream",
+      body: 'event: progress\ndata: {"stage":"cases","status":"running"}\n\n',
+    });
+  });
+  await page.goto("/test-sets/t1/generating");
+  const steps = page.getByRole("list", { name: "진행 단계" });
+  await expect(steps.locator('[aria-current="step"]')).toHaveText(
+    "화면 살펴보기",
+  );
+  await steps.evaluate((element) => {
+    const history: string[] = [];
+    (window as Window & { stageHistory?: string[] }).stageHistory = history;
+    new MutationObserver(() => {
+      const label =
+        element.querySelector('[aria-current="step"]')?.textContent ?? "";
+      if (history.at(-1) !== label) history.push(label);
+    }).observe(element, { subtree: true, attributes: true, childList: true });
+  });
+  release();
+  await expect(steps.locator('[aria-current="step"]')).toHaveText(
+    "테스트 케이스 작성하기",
+  );
+  // 진행 상태가 다시 렌더링된 뒤에도 이전 단계가 잠깐 표시되지 않아야 한다.
+  await page.waitForTimeout(500);
+  const history = await page.evaluate(
+    () => (window as Window & { stageHistory?: string[] }).stageHistory ?? [],
+  );
+  expect(history).toContain("테스트 케이스 작성하기");
+  expect(
+    history.slice(history.indexOf("테스트 케이스 작성하기")),
+  ).not.toContain("화면 살펴보기");
+});
+
 test("플러그인에서 올린 프레임으로 케이스를 생성하면 진행 단계를 보여준 뒤 테스트 세트를 연다", async ({
   page,
 }) => {

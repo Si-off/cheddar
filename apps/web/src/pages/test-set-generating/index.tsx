@@ -11,7 +11,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CircleAlert, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import {
   currentGenerationQuery,
   type GenerationStage,
@@ -35,6 +35,10 @@ export function TestSetGeneratingPage({
 }) {
   const navigate = useNavigate();
   const toast = useToast();
+  // 토스트 객체는 렌더마다 바뀌지만 진행 구독을 다시 시작할 이유는 아니다.
+  const showToast = useEffectEvent(
+    (options: Parameters<typeof toast.show>[0]) => toast.show(options),
+  );
   const queryClient = useQueryClient();
   const testSet = useQuery(testSetQuery(testSetId));
   const [since] = useState(() => Date.now());
@@ -87,7 +91,7 @@ export function TestSetGeneratingPage({
       void queryClient.invalidateQueries({
         queryKey: reviewItemsQuery(testSetId).queryKey,
       });
-      toast.show(
+      showToast(
         added === 0 && review === 0
           ? { message: "새로 추가할 케이스가 없었습니다", tone: "info" }
           : {
@@ -128,7 +132,6 @@ export function TestSetGeneratingPage({
     navigate,
     queryClient,
     testSetId,
-    toast,
     current.refetch,
   ]);
 
