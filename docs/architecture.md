@@ -202,7 +202,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | plugin_connections | 요청 토큰 해시, 승인 계정, 계정 토큰 해시, pending/approved/revoked, 만료·승인·폐기 시각 |
 
 - 7단계 플러그인 연결은 10분 요청을 브라우저 세션으로 승인하고 30일 Bearer 토큰을 한 번 발급한다(`token_expires_at` 별도 저장). Bearer는 `GET /api/v1/auth/me`, `GET /api/v1/projects`, `POST /api/v1/temp-uploads`, `DELETE /api/v1/plugin-connections/current`만 허용하며, 계정 비활성화·비밀번호 변경 시 함께 폐기한다. 업로드는 전체 `plugin.upload` 권한을 요구한다.
-- `ALLOW_FIGMA_NULL_ORIGIN=true`는 development에서 위 네 경로와 연결 요청 생성·토큰 교환에만 `Origin: null`을 credentials 없이 허용한다. 운영 환경의 Figma Origin 허용 방식은 배포 때 다시 정한다.
+- 플러그인 UI의 Origin은 위 네 경로와 연결 요청 생성·토큰 교환에만 credentials 없이 허용한다. 번들 UI의 `Origin: null`은 development에서 `ALLOW_FIGMA_NULL_ORIGIN=true`일 때만, 원격 UI는 `PLUGIN_UI_ORIGIN`으로 허용한다. `PLUGIN_UI_ORIGIN`은 쿠키를 받는 `CORS_ORIGINS`와 겹칠 수 없고 운영에서는 HTTPS만 받는다.
 
 아직 없는 API에서 지켜야 할 조건은 후속 구현에 남는다. 테스트 세트의 프로젝트 불변, 테스트 세트 안의 필수 시스템 열 2개 보호, JSONB 셀 값의 열 형식·선택 값 검증, 생성 종료 시 임시 자료·단계 입력/출력 삭제, 공개 권한 변경 시 연결 종료는 이번 단계의 스키마만으로 완성되지 않는다. 프로젝트 기본 양식의 시스템 항목 보호와 화면 구조의 다단계 순환 금지는 4단계 서비스에서 검사한다.
 
@@ -252,8 +252,10 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 - 화면 문서 형식은 `schemaVersion: 2`의 `{ board, texts, tree, links, notes }`다. 보드 밖으로 가는 연결 대상 이름은 main이 노드를 찾아 채우고, 찾지 못한 연결은 버린다.
 - 플러그인 계정 토큰과 지난번 고른 프로젝트 ID는 iframe이 저장소를 쓸 수 없어 main의 `figma.clientStorage`에 둔다.
 - 고른 프로젝트는 임시 업로드에 저장하지 않고 웹 주소(`/test-sets/new?upload=<id>&project=<id>`)로 넘긴다. 고를 수 있는 프로젝트는 `/auth/me` 권한의 `test_set.create`로 웹과 같은 규칙으로 거른다.
-- main은 IIFE JavaScript, UI는 단일 HTML로 따로 빌드한다. 실제 Figma iframe relay는 Figma Origin과 manifest pluginId를 검사한다.
-- 플러그인 ID `1692417282897261384`. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`, API 주소는 `VITE_API_BASE_URL`에서 읽는다. 배포용 네트워크 허용은 `none`이며 배포 전 다시 정한다.
+- main은 IIFE JavaScript, UI는 단일 HTML로 따로 빌드한다. `VITE_PLUGIN_UI_URL`을 주면 UI는 `dist/ui/`에 호스팅용 파일로 만들고, manifest의 ui 파일은 그 주소로 이동하는 짧은 문서가 된다. main과 manifest를 바꾸지 않는 UI 변경은 Figma에 다시 배포하지 않고 호스팅만 갱신하면 반영된다.
+- main의 메시지는 Figma 편집기 창이 Origin `https://www.figma.com`과 manifest pluginId를 붙여 전달한다. 번들 UI는 부모 iframe이 보낸 메시지도 받지만, 원격 UI는 어느 사이트든 iframe으로 띄울 수 있으므로 이 relay만 믿는다. 원격 UI는 보낼 때도 `https://www.figma.com`과 pluginId를 지정하고, main은 원격 UI Origin으로만 보낸다. Figma 데스크톱은 `frame-ancestors`를 적용하지 않아 이 헤더로는 막을 수 없다(2026-10-20 확인).
+- main은 `ui-ready`를 받으면 `main-ready`로 `PROTOCOL_VERSION`을 알린다. 원격 UI는 main보다 먼저 바뀔 수 있으므로, UI가 main의 새 기능을 쓰기 시작할 때 버전을 올리고 main을 먼저 배포한다. main은 이전 UI의 메시지를 계속 받는다. UI는 main 버전이 낮으면 업로드 대신 플러그인 업데이트 안내를 보인다.
+- 플러그인 ID `1692417282897261384`. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`, API 주소는 `VITE_API_BASE_URL`에서 읽는다. 배포용 네트워크 허용은 `none`이며 배포 전 UI와 API 주소로 바꾼다. 원격 UI 빌드는 manifest가 UI Origin을 허용하지 않으면 멈춘다.
 
 ## 미정
 
@@ -261,6 +263,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | --- | --- |
 | CI | 미구성. 도입 방식은 미정 |
 | 사내 배포, 릴리스, 관측 방식 | 추후 결정 |
+| 플러그인 UI 원격 호스팅 | 빌드와 API는 지원한다. 운영 적용 여부, 도메인, Vercel 프로젝트 구성은 배포 때 정함 |
 | 파일 저장소 | 로컬 디스크. 배포 환경에서 다시 정함 |
 
 ## 갱신 기준

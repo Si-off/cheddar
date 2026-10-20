@@ -23,8 +23,10 @@ function setup({
   nodes,
   failPng = false,
   webBaseUrl = "http://127.0.0.1:5176",
+  pluginUiUrl = "",
   children = [],
 } = {}) {
+  const deliveries = [];
   const messages = [];
   const exported = [];
   const opened = [];
@@ -66,7 +68,12 @@ function setup({
     currentPage: page,
     showUI() {},
     openExternal: (url) => opened.push(url),
-    ui: { postMessage: (message) => messages.push(message) },
+    ui: {
+      postMessage: (message, options) => {
+        messages.push(message);
+        deliveries.push(options);
+      },
+    },
     on: (event, callback) => events.set(event, callback),
     getNodeByIdAsync: async (id) => lookup.get(id) ?? null,
     clientStorage: {
@@ -96,6 +103,8 @@ function setup({
     figma,
     __html__: "",
     __WEB_BASE_URL__: webBaseUrl,
+    __PLUGIN_UI_ORIGIN__: pluginUiUrl ? new URL(pluginUiUrl).origin : "",
+    console,
     exports: {},
     require: (path) =>
       path.endsWith("screen-document")
@@ -109,6 +118,7 @@ function setup({
   });
   return {
     messages,
+    deliveries,
     exported,
     opened,
     frame,
@@ -587,4 +597,27 @@ test("the last project is remembered and only project IDs are accepted", async (
     projectId: null,
   });
   assert.equal(await load("p5"), null);
+});
+
+test("main announces its protocol version before the first selection", async () => {
+  const subject = setup();
+  await subject.send({ type: "ui-ready" });
+  const [ready, selection] = subject.messages;
+  assert.equal(ready.type, "main-ready");
+  assert.equal(ready.protocolVersion, subject.protocol.PROTOCOL_VERSION);
+  assert.equal(selection.type, "selection-changed");
+  assert.ok(subject.protocol.isMainToUiMessage(ready));
+});
+
+test("a remote UI receives main messages only at its own origin", async () => {
+  const bundled = setup();
+  await bundled.send({ type: "ui-ready" });
+  assert.equal(bundled.deliveries.at(-1), undefined);
+
+  const remote = setup({ pluginUiUrl: "http://localhost:5174" });
+  await remote.send({ type: "ui-ready" });
+  for (const options of remote.deliveries)
+    assert.deepEqual(JSON.parse(JSON.stringify(options)), {
+      origin: "http://localhost:5174",
+    });
 });

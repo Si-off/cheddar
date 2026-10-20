@@ -8,7 +8,9 @@
     "watch:ui": "vite build --configLoader runner --watch",
     "watch:main": "vite build --configLoader runner --config vite.main.config.ts --watch",
     "dev:ui": "vite --configLoader runner",
-    "build": "vite build --configLoader runner && vite build --configLoader runner --config vite.main.config.ts",
+    "dev:remote": "VITE_PLUGIN_UI_URL=http://localhost:5174 VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm run --parallel \"/^(watch:main|dev:ui)$/\"",
+    "build": "pnpm build:ui && vite build --configLoader runner --config vite.main.config.ts",
+    "build:ui": "vite build --configLoader runner",
     "preview": "vite preview --configLoader runner",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.main.json",
     "gen:api": "openapi-ts --no-log-file"

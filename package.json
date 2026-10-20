@@ -12,6 +12,7 @@
     "dev": "pnpm dev:web",
     "dev:web": "pnpm --filter @cheddar/web dev",
     "dev:plugin": "pnpm --filter @cheddar/figma-plugin dev",
+    "dev:plugin:remote": "pnpm --filter @cheddar/figma-plugin dev:remote",
     "build": "pnpm -r --if-present run build",
     "typecheck": "pnpm -r --if-present run typecheck",
     "lint": "biome check .",

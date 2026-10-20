@@ -8,6 +8,7 @@ import {
   MAX_IMAGE_BYTES,
   MAX_THUMBNAIL_BYTES,
   type MainToUiMessage,
+  PROTOCOL_VERSION,
   type SelectedFrame,
   type UiToMainMessage,
 } from "../protocol/messages";
@@ -18,9 +19,12 @@ import {
 } from "./screen-document";
 
 declare const __WEB_BASE_URL__: string;
+/** 원격 UI 빌드에서만 값이 있다 */
+declare const __PLUGIN_UI_ORIGIN__: string;
 const AUTH_KEY = "cheddar.pluginToken";
 const PROJECT_KEY = "cheddar.lastProjectId";
 
+// 원격 UI 빌드의 __html__은 원격 주소로 이동하는 짧은 문서다
 figma.showUI(__html__, { width: 360, height: 560, themeColors: true });
 type Session = {
   id: string;
@@ -33,7 +37,10 @@ type Session = {
 let selectionVersion = 0;
 let session: Session | undefined;
 function send(message: MainToUiMessage) {
-  figma.ui.postMessage(message);
+  // 원격 UI에는 토큰이 오가므로 그 origin의 문서에만 전달한다
+  if (__PLUGIN_UI_ORIGIN__)
+    figma.ui.postMessage(message, { origin: __PLUGIN_UI_ORIGIN__ });
+  else figma.ui.postMessage(message);
 }
 function metadata(node: FrameNode): SelectedFrame {
   return {
@@ -320,6 +327,7 @@ figma.on("close", () => {
 figma.ui.onmessage = (message: unknown) => {
   if (!isUiToMainMessage(message)) return;
   if (message.type === "ui-ready") {
+    send({ type: "main-ready", protocolVersion: PROTOCOL_VERSION });
     publishSelection();
     return;
   }

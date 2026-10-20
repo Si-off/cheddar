@@ -1,3 +1,9 @@
+/**
+ * main과 UI 사이 메시지 계약의 버전. UI가 main의 새 기능을 쓰기 시작하면 올린다.
+ * 원격 UI는 main보다 먼저 바뀔 수 있으므로 main은 이전 UI의 메시지를 계속 받아야 하고,
+ * UI는 main의 버전이 이 값보다 낮으면 업로드를 막는다.
+ */
+export const PROTOCOL_VERSION = 1;
 export const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 export const isResourceId = (value: unknown): value is string =>
   typeof value === "string" &&
@@ -64,6 +70,7 @@ export type UiToMainMessage =
   | { type: "release-upload"; sessionId: string };
 
 export type MainToUiMessage =
+  | { type: "main-ready"; protocolVersion: number }
   | { type: "selection-changed"; selection: FrameSelection }
   | {
       type: "frame-thumbnail";
@@ -160,6 +167,11 @@ export function isUiToMainMessage(value: unknown): value is UiToMainMessage {
 }
 export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
   if (!object(value)) return false;
+  if (value.type === "main-ready")
+    return (
+      Number.isSafeInteger(value.protocolVersion) &&
+      Number(value.protocolVersion) >= 1
+    );
   if (value.type === "selection-changed") {
     const selected = value.selection;
     return (
