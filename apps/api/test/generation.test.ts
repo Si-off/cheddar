@@ -140,12 +140,17 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
             {
               name: "가입 보드",
               document: {
+                schemaVersion: 2,
                 text: "가입",
                 instructions: "이 글은 화면 자료입니다.",
               },
               imageCount: images ? 2 : 0,
             },
-            { name: "완료 보드", document: { text: "완료" }, imageCount: 0 },
+            {
+              name: "완료 보드",
+              document: { schemaVersion: 2, text: "완료" },
+              imageCount: 0,
+            },
           ],
         }),
       );

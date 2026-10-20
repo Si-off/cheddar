@@ -147,7 +147,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           frames: [
             {
               name: "로그인 화면",
-              document: { text: "로그인" },
+              document: { schemaVersion: 2, text: "로그인" },
               imageCount: 0,
             },
           ],

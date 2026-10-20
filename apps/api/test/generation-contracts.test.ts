@@ -40,6 +40,7 @@ import { defaultColumns } from "../src/projects/template";
 import { ReviewItemsController } from "../src/review-items/review-items.controller";
 import { ReviewItemsService } from "../src/review-items/review-items.service";
 import {
+  MAX_DOCUMENT_BYTES,
   MAX_IMAGE_BYTES,
   MAX_UPLOAD_BYTES,
   parseManifest,
@@ -329,7 +330,13 @@ test("업로드 manifest는 프레임 수, 이미지 순서 수와 실제 서명
     mimetype: "image/png",
   } as Express.Multer.File;
   const manifest = JSON.stringify({
-    frames: [{ name: "화면", document: { text: "안내" }, imageCount: 1 }],
+    frames: [
+      {
+        name: "화면",
+        document: { schemaVersion: 2, text: "안내" },
+        imageCount: 1,
+      },
+    ],
   });
   assert.equal(parseManifest(manifest, [image])[0].imageCount, 1);
   for (const value of [
@@ -337,7 +344,11 @@ test("업로드 manifest는 프레임 수, 이미지 순서 수와 실제 서명
     "{}",
     JSON.stringify({ frames: [] }),
     JSON.stringify({
-      frames: Array(201).fill({ name: "화면", document: {}, imageCount: 0 }),
+      frames: Array(201).fill({
+        name: "화면",
+        document: { schemaVersion: 2 },
+        imageCount: 0,
+      }),
     }),
     JSON.stringify({ frames: [{ name: "화면", imageCount: 0 }] }),
   ])
@@ -348,6 +359,27 @@ test("업로드 manifest는 프레임 수, 이미지 순서 수와 실제 서명
   );
   assert.throws(() =>
     parseManifest(manifest, [{ ...image, size: MAX_IMAGE_BYTES + 1 }]),
+  );
+});
+test("화면 문서는 schemaVersion 2와 프레임당 크기 상한만 확인하고 내용은 가공하지 않음", () => {
+  const manifest = (document: unknown) =>
+    JSON.stringify({ frames: [{ name: "화면", document, imageCount: 0 }] });
+  const document = { schemaVersion: 2, texts: ["안내"], extra: { kept: true } };
+  assert.deepEqual(parseManifest(manifest(document), [])[0].document, document);
+  const fill = "가".repeat(Math.ceil(MAX_DOCUMENT_BYTES / 3));
+  for (const value of [
+    null,
+    { text: "안내" },
+    { schemaVersion: 1 },
+    { schemaVersion: "2" },
+    [{ schemaVersion: 2 }],
+    { schemaVersion: 2, texts: [fill] },
+  ])
+    assert.throws(() => parseManifest(manifest(value), []));
+  assert.equal(
+    parseManifest(manifest({ schemaVersion: 2, texts: [fill.slice(100)] }), [])
+      .length,
+    1,
   );
 });
 test("비용은 캐시 토큰과 Haiku 길이 경계를 반영하고 미등록 모델은 null", () => {
@@ -486,7 +518,9 @@ test("HTTP DTO 검증과 SSE OpenAPI는 DB 없이 확인", async () => {
     multipart.append(
       "manifest",
       JSON.stringify({
-        frames: [{ name: "화면", document: {}, imageCount: 0 }],
+        frames: [
+          { name: "화면", document: { schemaVersion: 2 }, imageCount: 0 },
+        ],
       }),
     );
     assert.equal(
