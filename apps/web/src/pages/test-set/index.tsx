@@ -534,31 +534,28 @@ function TestSetScreen({
             />
           )}
         </div>
-        {reviewOpen && (
-          <ReviewPanel
-            columns={testSet.columns}
-            items={reviewItems}
-            readOnly={readOnly}
-            onAnswer={(item, answer) => review.update.mutate({ item, answer })}
-            onDraft={(item, columnId, value) =>
-              review.update.mutate({
-                item,
-                draft: { ...item.draft, [columnId]: value },
-              })
-            }
-            onExclude={(item) =>
-              review.update.mutate({ item, status: "excluded" })
-            }
-            onRestore={(item) =>
-              review.update.mutate({ item, status: "pending" })
-            }
-            onAccept={(item) => review.accept.mutate(item)}
-            onRewrite={(item, answer) =>
-              review.rewrite.mutate({ item, answer })
-            }
-            onClose={() => setReviewOpen(false)}
-          />
-        )}
+        <ReviewPanel
+          columns={testSet.columns}
+          items={reviewItems}
+          readOnly={readOnly}
+          onAnswer={(item, answer) => review.update.mutate({ item, answer })}
+          onDraft={(item, columnId, value) =>
+            review.update.mutate({
+              item,
+              draft: { ...item.draft, [columnId]: value },
+            })
+          }
+          onExclude={(item) =>
+            review.update.mutate({ item, status: "excluded" })
+          }
+          onRestore={(item) =>
+            review.update.mutate({ item, status: "pending" })
+          }
+          onAccept={(item) => review.accept.mutate(item)}
+          onRewrite={(item, answer) => review.rewrite.mutate({ item, answer })}
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+        />
       </div>
 
       <GenerateSheet

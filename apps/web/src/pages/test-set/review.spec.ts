@@ -229,16 +229,14 @@ for (const width of [1440, 390, 320]) {
     await expect(
       panel.getByRole("button", { name: "테스트 세트에 추가" }),
     ).toBeInViewport();
-    await expect(
-      panel.getByRole("button", { name: "확인 필요 닫기" }),
-    ).toBeInViewport();
+    await expect(panel.getByRole("button", { name: "닫기" })).toBeInViewport();
     await page.screenshot({ path: `/tmp/cheddar-review-drawer-${width}.png` });
     await page.keyboard.press("Escape");
     await expect(panel).not.toBeVisible();
     await expect(trigger).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(panel).toBeVisible();
-    await panel.getByRole("button", { name: "확인 필요 닫기" }).click();
+    await panel.getByRole("button", { name: "닫기" }).click();
     await expect(panel).not.toBeVisible();
   });
 }
@@ -267,15 +265,11 @@ test("긴 확인 필요 내용을 스크롤해도 처리 버튼에 접근하고 
   await expect(
     panel.getByRole("checkbox", { name: "자동화" }),
   ).toBeInViewport();
-  await expect(
-    panel.getByRole("button", { name: "확인 필요 닫기" }),
-  ).toBeInViewport();
+  await expect(panel.getByRole("button", { name: "닫기" })).toBeInViewport();
   await expect(accept).toBeInViewport();
   await accept.focus();
   await page.keyboard.press("Tab");
-  await expect(
-    panel.getByRole("button", { name: "1번째 항목, 확인 필요" }),
-  ).toBeFocused();
+  await expect(panel.getByRole("button", { name: "닫기" })).toBeFocused();
 });
 
 test("입력 직후 Esc로 닫아도 답변과 초안을 저장한다", async ({ page }) => {
