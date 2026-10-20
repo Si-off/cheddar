@@ -20,6 +20,8 @@ export interface CreateTestSetFormProps {
   permissions: readonly PermissionGrant[];
   /** Figma 플러그인에서 올린 프레임 묶음 */
   uploadId?: string;
+  /** 플러그인에서 고른 프로젝트. 고를 수 없는 프로젝트면 무시한다. */
+  initialProjectId?: string;
   /** 직접 작성이면 테스트 세트로, 생성이면 생성 진행 화면으로 간다 */
   /** confirmStart: 생성 시작 응답을 받지 못해 시작됐는지 확인이 필요하다 */
   onCreated: (
@@ -36,6 +38,7 @@ const thumbnail = (uploadId: string, frameId: string) =>
 export function CreateTestSetForm({
   permissions,
   uploadId,
+  initialProjectId,
   onCreated,
 }: CreateTestSetFormProps) {
   const toast = useToast();
@@ -53,7 +56,10 @@ export function CreateTestSetForm({
   const [memo, setMemo] = useState("");
   const [touched, setTouched] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const chosen = projectId ?? (projects.length === 1 ? projects[0]?.id : null);
+  const chosen =
+    projectId ??
+    projects.find((p) => p.id === initialProjectId)?.id ??
+    (projects.length === 1 ? projects[0]?.id : null);
   const frames = upload.data?.frames ?? [];
 
   const create = useMutation({

@@ -87,6 +87,49 @@ test("새 테스트 세트를 직접 작성으로 만들면 바로 테스트 세
   });
 });
 
+test("플러그인에서 고른 프로젝트로 새 테스트 세트를 연다", async ({ page }) => {
+  const project = (id: string, name: string) => ({
+    id,
+    name,
+    description: "",
+    columnCount: 6,
+    screenCount: 0,
+    canManage: true,
+  });
+  const shop = "10000000-0000-4000-8000-000000000001";
+  const approval = "10000000-0000-4000-8000-000000000002";
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/projects": {
+      items: [
+        project(shop, "쇼핑몰 앱 리뉴얼"),
+        project(approval, "사내 결재 시스템"),
+      ],
+    },
+    "POST /api/v1/test-sets": reply(201, testSet),
+    ...testSetResponses(),
+  });
+  await page.goto(`/test-sets/new?project=${approval}`);
+  await expect(page.getByRole("combobox", { name: "프로젝트" })).toHaveText(
+    /사내 결재 시스템/,
+  );
+  await page
+    .getByRole("textbox", { name: "테스트 세트 이름" })
+    .fill("2.4.0 회원가입 개편");
+  await page.getByRole("button", { name: "직접 작성" }).click();
+  await expect(page).toHaveURL(/\/test-sets\/t1$/);
+  expect(
+    calls.find((c) => c.key === "POST /api/v1/test-sets")?.body,
+  ).toMatchObject({ projectId: approval });
+
+  // 고를 수 없는 프로젝트면 비워 두고 직접 고르게 한다
+  await page.goto(
+    "/test-sets/new?project=10000000-0000-4000-8000-000000000009",
+  );
+  await page.getByRole("button", { name: "직접 작성" }).click();
+  await expect(page.getByText("프로젝트를 고르세요")).toBeVisible();
+});
+
 test("테스트 세트를 만들 권한이 없으면 새 테스트 세트 버튼이 없다", async ({
   page,
 }) => {
