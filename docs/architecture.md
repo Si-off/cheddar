@@ -42,6 +42,8 @@
 - 권한은 `entities/permission`의 `can(permission, projectId)` 하나로 묻는다. 화면은 역할 이름을 모르고 권한 키만 안다.
 - 라우트는 코드로 정의하고, 페이지 진입 전에 로그인과 권한을 확인한다.
 
+- 확인 필요 UI는 공통 `Dialog`의 `placement="side"`를 재사용한다. 모달 포커스 관리와 Esc 닫기를 제공하며 본문만 스크롤한다.
+
 ## 코드 규칙
 
 ### 결합도

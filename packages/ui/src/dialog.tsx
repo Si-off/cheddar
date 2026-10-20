@@ -120,6 +120,7 @@ export const Dialog = {
   Close: BaseDialog.Close,
   Content: DialogContent,
   Header: DialogHeader,
+  Title: BaseDialog.Title,
   Body: DialogBody,
   Footer: DialogFooter,
 };

@@ -1,4 +1,12 @@
-import { Badge, Button, cn, Icon, IconButton, TextField } from "@cheddar/ui";
+import {
+  Badge,
+  Button,
+  cn,
+  Dialog,
+  Icon,
+  IconButton,
+  TextField,
+} from "@cheddar/ui";
 import {
   ChevronLeft,
   ChevronRight,
@@ -75,106 +83,120 @@ export function ReviewPanel({
     }
   };
 
+  const close = () => {
+    // Esc로 닫아도 입력 칸의 blur 저장을 먼저 실행한다.
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    onClose();
+  };
+
   return (
-    <aside
-      aria-label="확인 필요"
-      className="flex w-full flex-col rounded-lg border border-line bg-surface lg:sticky lg:top-4 lg:w-96 lg:shrink-0"
+    <Dialog.Root
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
     >
-      <header className="flex items-center gap-2 border-line border-b px-4 py-3">
-        <h2 className="m-0 text-title-sm text-fg">확인 필요</h2>
-        <nav aria-label="확인 필요 항목" className="flex flex-wrap gap-1">
-          {items.map((it, i) => (
-            <button
-              key={it.id}
-              type="button"
-              aria-label={`${i + 1}번째 항목, ${statusBadge[it.status].label}`}
-              aria-current={i === index ? "true" : undefined}
-              onClick={() => setCurrentId(it.id)}
-              className={cn(
-                "grid size-5 place-items-center rounded-full border-0 bg-transparent p-0 outline-none transition-colors duration-fast hover:bg-subtle focus-visible:bg-selected",
-                i === index && "bg-selected",
-              )}
-            >
-              <span
-                className={cn("size-2 rounded-full", dotClass[it.status])}
-              />
-            </button>
-          ))}
-        </nav>
-        <span className="flex-1" />
-        <IconButton
-          icon={ChevronLeft}
-          size="sm"
-          label="이전 항목"
-          disabled={items.length < 2}
-          onClick={() => go(index - 1)}
-        />
-        <IconButton
-          icon={ChevronRight}
-          size="sm"
-          label="다음 항목"
-          disabled={items.length < 2}
-          onClick={() => go(index + 1)}
-        />
-        <IconButton
-          icon={X}
-          size="sm"
-          label="확인 필요 닫기"
-          onClick={onClose}
-        />
-      </header>
-      {item ? (
-        <ReviewBody
-          key={item.id}
-          item={item}
-          columns={columns}
-          readOnly={readOnly}
-          onAnswer={onAnswer}
-          onDraft={onDraft}
-          onRewrite={onRewrite}
-        />
-      ) : (
-        <p className="m-0 px-4 py-6 text-body-sm text-fg-muted">
-          확인할 항목이 없습니다
-        </p>
-      )}
-      {item && (
-        <footer className="flex flex-wrap items-center gap-2 border-line border-t px-4 py-3">
-          <Badge tone={statusBadge[item.status].tone} dot>
-            {statusBadge[item.status].label}
-          </Badge>
+      <Dialog.Content placement="side">
+        <header className="flex shrink-0 flex-wrap items-center gap-2 border-line border-b px-4 py-3">
+          <Dialog.Title className="m-0 text-title-sm text-fg">
+            확인 필요
+          </Dialog.Title>
+          <nav aria-label="확인 필요 항목" className="flex flex-wrap gap-1">
+            {items.map((it, i) => (
+              <button
+                key={it.id}
+                type="button"
+                aria-label={`${i + 1}번째 항목, ${statusBadge[it.status].label}`}
+                aria-current={i === index ? "true" : undefined}
+                onClick={() => setCurrentId(it.id)}
+                className={cn(
+                  "grid size-5 place-items-center rounded-full border-0 bg-transparent p-0 outline-none transition-colors duration-fast hover:bg-subtle focus-visible:bg-selected",
+                  i === index && "bg-selected",
+                )}
+              >
+                <span
+                  className={cn("size-2 rounded-full", dotClass[it.status])}
+                />
+              </button>
+            ))}
+          </nav>
           <span className="flex-1" />
-          {!readOnly && item.status === "excluded" && (
-            <Button variant="ghost" onClick={() => onRestore(item)}>
-              되돌리기
-            </Button>
-          )}
-          {!readOnly && item.status === "pending" && (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  onExclude(item);
-                  nextPending();
-                }}
-              >
-                제외
+          <IconButton
+            icon={ChevronLeft}
+            size="sm"
+            label="이전 항목"
+            disabled={items.length < 2}
+            onClick={() => go(index - 1)}
+          />
+          <IconButton
+            icon={ChevronRight}
+            size="sm"
+            label="다음 항목"
+            disabled={items.length < 2}
+            onClick={() => go(index + 1)}
+          />
+          <IconButton
+            icon={X}
+            size="sm"
+            label="확인 필요 닫기"
+            onClick={close}
+          />
+        </header>
+        {item ? (
+          <ReviewBody
+            key={item.id}
+            item={item}
+            columns={columns}
+            readOnly={readOnly}
+            onAnswer={onAnswer}
+            onDraft={onDraft}
+            onRewrite={onRewrite}
+          />
+        ) : (
+          <p className="m-0 px-4 py-6 text-body-sm text-fg-muted">
+            확인할 항목이 없습니다
+          </p>
+        )}
+        {item && (
+          <footer className="mt-auto flex shrink-0 flex-wrap items-center gap-2 border-line border-t px-4 py-3">
+            <Badge tone={statusBadge[item.status].tone} dot>
+              {statusBadge[item.status].label}
+            </Badge>
+            <span className="flex-1" />
+            {!readOnly && item.status === "excluded" && (
+              <Button variant="ghost" onClick={() => onRestore(item)}>
+                되돌리기
               </Button>
-              <Button
-                variant="primary"
-                icon={Plus}
-                onClick={() => {
-                  onAccept(item);
-                  nextPending();
-                }}
-              >
-                테스트 세트에 추가
-              </Button>
-            </>
-          )}
-        </footer>
-      )}
-    </aside>
+            )}
+            {!readOnly && item.status === "pending" && (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    onExclude(item);
+                    nextPending();
+                  }}
+                >
+                  제외
+                </Button>
+                <Button
+                  variant="primary"
+                  icon={Plus}
+                  onClick={() => {
+                    onAccept(item);
+                    nextPending();
+                  }}
+                >
+                  테스트 세트에 추가
+                </Button>
+              </>
+            )}
+          </footer>
+        )}
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
 
@@ -198,7 +220,7 @@ function ReviewBody({
   // 테스트 ID는 추가할 때 붙는다
   const fields = columns.filter((c) => c.systemKey !== "test_id");
   return (
-    <div className="flex max-h-96 flex-col gap-4 overflow-auto px-4 py-4 lg:max-h-none">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4">
       <p className="m-0 rounded-md bg-warning-soft px-3 py-2 text-body-sm text-fg">
         {item.reason}
       </p>
