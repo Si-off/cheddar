@@ -41,10 +41,18 @@ export type UiToMainMessage =
       nodeId: string;
       size: "thumbnail" | "preview";
     }
-  | { type: "open-upload-web"; requestId: string; uploadId: string }
+  | {
+      type: "open-upload-web";
+      requestId: string;
+      uploadId: string;
+      projectId: string;
+    }
   | { type: "open-connect-web"; requestId: string; requestToken: string }
+  | { type: "open-home-web"; requestId: string }
   | { type: "load-auth"; requestId: string }
   | { type: "save-auth"; requestId: string; token: string | null }
+  | { type: "load-project"; requestId: string }
+  | { type: "save-project"; requestId: string; projectId: string | null }
   | { type: "prepare-upload"; requestId: string; selectionVersion: number }
   | {
       type: "export-frame";
@@ -66,8 +74,11 @@ export type MainToUiMessage =
     }
   | { type: "upload-web-opened"; requestId: string }
   | { type: "connect-web-opened"; requestId: string }
+  | { type: "home-web-opened"; requestId: string }
   | { type: "auth-loaded"; requestId: string; token: string | null }
   | { type: "auth-saved"; requestId: string }
+  | { type: "project-loaded"; requestId: string; projectId: string | null }
+  | { type: "project-saved"; requestId: string }
   | {
       type: "upload-prepared";
       requestId: string;
@@ -121,11 +132,16 @@ export function isUiToMainMessage(value: unknown): value is UiToMainMessage {
   if (value.type === "ui-ready") return true;
   if (value.type === "release-upload") return text(value.sessionId, 100);
   if (!text(value.requestId, 100)) return false;
-  if (value.type === "open-upload-web") return isResourceId(value.uploadId);
+  if (value.type === "open-upload-web")
+    return isResourceId(value.uploadId) && isResourceId(value.projectId);
   if (value.type === "open-connect-web") return isToken(value.requestToken);
+  if (value.type === "open-home-web") return true;
   if (value.type === "load-auth") return true;
   if (value.type === "save-auth")
     return value.token === null || isToken(value.token);
+  if (value.type === "load-project") return true;
+  if (value.type === "save-project")
+    return value.projectId === null || isResourceId(value.projectId);
   if (value.type === "thumbnail-frame")
     return (
       Number.isSafeInteger(value.selectionVersion) &&
@@ -176,11 +192,15 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
   if (
     value.type === "upload-web-opened" ||
     value.type === "connect-web-opened" ||
-    value.type === "auth-saved"
+    value.type === "home-web-opened" ||
+    value.type === "auth-saved" ||
+    value.type === "project-saved"
   )
     return true;
   if (value.type === "auth-loaded")
     return value.token === null || isToken(value.token);
+  if (value.type === "project-loaded")
+    return value.projectId === null || isResourceId(value.projectId);
   if (value.type === "frame-thumbnail")
     return (
       Number.isSafeInteger(value.selectionVersion) &&
