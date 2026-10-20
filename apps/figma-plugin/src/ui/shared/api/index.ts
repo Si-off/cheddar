@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { env } from "../config/env";
+import { debugRemoteUi } from "../lib/figma-bridge";
 import { client } from "./generated/client.gen";
 
 /** 플러그인 계정 토큰. iframe은 쿠키를 쓸 수 없어 Bearer로 보낸다. */
@@ -15,6 +16,25 @@ export function configureApiClient() {
     if (token) request.headers.set("Authorization", `Bearer ${token}`);
     return request;
   });
+  if (env.pluginUiDebug) {
+    client.interceptors.response.use((response, request) => {
+      debugRemoteUi("api", {
+        method: request.method,
+        path: new URL(request.url).pathname,
+        status: response.status,
+      });
+      return response;
+    });
+    client.interceptors.error.use((error, response, request) => {
+      if (!response)
+        debugRemoteUi("api network error", {
+          method: request?.method,
+          path: request ? new URL(request.url).pathname : undefined,
+          error: String(error),
+        });
+      return error;
+    });
+  }
 }
 
 /** 서버 오류 응답에서 읽은 값. 서버 메시지는 사용자에게 보여줄 수 있는 문장이다. */

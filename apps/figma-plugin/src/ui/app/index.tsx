@@ -7,6 +7,7 @@ import { UploadPage } from "@/pages/upload";
 import { type MeDto, sdk, toApiFailure, useAuthToken } from "@/shared/api";
 import {
   connectToFigma,
+  isMainOutdated,
   loadAuthToken,
   saveAuthToken,
   useFigmaConnection,
@@ -23,6 +24,7 @@ type Auth =
 function Root() {
   const queryClient = useQueryClient();
   const connected = useFigmaConnection((s) => s.connected);
+  const outdated = useFigmaConnection(isMainOutdated);
   const [auth, setAuth] = useState<Auth>({ state: "loading" });
 
   const clearAccount = () => {
@@ -55,9 +57,23 @@ function Root() {
   };
   // biome-ignore lint/correctness/useExhaustiveDependencies: Figma와 연결된 뒤 한 번만 복원한다
   useEffect(() => {
-    if (connected) void restore();
+    if (connected && !outdated) void restore();
   }, [connected]);
 
+  // 원격 UI가 새 main 기능을 쓰는데 Figma에 받은 플러그인이 아직 이전 버전이다
+  if (outdated)
+    return (
+      <PluginShell>
+        <div className="flex flex-1 flex-col justify-center">
+          <EmptyState
+            compact
+            icon={CircleAlert}
+            title="플러그인 업데이트가 필요합니다"
+            description="Figma에서 Cheddar를 닫았다가 다시 실행하세요."
+          />
+        </div>
+      </PluginShell>
+    );
   if (auth.state === "loading") return null;
   if (auth.state === "error")
     return (
