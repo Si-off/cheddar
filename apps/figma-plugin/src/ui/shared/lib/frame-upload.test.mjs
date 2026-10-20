@@ -22,7 +22,7 @@ const frames = ["a", "b", "c"].map((id) => ({
   width: 390,
   height: 844,
 }));
-const doc = (id) => JSON.stringify({ board: { name: id } });
+const doc = (id) => ({ board: { name: id } });
 
 test("실패한 프레임만 다시 추출하고 모두 끝나면 원래 순서로 보낼 내용을 만든다", async () => {
   const upload = new FrameUpload("s", frames);
@@ -31,7 +31,7 @@ test("실패한 프레임만 다시 추출하고 모두 끝나면 원래 순서�
   const exportFrame = async (id) => {
     calls.push(id);
     if (id === "b" && failB) throw new Error("EXPORT_FAILED");
-    return { image: new Uint8Array([1]), data: doc(id) };
+    return { image: new Uint8Array([1]), document: doc(id) };
   };
   // c는 타일 두 장
   const slice = async () => (calls.at(-1) === "c" ? ["c1", "c2"] : ["one"]);
@@ -45,11 +45,15 @@ test("실패한 프레임만 다시 추출하고 모두 끝나면 원래 순서�
   assert.deepEqual(calls, ["a", "b", "c", "b"]);
   const { manifest, images } = upload.payload();
   assert.deepEqual(
-    JSON.parse(manifest).frames.map((f) => [f.name, f.imageCount]),
+    JSON.parse(manifest).frames.map((f) => [
+      f.name,
+      f.document.board.name,
+      f.imageCount,
+    ]),
     [
-      ["화면 a", 1],
-      ["화면 b", 1],
-      ["화면 c", 2],
+      ["화면 a", "a", 1],
+      ["화면 b", "b", 1],
+      ["화면 c", "c", 2],
     ],
   );
   assert.deepEqual(images, ["one", "one", "c1", "c2"]);
@@ -59,7 +63,7 @@ test("문서가 바뀌면 남은 프레임을 모두 실패로 두고 멈춘다"
   const upload = new FrameUpload("s", frames);
   const exportFrame = async (id) => {
     if (id === "b") throw new Error("FRAME_CHANGED");
-    return { image: new Uint8Array([1]), data: doc(id) };
+    return { image: new Uint8Array([1]), document: doc(id) };
   };
   await assert.rejects(
     upload.extract(

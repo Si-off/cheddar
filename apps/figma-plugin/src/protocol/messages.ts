@@ -1,9 +1,10 @@
 /**
- * main과 UI 사이 메시지 계약의 버전. UI가 main의 새 기능을 쓰기 시작하면 올린다.
+ * main과 UI 사이 메시지 계약의 버전. UI가 main의 새 기능이나 바뀐 응답을 쓰기 시작하면 올린다.
+ * 2: frame-exported가 화면 문서 대신 REST 원본(source)을 보낸다.
  * 원격 UI는 main보다 먼저 바뀔 수 있으므로 main은 이전 UI의 메시지를 계속 받아야 하고,
  * UI는 main의 버전이 이 값보다 낮으면 업로드를 막는다.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 export const isResourceId = (value: unknown): value is string =>
   typeof value === "string" &&
@@ -12,8 +13,23 @@ export const isResourceId = (value: unknown): value is string =>
   );
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+/** UI가 만든 화면 문서 하나의 UTF-8 크기 상한. 서버도 같은 값을 쓴다 */
 export const MAX_FRAME_DATA_BYTES = 5 * 1024 * 1024;
+/**
+ * main이 보내는 REST 원본 JSON 글자 수 상한. 2026-10-20 실측에서 3652×5528 보드(노드 2,336개)가
+ * 300만 자였고 화면 문서는 원본의 2~5% 크기였다.
+ */
+export const MAX_FRAME_SOURCE_CHARS = 64 * 1024 * 1024;
 
+/** Plugin API의 주석. REST 원본에는 labelMarkdown이 없어 main이 노드 ID별로 따로 보낸다 */
+export type FrameAnnotation = { label?: string; labelMarkdown?: string };
+export type FrameSource = {
+  /** exportAsync({ format: "JSON_REST_V1" }).document의 JSON 문자열 */
+  document: string;
+  annotations: Record<string, FrameAnnotation[]>;
+  /** 프레임 밖에 있는 연결 대상의 이름 */
+  externalNames: Record<string, string>;
+};
 export type SelectedFrame = {
   nodeId: string;
   name: string;
@@ -99,7 +115,7 @@ export type MainToUiMessage =
       sessionId: string;
       frame: SelectedFrame;
       image: Uint8Array;
-      data: string;
+      source: FrameSource;
     }
   | { type: "upload-validated"; requestId: string; sessionId: string }
   | { type: "export-error"; requestId: string; code: ExportErrorCode };
@@ -125,6 +141,37 @@ function frame(value: unknown): value is SelectedFrame {
     text(value.name) &&
     positive(value.width) &&
     positive(value.height)
+  );
+}
+function record<T>(
+  value: unknown,
+  item: (entry: unknown) => entry is T,
+): value is Record<string, T> {
+  return object(value) && Object.values(value).every(item);
+}
+function annotation(value: unknown): value is FrameAnnotation {
+  return (
+    object(value) &&
+    (value.label === undefined || typeof value.label === "string") &&
+    (value.labelMarkdown === undefined ||
+      typeof value.labelMarkdown === "string")
+  );
+}
+function source(value: unknown): value is FrameSource {
+  return (
+    object(value) &&
+    typeof value.document === "string" &&
+    value.document.length > 0 &&
+    value.document.length <= MAX_FRAME_SOURCE_CHARS &&
+    record(
+      value.annotations,
+      (entry): entry is FrameAnnotation[] =>
+        Array.isArray(entry) && entry.every(annotation),
+    ) &&
+    record(
+      value.externalNames,
+      (entry): entry is string => typeof entry === "string",
+    )
   );
 }
 function frames(value: unknown): value is SelectedFrame[] {
@@ -236,8 +283,6 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
     value.image instanceof Uint8Array &&
     value.image.length > 0 &&
     value.image.length <= MAX_IMAGE_BYTES &&
-    typeof value.data === "string" &&
-    value.data.length > 0 &&
-    value.data.length <= MAX_FRAME_DATA_BYTES
+    source(value.source)
   );
 }

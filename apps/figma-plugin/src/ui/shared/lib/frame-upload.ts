@@ -31,7 +31,7 @@ export class FrameUpload {
   async extract(
     exportFrame: (
       nodeId: string,
-    ) => Promise<{ image: Uint8Array; data: string }>,
+    ) => Promise<{ image: Uint8Array; document: unknown }>,
     slice: (png: Uint8Array) => Promise<Blob[]>,
     onChange: () => void,
     signal: AbortSignal,
@@ -42,10 +42,10 @@ export class FrameUpload {
       this.states.set(frame.nodeId, "uploading");
       onChange();
       try {
-        const { image, data } = await exportFrame(frame.nodeId);
+        const { image, document } = await exportFrame(frame.nodeId);
         this.extracted.set(frame.nodeId, {
           name: frame.name,
-          document: JSON.parse(data),
+          document,
           images: await slice(image),
         });
         this.states.set(frame.nodeId, "done");

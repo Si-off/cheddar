@@ -1,10 +1,15 @@
+import type {
+  FrameNode as RestFrameNode,
+  SubcanvasNode,
+} from "@figma/rest-api-spec";
 import {
   type ExportErrorCode,
+  type FrameAnnotation,
   type FrameSelection,
   isResourceId,
   isToken,
   isUiToMainMessage,
-  MAX_FRAME_DATA_BYTES,
+  MAX_FRAME_SOURCE_CHARS,
   MAX_IMAGE_BYTES,
   MAX_THUMBNAIL_BYTES,
   type MainToUiMessage,
@@ -12,11 +17,6 @@ import {
   type SelectedFrame,
   type UiToMainMessage,
 } from "../protocol/messages";
-import {
-  buildScreenDocument,
-  linkTargets,
-  type SourceNode,
-} from "./screen-document";
 
 declare const __WEB_BASE_URL__: string;
 /** 원격 UI 빌드에서만 값이 있다 */
@@ -129,14 +129,40 @@ function active(id: string): Session {
   if (session.changed || session.page.removed) throw new Error("FRAME_CHANGED");
   return session;
 }
-// TextEncoder isn't available in the Figma main sandbox.
-function utf8Size(value: string) {
-  let bytes = 0;
-  for (const character of value) {
-    const code = character.codePointAt(0) ?? 0;
-    bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+// 화면 문서는 UI가 만든다. main은 노드를 읽어 원본만 넘기고 거르지 않는다.
+// UI가 찾을 수 없는 것만 더한다: 프레임 밖 연결 대상의 이름과 REST 원본에 없는 주석 Markdown.
+async function frameSource(node: FrameNode) {
+  const rest = (await node.exportAsync({ format: "JSON_REST_V1" })) as {
+    document: RestFrameNode;
+  };
+  const document = JSON.stringify(rest.document);
+  if (document.length > MAX_FRAME_SOURCE_CHARS)
+    throw new Error("DATA_TOO_LARGE");
+  const inside = new Set<string>();
+  const targets = new Set<string>();
+  const walk = (item: RestFrameNode | SubcanvasNode) => {
+    inside.add(item.id);
+    if ("interactions" in item)
+      for (const interaction of item.interactions ?? [])
+        for (const action of interaction.actions ?? [])
+          if ("destinationId" in action && action.destinationId)
+            targets.add(action.destinationId);
+    if (item.type === "CONNECTOR" && item.connectorEnd.endpointNodeId)
+      targets.add(item.connectorEnd.endpointNodeId);
+    if ("children" in item) for (const child of item.children) walk(child);
+  };
+  walk(rest.document);
+  const externalNames: Record<string, string> = {};
+  for (const id of targets) {
+    if (inside.has(id)) continue;
+    const target = await figma.getNodeByIdAsync(id);
+    if (target && "name" in target) externalNames[id] = target.name;
   }
-  return bytes;
+  const annotations: Record<string, FrameAnnotation[]> = {};
+  for (const item of [node, ...node.findAll((n) => "annotations" in n)])
+    if ("annotations" in item && item.annotations.length)
+      annotations[item.id] = [...item.annotations];
+  return { document, annotations, externalNames };
 }
 async function handle(
   message: Exclude<
@@ -289,14 +315,7 @@ async function handle(
     JSON.stringify(metadata(node)) !== JSON.stringify(expected)
   )
     throw new Error("FRAME_CHANGED");
-  const source = node as unknown as SourceNode;
-  const external = new Map<string, string>();
-  for (const id of linkTargets(source)) {
-    const target = await figma.getNodeByIdAsync(id);
-    if (target && "name" in target) external.set(id, target.name);
-  }
-  const data = JSON.stringify(buildScreenDocument(source, external));
-  if (utf8Size(data) > MAX_FRAME_DATA_BYTES) throw new Error("DATA_TOO_LARGE");
+  const source = await frameSource(node);
   const image = await node.exportAsync({
     format: "PNG",
     constraint: { type: "SCALE", value: 1 },
@@ -312,7 +331,7 @@ async function handle(
     sessionId: current.id,
     frame: expected,
     image,
-    data,
+    source,
   });
 }
 figma.on("selectionchange", publishSelection);
