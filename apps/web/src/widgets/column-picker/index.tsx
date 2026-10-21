@@ -12,12 +12,12 @@ import { MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {
   type ColumnDraft,
+  ColumnForm,
   type ColumnGroup,
   columnGroup,
   columnGroupLabel,
   type TemplateDraft,
 } from "@/entities/project";
-import { ColumnForm } from "./column-form";
 
 export interface ColumnPickerProps {
   value: TemplateDraft;

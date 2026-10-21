@@ -11,6 +11,7 @@ import {
   Select,
   Tabs,
   TextField,
+  useToast,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -32,6 +33,7 @@ import {
   reviewItemsQuery,
   tempUploadQuery,
 } from "@/entities/generation";
+import { templateQuery } from "@/entities/project";
 import {
   type CaseOp,
   type CellValue,
@@ -55,7 +57,7 @@ import {
 import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { sharingQuery } from "@/features/share-test-set";
 import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
-import { isApiFailure, sdk } from "@/shared/api";
+import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
 import { CaseDialog } from "@/widgets/case-dialog";
 import { CaseTable } from "@/widgets/case-table";
@@ -124,9 +126,10 @@ function TestSetScreen({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { queryKey } = testSetQuery(testSet.id);
   const connection = useRef<() => string | null>(() => null);
-  const { apply, state, applyRemote, resync, refresh } = useCaseOps({
+  const { apply, state, applyRemote, resync, refresh, settled } = useCaseOps({
     queryKey,
     fetch: () =>
       queryClient.fetchQuery({ ...testSetQuery(testSet.id), staleTime: 0 }),
@@ -206,8 +209,12 @@ function TestSetScreen({
   const generation = useQuery(currentGenerationQuery(testSet.id)).data;
   const active =
     generation?.status === "queued" || generation?.status === "running";
-  // 다시 작성은 확인 필요 패널에서 보여주므로 케이스 생성만 진행 중으로 본다
-  const running = active && generation?.kind !== "rewrite";
+  // 다시 작성은 확인 필요 패널에서, 열 채우기는 표에서 보여주므로 케이스 생성만 진행 중으로 본다
+  const running =
+    active &&
+    generation?.kind !== "rewrite" &&
+    generation?.kind !== "fill_column";
+  const filling = active && generation?.kind === "fill_column";
   const reviewItems = useQuery(reviewItemsQuery(testSet.id)).data ?? [];
   const reviewCount = reviewItems.filter(
     (i) => i.status === "pending" || i.status === "rewriting",
@@ -226,6 +233,12 @@ function TestSetScreen({
     enabled: Boolean(uploadId) && !readOnly,
     meta: { quietCodes: ["NOT_FOUND"] },
   }).data;
+  // 열 추가에서 고를 프로젝트 양식의 열. 프로젝트를 볼 수 없으면 직접 정의만 된다.
+  const presetColumns = useQuery({
+    ...templateQuery(testSet.project.id),
+    enabled: !readOnly,
+    meta: { quietCodes: ["NOT_FOUND", "FORBIDDEN"] },
+  }).data?.columns;
 
   const groupColumn =
     testSet.columns.find(
@@ -243,12 +256,12 @@ function TestSetScreen({
     [...selected].filter((id) => testSet.cases.some((c) => c.id === id)),
   );
 
-  const addCase = (values: Record<string, CellValue> = {}) => {
+  const addCase = (
+    values: Record<string, CellValue> = {},
+    afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
+  ) => {
     const caseId = crypto.randomUUID();
-    const last = testSet.cases[testSet.cases.length - 1];
-    apply([
-      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values },
-    ]);
+    apply([{ type: "add_case", caseId, afterCaseId, values }]);
     return caseId;
   };
   const removeSelected = () => {
@@ -256,6 +269,29 @@ function TestSetScreen({
     setSelected(new Set());
   };
   const onOps = (ops: CaseOp[]) => apply(ops);
+  // 열 추가 연산이 저장된 뒤에 채우기를 시작한다
+  const fillColumn = (columnId: string) =>
+    settled()
+      .then(() =>
+        sdk.fillTestSetColumn({
+          path: { testSetId: testSet.id, columnId },
+          throwOnError: true,
+        }),
+      )
+      .then(() =>
+        queryClient.invalidateQueries({
+          queryKey: currentGenerationQuery(testSet.id).queryKey,
+        }),
+      )
+      .catch((error) =>
+        toast.show({
+          message: toApiFailure(error, {
+            unknownResult:
+              "응답을 받지 못했습니다. 새로 고쳐 채우기가 시작됐는지 확인하세요.",
+          }).message,
+          tone: "danger",
+        }),
+      );
 
   const tableProps = {
     columns: testSet.columns,
@@ -271,6 +307,9 @@ function TestSetScreen({
       setView({ rowHeights }),
     presence: live.presence,
     onActiveCellChange: live.select,
+    presetColumns,
+    allCases: testSet.cases,
+    onFillColumn: running ? undefined : fillColumn,
   };
 
   if (live.closed === "session-expired") return null;
@@ -435,6 +474,7 @@ function TestSetScreen({
         )}
       </div>
 
+      {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
       {running && generation && (
         <Banner
           tone="info"
@@ -491,6 +531,9 @@ function TestSetScreen({
                     aria-label={`${group.label} 케이스`}
                     cases={group.cases}
                     onAddCase={() => addCase({ [groupColumn.id]: group.value })}
+                    onInsertCase={(after) =>
+                      addCase({ [groupColumn.id]: group.value }, after)
+                    }
                     {...tableProps}
                   />
                 </section>
@@ -501,6 +544,7 @@ function TestSetScreen({
               aria-label="케이스"
               cases={cases}
               onAddCase={() => addCase()}
+              onInsertCase={(after) => addCase({}, after)}
               {...tableProps}
             />
           )}

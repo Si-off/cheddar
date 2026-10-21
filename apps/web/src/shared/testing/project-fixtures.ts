@@ -72,22 +72,60 @@ export const screens = [
     id: "s1",
     screenId: "SIGNUP",
     name: "회원가입",
+    type: "page",
     parentId: null,
     description: "",
+    ruleMismatch: false,
   },
   {
     id: "s2",
     screenId: "SIGNUP-TERMS",
     name: "약관 동의",
+    type: "popup",
     parentId: "s1",
     description: "",
+    ruleMismatch: false,
   },
   {
     id: "s3",
     screenId: "ORDER",
     name: "주문서",
+    type: "page",
     parentId: null,
     description: "",
+    ruleMismatch: true,
+  },
+];
+
+export const screenIdRules = [
+  {
+    id: "r1",
+    name: "기본",
+    separator: "_",
+    parts: [
+      {
+        name: "플랫폼",
+        kind: "list",
+        codes: [
+          { code: "PC", meaning: "PC 웹" },
+          { code: "MO", meaning: "모바일 웹" },
+        ],
+        value: "",
+        digits: 0,
+      },
+      {
+        name: "기능",
+        kind: "list",
+        codes: [
+          { code: "SIGNUP", meaning: "회원가입" },
+          { code: "ORDER", meaning: "주문" },
+        ],
+        value: "",
+        digits: 0,
+      },
+      { name: "번호", kind: "number", codes: [], value: "", digits: 2 },
+    ],
+    example: "PC_SIGNUP_01",
   },
 ];
 
@@ -98,6 +136,7 @@ export function projectSettings(overrides: Record<string, unknown> = {}) {
     "GET /api/v1/projects/p1/template": template,
     "GET /api/v1/projects/p1/feature-groups": { items: groups },
     "GET /api/v1/projects/p1/screens": { items: screens },
+    "GET /api/v1/projects/p1/screen-id-rules": { items: screenIdRules },
     "GET /api/v1/projects/p1/memo": {
       body: "",
       updatedAt: null,

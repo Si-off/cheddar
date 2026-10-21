@@ -8,16 +8,14 @@ import {
   TextField,
 } from "@cheddar/ui";
 import { Plus, X } from "lucide-react";
-import { type SubmitEvent, useState } from "react";
+import { type ReactNode, type SubmitEvent, useState } from "react";
 import {
   type ColumnDraft,
   type ColumnErrors,
-  type ColumnType,
-  columnTypeLabel,
-  hasOptions,
   optionDraft,
   validateTemplateDraft,
-} from "@/entities/project";
+} from "./column-draft";
+import { type ColumnType, columnTypeLabel, hasOptions } from "./model";
 
 const typeOptions = (Object.keys(columnTypeLabel) as ColumnType[]).map(
   (value) => ({ value, label: columnTypeLabel[value] }),
@@ -29,6 +27,8 @@ export interface ColumnFormProps {
   /** 이름 중복을 확인할 다른 열 */
   others: ColumnDraft[];
   pending?: boolean;
+  /** 푸터 왼쪽에 두는 요소(예: 채우기 스위치) */
+  extra?: ReactNode;
   onSave: (column: ColumnDraft) => void;
 }
 
@@ -37,6 +37,7 @@ export function ColumnForm({
   column,
   others,
   pending,
+  extra,
   onSave,
 }: ColumnFormProps) {
   const [draft, setDraft] = useState<ColumnDraft>(
@@ -170,6 +171,8 @@ export function ColumnForm({
         )}
       </Dialog.Body>
       <Dialog.Footer>
+        {extra}
+        {extra && <span className="flex-1" />}
         <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
         <Button type="submit" variant="primary" loading={pending}>
           {column ? "저장" : "추가"}

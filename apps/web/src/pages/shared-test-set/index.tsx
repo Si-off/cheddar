@@ -145,12 +145,11 @@ function SharedScreen({
   const others = live.people.filter(
     (p) => p.connectionId !== live.me?.connectionId,
   );
-  const addCase = () => {
+  const addCase = (
+    afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
+  ) => {
     const caseId = crypto.randomUUID();
-    const last = testSet.cases[testSet.cases.length - 1];
-    apply([
-      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values: {} },
-    ]);
+    apply([{ type: "add_case", caseId, afterCaseId, values: {} }]);
     return caseId;
   };
 
@@ -227,8 +226,10 @@ function SharedScreen({
           columns={testSet.columns}
           cases={cases}
           readOnly={readOnly}
+          canEditColumns={!readOnly && !visitor}
           onOps={apply}
-          onAddCase={addCase}
+          onAddCase={() => addCase()}
+          onInsertCase={addCase}
           presence={live.presence}
           onActiveCellChange={live.select}
           columnWidths={view.columnWidths}

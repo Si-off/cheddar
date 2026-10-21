@@ -290,13 +290,6 @@ export function DataGrid<Row>({
     event.preventDefault();
     const r = rowIds.indexOf(activeCell.rowId);
     const c = columns.findIndex((col) => col.id === activeCell.columnId);
-    const nextRow = Math.min(
-      rowIds.length - 1,
-      Math.max(
-        0,
-        r + (event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0),
-      ),
-    );
     const nextCol = Math.min(
       columns.length - 1,
       Math.max(
@@ -305,7 +298,19 @@ export function DataGrid<Row>({
           (event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0),
       ),
     );
-    setActive({ rowId: rowIds[nextRow], columnId: columns[nextCol].id });
+    const columnId = (columns[nextCol] as DataGridColumn<Row>).id;
+    // 병합된 셀은 첫 행이 대표한다. 아래로는 묶음 다음 행, 위로는 위 묶음의 첫 행으로 간다.
+    const headOf = (row: number) => {
+      let i = row;
+      while (i > 0 && spanOf(i, columnId) === 0) i--;
+      return i;
+    };
+    let nextRow = r;
+    if (event.key === "ArrowDown")
+      nextRow = headOf(r) + spanOf(headOf(r), columnId);
+    else if (event.key === "ArrowUp") nextRow = headOf(headOf(r) - 1);
+    nextRow = headOf(Math.min(rowIds.length - 1, Math.max(0, nextRow)));
+    setActive({ rowId: rowIds[nextRow] as string, columnId });
   };
 
   const toggleRow = (rowId: string, checked: boolean) => {

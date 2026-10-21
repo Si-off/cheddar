@@ -4,6 +4,7 @@ import {
   groups,
   project,
   projectSettings,
+  screens,
   template,
 } from "../../shared/testing/project-fixtures";
 
@@ -102,26 +103,34 @@ test("화면 구조: 하위 화면이 있으면 지울 수 없고, 자기 하위
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
     ...projectSettings(),
+    "GET /api/v1/projects/p1/screen-id-rules/r1/next": {
+      screenId: "PC_SIGNUP_03",
+    },
     "POST /api/v1/projects/p1/screens": reply(201, {
+      ...screens[0],
       id: "s4",
-      screenId: "SIGNUP-DONE",
+      screenId: "PC_SIGNUP_03",
       name: "가입 완료",
       parentId: "s1",
-      description: "",
     }),
   });
   await page.goto("/projects/p1/screens");
-  await expect(
-    page.getByText("하위 화면 1개가 있어 삭제할 수 없습니다"),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "삭제" })).toBeDisabled();
+  await expect(page.getByText("규칙 불일치")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "회원가입 작업" }).click();
+  await expect(page.getByRole("menuitem", { name: "삭제" })).toBeDisabled();
+  await page.getByRole("menuitem", { name: "편집" }).click();
   await page.getByRole("combobox", { name: "상위 화면" }).click();
   await expect(page.getByRole("option", { name: /약관 동의/ })).toHaveCount(0);
   await expect(page.getByRole("option", { name: /주문서/ })).toHaveCount(1);
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "취소" }).click();
 
-  await page.getByRole("button", { name: "화면 추가" }).click();
-  await page.getByRole("textbox", { name: "화면 ID" }).fill("SIGNUP-DONE");
+  // 규칙이 있으면 다음 번호를 붙인 ID를 미리 채운다
+  await page.getByRole("button", { name: "화면 추가" }).first().click();
+  await expect(page.getByRole("textbox", { name: "화면 ID" })).toHaveValue(
+    "PC_SIGNUP_03",
+  );
   await page.getByRole("textbox", { name: "이름" }).fill("가입 완료");
   await page.getByRole("combobox", { name: "상위 화면" }).click();
   await page.getByRole("option", { name: /회원가입/ }).click();
@@ -132,11 +141,42 @@ test("화면 구조: 하위 화면이 있으면 지울 수 없고, 자기 하위
         calls.find((c) => c.key === "POST /api/v1/projects/p1/screens")?.body,
     )
     .toEqual({
-      screenId: "SIGNUP-DONE",
+      screenId: "PC_SIGNUP_03",
       name: "가입 완료",
+      type: "page",
       parentId: "s1",
       description: "",
     });
+});
+
+test("화면 ID 규칙: 예시 ID를 부분별로 보여주고 메뉴에서 확인 뒤 지운다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...projectSettings(),
+    "DELETE /api/v1/projects/p1/screen-id-rules/r1": reply(204),
+  });
+  await page.goto("/projects/p1/screens");
+  const rule = page
+    .getByRole("list", { name: "화면 ID 규칙" })
+    .getByRole("listitem");
+  await expect(rule).toContainText("PC");
+  await expect(rule).toContainText("SIGNUP");
+  await expect(rule).toContainText("01");
+  await rule.getByRole("button", { name: "기본 작업" }).click();
+  await page.getByRole("menuitem", { name: "삭제" }).click();
+  await page
+    .getByRole("dialog", { name: "기본 삭제" })
+    .getByRole("button", { name: "삭제" })
+    .click();
+  await expect
+    .poll(() =>
+      calls.some(
+        (c) => c.key === "DELETE /api/v1/projects/p1/screen-id-rules/r1",
+      ),
+    )
+    .toBe(true);
 });
 
 test("메모: 입력을 멈추면 저장하고 저장됨을 보여준다", async ({ page }) => {

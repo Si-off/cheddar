@@ -1,3 +1,4 @@
+import type { CaseOp as SharedCaseOp } from "@cheddar/contracts";
 import type { ColumnType, TemplateColumn } from "@/entities/project";
 
 /** 테스트 세트의 항목. 프로젝트 기본 양식에서 복사한 뒤 따로 바뀐다. */
@@ -48,17 +49,14 @@ export interface TestSetSummary {
 
 export type TestSetFilter = "all" | "mine" | "shared";
 
-/** 셀 편집 연산. 공동 편집에서도 같은 모양을 쓴다. 같은 셀은 나중 값이 이긴다. */
-export type CaseOp =
-  | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
-  | {
-      type: "add_case";
-      caseId: string;
-      afterCaseId: string | null;
-      values?: Record<string, CellValue>;
-    }
-  | { type: "delete_cases"; caseIds: string[] }
-  | { type: "move_case"; caseId: string; afterCaseId: string | null };
+/** 셀과 열 편집 연산. 공동 편집에서도 같은 모양을 쓴다. 같은 셀은 나중 값이 이긴다. */
+export type CaseOp = SharedCaseOp;
+
+/** 연산이 바꾸는 테스트 세트 내용. 열과 케이스를 함께 든다. */
+export interface SheetState {
+  columns: Column[];
+  cases: TestCase[];
+}
 
 export interface ViewPreference {
   view: "table" | "card";
@@ -75,6 +73,17 @@ export const defaultView: ViewPreference = {
 };
 
 /** 카드 열과 표 구역으로 묶을 수 있는 형식 */
+/** 이어진 케이스에서 값이 같으면 한 칸으로 병합해 보이는 사전 정의 열 */
+const MERGE_PRESET_KEYS = new Set([
+  "test_env",
+  "test_case",
+  "title",
+  "screen_id",
+  "steps",
+]);
+export const mergeable = (column: Pick<Column, "presetKey">) =>
+  column.presetKey !== null && MERGE_PRESET_KEYS.has(column.presetKey);
+
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";
 
@@ -137,10 +146,49 @@ export const caseTitle = (testSet: Pick<TestSet, "columns">, c: TestCase) => {
 };
 
 /** 서버 응답을 기다리지 않고 화면에 먼저 반영한다. 서버 결과가 오면 그것으로 덮는다. */
-export function applyOps(cases: TestCase[], ops: CaseOp[]): TestCase[] {
-  let next = cases;
+export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
+  let next = state.cases;
+  let columns = state.columns;
   for (const op of ops) {
     switch (op.type) {
+      case "add_column": {
+        if (columns.some((c) => c.id === op.columnId)) break;
+        const added: Column = {
+          id: op.columnId,
+          systemKey: null,
+          ...op.column,
+        };
+        const at =
+          op.afterColumnId === null
+            ? 0
+            : columns.findIndex((c) => c.id === op.afterColumnId) + 1;
+        columns = [...columns.slice(0, at), added, ...columns.slice(at)];
+        break;
+      }
+      case "remove_column": {
+        columns = columns.filter((c) => c.id !== op.columnId);
+        next = next.map((c) => {
+          if (!(op.columnId in c.values)) return c;
+          const { [op.columnId]: _, ...values } = c.values;
+          return { ...c, values };
+        });
+        break;
+      }
+      case "update_column":
+        columns = columns.map((c) =>
+          c.id === op.columnId
+            ? { ...c, name: op.name, description: op.description }
+            : c,
+        );
+        break;
+      case "reorder_columns": {
+        const byId = new Map(columns.map((c) => [c.id, c]));
+        const ordered = op.columnIds
+          .map((id) => byId.get(id))
+          .filter((c): c is Column => c !== undefined);
+        if (ordered.length === columns.length) columns = ordered;
+        break;
+      }
       case "set_cell":
         next = next.map((c) =>
           c.id === op.caseId
@@ -176,7 +224,9 @@ export function applyOps(cases: TestCase[], ops: CaseOp[]): TestCase[] {
       }
     }
   }
-  return next;
+  return columns === state.columns && next === state.cases
+    ? state
+    : { columns, cases: next };
 }
 
 /** 서버가 돌려준 바뀐 케이스로 덮는다. 순서는 화면 순서를 지킨다. */

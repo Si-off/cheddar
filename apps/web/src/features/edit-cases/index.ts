@@ -5,7 +5,7 @@ import {
   applyOps,
   type CaseOp,
   mergeCases,
-  type TestCase,
+  type SheetState,
   type TestSet,
 } from "@/entities/test-set";
 import { isApiFailure, type OpsResultDto, toApiFailure } from "@/shared/api";
@@ -42,8 +42,8 @@ export function useCaseOps(source: CaseOpsSource) {
   // 보냈지만 아직 응답을 받지 않은 연산(보낸 순서)
   const unsent = useRef<{ id: number; ops: CaseOp[] }[]>([]);
   const nextId = useRef(0);
-  // 서버가 확정한 내용
-  const base = useRef<{ version: number; cases: TestCase[] } | null>(null);
+  // 서버가 확정한 내용(열과 케이스)
+  const base = useRef<(SheetState & { version: number }) | null>(null);
   // 다시 읽는 동안 받은 연산과 지금까지 알려진 가장 큰 순번
   const buffered = useRef<Remote[]>([]);
   const target = useRef(0);
@@ -58,7 +58,11 @@ export function useCaseOps(source: CaseOpsSource) {
   const confirmed = useCallback(() => {
     const current = queryClient.getQueryData<TestSet>(queryKey);
     if (current && (!base.current || current.version > base.current.version))
-      base.current = { version: current.version, cases: current.cases };
+      base.current = {
+        version: current.version,
+        columns: current.columns,
+        cases: current.cases,
+      };
     return base.current;
   }, [queryClient, queryKey]);
 
@@ -66,16 +70,21 @@ export function useCaseOps(source: CaseOpsSource) {
   const render = useCallback(() => {
     const b = base.current;
     if (!b) return;
+    const shown = [
+      ...unknownOps.current,
+      ...unsent.current.map((e) => e.ops),
+    ].reduce((all, ops) => applyOps(all, ops), {
+      columns: b.columns,
+      cases: b.cases,
+    });
     queryClient.setQueryData(
       queryKey,
       (current: TestSet | undefined) =>
         current && {
           ...current,
           version: b.version,
-          cases: [
-            ...unknownOps.current,
-            ...unsent.current.map((e) => e.ops),
-          ].reduce((all, ops) => applyOps(all, ops), b.cases),
+          columns: shown.columns,
+          cases: shown.cases,
         },
     );
   }, [queryClient, queryKey]);
@@ -87,7 +96,7 @@ export function useCaseOps(source: CaseOpsSource) {
     buffered.current.sort((x, y) => x.version - y.version);
     for (const message of buffered.current)
       if (message.version === b.version + 1) {
-        b.cases = applyOps(b.cases, message.ops);
+        Object.assign(b, applyOps(b, message.ops));
         b.version = message.version;
       }
     buffered.current = buffered.current.filter((m) => m.version > b.version);
@@ -103,7 +112,11 @@ export function useCaseOps(source: CaseOpsSource) {
           // 다시 읽은 서버 내용이 기준이 되므로 결과를 모르던 연산은 더 얹지 않는다
           unknownOps.current = [];
           queryClient.setQueryData(queryKey, fresh);
-          base.current = { version: fresh.version, cases: fresh.cases };
+          base.current = {
+            version: fresh.version,
+            columns: fresh.columns,
+            cases: fresh.cases,
+          };
           drain();
           if (base.current.version >= target.current) break;
         }
@@ -132,11 +145,8 @@ export function useCaseOps(source: CaseOpsSource) {
           if (b && !reloading.current) {
             if (data.version === b.version + 1) {
               // 사이에 다른 연산이 없으니 응답이 곧 최신 내용이다
-              b.cases = mergeCases(
-                applyOps(b.cases, ops),
-                data.cases,
-                data.deletedCaseIds,
-              );
+              Object.assign(b, applyOps(b, ops));
+              b.cases = mergeCases(b.cases, data.cases, data.deletedCaseIds);
               b.version = data.version;
               drain();
             } else if (data.version === b.version) {
@@ -205,7 +215,7 @@ export function useCaseOps(source: CaseOpsSource) {
         void reload();
         return;
       }
-      b.cases = applyOps(b.cases, message.ops);
+      Object.assign(b, applyOps(b, message.ops));
       b.version = message.version;
       drain();
       render();
@@ -226,5 +236,8 @@ export function useCaseOps(source: CaseOpsSource) {
   /** 순번과 관계없이 서버 내용을 다시 읽는다(소유자 변경처럼 순번이 그대로인 변경) */
   const refresh = useCallback(() => void reload(), [reload]);
 
-  return { apply, state, applyRemote, resync, refresh };
+  /** 지금까지 보낸 연산의 응답이 모두 돌아오면 끝난다(연산 뒤 이어지는 다른 요청을 기다리게 할 때) */
+  const settled = useCallback(() => queue.current.then(() => undefined), []);
+
+  return { apply, state, applyRemote, resync, refresh, settled };
 }

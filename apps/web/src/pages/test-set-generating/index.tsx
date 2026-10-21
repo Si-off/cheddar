@@ -74,7 +74,11 @@ export function TestSetGeneratingPage({
       return;
     }
     // 생성 기록이 없거나 확인 필요 항목의 다시 작성이면 테스트 세트에서 본다
-    if (job === null || job?.kind === "rewrite") {
+    if (
+      job === null ||
+      job?.kind === "rewrite" ||
+      job?.kind === "fill_column"
+    ) {
       void navigate({ to: "/test-sets/$testSetId", params: { testSetId } });
       return;
     }

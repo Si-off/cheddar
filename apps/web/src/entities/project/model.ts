@@ -83,12 +83,65 @@ export interface Screen {
   id: string;
   screenId: string;
   name: string;
+  type: ScreenType;
   parentId: string | null;
   description: string;
+  /** 프로젝트에 규칙이 있는데 어느 규칙에도 맞지 않는 ID */
+  ruleMismatch: boolean;
 }
 
 export interface Memo {
   body: string;
   updatedAt: string | null;
   updatedBy: { id: string; name: string } | null;
+}
+
+export type ScreenType = "page" | "popup" | "bottom_sheet" | "tab";
+
+export const screenTypeLabel: Record<ScreenType, string> = {
+  page: "페이지",
+  popup: "팝업",
+  bottom_sheet: "바텀시트",
+  tab: "탭",
+};
+
+export type ScreenIdPartKind = "list" | "fixed" | "number";
+
+export const screenIdPartKindLabel: Record<ScreenIdPartKind, string> = {
+  list: "코드 목록",
+  fixed: "고정값",
+  number: "번호",
+};
+
+export interface ScreenIdRulePart {
+  name: string;
+  kind: ScreenIdPartKind;
+  /** 코드 목록일 때 쓸 수 있는 값 */
+  codes: { code: string; meaning: string }[];
+  /** 고정값 */
+  value: string;
+  /** 번호 자릿수 */
+  digits: number;
+}
+
+export interface ScreenIdRule {
+  id: string;
+  name: string;
+  separator: string;
+  parts: ScreenIdRulePart[];
+  /** 서버가 계산한 예시 ID */
+  example: string;
+}
+
+export type ScreenIdRuleInput = Omit<ScreenIdRule, "id" | "example">;
+
+/** 부분마다 대표값(첫 코드, 고정값, 1을 자릿수로 채운 번호)을 보여주는 예시 */
+export function screenIdExampleParts(rule: Pick<ScreenIdRule, "parts">) {
+  return rule.parts.map((part) =>
+    part.kind === "list"
+      ? (part.codes[0]?.code ?? "")
+      : part.kind === "fixed"
+        ? part.value
+        : "1".padStart(Math.max(1, part.digits), "0"),
+  );
 }

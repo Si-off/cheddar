@@ -1,15 +1,27 @@
 import {
   Badge,
   Button,
+  ConfirmDialog,
+  ContextMenu,
   cn,
   DataGrid,
   type DataGridColumn,
   DrawnCheck,
   type GridPresence,
+  IconButton,
   Menu,
   useToast,
 } from "@cheddar/ui";
-import { Plus } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  ClipboardPaste,
+  Copy,
+  MoreHorizontal,
+  Plus,
+  SquareSplitVertical,
+  Trash2,
+} from "lucide-react";
 import {
   type ClipboardEvent,
   type KeyboardEvent,
@@ -22,10 +34,12 @@ import {
   type CellValue,
   type Column,
   cellText,
+  mergeable,
   parseCell,
   readCell,
   type TestCase,
 } from "@/entities/test-set";
+import { AddColumnDialog, RenameColumnDialog } from "./column-dialogs";
 
 export interface CaseTableProps {
   "aria-label": string;
@@ -33,6 +47,8 @@ export interface CaseTableProps {
   /** 보여줄 순서대로 */
   cases: TestCase[];
   readOnly?: boolean;
+  /** 열 추가·삭제·순서·이름 변경까지 할 수 있는지. 기본은 readOnly의 반대(링크 방문자는 셀만 고친다). */
+  canEditColumns?: boolean;
   onOps: (ops: CaseOp[]) => void;
   selectedIds?: ReadonlySet<string>;
   onSelectedIdsChange?: (ids: Set<string>) => void;
@@ -42,6 +58,14 @@ export interface CaseTableProps {
   onRowHeightsChange?: (heights: Record<string, number>) => void;
   /** 표 아래 "케이스 추가". 없으면 버튼을 두지 않는다. 만든 케이스 ID를 돌려주면 그 제목 셀을 고른다. */
   onAddCase?: () => string | undefined;
+  /** 셀 메뉴의 위·아래에 케이스 추가. afterCaseId가 null이면 맨 앞. */
+  onInsertCase?: (afterCaseId: string | null) => string | undefined;
+  /** 열 추가에서 고를 수 있는 프로젝트 양식의 열. 없으면 직접 정의만 된다. */
+  presetColumns?: Column[];
+  /** 검색이나 묶기로 일부만 보여줄 때 테스트 세트 전체 케이스. 열 삭제 영향은 전체 기준이다. */
+  allCases?: TestCase[];
+  /** 새 열을 AI로 채운다. 없으면 열 추가에 그 선택지가 없다. */
+  onFillColumn?: (columnId: string) => void;
   /** 다른 사람이 선택한 셀 */
   presence?: GridPresence[];
   /** 내가 고른 셀이 바뀌면 알린다(다른 사람에게 보여주기 위해) */
@@ -86,6 +110,7 @@ export function CaseTable({
   columns,
   cases,
   readOnly,
+  canEditColumns = !readOnly,
   onOps,
   presence,
   onActiveCellChange,
@@ -96,6 +121,10 @@ export function CaseTable({
   onColumnWidthsChange,
   onRowHeightsChange,
   onAddCase,
+  onInsertCase,
+  presetColumns,
+  allCases = cases,
+  onFillColumn,
 }: CaseTableProps) {
   const toast = useToast();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -104,6 +133,13 @@ export function CaseTable({
     columnId: string;
   } | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
+  // 병합을 풀어 따로 보이는 셀("rowId:columnId"). 보기 상태라 저장하지 않는다.
+  const [split, setSplit] = useState<ReadonlySet<string>>(new Set());
+  const [adding, setAdding] = useState<{ afterColumnId: string | null } | null>(
+    null,
+  );
+  const [renaming, setRenaming] = useState<Column | null>(null);
+  const [removing, setRemoving] = useState<Column | null>(null);
   // 셀을 눌러 생긴 포커스인지 구분한다
   const pointerFocus = useRef(false);
   // 고른 셀이 바뀔 때 표 안에 포커스가 있었는지
@@ -144,8 +180,83 @@ export function CaseTable({
         gridRef.current?.querySelector<HTMLElement>("table")
       )?.focus(),
     );
+  const mergeKeyOf = (column: Column) => (row: TestCase) => {
+    const text = cellText(column, row.values[column.id]);
+    return text && !split.has(`${row.id}:${column.id}`) ? text : `\0${row.id}`;
+  };
+  const mergeColumns = columns.filter(mergeable);
+  // 이 셀과 한 칸으로 병합된 케이스들(DataGrid와 같은 규칙). 병합되지 않았으면 자기 자신만.
+  const mergedCases = (caseId: string, columnId: string): TestCase[] => {
+    const column = columns.find((c) => c.id === columnId);
+    if (!column || !mergeable(column))
+      return cases.filter((c) => c.id === caseId);
+    const index = cases.findIndex((c) => c.id === caseId);
+    if (index < 0) return [];
+    const upTo = mergeColumns.slice(0, mergeColumns.indexOf(column) + 1);
+    const keys = upTo.map(mergeKeyOf);
+    const same = (a: TestCase, b: TestCase) => keys.every((k) => k(a) === k(b));
+    let start = index;
+    while (
+      start > 0 &&
+      same(cases[start - 1] as TestCase, cases[start] as TestCase)
+    )
+      start--;
+    let end = index;
+    while (
+      end + 1 < cases.length &&
+      same(cases[end] as TestCase, cases[end + 1] as TestCase)
+    )
+      end++;
+    return cases.slice(start, end + 1);
+  };
+  // 병합된 셀을 고치면 묶인 케이스가 모두 같은 값을 받는다
   const set = (caseId: string, columnId: string, value: CellValue) =>
-    onOps([{ type: "set_cell", caseId, columnId, value }]);
+    onOps(
+      mergedCases(caseId, columnId).map((c) => ({
+        type: "set_cell",
+        caseId: c.id,
+        columnId,
+        value,
+      })),
+    );
+  const splitCell = (caseId: string, columnId: string) =>
+    setSplit((prev) => {
+      const next = new Set(prev);
+      for (const c of mergedCases(caseId, columnId))
+        next.add(`${c.id}:${columnId}`);
+      return next;
+    });
+  const reorder = (columnIds: string[]) => {
+    const before = columns.map((c) => c.id);
+    onOps([{ type: "reorder_columns", columnIds }]);
+    toast.show({
+      message: "열 순서를 바꿨습니다",
+      action: {
+        label: "되돌리기",
+        onClick: () => onOps([{ type: "reorder_columns", columnIds: before }]),
+      },
+    });
+  };
+  const addColumn = (
+    afterColumnId: string | null,
+    column: Omit<Column, "id" | "systemKey">,
+    fill: boolean,
+  ) => {
+    const columnId = crypto.randomUUID();
+    onOps([{ type: "add_column", columnId, column, afterColumnId }]);
+    if (fill) onFillColumn?.(columnId);
+  };
+  const removeColumn = (column: Column) =>
+    onOps([{ type: "remove_column", columnId: column.id }]);
+  const filledCount = (column: Column) =>
+    allCases.filter((c) => cellText(column, c.values[column.id]) !== "").length;
+  const insertCase = (afterCaseId: string | null) => {
+    added.current = onInsertCase?.(afterCaseId) ?? null;
+  };
+  const activeColumn = active ? columnOf(active.columnId) : undefined;
+  const activeIndex = active
+    ? cases.findIndex((c) => c.id === active.rowId)
+    : -1;
   const finish = () => {
     setEditing(null);
     focusGrid();
@@ -204,15 +315,20 @@ export function CaseTable({
     const text = event.clipboardData.getData("text/plain");
     if (!text) return;
     event.preventDefault();
+    pasteAt(active, text);
+  };
+  const pasteAt = (at: { rowId: string; columnId: string }, text: string) => {
     const grid = text
       .replace(/\r\n/g, "\n")
       .replace(/\n$/, "")
       .split("\n")
       .map((line) => line.split("\t"));
-    const r0 = cases.findIndex((c) => c.id === active.rowId);
-    const c0 = columns.findIndex((c) => c.id === active.columnId);
+    const r0 = cases.findIndex((c) => c.id === at.rowId);
+    const c0 = columns.findIndex((c) => c.id === at.columnId);
     const ops: CaseOp[] = [];
     const total = grid.reduce((n, line) => n + line.length, 0);
+    // 값 하나를 병합된 셀에 넣으면 셀 편집과 같이 묶인 케이스 전체가 받는다
+    const single = grid.length === 1 && grid[0]?.length === 1;
     grid.forEach((line, dr) => {
       const row = cases[r0 + dr];
       if (!row) return;
@@ -220,17 +336,19 @@ export function CaseTable({
         const column = columns[c0 + dc];
         if (!column) return;
         const value = parseCell(column, cellTextValue);
-        if (value !== undefined)
+        if (value === undefined) return;
+        const targets = single ? mergedCases(row.id, column.id) : [row];
+        for (const target of targets)
           ops.push({
             type: "set_cell",
-            caseId: row.id,
+            caseId: target.id,
             columnId: column.id,
             value,
           });
       });
     });
     if (ops.length > 0) onOps(ops);
-    const skipped = total - ops.length;
+    const skipped = single ? (ops.length > 0 ? 0 : 1) : total - ops.length;
     if (skipped > 0)
       toast.show({
         message: `${skipped}칸은 항목 형식에 맞지 않거나 표 밖이라 넣지 않았습니다`,
@@ -243,6 +361,63 @@ export function CaseTable({
     header: column.name,
     width: widthFor(column),
     mono: column.systemKey === "test_id",
+    fixed: column.systemKey === "test_id",
+    mergeKey: mergeable(column) ? mergeKeyOf(column) : undefined,
+    headerAction: !canEditColumns ? undefined : (
+      <Menu.Root>
+        <Menu.Trigger
+          render={
+            <IconButton
+              icon={MoreHorizontal}
+              label={`${column.name} 열 작업`}
+              size="sm"
+            />
+          }
+        />
+        <Menu.Popup align="end">
+          {column.presetKey === null && (
+            <>
+              <Menu.Item onClick={() => setRenaming(column)}>
+                이름 변경
+              </Menu.Item>
+              <Menu.Separator />
+            </>
+          )}
+          {column.systemKey !== "test_id" && (
+            <Menu.Item
+              onClick={() =>
+                setAdding({
+                  afterColumnId:
+                    columns[columns.findIndex((c) => c.id === column.id) - 1]
+                      ?.id ?? null,
+                })
+              }
+            >
+              왼쪽에 열 추가
+            </Menu.Item>
+          )}
+          <Menu.Item onClick={() => setAdding({ afterColumnId: column.id })}>
+            오른쪽에 열 추가
+          </Menu.Item>
+          {column.systemKey === null && (
+            <>
+              <Menu.Separator />
+              <Menu.Item
+                icon={Trash2}
+                tone="danger"
+                onClick={() =>
+                  filledCount(column) > 0
+                    ? setRemoving(column)
+                    : removeColumn(column)
+                }
+              >
+                삭제
+              </Menu.Item>
+            </>
+          )}
+        </Menu.Popup>
+      </Menu.Root>
+    ),
     cell: (row) => {
       const value = row.values[column.id];
       const isEditing =
@@ -365,6 +540,104 @@ export function CaseTable({
         rowHeights={rowHeights}
         onColumnWidthsChange={onColumnWidthsChange}
         onRowHeightsChange={onRowHeightsChange}
+        onColumnReorder={canEditColumns ? reorder : undefined}
+        headerEnd={
+          !canEditColumns ? undefined : (
+            <IconButton
+              icon={Plus}
+              label="열 추가"
+              size="sm"
+              onClick={() =>
+                setAdding({ afterColumnId: columns.at(-1)?.id ?? null })
+              }
+            />
+          )
+        }
+        // 오른쪽 클릭이 먼저 셀을 고르므로 메뉴는 늘 고른 셀 기준이다. 틀을 늘 둬야 표가 다시 만들어지지 않는다.
+        cellMenu={
+          active && activeColumn ? (
+            <>
+              <ContextMenu.Item
+                icon={Copy}
+                onClick={() => {
+                  const row = caseOf(active.rowId);
+                  if (row)
+                    void navigator.clipboard.writeText(
+                      cellText(activeColumn, row.values[activeColumn.id]),
+                    );
+                }}
+              >
+                복사
+              </ContextMenu.Item>
+              {!readOnly && (
+                <ContextMenu.Item
+                  icon={ClipboardPaste}
+                  onClick={() =>
+                    navigator.clipboard
+                      .readText()
+                      .then((text) => text && pasteAt(active, text))
+                      .catch(() =>
+                        toast.show({
+                          message: "붙여넣기는 Ctrl+V(⌘V)로 할 수 있습니다",
+                          tone: "info",
+                        }),
+                      )
+                  }
+                >
+                  붙여넣기
+                </ContextMenu.Item>
+              )}
+              {!readOnly && onInsertCase && (
+                <>
+                  <ContextMenu.Separator />
+                  <ContextMenu.Item
+                    icon={ArrowUpToLine}
+                    onClick={() =>
+                      insertCase(cases[activeIndex - 1]?.id ?? null)
+                    }
+                  >
+                    위에 케이스 추가
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    icon={ArrowDownToLine}
+                    onClick={() => insertCase(active.rowId)}
+                  >
+                    아래에 케이스 추가
+                  </ContextMenu.Item>
+                </>
+              )}
+              {mergeable(activeColumn) &&
+                mergedCases(active.rowId, activeColumn.id).length > 1 && (
+                  <>
+                    <ContextMenu.Separator />
+                    <ContextMenu.Item
+                      icon={SquareSplitVertical}
+                      onClick={() => splitCell(active.rowId, activeColumn.id)}
+                    >
+                      셀 나누기
+                    </ContextMenu.Item>
+                  </>
+                )}
+              {!readOnly && (
+                <>
+                  <ContextMenu.Separator />
+                  <ContextMenu.Item
+                    icon={Trash2}
+                    tone="danger"
+                    onClick={() =>
+                      onOps([{ type: "delete_cases", caseIds: [active.rowId] }])
+                    }
+                  >
+                    케이스 삭제
+                  </ContextMenu.Item>
+                </>
+              )}
+            </>
+          ) : (
+            // 고른 셀이 없을 때. 메뉴는 고른 셀에서만 열리므로 틀만 유지한다.
+            <span hidden />
+          )
+        }
         footer={
           onAddCase && !readOnly ? (
             <Button
@@ -379,6 +652,47 @@ export function CaseTable({
             </Button>
           ) : undefined
         }
+      />
+      <AddColumnDialog
+        open={adding !== null}
+        onOpenChange={(open) => !open && setAdding(null)}
+        columns={columns}
+        presets={presetColumns}
+        fillableCount={onFillColumn ? allCases.length : 0}
+        onAdd={(column, fill) =>
+          adding && addColumn(adding.afterColumnId, column, fill)
+        }
+      />
+      <RenameColumnDialog
+        column={renaming}
+        others={columns}
+        onOpenChange={(open) => !open && setRenaming(null)}
+        onSave={(name, description) => {
+          if (renaming)
+            onOps([
+              {
+                type: "update_column",
+                columnId: renaming.id,
+                name,
+                description,
+              },
+            ]);
+          setRenaming(null);
+        }}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        title={`${removing?.name ?? ""} 삭제`}
+        description={
+          removing ? `케이스 ${filledCount(removing)}개의 값도 지워집니다.` : ""
+        }
+        confirmLabel="삭제"
+        tone="danger"
+        onConfirm={() => {
+          if (removing) removeColumn(removing);
+          setRemoving(null);
+        }}
       />
     </div>
   );

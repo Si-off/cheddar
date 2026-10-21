@@ -12,6 +12,7 @@ import {
   memoQuery,
   type Project,
   projectQuery,
+  screenIdRulesQuery,
   screensQuery,
   type Template,
   type TemplateDraft,
@@ -20,6 +21,7 @@ import {
 } from "@/entities/project";
 import { MemoEditor } from "@/features/edit-project-memo";
 import { FeatureGroupsEditor } from "@/features/manage-feature-groups";
+import { ScreenIdRulesEditor } from "@/features/manage-screen-id-rules";
 import { ScreensEditor } from "@/features/manage-screens";
 import { useSaveTemplate } from "@/features/manage-template-columns";
 import { ColumnPicker } from "@/widgets/column-picker";
@@ -204,6 +206,7 @@ export function ProjectFeatureGroupsPage({ projectId }: { projectId: string }) {
 
 export function ProjectScreensPage({ projectId }: { projectId: string }) {
   const screens = useQuery(screensQuery(projectId));
+  const rules = useQuery(screenIdRulesQuery(projectId));
   return (
     <SettingsFrame
       projectId={projectId}
@@ -212,11 +215,19 @@ export function ProjectScreensPage({ projectId }: { projectId: string }) {
     >
       {(project, data) => (
         <ProjectShell project={project}>
-          <ScreensEditor
-            projectId={projectId}
-            screens={data}
-            readOnly={!project.canManage}
-          />
+          <div className="flex flex-col gap-8">
+            <ScreenIdRulesEditor
+              projectId={projectId}
+              rules={rules.data ?? []}
+              readOnly={!project.canManage}
+            />
+            <ScreensEditor
+              projectId={projectId}
+              screens={data}
+              rules={rules.data}
+              readOnly={!project.canManage}
+            />
+          </div>
         </ProjectShell>
       )}
     </SettingsFrame>
