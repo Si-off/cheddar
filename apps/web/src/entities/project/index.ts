@@ -4,7 +4,6 @@ import {
   getProjectQueryKey,
   getProjectTemplateQueryKey,
   listProjectFeatureGroupsQueryKey,
-  listProjectRequiredCasesQueryKey,
   listProjectScreensQueryKey,
   listProjectsQueryKey,
   sdk,
@@ -14,7 +13,6 @@ import type {
   Memo,
   Project,
   ProjectSummary,
-  RequiredCase,
   Screen,
   Template,
 } from "./model";
@@ -61,19 +59,6 @@ export const featureGroupsQuery = (projectId: string) =>
     queryFn: async ({ signal }): Promise<FeatureGroup[]> =>
       (
         await sdk.listProjectFeatureGroups({
-          path: { projectId },
-          signal,
-          throwOnError: true,
-        })
-      ).data.items,
-  });
-
-export const requiredCasesQuery = (projectId: string) =>
-  queryOptions({
-    queryKey: listProjectRequiredCasesQueryKey({ path: { projectId } }),
-    queryFn: async ({ signal }): Promise<RequiredCase[]> =>
-      (
-        await sdk.listProjectRequiredCases({
           path: { projectId },
           signal,
           throwOnError: true,

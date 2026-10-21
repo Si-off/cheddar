@@ -1,7 +1,7 @@
 import type { ColumnType, TemplateColumn } from "@/entities/project";
 
 /** 테스트 세트의 항목. 프로젝트 기본 양식에서 복사한 뒤 따로 바뀐다. */
-export type Column = TemplateColumn;
+export type Column = Omit<TemplateColumn, "enabled">;
 
 export type CellValue = string | boolean | string[] | null;
 

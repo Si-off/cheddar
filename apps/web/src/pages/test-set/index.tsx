@@ -1,11 +1,8 @@
 import {
   Avatars,
   Banner,
-  Breadcrumb,
-  BreadcrumbItem,
   Button,
   buttonVariants,
-  Dialog,
   EmptyState,
   IconButton,
   LoadError,
@@ -25,7 +22,6 @@ import {
   Link2,
   MoreHorizontal,
   Search,
-  SlidersHorizontal,
   Sparkles,
   Table2,
   Trash2,
@@ -37,19 +33,11 @@ import {
   tempUploadQuery,
 } from "@/entities/generation";
 import {
-  type ColumnErrors,
-  fromTemplateDraft,
-  type TemplateDraft,
-  toTemplateDraft,
-  validateTemplateDraft,
-} from "@/entities/project";
-import {
   type CaseOp,
   type CellValue,
   cellText,
   groupable,
   groupCases,
-  readCell,
   type TestSet,
   testSetQuery,
 } from "@/entities/test-set";
@@ -58,7 +46,6 @@ import {
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
 import { useCaseOps } from "@/features/edit-cases";
-import { useSaveColumns } from "@/features/edit-test-set-columns";
 import { useExportXlsx } from "@/features/export-xlsx";
 import { GenerateSheet } from "@/features/generate-cases";
 import {
@@ -72,7 +59,6 @@ import { isApiFailure, sdk } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
 import { CaseDialog } from "@/widgets/case-dialog";
 import { CaseTable } from "@/widgets/case-table";
-import { ColumnsEditor } from "@/widgets/columns-editor";
 import { NoAccessNotice } from "@/widgets/no-access-notice";
 import { ReviewPanel } from "@/widgets/review-panel";
 import { ShareDialog } from "@/widgets/share-dialog";
@@ -214,7 +200,7 @@ function TestSetScreen({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<
-    "columns" | "rename" | "delete" | "generate" | "share" | null
+    "rename" | "delete" | "generate" | "share" | null
   >(null);
   const readOnly = !testSet.access.canEdit;
   const generation = useQuery(currentGenerationQuery(testSet.id)).data;
@@ -311,16 +297,10 @@ function TestSetScreen({
   return (
     <main className="flex w-full flex-col gap-4 px-8 pt-6 pb-8">
       <div className="flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbItem render={<Link to="/test-sets" />}>
-            테스트 세트
-          </BreadcrumbItem>
-          <BreadcrumbItem current>{testSet.name}</BreadcrumbItem>
-        </Breadcrumb>
         <div className="flex min-h-9 flex-wrap items-center gap-3">
           <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
-          {!readOnly && <SaveStatus state={state} />}
           <span className="flex-1" />
+          {!readOnly && <SaveStatus state={state} />}
           {live.people.length > 0 && (
             <Avatars
               people={live.people.map((p) => ({
@@ -453,15 +433,6 @@ function TestSetScreen({
             <span className="tabular-nums">{reviewCount}</span>
           </Button>
         )}
-        {!readOnly && (
-          <Button
-            size="sm"
-            icon={SlidersHorizontal}
-            onClick={() => setDialog("columns")}
-          >
-            양식 편집
-          </Button>
-        )}
       </div>
 
       {running && generation && (
@@ -581,11 +552,6 @@ function TestSetScreen({
         onOps={onOps}
         onClose={() => setOpenCaseId(null)}
       />
-      <ColumnsSheet
-        testSet={testSet}
-        open={dialog === "columns"}
-        onOpenChange={(open) => setDialog(open ? "columns" : null)}
-      />
       <RenameTestSetDialog
         testSet={testSet}
         open={dialog === "rename"}
@@ -603,108 +569,5 @@ function TestSetScreen({
         onDeleted={() => navigate({ to: "/test-sets" })}
       />
     </main>
-  );
-}
-
-/** 이 테스트 세트의 항목만 바꾼다. 프로젝트 기본 양식은 그대로다. */
-function ColumnsSheet({
-  testSet,
-  open,
-  onOpenChange,
-}: {
-  testSet: TestSet;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content placement="side" size="lg">
-        {open && (
-          <ColumnsForm testSet={testSet} onDone={() => onOpenChange(false)} />
-        )}
-      </Dialog.Content>
-    </Dialog.Root>
-  );
-}
-
-function ColumnsForm({
-  testSet,
-  onDone,
-}: {
-  testSet: TestSet;
-  onDone: () => void;
-}) {
-  const save = useSaveColumns(testSet.id);
-  const base = { revision: 1, columns: testSet.columns };
-  const [draft, setDraft] = useState<TemplateDraft>(() =>
-    toTemplateDraft(base),
-  );
-  const [selectedId, setSelectedId] = useState(testSet.columns[0]?.id ?? "");
-  const [errors, setErrors] = useState<Record<string, ColumnErrors> | null>(
-    null,
-  );
-  const dirty =
-    JSON.stringify(fromTemplateDraft(draft).columns) !==
-    JSON.stringify(testSet.columns);
-  // 저장하면 값이 지워지는 항목: 지운 항목, 형식이나 선택 항목이 바뀌어 기존 값이 맞지 않는 항목
-  const next = fromTemplateDraft(draft).columns;
-  const losing = testSet.columns.filter((old) => {
-    const changed = next.find((c) => c.id === old.id);
-    return testSet.cases.some((c) => {
-      const v = c.values[old.id];
-      if (!cellText(old, v)) return false;
-      if (!changed) return true;
-      return (
-        changed.type !== "text" &&
-        JSON.stringify(readCell(changed, v)) !==
-          JSON.stringify(readCell(old, v))
-      );
-    });
-  });
-
-  const submit = () => {
-    const found = validateTemplateDraft(draft);
-    setErrors(found);
-    const first = draft.columns.find((c) => found[c.id]);
-    if (first) {
-      setSelectedId(first.id);
-      return;
-    }
-    save.mutate(draft, { onSuccess: onDone });
-  };
-
-  return (
-    <>
-      <Dialog.Header title="테스트 세트 양식" />
-      <Dialog.Body className="flex-1 overflow-auto">
-        <ColumnsEditor
-          value={draft}
-          onChange={(next) => {
-            setDraft(next);
-            if (errors) setErrors(validateTemplateDraft(next));
-          }}
-          errors={errors ?? undefined}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-      </Dialog.Body>
-      <Dialog.Footer>
-        {losing.length > 0 && (
-          <span className="flex-1 text-caption text-warning">
-            저장하면 {losing.map((c) => c.name).join(", ")} 항목의 기존 값
-            일부가 지워집니다
-          </span>
-        )}
-        <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
-        <Button
-          variant="primary"
-          disabled={!dirty}
-          loading={save.isPending}
-          onClick={submit}
-        >
-          저장
-        </Button>
-      </Dialog.Footer>
-    </>
   );
 }

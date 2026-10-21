@@ -58,6 +58,8 @@ export function validateTemplateDraft(draft: TemplateDraft) {
     names.set(name, (names.get(name) ?? 0) + 1);
   }
   for (const c of draft.columns) {
+    // 사전 정의 열은 이름과 형식이 고정이라 확인할 것이 없다
+    if (c.presetKey !== null) continue;
     const found: ColumnErrors = {};
     const name = c.name.trim();
     if (!name) found.name = "항목 이름을 입력하세요";
