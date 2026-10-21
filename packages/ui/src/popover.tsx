@@ -1,10 +1,12 @@
 import { Popover as BasePopover } from "@base-ui/react/popover";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { cn } from "./utils";
 
 interface PopoverPopupProps {
   children: ReactNode;
   align?: "start" | "center" | "end";
+  /** 트리거 대신 이 요소 아래에 띄운다. 메뉴에서 연 패널을 대상 옆에 둘 때 쓴다. */
+  anchor?: ComponentProps<typeof BasePopover.Positioner>["anchor"];
   /** 화면 읽기 프로그램이 읽는 이름 */
   "aria-label"?: string;
   className?: string;
@@ -14,12 +16,18 @@ interface PopoverPopupProps {
 function PopoverPopup({
   children,
   align = "start",
+  anchor,
   "aria-label": ariaLabel,
   className,
 }: PopoverPopupProps) {
   return (
     <BasePopover.Portal>
-      <BasePopover.Positioner sideOffset={4} align={align} className="z-50">
+      <BasePopover.Positioner
+        sideOffset={4}
+        align={align}
+        anchor={anchor}
+        className="z-50"
+      >
         <BasePopover.Popup
           aria-label={ariaLabel}
           className={cn(

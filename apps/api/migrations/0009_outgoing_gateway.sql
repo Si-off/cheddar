@@ -1,0 +1,2 @@
+ALTER TABLE "generation_jobs" DROP CONSTRAINT "generation_jobs_kind";--> statement-breakpoint
+ALTER TABLE "generation_jobs" ADD CONSTRAINT "generation_jobs_kind" CHECK ("generation_jobs"."kind" IN ('initial', 'append', 'rewrite', 'fill_column'));

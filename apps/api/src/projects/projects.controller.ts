@@ -10,15 +10,21 @@ import {
   Patch,
   Post,
   Put,
+  Query,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
 import {
@@ -29,24 +35,26 @@ import {
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
-  CreateRequiredCaseDto,
   CreateScreenDto,
+  CreateScreenIdRuleDto,
   FeatureGroupDto,
   FeatureGroupListDto,
   FeatureGroupOrderDto,
+  ImportScreensResultDto,
   MemoDto,
+  NextScreenIdDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseDto,
-  RequiredCaseListDto,
   ScreenDto,
+  ScreenIdRuleDto,
+  ScreenIdRuleListDto,
   ScreenListDto,
   TemplateDto,
   UpdateFeatureGroupDto,
   UpdateMemoDto,
   UpdateProjectDto,
-  UpdateRequiredCaseDto,
   UpdateScreenDto,
+  UpdateScreenIdRuleDto,
   UpdateTemplateDto,
 } from "../contracts/project.dto";
 import { ProjectsService } from "./projects.service";
@@ -210,63 +218,78 @@ export class ProjectsController {
     return this.service.orderGroups(id, dto.ids);
   }
 
-  @Get(":projectId/required-cases")
+  @Get(":projectId/screen-id-rules")
   @ApiOperation({
-    operationId: "listProjectRequiredCases",
-    summary: "필수 케이스 목록",
+    operationId: "listProjectScreenIdRules",
+    summary: "화면 ID 규칙 목록",
   })
-  @ApiOkResponse({ type: RequiredCaseListDto })
-  cases(
+  @ApiOkResponse({ type: ScreenIdRuleListDto })
+  rules(
     @Param("projectId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
   ) {
-    return this.service.listCases(id, accountId);
+    return this.service.listRules(id, accountId);
   }
 
-  @Post(":projectId/required-cases")
+  @Post(":projectId/screen-id-rules")
   @RequirePermission("project.manage", projectSource)
   @ApiOperation({
-    operationId: "createProjectRequiredCase",
-    summary: "필수 케이스 추가",
+    operationId: "createProjectScreenIdRule",
+    summary: "화면 ID 규칙 추가",
   })
-  @ApiBody({ type: CreateRequiredCaseDto })
-  @ApiCreatedResponse({ type: RequiredCaseDto })
-  createCase(
+  @ApiBody({ type: CreateScreenIdRuleDto })
+  @ApiCreatedResponse({ type: ScreenIdRuleDto })
+  createRule(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @Body() dto: CreateRequiredCaseDto,
+    @Body() dto: CreateScreenIdRuleDto,
   ) {
-    return this.service.createCase(id, dto);
+    return this.service.saveRule(id, dto);
   }
 
-  @Patch(":projectId/required-cases/:caseId")
+  @Patch(":projectId/screen-id-rules/:ruleId")
   @RequirePermission("project.manage", projectSource)
   @ApiOperation({
-    operationId: "updateProjectRequiredCase",
-    summary: "필수 케이스 수정",
+    operationId: "updateProjectScreenIdRule",
+    summary: "화면 ID 규칙 수정",
   })
-  @ApiBody({ type: UpdateRequiredCaseDto })
-  @ApiOkResponse({ type: RequiredCaseDto })
-  updateCase(
+  @ApiBody({ type: UpdateScreenIdRuleDto })
+  @ApiOkResponse({ type: ScreenIdRuleDto })
+  updateRule(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @Param("caseId", ParseUUIDPipe) caseId: string,
-    @Body() dto: UpdateRequiredCaseDto,
+    @Param("ruleId", ParseUUIDPipe) ruleId: string,
+    @Body() dto: UpdateScreenIdRuleDto,
   ) {
-    return this.service.updateCase(id, caseId, dto);
+    return this.service.saveRule(id, dto, ruleId.toLowerCase());
   }
 
-  @Delete(":projectId/required-cases/:caseId")
+  @Delete(":projectId/screen-id-rules/:ruleId")
   @RequirePermission("project.manage", projectSource)
   @HttpCode(204)
   @ApiOperation({
-    operationId: "deleteProjectRequiredCase",
-    summary: "추가한 필수 케이스 삭제",
+    operationId: "deleteProjectScreenIdRule",
+    summary: "화면 ID 규칙 삭제",
   })
   @ApiNoContentResponse()
-  removeCase(
+  removeRule(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @Param("caseId", ParseUUIDPipe) caseId: string,
+    @Param("ruleId", ParseUUIDPipe) ruleId: string,
   ) {
-    return this.service.removeCase(id, caseId);
+    return this.service.removeRule(id, ruleId);
+  }
+
+  @Put(":projectId/screen-id-rules/order")
+  @RequirePermission("project.manage", projectSource)
+  @ApiOperation({
+    operationId: "reorderProjectScreenIdRules",
+    summary: "화면 ID 규칙 순서 변경",
+  })
+  @ApiBody({ type: FeatureGroupOrderDto })
+  @ApiOkResponse({ type: ScreenIdRuleListDto })
+  orderRules(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() dto: FeatureGroupOrderDto,
+  ) {
+    return this.service.orderRules(id, dto.ids);
   }
 
   @Get(":projectId/screens")
@@ -320,6 +343,54 @@ export class ProjectsController {
     @Param("itemId", ParseUUIDPipe) itemId: string,
   ) {
     return this.service.removeScreen(id, itemId);
+  }
+
+  @Get(":projectId/screen-id-rules/:ruleId/next")
+  @ApiOperation({
+    operationId: "getProjectNextScreenId",
+    summary: "다음 화면 ID 계산",
+  })
+  @ApiQuery({ name: "prefix", required: false, type: String })
+  @ApiOkResponse({ type: NextScreenIdDto })
+  nextScreenId(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Param("ruleId", ParseUUIDPipe) ruleId: string,
+    @CurrentAccount() accountId: string,
+    @Query("prefix") prefix = "",
+  ) {
+    return this.service.nextRuleId(
+      id,
+      accountId,
+      ruleId,
+      typeof prefix === "string" ? prefix : "",
+    );
+  }
+
+  @Post(":projectId/screens/import")
+  @RequirePermission("project.manage", projectSource)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    }),
+  )
+  @ApiOperation({
+    operationId: "importProjectScreens",
+    summary: "IA 화면 구조 가져오기",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: { file: { type: "string", format: "binary" } },
+    },
+  })
+  @ApiCreatedResponse({ type: ImportScreensResultDto })
+  importScreens(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.service.importScreens(id, file);
   }
 
   @Get(":projectId/memo")

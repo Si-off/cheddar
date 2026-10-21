@@ -53,6 +53,9 @@ function ToastList() {
           <BaseToast.Title className="m-0 text-body-sm" />
           <BaseToast.Description className="m-0 text-caption opacity-80" />
         </BaseToast.Content>
+        {toast.actionProps && (
+          <BaseToast.Action className="shrink-0 rounded-sm border-0 bg-transparent px-1 text-label text-fg-inverse underline underline-offset-2 hover:opacity-80" />
+        )}
         <BaseToast.Close
           aria-label="닫기"
           className="grid size-5 place-items-center rounded-sm opacity-70 hover:opacity-100"
@@ -71,6 +74,8 @@ export interface ShowToastOptions {
   description?: ReactNode;
   /** 밀리초. 0이면 닫을 때까지 남는다 */
   timeout?: number;
+  /** 한 번 누르면 토스트가 닫힌다(예: 되돌리기) */
+  action?: { label: string; onClick: () => void };
 }
 
 type Manager = Pick<
@@ -85,6 +90,7 @@ function bind(manager: Manager) {
       tone = "neutral",
       description,
       timeout,
+      action,
     }: ShowToastOptions) =>
       manager.add({
         title: message,
@@ -92,6 +98,9 @@ function bind(manager: Manager) {
         type: tone,
         timeout,
         priority: tone === "danger" ? "high" : "low",
+        actionProps: action
+          ? { children: action.label, onClick: action.onClick }
+          : undefined,
       }),
     close: (id: string) => manager.close(id),
   };

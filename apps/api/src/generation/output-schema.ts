@@ -1,9 +1,10 @@
-import type { TemplateColumnDto } from "../contracts/project.dto";
+import type { TestSetColumnDto } from "../contracts/test-set.dto";
 import {
   normalizeValues,
   validateCell,
   validationFailed,
 } from "../test-sets/values";
+import { columnRule, isAiColumn } from "./steps/column-rules";
 import type { Draft, GenerationInput, JsonSchema } from "./types";
 
 export const text = (maxLength = 20000): JsonSchema => ({
@@ -21,28 +22,26 @@ export const object = (properties: Record<string, JsonSchema>): JsonSchema => ({
   required: Object.keys(properties),
   additionalProperties: false,
 });
-export function formSchema(columns: TemplateColumnDto[]): JsonSchema {
+export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
   return object(
     Object.fromEntries(
-      columns
-        .filter((c) => c.systemKey !== "test_id")
-        .map((c) => [
-          c.id,
-          {
-            ...(c.type === "text"
-              ? text()
-              : c.type === "checkbox"
-                ? { type: "boolean" }
-                : c.type === "select"
-                  ? { type: ["string", "null"], enum: [...c.options, null] }
-                  : {
-                      type: "array",
-                      items: { type: "string", enum: c.options },
-                      uniqueItems: true,
-                    }),
-            description: `${c.name}: ${c.description}`,
-          },
-        ]),
+      columns.filter(isAiColumn).map((c) => [
+        c.id,
+        {
+          ...(c.type === "text"
+            ? text()
+            : c.type === "checkbox"
+              ? { type: "boolean" }
+              : c.type === "select"
+                ? { type: ["string", "null"], enum: [...c.options, null] }
+                : {
+                    type: "array",
+                    items: { type: "string", enum: c.options },
+                    uniqueItems: true,
+                  }),
+          description: `${c.name} (${c.type}): ${columnRule(c)}`,
+        },
+      ]),
     ),
   );
 }
@@ -60,7 +59,10 @@ export function caseSchema(input: GenerationInput): JsonSchema {
     ),
     coverage: array(
       object({
-        requiredCaseId: text(36),
+        viewpointId: {
+          type: "string",
+          enum: input.viewpoints.map((v) => v.id),
+        },
         status: { type: "string", enum: ["covered", "not_applicable"] },
         explanation: text(2000),
       }),
@@ -143,7 +145,7 @@ export function validateSchema(
   }
 }
 export function validateDraft(
-  columns: TemplateColumnDto[],
+  columns: TestSetColumnDto[],
   value: unknown,
 ): Draft {
   const values = normalizeValues(value);

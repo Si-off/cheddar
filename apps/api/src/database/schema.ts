@@ -19,6 +19,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { PERMISSIONS } from "../authorization/permissions";
+import type { ScreenIdRulePartDto } from "../contracts/project.dto";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const created = () =>
@@ -197,6 +198,8 @@ export const projectTemplates = pgTable(
           id: string;
           name: string;
           type: "text" | "select" | "checkbox" | "tags";
+          presetKey: string | null;
+          enabled: boolean;
           systemKey: "test_id" | "title" | null;
           description: string;
           options: string[];
@@ -221,16 +224,6 @@ export const featureGroups = pgTable(
   },
   (t) => [unique("feature_groups_name").on(t.projectId, t.name)],
 );
-export const requiredCases = pgTable("required_cases", {
-  id: id(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  description: text("description").notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-  isDefault: boolean("is_default").notNull().default(false),
-  position: integer("position").notNull(),
-});
 export const screenStructureItems = pgTable(
   "screen_structure_items",
   {
@@ -239,6 +232,10 @@ export const screenStructureItems = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     screenId: varchar("screen_id", { length: 100 }).notNull(),
+    type: varchar("type", { length: 16 })
+      .$type<"page" | "popup" | "bottom_sheet" | "tab">()
+      .notNull()
+      .default("page"),
     name: varchar("name", { length: 200 }).notNull(),
     parentId: uuid("parent_id"),
     description: text("description").notNull().default(""),
@@ -317,6 +314,7 @@ export const testSetColumns = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     type: columnTypeEnum("type").notNull(),
     systemKey: varchar("system_key", { length: 10 }),
+    presetKey: varchar("preset_key", { length: 40 }),
     description: text("description").notNull().default(""),
     options: jsonb("options").$type<string[]>().notNull().default([]),
     position: integer("position").notNull(),
@@ -477,7 +475,7 @@ export const generationJobs = pgTable(
     uploadId: uuid("upload_id").references(() => tempUploads.id, {
       onDelete: "set null",
     }),
-    kind: varchar("kind", { length: 10 }).notNull(),
+    kind: varchar("kind", { length: 16 }).notNull(),
     status: jobStatusEnum("status").notNull().default("pending"),
     currentStage: varchar("current_stage", { length: 30 }),
     errorCode: text("error_code"),
@@ -497,7 +495,7 @@ export const generationJobs = pgTable(
   (t) => [
     check(
       "generation_jobs_kind",
-      sql`${t.kind} IN ('initial', 'append', 'rewrite')`,
+      sql`${t.kind} IN ('initial', 'append', 'rewrite', 'fill_column')`,
     ),
     unique("generation_jobs_request").on(t.requestedBy, t.clientRequestId),
     uniqueIndex("generation_jobs_active_set")
@@ -674,4 +672,21 @@ export const aiProviderCosts = pgTable(
     ),
     index("ai_provider_costs_time_idx").on(t.provider, t.bucketStart),
   ],
+);
+
+export const screenIdRules = pgTable(
+  "screen_id_rules",
+  {
+    id: id(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    separator: varchar("separator", { length: 3 }).notNull().default("_"),
+    parts: jsonb("parts").$type<ScreenIdRulePartDto[]>().notNull(),
+    position: integer("position").notNull(),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [unique("screen_id_rules_name").on(t.projectId, t.name)],
 );

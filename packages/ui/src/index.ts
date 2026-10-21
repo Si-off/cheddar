@@ -15,6 +15,7 @@ export {
   type IconButtonProps,
 } from "./button";
 export { Checkbox, type CheckboxProps } from "./checkbox";
+export { ContextMenu } from "./context-menu";
 export {
   type CellPosition,
   DataGrid,

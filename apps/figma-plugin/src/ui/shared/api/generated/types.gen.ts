@@ -215,6 +215,8 @@ export type UpdateProjectDto = {
 };
 
 export type TemplateColumnDto = {
+    presetKey: string | null;
+    enabled: boolean;
     id: string;
     systemKey: 'test_id' | 'title' | null;
     name: string;
@@ -260,27 +262,46 @@ export type FeatureGroupOrderDto = {
     ids: Array<string>;
 };
 
-export type RequiredCaseDto = {
+export type ScreenIdRuleCodeDto = {
+    code: string;
+    meaning: string;
+};
+
+export type ScreenIdRulePartDto = {
+    name: string;
+    kind: 'list' | 'fixed' | 'number';
+    codes: Array<ScreenIdRuleCodeDto>;
+    value: string;
+    digits: number;
+};
+
+export type ScreenIdRuleDto = {
     id: string;
-    description: string;
-    enabled: boolean;
-    isDefault: boolean;
+    name: string;
+    separator: string;
+    parts: Array<ScreenIdRulePartDto>;
+    example: string;
 };
 
-export type RequiredCaseListDto = {
-    items: Array<RequiredCaseDto>;
+export type ScreenIdRuleListDto = {
+    items: Array<ScreenIdRuleDto>;
 };
 
-export type CreateRequiredCaseDto = {
-    description: string;
+export type CreateScreenIdRuleDto = {
+    name: string;
+    separator?: string;
+    parts: Array<ScreenIdRulePartDto>;
 };
 
-export type UpdateRequiredCaseDto = {
-    description?: string;
-    enabled?: boolean;
+export type UpdateScreenIdRuleDto = {
+    name?: string;
+    separator?: string;
+    parts?: Array<ScreenIdRulePartDto>;
 };
 
 export type ScreenDto = {
+    type: 'page' | 'popup' | 'bottom_sheet' | 'tab';
+    ruleMismatch: boolean;
     id: string;
     screenId: string;
     name: string;
@@ -293,6 +314,7 @@ export type ScreenListDto = {
 };
 
 export type CreateScreenDto = {
+    type?: 'page' | 'popup' | 'bottom_sheet' | 'tab';
     screenId: string;
     name: string;
     description: string;
@@ -300,10 +322,20 @@ export type CreateScreenDto = {
 };
 
 export type UpdateScreenDto = {
+    type?: 'page' | 'popup' | 'bottom_sheet' | 'tab';
     screenId?: string;
     name?: string;
     description?: string;
     parentId?: string | null;
+};
+
+export type NextScreenIdDto = {
+    screenId: string | null;
+};
+
+export type ImportScreensResultDto = {
+    created: number;
+    skipped: number;
 };
 
 export type MemoDto = {
@@ -346,6 +378,58 @@ export type MoveCaseOpDto = {
     afterCaseId: string | null;
 };
 
+export type AddColumnDefinitionDto = {
+    presetKey: string | null;
+    name: string;
+    type: 'text' | 'select' | 'checkbox' | 'tags';
+    description: string;
+    /**
+     * 선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장
+     */
+    options: Array<string>;
+};
+
+export type AddColumnOpDto = {
+    type: 'add_column';
+    columnId: string;
+    column: AddColumnDefinitionDto;
+    afterColumnId: string | null;
+};
+
+export type RemoveColumnOpDto = {
+    type: 'remove_column';
+    columnId: string;
+};
+
+export type ReorderColumnsOpDto = {
+    type: 'reorder_columns';
+    columnIds: Array<string>;
+};
+
+export type UpdateColumnOpDto = {
+    type: 'update_column';
+    columnId: string;
+    name: string;
+    description: string;
+    /**
+     * 선택과 태그 열의 항목. 없으면 바꾸지 않는다. 규칙은 양식의 options와 같다. 기존 셀 값은 바꾸지 않는다
+     */
+    options?: Array<string>;
+};
+
+export type ProjectTemplateChoiceDto = {
+    kind: 'project';
+};
+
+export type RecentTemplateChoiceDto = {
+    kind: 'recent';
+};
+
+export type CustomTemplateChoiceDto = {
+    kind: 'custom';
+    columns: Array<TemplateColumnDto>;
+};
+
 export type TestSetPersonDto = {
     id: string;
     name: string;
@@ -366,6 +450,7 @@ export type TestSetListDto = {
 };
 
 export type CreateTestSetDto = {
+    template?: ProjectTemplateChoiceDto | RecentTemplateChoiceDto | CustomTemplateChoiceDto;
     name: string;
     projectId: string;
     memo?: string;
@@ -376,6 +461,19 @@ export type TestSetAccessDto = {
     canRename: boolean;
     canDelete: boolean;
     canExport: boolean;
+};
+
+export type TestSetColumnDto = {
+    presetKey: string | null;
+    id: string;
+    systemKey: 'test_id' | 'title' | null;
+    name: string;
+    type: 'text' | 'select' | 'checkbox' | 'tags';
+    description: string;
+    /**
+     * 선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장
+     */
+    options: Array<string>;
 };
 
 export type CaseDto = {
@@ -394,7 +492,7 @@ export type TestSetDto = {
     isPublic: boolean;
     version: number;
     access: TestSetAccessDto;
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
     updatedAt: string;
 };
@@ -404,18 +502,8 @@ export type UpdateTestSetDto = {
     memo?: string;
 };
 
-export type UpdateColumnsDto = {
-    columns: Array<TemplateColumnDto>;
-};
-
-export type ColumnsResultDto = {
-    version: number;
-    columns: Array<TemplateColumnDto>;
-    cases: Array<CaseDto>;
-};
-
 export type ApplyOpsDto = {
-    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto>;
+    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto | UpdateColumnOpDto | AddColumnOpDto | RemoveColumnOpDto | ReorderColumnsOpDto>;
 };
 
 export type OpsResultDto = {
@@ -484,11 +572,21 @@ export type SharedTestSetDto = {
     isPublic: boolean;
     version: number;
     access: TestSetAccessDto;
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
     updatedAt: string;
     me: SharedActorDto;
     owner: SharedOwnerDto;
+};
+
+export type RecentTemplateTestSetDto = {
+    id: string;
+    name: string;
+};
+
+export type RecentTemplateDto = {
+    testSet: RecentTemplateTestSetDto | null;
+    columns: Array<TestSetColumnDto>;
 };
 
 export type UploadMultipartDto = {
@@ -512,7 +610,7 @@ export type TempUploadDto = {
 
 export type GenerationCurrentDto = {
     jobId: string;
-    kind: 'initial' | 'append' | 'rewrite';
+    kind: 'initial' | 'append' | 'rewrite' | 'fill_column';
     status: 'queued' | 'running' | 'succeeded' | 'failed';
     stage: 'screens' | 'flows' | 'cases' | 'finish';
     addedCount: number;
@@ -527,6 +625,7 @@ export type CreateGenerationDto = {
     clientRequestId?: string;
     kind: 'initial' | 'append';
     uploadId?: string;
+    frameIds?: Array<string>;
     memo?: string;
 };
 
@@ -2954,16 +3053,16 @@ export type ReorderProjectFeatureGroupsResponses = {
 
 export type ReorderProjectFeatureGroupsResponse = ReorderProjectFeatureGroupsResponses[keyof ReorderProjectFeatureGroupsResponses];
 
-export type ListProjectRequiredCasesData = {
+export type ListProjectScreenIdRulesData = {
     body?: never;
     path: {
         projectId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases';
+    url: '/api/v1/projects/{projectId}/screen-id-rules';
 };
 
-export type ListProjectRequiredCasesErrors = {
+export type ListProjectScreenIdRulesErrors = {
     /**
      * 입력 오류
      */
@@ -2998,24 +3097,24 @@ export type ListProjectRequiredCasesErrors = {
     503: ErrorResponseDto;
 };
 
-export type ListProjectRequiredCasesError = ListProjectRequiredCasesErrors[keyof ListProjectRequiredCasesErrors];
+export type ListProjectScreenIdRulesError = ListProjectScreenIdRulesErrors[keyof ListProjectScreenIdRulesErrors];
 
-export type ListProjectRequiredCasesResponses = {
-    200: RequiredCaseListDto;
+export type ListProjectScreenIdRulesResponses = {
+    200: ScreenIdRuleListDto;
 };
 
-export type ListProjectRequiredCasesResponse = ListProjectRequiredCasesResponses[keyof ListProjectRequiredCasesResponses];
+export type ListProjectScreenIdRulesResponse = ListProjectScreenIdRulesResponses[keyof ListProjectScreenIdRulesResponses];
 
-export type CreateProjectRequiredCaseData = {
-    body: CreateRequiredCaseDto;
+export type CreateProjectScreenIdRuleData = {
+    body: CreateScreenIdRuleDto;
     path: {
         projectId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases';
+    url: '/api/v1/projects/{projectId}/screen-id-rules';
 };
 
-export type CreateProjectRequiredCaseErrors = {
+export type CreateProjectScreenIdRuleErrors = {
     /**
      * 입력 오류
      */
@@ -3050,25 +3149,25 @@ export type CreateProjectRequiredCaseErrors = {
     503: ErrorResponseDto;
 };
 
-export type CreateProjectRequiredCaseError = CreateProjectRequiredCaseErrors[keyof CreateProjectRequiredCaseErrors];
+export type CreateProjectScreenIdRuleError = CreateProjectScreenIdRuleErrors[keyof CreateProjectScreenIdRuleErrors];
 
-export type CreateProjectRequiredCaseResponses = {
-    201: RequiredCaseDto;
+export type CreateProjectScreenIdRuleResponses = {
+    201: ScreenIdRuleDto;
 };
 
-export type CreateProjectRequiredCaseResponse = CreateProjectRequiredCaseResponses[keyof CreateProjectRequiredCaseResponses];
+export type CreateProjectScreenIdRuleResponse = CreateProjectScreenIdRuleResponses[keyof CreateProjectScreenIdRuleResponses];
 
-export type DeleteProjectRequiredCaseData = {
+export type DeleteProjectScreenIdRuleData = {
     body?: never;
     path: {
         projectId: string;
-        caseId: string;
+        ruleId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases/{caseId}';
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}';
 };
 
-export type DeleteProjectRequiredCaseErrors = {
+export type DeleteProjectScreenIdRuleErrors = {
     /**
      * 입력 오류
      */
@@ -3103,25 +3202,25 @@ export type DeleteProjectRequiredCaseErrors = {
     503: ErrorResponseDto;
 };
 
-export type DeleteProjectRequiredCaseError = DeleteProjectRequiredCaseErrors[keyof DeleteProjectRequiredCaseErrors];
+export type DeleteProjectScreenIdRuleError = DeleteProjectScreenIdRuleErrors[keyof DeleteProjectScreenIdRuleErrors];
 
-export type DeleteProjectRequiredCaseResponses = {
+export type DeleteProjectScreenIdRuleResponses = {
     204: void;
 };
 
-export type DeleteProjectRequiredCaseResponse = DeleteProjectRequiredCaseResponses[keyof DeleteProjectRequiredCaseResponses];
+export type DeleteProjectScreenIdRuleResponse = DeleteProjectScreenIdRuleResponses[keyof DeleteProjectScreenIdRuleResponses];
 
-export type UpdateProjectRequiredCaseData = {
-    body: UpdateRequiredCaseDto;
+export type UpdateProjectScreenIdRuleData = {
+    body: UpdateScreenIdRuleDto;
     path: {
         projectId: string;
-        caseId: string;
+        ruleId: string;
     };
     query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases/{caseId}';
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}';
 };
 
-export type UpdateProjectRequiredCaseErrors = {
+export type UpdateProjectScreenIdRuleErrors = {
     /**
      * 입력 오류
      */
@@ -3156,13 +3255,65 @@ export type UpdateProjectRequiredCaseErrors = {
     503: ErrorResponseDto;
 };
 
-export type UpdateProjectRequiredCaseError = UpdateProjectRequiredCaseErrors[keyof UpdateProjectRequiredCaseErrors];
+export type UpdateProjectScreenIdRuleError = UpdateProjectScreenIdRuleErrors[keyof UpdateProjectScreenIdRuleErrors];
 
-export type UpdateProjectRequiredCaseResponses = {
-    200: RequiredCaseDto;
+export type UpdateProjectScreenIdRuleResponses = {
+    200: ScreenIdRuleDto;
 };
 
-export type UpdateProjectRequiredCaseResponse = UpdateProjectRequiredCaseResponses[keyof UpdateProjectRequiredCaseResponses];
+export type UpdateProjectScreenIdRuleResponse = UpdateProjectScreenIdRuleResponses[keyof UpdateProjectScreenIdRuleResponses];
+
+export type ReorderProjectScreenIdRulesData = {
+    body: FeatureGroupOrderDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screen-id-rules/order';
+};
+
+export type ReorderProjectScreenIdRulesErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ReorderProjectScreenIdRulesError = ReorderProjectScreenIdRulesErrors[keyof ReorderProjectScreenIdRulesErrors];
+
+export type ReorderProjectScreenIdRulesResponses = {
+    200: ScreenIdRuleListDto;
+};
+
+export type ReorderProjectScreenIdRulesResponse = ReorderProjectScreenIdRulesResponses[keyof ReorderProjectScreenIdRulesResponses];
 
 export type ListProjectScreensData = {
     body?: never;
@@ -3373,6 +3524,115 @@ export type UpdateProjectScreenResponses = {
 };
 
 export type UpdateProjectScreenResponse = UpdateProjectScreenResponses[keyof UpdateProjectScreenResponses];
+
+export type GetProjectNextScreenIdData = {
+    body?: never;
+    path: {
+        projectId: string;
+        ruleId: string;
+    };
+    query?: {
+        prefix?: string;
+    };
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}/next';
+};
+
+export type GetProjectNextScreenIdErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetProjectNextScreenIdError = GetProjectNextScreenIdErrors[keyof GetProjectNextScreenIdErrors];
+
+export type GetProjectNextScreenIdResponses = {
+    200: NextScreenIdDto;
+};
+
+export type GetProjectNextScreenIdResponse = GetProjectNextScreenIdResponses[keyof GetProjectNextScreenIdResponses];
+
+export type ImportProjectScreensData = {
+    body: {
+        file: Blob | File;
+    };
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screens/import';
+};
+
+export type ImportProjectScreensErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ImportProjectScreensError = ImportProjectScreensErrors[keyof ImportProjectScreensErrors];
+
+export type ImportProjectScreensResponses = {
+    201: ImportScreensResultDto;
+};
+
+export type ImportProjectScreensResponse = ImportProjectScreensResponses[keyof ImportProjectScreensResponses];
 
 export type GetProjectMemoData = {
     body?: never;
@@ -3736,58 +3996,6 @@ export type UpdateTestSetResponses = {
 };
 
 export type UpdateTestSetResponse = UpdateTestSetResponses[keyof UpdateTestSetResponses];
-
-export type UpdateTestSetColumnsData = {
-    body: UpdateColumnsDto;
-    path: {
-        testSetId: string;
-    };
-    query?: never;
-    url: '/api/v1/test-sets/{testSetId}/columns';
-};
-
-export type UpdateTestSetColumnsErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type UpdateTestSetColumnsError = UpdateTestSetColumnsErrors[keyof UpdateTestSetColumnsErrors];
-
-export type UpdateTestSetColumnsResponses = {
-    200: ColumnsResultDto;
-};
-
-export type UpdateTestSetColumnsResponse = UpdateTestSetColumnsResponses[keyof UpdateTestSetColumnsResponses];
 
 export type ApplyTestSetOpsData = {
     body: ApplyOpsDto;
@@ -4579,6 +4787,58 @@ export type ExportSharedTestSetResponses = {
 
 export type ExportSharedTestSetResponse = ExportSharedTestSetResponses[keyof ExportSharedTestSetResponses];
 
+export type GetRecentTestSetTemplateData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/recent-test-set-template';
+};
+
+export type GetRecentTestSetTemplateErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetRecentTestSetTemplateError = GetRecentTestSetTemplateErrors[keyof GetRecentTestSetTemplateErrors];
+
+export type GetRecentTestSetTemplateResponses = {
+    200: RecentTemplateDto;
+};
+
+export type GetRecentTestSetTemplateResponse = GetRecentTestSetTemplateResponses[keyof GetRecentTestSetTemplateResponses];
+
 export type CreateTempUploadData = {
     body: {
         /**
@@ -4795,6 +5055,63 @@ export type CreateGenerationResponses = {
 };
 
 export type CreateGenerationResponse = CreateGenerationResponses[keyof CreateGenerationResponses];
+
+export type FillTestSetColumnData = {
+    body?: never;
+    path: {
+        testSetId: string;
+        columnId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/test-set-columns/{columnId}/fill';
+};
+
+export type FillTestSetColumnErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 동시 생성 한도 초과
+     */
+    429: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type FillTestSetColumnError = FillTestSetColumnErrors[keyof FillTestSetColumnErrors];
+
+export type FillTestSetColumnResponses = {
+    202: GenerationAcceptedDto;
+};
+
+export type FillTestSetColumnResponse = FillTestSetColumnResponses[keyof FillTestSetColumnResponses];
 
 export type GetCurrentGenerationData = {
     body?: never;

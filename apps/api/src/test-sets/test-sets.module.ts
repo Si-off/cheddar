@@ -7,12 +7,18 @@ import { SharedService } from "../sharing/shared.service";
 import { SharingController } from "../sharing/sharing.controller";
 import { SharingService } from "../sharing/sharing.service";
 import { CaseOperationsService } from "./case-operations.service";
+import { RecentTemplateController } from "./recent-template.controller";
 import { TestSetsController } from "./test-sets.controller";
 import { TestSetsService } from "./test-sets.service";
 import { TestSetsStore } from "./test-sets.store";
 @Module({
   imports: [AuthorizationModule, AuthModule],
-  controllers: [TestSetsController, SharingController, SharedController],
+  controllers: [
+    TestSetsController,
+    SharingController,
+    SharedController,
+    RecentTemplateController,
+  ],
   providers: [
     TestSetsStore,
     TestSetsService,

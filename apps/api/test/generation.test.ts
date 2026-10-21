@@ -421,8 +421,9 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
         );
         await error(
           await request(`/review-items/${item.id}`, "PATCH", {
+            // 목록 밖 글자는 Excel처럼 받지만 형식이 다른 값은 거절한다.
             draft: {
-              [select.id]: "잘못된 선택",
+              [select.id]: ["형식이 다른 값"],
             },
           }),
           400,
@@ -457,10 +458,9 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
         assert.equal((await waitJob(jobId)).status, "succeeded");
         item = (await reviews()).find((r) => r.id === item.id) as ReviewItemDto;
         assert.equal(item.status, "pending");
-        assert.match(
-          String(item.draft[set.columns[1].id]),
-          /완료 화면으로 이동/,
-        );
+        const titleColumn = set.columns.find((c) => c.systemKey === "title");
+        assert.ok(titleColumn);
+        assert.match(String(item.draft[titleColumn.id]), /완료 화면으로 이동/);
         const accepted = await json<{
           item: ReviewItemDto;
           case: { values: Record<string, string> };
@@ -703,7 +703,7 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
       },
     );
     await t.test(
-      "열 변경은 확인 필요 초안도 케이스와 같은 규칙으로 정리하고 수정과 추가를 허용",
+      "열 삭제는 모든 상태의 확인 필요 초안을 정리하고 실패 시 함께 롤백",
       async () => {
         const target = await sets.create(admin.account.id, {
           projectId: project.id,
@@ -723,7 +723,21 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
           tags = custom("tags"),
           checkbox = custom("checkbox");
         const columns = [...target.columns, removed, select, tags, checkbox];
-        await sets.saveColumns(target.id, admin.account.id, { columns });
+        const ops = app.get(CaseOperationsService);
+        await ops.apply(target.id, admin.account.id, {
+          ops: [removed, select, tags, checkbox].map((c, i) => ({
+            type: "add_column",
+            columnId: c.id,
+            column: {
+              name: c.name,
+              type: c.type,
+              description: c.description,
+              options: c.options,
+              presetKey: null,
+            },
+            afterColumnId: columns[target.columns.length + i - 1].id,
+          })),
+        });
         const values = {
           [removed.id]: "삭제",
           [select.id]: "가",
@@ -755,19 +769,13 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
             })),
           )
           .returning();
-        const changed = columns
-          .filter((c) => c.id !== removed.id)
-          .map((c) =>
-            c.id === select.id || c.id === tags.id
-              ? { ...c, options: ["나"] }
-              : c.id === checkbox.id
-                ? { ...c, type: "text" as const }
-                : c,
-          );
         // 열 편집 중 실패하면 초안도 함께 롤백된다.
         await assert.rejects(
-          sets.saveColumns(target.id, admin.account.id, {
-            columns: [...changed, set.columns[2]],
+          ops.apply(target.id, admin.account.id, {
+            ops: [
+              { type: "remove_column", columnId: removed.id },
+              { type: "remove_column", columnId: target.columns[0].id },
+            ],
           }),
         );
         assert.deepEqual(
@@ -779,12 +787,13 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
           )[0].draft,
           values,
         );
-        const result = await sets.saveColumns(target.id, admin.account.id, {
-          columns: changed,
+        const result = await ops.apply(target.id, admin.account.id, {
+          ops: [{ type: "remove_column", columnId: removed.id }],
         });
         const expected = {
-          [tags.id]: ["나"],
-          [checkbox.id]: "예",
+          [select.id]: "가",
+          [tags.id]: ["가", "나"],
+          [checkbox.id]: true,
           [target.columns[1].id]: "보존",
         };
         for (const item of await db
@@ -813,7 +822,7 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
             draft: patched.draft,
           }),
         );
-        assert.equal(accepted.case.values[checkbox.id], "예");
+        assert.equal(accepted.case.values[checkbox.id], true);
       },
     );
     await t.test(

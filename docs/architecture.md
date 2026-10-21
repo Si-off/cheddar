@@ -2,7 +2,7 @@
 
 이 문서는 합의된 시스템 구조, 기술 선택, 코드 규칙, 운영 제약을 설명한다. 구현 진행과 검증 이력은 커밋과 PR에 남긴다.
 
-2026-10-18부터 2026-10-19까지의 전면 개편으로 코드가 이 문서의 구조를 따른다.
+2026-10-18부터 2026-10-19까지의 전면 개편으로 코드가 이 문서의 구조를 따른다. 2026-10-21에 확정한 시트 개선안은 아래 "시트 개선안" 절에 구현 범위로 정리했고 아직 코드에 반영하지 않았다. 그 절과 충돌하는 기존 설명은 구현 시 그 절을 따른다.
 
 ## 설계 범위와 환경
 
@@ -78,7 +78,7 @@
 | accounts | 계정 만들기, 수정, 비활성화, 만료 처리, 소유 테스트 세트 넘기기, 첫 관리자 CLI |
 | roles, affiliations | 역할과 권한, 할당과 범위, 소속 이름표 |
 | authorization | 권한 키 목록, 할당 합산 계산, 모든 컨트롤러에 붙는 Guard와 데코레이터 |
-| projects | 프로젝트, 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모 설정 |
+| projects | 프로젝트, 양식, 기능 그룹, 화면 구조와 화면 ID 규칙, 메모 설정 (현재 코드는 기본 양식 편집과 필수 케이스를 제공한다. "시트 개선안" 절 참고) |
 | test-sets | 목록(전체, 내 것, 공유받은 것), 만들기(양식 복사), 이름 변경, 삭제, 양식 편집, 사람별 보기 설정 |
 | collaboration | 테스트 세트별 WebSocket 방, 셀과 행 연산 적용과 전파, 접속자와 셀 선택, 권한 변경 때 연결 끊기 |
 | sharing | 공개 범위, 링크 권한, 링크 토큰 재발급, 사람 초대, 방문자 세션과 자동 이름 |
@@ -256,6 +256,42 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 - main의 메시지는 Figma 편집기 창이 Origin `https://www.figma.com`과 manifest pluginId를 붙여 전달한다. 번들 UI는 부모 iframe이 보낸 메시지도 받지만, 원격 UI는 어느 사이트든 iframe으로 띄울 수 있으므로 이 relay만 믿는다. 원격 UI는 보낼 때도 `https://www.figma.com`과 pluginId를 지정하고, main은 원격 UI Origin으로만 보낸다. Figma 데스크톱은 `frame-ancestors`를 적용하지 않아 이 헤더로는 막을 수 없다(2026-10-20 확인).
 - main은 `ui-ready`를 받으면 `main-ready`로 `PROTOCOL_VERSION`을 알린다. 원격 UI는 main보다 먼저 바뀔 수 있으므로, UI가 main의 새 기능을 쓰기 시작할 때 버전을 올리고 main을 먼저 배포한다. main은 이전 UI의 메시지를 계속 받는다. UI는 main 버전이 낮으면 업로드 대신 플러그인 업데이트 안내를 보인다.
 - 플러그인 ID `1692417282897261384`. 웹 주소는 main 빌드 시 `VITE_WEB_BASE_URL`, API 주소는 `VITE_API_BASE_URL`에서 읽는다. 배포용 네트워크 허용은 `none`이며 배포 전 UI와 API 주소로 바꾼다. 원격 UI 빌드는 manifest가 UI Origin을 허용하지 않으면 멈춘다.
+
+## 시트 개선안 (2026-10-21 확정·구현)
+
+제품 계약은 [제품 정의](product.md)의 프로젝트, 테스트 세트, AI 생성 절이다. 시안은 [Cheddar 화면 시안](https://claude.ai/artifact/LBfqbThAA8AGkkAYd8BNdA)의 테스트 세트·프로젝트 설정 페이지에 있다. 아래는 그 계약을 구현한 구조다.
+
+### 데이터 모델
+
+- `project_templates`의 열 정의에 `presetKey`(사전 정의 열의 고정 키, 사용자 열은 null)와 `enabled`를 더한다. 사전 정의 열의 이름, 형식, 선택 값, 작성 기준은 코드 상수(`projects/template.ts`)가 기준이며 DB에는 켜짐 여부와 순서만 의미가 있다. 사용자 열은 지금처럼 전체를 JSONB에 둔다.
+- `required_cases` 테이블과 API를 없앤다. 점검 관점은 `generation/steps` 안의 코드 상수이며 프로젝트별 상태가 없다. 마이그레이션은 테이블을 지우고 기존 행을 보존하지 않는다(운영 데이터 없음).
+- `screen_structure_items`에 `type`(page, popup, bottom_sheet, tab)을 더한다.
+- `screen_id_rules`를 새로 둔다: 프로젝트, 이름, 구분 기호, 부분 배열 JSONB(이름, 종류 `list`·`fixed`·`number`, 코드 목록은 코드와 뜻의 쌍, 번호는 자릿수), 순서. 화면 ID 검증과 다음 번호 계산은 서버가 한다. 규칙 삭제는 화면 ID를 바꾸지 않는다.
+- `test_set_columns`는 세트 전체의 열 순서를 저장한다. 열 너비와 행 높이만 사람별 `view_preferences`에 남는다.
+- 병합 표시는 저장 모델에 없다. 모든 행에 값을 저장하고 표가 연속한 같은 값을 병합으로 그린다.
+
+### API
+
+- `projects` 모듈: 양식 PUT은 사전 정의 열의 켜짐·순서와 사용자 열 목록만 받고, 사전 정의 열의 이름·형식·작성 기준 변경은 `400`으로 거절한다. 필수 케이스 엔드포인트를 제거한다. 화면 구조에 유형과 IA 가져오기(XLSX 업로드, module·Depth·Type·Screen ID 열 해석, ID 없는 행 건너뛰기, 같은 ID는 첫 행만)를 더한다. 화면 ID 규칙 CRUD와 "다음 ID" 계산, 규칙 불일치 판정을 더한다.
+- `test-sets` 모듈: 만들기가 양식 선택(프로젝트 기본, 최근 세트 복사, 직접 고른 열 목록)을 받는다. 양식 전체 교체 대신 열 추가(사전 정의 열 되돌리기 또는 사용자 열 정의), 열 삭제(값 함께 삭제), 열 순서 변경 연산을 둔다. 열 연산은 세트 version을 올리고 공동 편집으로 전파한다. `POST /test-sets`는 선택적인 `template`(`project`·`recent`·`custom`)을 받으며 생략 시 `project`다. `recent`는 같은 프로젝트의 열람 가능한 세트 중 최근 수정순(동률은 ID순)으로 열 사본을 만들고 없으면 프로젝트 양식을 쓴다. 사본의 열 UUID는 새로 만들며 `presetKey`는 보존한다. `POST /test-sets/:id/ops`의 `add_column`·`remove_column`·`reorder_columns`는 기존 케이스 연산과 같은 잠금·권한·트랜잭션을 쓰며 요청당 version을 한 번 올린다. 삭제는 값, 모든 상태의 확인 필요 초안 키, 개인 보기 참조도 정리한다. `PUT /test-sets/:id/columns`는 없다. `update_column`은 사용자 열의 이름·작성 기준과 선택적인 `options`(선택·태그 항목, 양식과 같은 검사)를 바꾸며 사전 정의 열은 400이다. 항목을 바꿔도 셀 값은 손대지 않는다. 링크 방문자의 열 연산(`add_column`·`remove_column`·`reorder_columns`·`update_column`)은 편집 링크여도 403이다. `set_cell` 등 사람이 넣는 선택·태그 값은 Excel 목록처럼 목록 밖 글자도 받고(형식과 태그 중복만 검사), AI 결과는 출력 스키마의 enum으로 목록 안에 묶는다. XLSX는 선택 열에 숨긴 `목록` 시트를 참조하는 데이터 유효성을 붙인다. 공유 계약은 `packages/contracts`에 있다.
+- `generation` 모듈: 열 하나만 채우는 작업 `fill_column`(`POST /test-sets/:id/test-set-columns/:columnId/fill`, 열 추가 시 "기존 케이스 AI로 채우기")은 `rewrite`와 같은 단계 실행기를 쓰고 외부 `stage`는 null이다. 세트당 하나의 작업 제한과 서버 동시 한도를 공유하며, 값이 있는 셀은 덮지 않고 확인 필요 항목을 만들지 않는다. `POST /generations`의 `frameIds`로 올린 프레임 중 일부만 입력에 넣는다(비우면 전부).
+- `exports`: QA 결과·담당자 또는 개발 진행 상태·담당자가 이웃하면 2단 머리글의 해당 묶음을 병합한다(순서가 뒤집혀도 이웃하면 묶음). 어느 묶음도 성립하지 않으면 1단이다. `test_env`·`test_case`·`title`·`screen_id`·`steps`는 현재 열 순서에 따라 공백 제거 후 같은 연속 값을 세로 병합하며 앞선 대상 열의 경계를 넘지 않는다. 빈 값, 테스트 ID와 예상 결과는 병합하지 않는다.
+
+### AI 생성
+
+- 출력 스키마는 세트의 열로 만들되 QA 기록 열(QA 결과·담당자, 결과 코멘트, 개발 진행 상태·담당자)은 빼고 빈 값으로 저장한다. 사전 정의 열은 `generation/steps/column-rules.ts`의 작성 규칙과 예시를 프롬프트에 넣고, 사용자 열은 이름·형식·작성 기준을 넣는다. 사용자 열은 자료에 근거가 없으면 비우게 지시한다.
+- `cases` 프롬프트에 행 나누기 기준(행동·입력값·조건이 다르면 새 행, 같은 행동 뒤 여러 확인은 한 셀에 불릿, 같은 절차에서 결과만 갈리면 절차 셀을 같은 값으로)과 테스트 환경별 반복 규칙(환경에 따라 동작이 다른 케이스만 환경별 행, 나머지는 "공통")을 넣는다.
+- 점검 관점은 `generation/steps/viewpoints.ts`의 코드 상수다. `coverage` 검증은 관점 ID 기준이고, 관리자 관점은 관리자 화면이 있을 때만 대상이다.
+- 화면 ID는 화면 구조의 ID만 쓰고 없으면 "추후 채번"이다. 규칙으로 ID를 생성하지 않는다.
+
+### 웹
+
+- pages: `test-set-new`가 양식 선택(프로젝트 양식, 최근 테스트 세트와 같게, 직접 고르기)과 프레임 토글을 가진다. `project-settings` 탭은 양식, 기능 그룹, 화면 구조(규칙 목록 + 화면 목록), 메모다. 브레드크럼은 없고 저장 상태는 오른쪽이다.
+- entities: `project`에 `presetKey`·`enabled`·화면 유형·규칙 타입과 `ColumnForm`(열 이름·형식·작성 기준 폼, 양식 탭과 열 추가가 함께 씀). `test-set`의 `CaseOp`는 `@cheddar/contracts`를 그대로 쓰고 `applyOps`가 열 연산을 낙관 반영한다. `mergeable`이 병합 표시 대상 열을 정한다.
+- features: `manage-template-columns`(`edit-template` 대체), `manage-screen-id-rules`(목록 + `rule-dialog.tsx`), `manage-screens`(유형, 규칙 불일치, 다음 ID 채운 추가, IA 가져오기), `create-test-set`(양식 3택 + `column-modal.tsx`). `manage-required-cases`, `edit-test-set-columns`는 없다.
+- widgets: `column-picker`(프로젝트 양식 탭의 열 목록), `case-table`(병합 표시와 셀 나누기, 머리글 끌기와 되돌리기 토스트, 머리글 ⋯ 메뉴, 머리글 `+`, 셀 우클릭 메뉴, `column-dialogs.tsx`의 열 추가·이름 변경, `options-panel.tsx`의 선택 항목 편집. 고르기는 `Menu.Popup`의 `footer`에 연필을 두고, 편집은 같은 셀이나 머리글에 붙는 `Popover`로 연다). `columns-editor`는 없다. 열 연산은 모두 `onOps`로 보내며 별도 feature를 두지 않는다.
+- `packages/ui`: `Tabs`의 미끄러지는 선택 표시줄, `ContextMenu`, `DataGrid`의 `mergeKey`·`fixed`·`headerAction`·`onColumnReorder`·`headerEnd`·`cellMenu`, 토스트 `action`.
+- 공통 조작 규칙: 목록 추가는 머리글 오른쪽 버튼이 기본이고 목록 끝 `+` 행은 보조다. 행 편집·삭제는 행 메뉴, 셀 단위 삭제는 호버 ×, 이름 변경은 두 번 클릭 제자리 편집, 순서는 끌기와 `Alt+방향키`다. 설정 탭은 선택 표시줄이 미끄러지는 탭(`packages/ui`의 Tabs)을 쓴다. 설명 문장과 help 텍스트는 두지 않는다.
 
 ## 미정
 

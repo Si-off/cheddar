@@ -5405,9 +5405,9 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/required-cases": {
+    "/api/v1/projects/{projectId}/screen-id-rules": {
       "get": {
-        "operationId": "listProjectRequiredCases",
+        "operationId": "listProjectScreenIdRules",
         "parameters": [
           {
             "name": "projectId",
@@ -5424,7 +5424,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RequiredCaseListDto"
+                  "$ref": "#/components/schemas/ScreenIdRuleListDto"
                 }
               }
             }
@@ -5515,13 +5515,13 @@
             "cookie": []
           }
         ],
-        "summary": "필수 케이스 목록",
+        "summary": "화면 ID 규칙 목록",
         "tags": [
           "프로젝트 설정"
         ]
       },
       "post": {
-        "operationId": "createProjectRequiredCase",
+        "operationId": "createProjectScreenIdRule",
         "parameters": [
           {
             "name": "projectId",
@@ -5537,7 +5537,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateRequiredCaseDto"
+                "$ref": "#/components/schemas/CreateScreenIdRuleDto"
               }
             }
           }
@@ -5548,7 +5548,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RequiredCaseDto"
+                  "$ref": "#/components/schemas/ScreenIdRuleDto"
                 }
               }
             }
@@ -5639,15 +5639,15 @@
             "cookie": []
           }
         ],
-        "summary": "필수 케이스 추가",
+        "summary": "화면 ID 규칙 추가",
         "tags": [
           "프로젝트 설정"
         ]
       }
     },
-    "/api/v1/projects/{projectId}/required-cases/{caseId}": {
+    "/api/v1/projects/{projectId}/screen-id-rules/{ruleId}": {
       "patch": {
-        "operationId": "updateProjectRequiredCase",
+        "operationId": "updateProjectScreenIdRule",
         "parameters": [
           {
             "name": "projectId",
@@ -5658,7 +5658,7 @@
             }
           },
           {
-            "name": "caseId",
+            "name": "ruleId",
             "required": true,
             "in": "path",
             "schema": {
@@ -5671,7 +5671,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateRequiredCaseDto"
+                "$ref": "#/components/schemas/UpdateScreenIdRuleDto"
               }
             }
           }
@@ -5682,7 +5682,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RequiredCaseDto"
+                  "$ref": "#/components/schemas/ScreenIdRuleDto"
                 }
               }
             }
@@ -5773,13 +5773,13 @@
             "cookie": []
           }
         ],
-        "summary": "필수 케이스 수정",
+        "summary": "화면 ID 규칙 수정",
         "tags": [
           "프로젝트 설정"
         ]
       },
       "delete": {
-        "operationId": "deleteProjectRequiredCase",
+        "operationId": "deleteProjectScreenIdRule",
         "parameters": [
           {
             "name": "projectId",
@@ -5790,7 +5790,7 @@
             }
           },
           {
-            "name": "caseId",
+            "name": "ruleId",
             "required": true,
             "in": "path",
             "schema": {
@@ -5888,7 +5888,133 @@
             "cookie": []
           }
         ],
-        "summary": "추가한 필수 케이스 삭제",
+        "summary": "화면 ID 규칙 삭제",
+        "tags": [
+          "프로젝트 설정"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/screen-id-rules/order": {
+      "put": {
+        "operationId": "reorderProjectScreenIdRules",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureGroupOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenIdRuleListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "화면 ID 규칙 순서 변경",
         "tags": [
           "프로젝트 설정"
         ]
@@ -6378,6 +6504,273 @@
           }
         ],
         "summary": "하위 화면이 없는 화면 삭제",
+        "tags": [
+          "프로젝트 설정"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/screen-id-rules/{ruleId}/next": {
+      "get": {
+        "operationId": "getProjectNextScreenId",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ruleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "prefix",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextScreenIdDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "다음 화면 ID 계산",
+        "tags": [
+          "프로젝트 설정"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/screens/import": {
+      "post": {
+        "operationId": "importProjectScreens",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportScreensResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "IA 화면 구조 가져오기",
         "tags": [
           "프로젝트 설정"
         ]
@@ -7229,132 +7622,6 @@
           }
         ],
         "summary": "테스트 세트 삭제",
-        "tags": [
-          "테스트 세트"
-        ]
-      }
-    },
-    "/api/v1/test-sets/{testSetId}/columns": {
-      "put": {
-        "operationId": "updateTestSetColumns",
-        "parameters": [
-          {
-            "name": "testSetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateColumnsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ColumnsResultDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "테스트 세트 양식 변경",
         "tags": [
           "테스트 세트"
         ]
@@ -9194,6 +9461,122 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/recent-test-set-template": {
+      "get": {
+        "operationId": "getRecentTestSetTemplate",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentTemplateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "최근 테스트 세트 양식 미리보기",
+        "tags": [
+          "프로젝트 설정"
+        ]
+      }
+    },
     "/api/v1/temp-uploads": {
       "post": {
         "operationId": "createTempUpload",
@@ -9708,6 +10091,140 @@
           }
         ],
         "summary": "케이스 생성 시작",
+        "tags": [
+          "AI 생성"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}/test-set-columns/{columnId}/fill": {
+      "post": {
+        "operationId": "fillTestSetColumn",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "columnId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationAcceptedDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "동시 생성 한도 초과",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "열의 빈 셀 AI로 채우기",
         "tags": [
           "AI 생성"
         ]
@@ -11319,6 +11836,14 @@
       "TemplateColumnDto": {
         "type": "object",
         "properties": {
+          "presetKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "enabled": {
+            "type": "boolean"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -11359,6 +11884,8 @@
           }
         },
         "required": [
+          "presetKey",
+          "enabled",
           "id",
           "systemKey",
           "name",
@@ -11498,38 +12025,106 @@
         ],
         "additionalProperties": false
       },
-      "RequiredCaseDto": {
+      "ScreenIdRuleCodeDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "meaning": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "code",
+          "meaning"
+        ],
+        "additionalProperties": false
+      },
+      "ScreenIdRulePartDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "list",
+              "fixed",
+              "number"
+            ]
+          },
+          "codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenIdRuleCodeDto"
+            }
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "digits": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "codes",
+          "value",
+          "digits"
+        ],
+        "additionalProperties": false
+      },
+      "ScreenIdRuleDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
           },
-          "description": {
+          "name": {
             "type": "string"
           },
-          "enabled": {
-            "type": "boolean"
+          "separator": {
+            "type": "string"
           },
-          "isDefault": {
-            "type": "boolean"
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenIdRulePartDto"
+            }
+          },
+          "example": {
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "description",
-          "enabled",
-          "isDefault"
+          "name",
+          "separator",
+          "parts",
+          "example"
         ],
         "additionalProperties": false
       },
-      "RequiredCaseListDto": {
+      "ScreenIdRuleListDto": {
         "type": "object",
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RequiredCaseDto"
+              "$ref": "#/components/schemas/ScreenIdRuleDto"
             }
           }
         },
@@ -11538,30 +12133,53 @@
         ],
         "additionalProperties": false
       },
-      "CreateRequiredCaseDto": {
+      "CreateScreenIdRuleDto": {
         "type": "object",
         "properties": {
-          "description": {
+          "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 300
+            "maxLength": 100
+          },
+          "separator": {
+            "type": "string",
+            "default": "_",
+            "maxLength": 3
+          },
+          "parts": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenIdRulePartDto"
+            }
           }
         },
         "required": [
-          "description"
+          "name",
+          "parts"
         ],
         "additionalProperties": false
       },
-      "UpdateRequiredCaseDto": {
+      "UpdateScreenIdRuleDto": {
         "type": "object",
         "properties": {
-          "description": {
+          "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 300
+            "maxLength": 100
           },
-          "enabled": {
-            "type": "boolean"
+          "separator": {
+            "type": "string",
+            "maxLength": 3
+          },
+          "parts": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenIdRulePartDto"
+            }
           }
         },
         "additionalProperties": false
@@ -11569,6 +12187,18 @@
       "ScreenDto": {
         "type": "object",
         "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "popup",
+              "bottom_sheet",
+              "tab"
+            ]
+          },
+          "ruleMismatch": {
+            "type": "boolean"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -11589,6 +12219,8 @@
           }
         },
         "required": [
+          "type",
+          "ruleMismatch",
           "id",
           "screenId",
           "name",
@@ -11615,6 +12247,16 @@
       "CreateScreenDto": {
         "type": "object",
         "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "popup",
+              "bottom_sheet",
+              "tab"
+            ],
+            "default": "page"
+          },
           "screenId": {
             "type": "string",
             "minLength": 1,
@@ -11646,6 +12288,16 @@
       "UpdateScreenDto": {
         "type": "object",
         "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "popup",
+              "bottom_sheet",
+              "tab"
+            ],
+            "default": "page"
+          },
           "screenId": {
             "type": "string",
             "minLength": 1,
@@ -11667,6 +12319,35 @@
             "nullable": true
           }
         },
+        "additionalProperties": false
+      },
+      "NextScreenIdDto": {
+        "type": "object",
+        "properties": {
+          "screenId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "screenId"
+        ],
+        "additionalProperties": false
+      },
+      "ImportScreensResultDto": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "skipped"
+        ],
         "additionalProperties": false
       },
       "MemoDto": {
@@ -11862,6 +12543,214 @@
         ],
         "additionalProperties": false
       },
+      "AddColumnDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "presetKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "select",
+              "checkbox",
+              "tags"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "options": {
+            "description": "선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "presetKey",
+          "name",
+          "type",
+          "description",
+          "options"
+        ],
+        "additionalProperties": false
+      },
+      "AddColumnOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "add_column"
+            ]
+          },
+          "columnId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "column": {
+            "$ref": "#/components/schemas/AddColumnDefinitionDto"
+          },
+          "afterColumnId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "columnId",
+          "column",
+          "afterColumnId"
+        ],
+        "additionalProperties": false
+      },
+      "RemoveColumnOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "remove_column"
+            ]
+          },
+          "columnId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "columnId"
+        ],
+        "additionalProperties": false
+      },
+      "ReorderColumnsOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "reorder_columns"
+            ]
+          },
+          "columnIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "columnIds"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateColumnOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "update_column"
+            ]
+          },
+          "columnId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "options": {
+            "description": "선택과 태그 열의 항목. 없으면 바꾸지 않는다. 규칙은 양식의 options와 같다. 기존 셀 값은 바꾸지 않는다",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "columnId",
+          "name",
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "ProjectTemplateChoiceDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "project"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "RecentTemplateChoiceDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "recent"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "CustomTemplateChoiceDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "custom"
+            ]
+          },
+          "columns": {
+            "minItems": 2,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateColumnDto"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "columns"
+        ],
+        "additionalProperties": false
+      },
       "TestSetPersonDto": {
         "type": "object",
         "properties": {
@@ -11935,6 +12824,19 @@
       "CreateTestSetDto": {
         "type": "object",
         "properties": {
+          "template": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProjectTemplateChoiceDto"
+              },
+              {
+                "$ref": "#/components/schemas/RecentTemplateChoiceDto"
+              },
+              {
+                "$ref": "#/components/schemas/CustomTemplateChoiceDto"
+              }
+            ]
+          },
           "name": {
             "type": "string",
             "minLength": 1,
@@ -11977,6 +12879,64 @@
           "canRename",
           "canDelete",
           "canExport"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetColumnDto": {
+        "type": "object",
+        "properties": {
+          "presetKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "systemKey": {
+            "type": "string",
+            "enum": [
+              "test_id",
+              "title",
+              null
+            ],
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "select",
+              "checkbox",
+              "tags"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "options": {
+            "description": "선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "presetKey",
+          "id",
+          "systemKey",
+          "name",
+          "type",
+          "description",
+          "options"
         ],
         "additionalProperties": false
       },
@@ -12047,7 +13007,7 @@
           "columns": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/TemplateColumnDto"
+              "$ref": "#/components/schemas/TestSetColumnDto"
             }
           },
           "cases": {
@@ -12091,49 +13051,6 @@
         },
         "additionalProperties": false
       },
-      "UpdateColumnsDto": {
-        "type": "object",
-        "properties": {
-          "columns": {
-            "minItems": 2,
-            "maxItems": 50,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TemplateColumnDto"
-            }
-          }
-        },
-        "required": [
-          "columns"
-        ],
-        "additionalProperties": false
-      },
-      "ColumnsResultDto": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "integer"
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TemplateColumnDto"
-            }
-          },
-          "cases": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CaseDto"
-            }
-          }
-        },
-        "required": [
-          "version",
-          "columns",
-          "cases"
-        ],
-        "additionalProperties": false
-      },
       "ApplyOpsDto": {
         "type": "object",
         "properties": {
@@ -12154,6 +13071,18 @@
                 },
                 {
                   "$ref": "#/components/schemas/MoveCaseOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/UpdateColumnOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/AddColumnOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/RemoveColumnOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/ReorderColumnsOpDto"
                 }
               ]
             }
@@ -12426,7 +13355,7 @@
           "columns": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/TemplateColumnDto"
+              "$ref": "#/components/schemas/TestSetColumnDto"
             }
           },
           "cases": {
@@ -12459,6 +13388,48 @@
           "updatedAt",
           "me",
           "owner"
+        ],
+        "additionalProperties": false
+      },
+      "RecentTemplateTestSetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "RecentTemplateDto": {
+        "type": "object",
+        "properties": {
+          "testSet": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecentTemplateTestSetDto"
+              }
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestSetColumnDto"
+            }
+          }
+        },
+        "required": [
+          "testSet",
+          "columns"
         ],
         "additionalProperties": false
       },
@@ -12533,7 +13504,8 @@
             "enum": [
               "initial",
               "append",
-              "rewrite"
+              "rewrite",
+              "fill_column"
             ]
           },
           "status": {
@@ -12595,6 +13567,13 @@
           "uploadId": {
             "type": "string",
             "format": "uuid"
+          },
+          "frameIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           "memo": {
             "type": "string",

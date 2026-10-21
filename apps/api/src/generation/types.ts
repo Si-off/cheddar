@@ -1,9 +1,12 @@
-import type { TemplateColumnDto } from "../contracts/project.dto";
-import type { CaseDto, CellValue } from "../contracts/test-set.dto";
+import type {
+  CaseDto,
+  CellValue,
+  TestSetColumnDto,
+} from "../contracts/test-set.dto";
 import type { Stage } from "./model-config";
 export type Draft = Record<string, CellValue>;
 export type GenerationInput = {
-  columns: TemplateColumnDto[];
+  columns: TestSetColumnDto[];
   memo: string;
   frames: {
     id: string;
@@ -12,7 +15,8 @@ export type GenerationInput = {
     imageStorageKeys: string[];
   }[];
   featureGroups: { id: string; name: string; description: string }[];
-  requiredCases: { id: string; description: string }[];
+  viewpoints: { id: string; name: string; when: string }[];
+  fillColumn?: TestSetColumnDto;
   screenStructure: unknown[];
   styleExamples: CaseDto[];
   existingCases: CaseDto[];
@@ -32,7 +36,7 @@ export type CaseOutput = {
     draft: Draft;
   }[];
   coverage: {
-    requiredCaseId: string;
+    viewpointId: string;
     status: "covered" | "not_applicable";
     explanation: string;
   }[];

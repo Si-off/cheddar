@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
+  IsArray,
   IsIn,
   IsObject,
   IsString,
@@ -30,6 +31,11 @@ export class CreateGenerationDto {
   @ValidateIf(optional)
   @IsUUID()
   uploadId?: string;
+  @ApiPropertyOptional({ type: [String], format: "uuid" })
+  @ValidateIf(optional)
+  @IsArray()
+  @IsUUID("all", { each: true })
+  frameIds?: string[];
   @ApiPropertyOptional({ maxLength: 10000 })
   @ValidateIf(optional)
   @IsString()
@@ -40,7 +46,8 @@ export class GenerationAcceptedDto {
   @ApiProperty({ format: "uuid" }) jobId!: string;
 }
 export class GenerationCurrentDto extends GenerationAcceptedDto {
-  @ApiProperty({ enum: ["initial", "append", "rewrite"] }) kind!: string;
+  @ApiProperty({ enum: ["initial", "append", "rewrite", "fill_column"] })
+  kind!: string;
   @ApiProperty({ enum: ["queued", "running", "succeeded", "failed"] }) status!:
     | "queued"
     | "running"

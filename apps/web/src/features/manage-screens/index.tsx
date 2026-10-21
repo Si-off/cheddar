@@ -1,18 +1,43 @@
 import {
+  Badge,
   Button,
   ConfirmDialog,
   DataGrid,
   type DataGridColumn,
+  Dialog,
   EmptyState,
+  IconButton,
+  Menu,
   Select,
   TextArea,
   TextField,
   useToast,
 } from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, LayoutList, Plus, Search, Trash2 } from "lucide-react";
-import { type SubmitEvent, useDeferredValue, useState } from "react";
-import { type Screen, screensQuery } from "@/entities/project";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ChevronDown,
+  LayoutList,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import {
+  type SubmitEvent,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  type Screen,
+  type ScreenIdRule,
+  type ScreenType,
+  screenIdExampleParts,
+  screensQuery,
+  screenTypeLabel,
+} from "@/entities/project";
 import { sdk, toApiFailure } from "@/shared/api";
 
 interface TreeRow extends Screen {
@@ -57,6 +82,13 @@ function descendantsOf(id: string, screens: readonly Screen[]) {
 
 const indent = ["pl-0", "pl-5", "pl-10", "pl-15", "pl-20"] as const;
 
+const typeItems = (Object.keys(screenTypeLabel) as ScreenType[]).map((t) => ({
+  value: t,
+  label: screenTypeLabel[t],
+}));
+
+const unknownResult = "응답을 받지 못했습니다. 새로 고쳐 결과를 확인하세요.";
+
 function useScreenActions(projectId: string) {
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -64,19 +96,14 @@ function useScreenActions(projectId: string) {
   const onSuccess = () => queryClient.invalidateQueries({ queryKey });
   const onError = (error: unknown) =>
     toast.show({
-      message: toApiFailure(error, {
-        unknownResult: "응답을 받지 못했습니다. 새로 고쳐 결과를 확인하세요.",
-      }).message,
+      message: toApiFailure(error, { unknownResult }).message,
       tone: "danger",
     });
   const path = { projectId };
   const create = useMutation({
     mutationFn: (body: ScreenInput) =>
       sdk.createProjectScreen({ path, body, throwOnError: true }),
-    onSuccess: () => {
-      toast.show({ message: "추가했습니다", tone: "success" });
-      return onSuccess();
-    },
+    onSuccess,
     onError,
   });
   const update = useMutation({
@@ -86,10 +113,7 @@ function useScreenActions(projectId: string) {
         body,
         throwOnError: true,
       }),
-    onSuccess: () => {
-      toast.show({ message: "저장했습니다", tone: "success" });
-      return onSuccess();
-    },
+    onSuccess,
     onError,
   });
   const remove = useMutation({
@@ -98,18 +122,30 @@ function useScreenActions(projectId: string) {
         path: { ...path, itemId: id },
         throwOnError: true,
       }),
-    onSuccess: () => {
-      toast.show({ message: "삭제했습니다", tone: "success" });
+    onSuccess,
+    onError,
+  });
+  const importFile = useMutation({
+    mutationFn: (file: File) =>
+      sdk.importProjectScreens({ path, body: { file }, throwOnError: true }),
+    onSuccess: ({ data }) => {
+      toast.show({
+        message: `화면 ${data.created}개를 가져왔습니다`,
+        description:
+          data.skipped > 0 ? `${data.skipped}개는 건너뛰었습니다` : undefined,
+        tone: "success",
+      });
       return onSuccess();
     },
     onError,
   });
-  return { create, update, remove };
+  return { create, update, remove, importFile };
 }
 
 interface ScreenInput {
   screenId: string;
   name: string;
+  type: ScreenType;
   parentId: string | null;
   description: string;
 }
@@ -117,23 +153,24 @@ interface ScreenInput {
 export interface ScreensEditorProps {
   projectId: string;
   screens: Screen[];
+  /** 프로젝트의 화면 ID 규칙. 새 화면의 ID를 채우는 데 쓴다. */
+  rules?: ScreenIdRule[];
   readOnly?: boolean;
 }
 
-/** 화면 ID와 이름으로 찾고, 고른 화면을 오른쪽에서 고친다. */
+/** 화면 ID와 이름으로 찾고, 행 메뉴에서 고치거나 지운다. IA 파일에서 한꺼번에 가져올 수 있다. */
 export function ScreensEditor({
   projectId,
   screens,
+  rules = [],
   readOnly,
 }: ScreensEditorProps) {
   const actions = useScreenActions(projectId);
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim().toLowerCase());
-  // "new"면 새 화면을 쓰는 중
-  const [selected, setSelected] = useState<string | null>(
-    screens[0]?.id ?? null,
-  );
+  const [editing, setEditing] = useState<TreeRow | "new" | null>(null);
   const [deleting, setDeleting] = useState<TreeRow | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const tree = toTree(screens);
   const rows = query
@@ -143,27 +180,27 @@ export function ScreensEditor({
           s.name.toLowerCase().includes(query),
       )
     : tree;
-  const current =
-    selected === "new" ? null : (tree.find((s) => s.id === selected) ?? null);
 
   const columns: DataGridColumn<TreeRow>[] = [
     {
       id: "screenId",
       header: "화면 ID",
-      width: 160,
+      width: 200,
       mono: true,
-      cell: (s) => s.screenId,
+      cell: (s) => (
+        <span className="flex items-center gap-2">
+          <span>{s.screenId}</span>
+          {s.ruleMismatch && <Badge tone="warning">규칙 불일치</Badge>}
+        </span>
+      ),
     },
     {
       id: "name",
       header: "이름",
       width: 240,
       cell: (s) => (
-        <button
-          type="button"
-          onClick={() => setSelected(s.id)}
-          aria-current={s.id === selected ? "true" : undefined}
-          className={`flex w-full items-center gap-1.5 border-0 bg-transparent p-0 text-left font-medium text-body-sm text-fg outline-none hover:text-accent-text focus-visible:text-accent-text ${indent[Math.min(s.depth, indent.length - 1)]}`}
+        <span
+          className={`flex items-center gap-1.5 font-medium text-body-sm text-fg ${indent[Math.min(s.depth, indent.length - 1)]}`}
         >
           {s.childCount > 0 ? (
             <ChevronDown
@@ -176,20 +213,65 @@ export function ScreensEditor({
             <span className="w-3.5 shrink-0" />
           )}
           {s.name}
-        </button>
+        </span>
+      ),
+    },
+    {
+      id: "type",
+      header: "유형",
+      width: 100,
+      cell: (s) => (
+        <span className="text-fg-muted">{screenTypeLabel[s.type]}</span>
       ),
     },
     {
       id: "description",
       header: "설명",
-      width: 360,
+      width: 320,
       cell: (s) => <span className="text-fg-muted">{s.description}</span>,
     },
+    ...(readOnly
+      ? []
+      : [
+          {
+            id: "actions",
+            header: "",
+            width: 48,
+            cell: (s: TreeRow) => (
+              <Menu.Root>
+                <Menu.Trigger
+                  render={
+                    <IconButton
+                      icon={MoreHorizontal}
+                      label={`${s.name} 작업`}
+                      size="sm"
+                    />
+                  }
+                />
+                <Menu.Popup align="end">
+                  <Menu.Item onClick={() => setEditing(s)}>편집</Menu.Item>
+                  <Menu.Separator />
+                  <Menu.Item
+                    icon={Trash2}
+                    tone="danger"
+                    disabled={s.childCount > 0}
+                    onClick={() => setDeleting(s)}
+                  >
+                    삭제
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Root>
+            ),
+          },
+        ]),
   ];
 
   return (
-    <>
-      <div className="flex flex-wrap items-center gap-2">
+    <section aria-labelledby="screens-title" className="flex flex-col gap-3">
+      <div className="flex min-h-8 flex-wrap items-center gap-2">
+        <h2 id="screens-title" className="m-0 text-title-sm text-fg">
+          화면
+        </h2>
         <TextField
           size="sm"
           icon={Search}
@@ -199,53 +281,85 @@ export function ScreensEditor({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <span className="flex-1" />
         {!readOnly && (
-          <Button
-            variant="primary"
-            size="sm"
-            icon={Plus}
-            onClick={() => setSelected("new")}
-          >
-            화면 추가
-          </Button>
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx"
+              aria-label="IA 파일"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) actions.importFile.mutate(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              size="sm"
+              icon={Upload}
+              loading={actions.importFile.isPending}
+              onClick={() => fileRef.current?.click()}
+            >
+              IA 가져오기
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Plus}
+              onClick={() => setEditing("new")}
+            >
+              화면 추가
+            </Button>
+          </>
         )}
       </div>
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <div className="min-w-0 lg:col-span-2">
-          {screens.length === 0 ? (
-            <EmptyState icon={LayoutList} title="화면이 없습니다" />
-          ) : rows.length === 0 ? (
-            <EmptyState icon={Search} title="찾는 화면이 없습니다" />
-          ) : (
-            <DataGrid
-              aria-label="화면 구조"
-              selection="none"
-              columns={columns}
-              rows={rows}
-              getRowId={(s) => s.id}
-              isRowHighlighted={(s) => s.id === selected}
+      {screens.length === 0 ? (
+        <EmptyState icon={LayoutList} title="화면이 없습니다" />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={Search} title="찾는 화면이 없습니다" />
+      ) : (
+        <DataGrid
+          aria-label="화면 구조"
+          selection="none"
+          columns={columns}
+          rows={rows}
+          getRowId={(s) => s.id}
+          footer={
+            !readOnly && (
+              <IconButton
+                icon={Plus}
+                label="화면 추가"
+                size="sm"
+                onClick={() => setEditing("new")}
+              />
+            )
+          }
+        />
+      )}
+      <Dialog.Root
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+      >
+        <Dialog.Content size="sm">
+          {editing && (
+            <ScreenForm
+              key={editing === "new" ? "new" : editing.id}
+              projectId={projectId}
+              screen={editing === "new" ? null : editing}
+              screens={screens}
+              rules={rules}
+              pending={actions.create.isPending || actions.update.isPending}
+              onSave={(input) => {
+                const done = { onSuccess: () => setEditing(null) };
+                if (editing === "new") actions.create.mutate(input, done);
+                else actions.update.mutate({ id: editing.id, ...input }, done);
+              }}
             />
           )}
-        </div>
-        {(selected === "new" || current) && (
-          <ScreenPanel
-            key={current?.id ?? "new"}
-            screen={current}
-            screens={screens}
-            readOnly={readOnly}
-            pending={actions.create.isPending || actions.update.isPending}
-            onSave={(input) =>
-              current
-                ? actions.update.mutate({ id: current.id, ...input })
-                : actions.create.mutate(input, {
-                    onSuccess: ({ data }) => setSelected(data.id),
-                  })
-            }
-            onCancel={() => setSelected(screens[0]?.id ?? null)}
-            onDelete={() => current && setDeleting(current)}
-          />
-        )}
-      </div>
+        </Dialog.Content>
+      </Dialog.Root>
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
@@ -257,36 +371,34 @@ export function ScreensEditor({
         onConfirm={() =>
           deleting &&
           actions.remove.mutate(deleting.id, {
-            onSuccess: () => setSelected(null),
             onSettled: () => setDeleting(null),
           })
         }
       />
-    </>
+    </section>
   );
 }
 
-function ScreenPanel({
+function ScreenForm({
+  projectId,
   screen,
   screens,
-  readOnly,
+  rules,
   pending,
   onSave,
-  onCancel,
-  onDelete,
 }: {
+  projectId: string;
   /** 없으면 새 화면 */
   screen: TreeRow | null;
   screens: readonly Screen[];
-  readOnly?: boolean;
+  rules: ScreenIdRule[];
   pending: boolean;
   onSave: (input: ScreenInput) => void;
-  onCancel: () => void;
-  onDelete: () => void;
 }) {
   const [draft, setDraft] = useState<ScreenInput>({
     screenId: screen?.screenId ?? "",
     name: screen?.name ?? "",
+    type: screen?.type ?? "page",
     parentId: screen?.parentId ?? null,
     description: screen?.description ?? "",
   });
@@ -307,31 +419,28 @@ function ScreenPanel({
     setTouched(true);
     if (errors.screenId || errors.name) return;
     onSave({
+      ...draft,
       screenId: draft.screenId.trim(),
       name: draft.name.trim(),
-      parentId: draft.parentId,
       description: draft.description.trim(),
     });
   };
 
   return (
-    <form
-      onSubmit={submit}
-      noValidate
-      className="rounded-lg border border-line bg-surface"
-    >
-      <header className="border-line border-b px-5 py-3">
-        <h2 className="m-0 truncate text-title-sm text-fg">
-          {screen ? screen.name : "새 화면"}
-        </h2>
-      </header>
-      <div className="flex flex-col gap-4 p-5">
+    <form onSubmit={submit} noValidate className="contents">
+      <Dialog.Header title={screen ? screen.name : "새 화면"} />
+      <Dialog.Body className="gap-4">
+        {!screen && rules.length > 0 && (
+          <NextIdPicker
+            projectId={projectId}
+            rules={rules}
+            onNext={(screenId) => setDraft((d) => ({ ...d, screenId }))}
+          />
+        )}
         <TextField
           label="화면 ID"
           required
-          readOnly={readOnly}
           maxLength={100}
-          counter={`${draft.screenId.trim().length}/100`}
           error={touched ? errors.screenId : undefined}
           value={draft.screenId}
           onChange={(e) => setDraft({ ...draft, screenId: e.target.value })}
@@ -339,16 +448,22 @@ function ScreenPanel({
         <TextField
           label="이름"
           required
-          readOnly={readOnly}
+          autoFocus
           maxLength={200}
-          counter={`${draft.name.trim().length}/200`}
           error={touched ? errors.name : undefined}
           value={draft.name}
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
         />
         <Select
+          label="유형"
+          value={draft.type}
+          items={typeItems}
+          onValueChange={(t) =>
+            setDraft({ ...draft, type: (t as ScreenType) ?? "page" })
+          }
+        />
+        <Select
           label="상위 화면"
-          disabled={readOnly}
           value={draft.parentId ?? ""}
           items={parents}
           onValueChange={(id) => setDraft({ ...draft, parentId: id || null })}
@@ -356,40 +471,107 @@ function ScreenPanel({
         <TextArea
           label="설명"
           rows={3}
-          readOnly={readOnly}
           maxLength={2000}
-          counter={`${draft.description.trim().length}/2000`}
           value={draft.description}
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
         />
-      </div>
-      {!readOnly && (
-        <footer className="flex flex-wrap items-center gap-2 border-line border-t px-5 py-3">
-          <span className="flex-1 basis-40 text-caption text-fg-muted">
-            {screen && screen.childCount > 0
-              ? `하위 화면 ${screen.childCount}개가 있어 삭제할 수 없습니다`
-              : ""}
-          </span>
-          {screen ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={Trash2}
-              disabled={screen.childCount > 0}
-              onClick={onDelete}
-            >
-              삭제
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              취소
-            </Button>
-          )}
-          <Button type="submit" variant="primary" size="sm" loading={pending}>
-            {screen ? "저장" : "추가"}
-          </Button>
-        </footer>
-      )}
+      </Dialog.Body>
+      <Dialog.Footer>
+        <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
+        <Button type="submit" variant="primary" loading={pending}>
+          {screen ? "저장" : "추가"}
+        </Button>
+      </Dialog.Footer>
     </form>
+  );
+}
+
+/**
+ * 규칙과 앞부분 코드를 고르면 서버가 다음 번호를 붙인 ID를 돌려준다.
+ * 번호 부분 앞의 코드 목록만 고르고, 고정값은 그대로다.
+ */
+function NextIdPicker({
+  projectId,
+  rules,
+  onNext,
+}: {
+  projectId: string;
+  rules: ScreenIdRule[];
+  onNext: (screenId: string) => void;
+}) {
+  const [ruleId, setRuleId] = useState(rules[0]?.id ?? "");
+  const rule = rules.find((r) => r.id === ruleId) ?? rules[0];
+  const numberAt = rule ? rule.parts.findIndex((p) => p.kind === "number") : -1;
+  const prefixParts = rule
+    ? rule.parts.slice(0, numberAt < 0 ? rule.parts.length : numberAt)
+    : [];
+  const defaults = rule ? screenIdExampleParts(rule) : [];
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  const prefix = prefixParts.map(
+    (_p, i) => picked[`${rule?.id}:${i}`] ?? defaults[i] ?? "",
+  );
+  const next = useQuery({
+    queryKey: ["next-screen-id", projectId, rule?.id, prefix],
+    enabled: Boolean(rule) && numberAt >= 0,
+    queryFn: async ({ signal }) =>
+      (
+        await sdk.getProjectNextScreenId({
+          path: { projectId, ruleId: rule?.id ?? "" },
+          query: { prefix: prefix.join(",") },
+          signal,
+          throwOnError: true,
+        })
+      ).data.screenId,
+  });
+  // 번호 부분이 없는 규칙은 고른 값을 이어 붙인 ID가 곧 제안이다
+  const suggested =
+    numberAt < 0
+      ? prefix.join(rule?.separator ?? "")
+      : (next.data ?? undefined);
+  // 제안이 바뀔 때만 채운다. 같은 값을 다시 넣으면 입력 칸을 고치던 손을 덮는다.
+  const last = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (suggested && suggested !== last.current) {
+      last.current = suggested;
+      onNext(suggested);
+    }
+  }, [suggested, onNext]);
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      {rules.length > 1 && (
+        <Select
+          label="규칙"
+          size="sm"
+          className="w-40"
+          value={ruleId}
+          items={rules.map((r) => ({ value: r.id, label: r.name }))}
+          onValueChange={(id) => {
+            setRuleId(id ?? "");
+            setPicked({});
+          }}
+        />
+      )}
+      {prefixParts.map((part, i) =>
+        part.kind === "list" ? (
+          <Select
+            // 부분은 순서가 정체성이다. 규칙이 바뀌면 key도 바뀐다.
+            // biome-ignore lint/suspicious/noArrayIndexKey: 부분에 식별자가 없다
+            key={`${rule?.id}:${i}`}
+            label={part.name}
+            size="sm"
+            className="w-36"
+            value={prefix[i]}
+            items={part.codes.map((c) => ({
+              value: c.code,
+              label: c.meaning ? `${c.code} ${c.meaning}` : c.code,
+            }))}
+            onValueChange={(code) =>
+              setPicked({ ...picked, [`${rule?.id}:${i}`]: code ?? "" })
+            }
+          />
+        ) : null,
+      )}
+    </div>
   );
 }

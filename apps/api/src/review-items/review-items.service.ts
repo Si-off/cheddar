@@ -186,7 +186,7 @@ export class ReviewItemsService {
           memo: "",
           frames: [],
           featureGroups: [],
-          requiredCases: [],
+          viewpoints: [],
           screenStructure: [],
           styleExamples: [],
           existingCases: similarCases(

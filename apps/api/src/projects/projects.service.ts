@@ -8,19 +8,18 @@ import { ApiError, notFound } from "../common/errors";
 import type {
   CreateFeatureGroupDto,
   CreateProjectDto,
-  CreateRequiredCaseDto,
   CreateScreenDto,
+  CreateScreenIdRuleDto,
   FeatureGroupDto,
   MemoDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseDto,
   ScreenDto,
   TemplateDto,
   UpdateFeatureGroupDto,
   UpdateProjectDto,
-  UpdateRequiredCaseDto,
   UpdateScreenDto,
+  UpdateScreenIdRuleDto,
 } from "../contracts/project.dto";
 import {
   DatabaseService,
@@ -32,29 +31,22 @@ import {
   projectMemos,
   projects,
   projectTemplates,
-  requiredCases,
+  screenIdRules,
   screenStructureItems,
 } from "../database/schema";
-import {
-  DEFAULT_REQUIRED_CASES,
-  defaultColumns,
-  validateTemplate,
-} from "./template";
+import { example, matches, nextScreenId } from "./screen-id-rules";
+import { readScreens } from "./screens-import";
+import { defaultColumns, validateTemplate } from "./template";
 
 const groupFields = {
   id: featureGroups.id,
   name: featureGroups.name,
   description: featureGroups.description,
 };
-const caseFields = {
-  id: requiredCases.id,
-  description: requiredCases.description,
-  enabled: requiredCases.enabled,
-  isDefault: requiredCases.isDefault,
-};
 const screenFields = {
   id: screenStructureItems.id,
   screenId: screenStructureItems.screenId,
+  type: screenStructureItems.type,
   name: screenStructureItems.name,
   parentId: screenStructureItems.parentId,
   description: screenStructureItems.description,
@@ -157,15 +149,6 @@ export class ProjectsService {
       await tx
         .insert(projectTemplates)
         .values({ projectId: row.id, columns: defaultColumns() });
-      await tx.insert(requiredCases).values(
-        DEFAULT_REQUIRED_CASES.map((description, position) => ({
-          projectId: row.id,
-          description,
-          position,
-          enabled: true,
-          isDefault: true,
-        })),
-      );
       await tx
         .insert(projectMemos)
         .values({ projectId: row.id, authorId: accountId, body: "" });
@@ -225,6 +208,139 @@ export class ProjectsService {
       if (!row)
         throw conflict("TEMPLATE_CONFLICT", "다른 사람이 먼저 저장했습니다.");
       return { revision: row.revision, columns: row.columns };
+    });
+  }
+  private rules(projectId: string, db: IdentityDatabase = this.database.db) {
+    return db
+      .select({
+        id: screenIdRules.id,
+        name: screenIdRules.name,
+        separator: screenIdRules.separator,
+        parts: screenIdRules.parts,
+      })
+      .from(screenIdRules)
+      .where(eq(screenIdRules.projectId, projectId))
+      .orderBy(screenIdRules.position, screenIdRules.id);
+  }
+  async listRules(projectId: string, accountId: string) {
+    await this.assertView(projectId, accountId);
+    return {
+      items: (await this.rules(projectId)).map((rule) => ({
+        ...rule,
+        example: example(rule),
+      })),
+    };
+  }
+  async saveRule(
+    projectId: string,
+    dto: CreateScreenIdRuleDto | UpdateScreenIdRuleDto,
+    id?: string,
+  ) {
+    return this.mutate(projectId, async (tx) => {
+      const all = await tx
+        .select()
+        .from(screenIdRules)
+        .where(eq(screenIdRules.projectId, projectId));
+      const current = id ? all.find((row) => row.id === id) : undefined;
+      if (id && !current) throw notFound();
+      const name = dto.name?.trim() ?? current?.name ?? "";
+      if (all.some((row) => row.name === name && row.id !== id))
+        throw conflict(
+          "DUPLICATE_NAME",
+          "같은 이름의 화면 ID 규칙이 있습니다.",
+        );
+      const values = {
+        name,
+        separator: dto.separator ?? current?.separator ?? "_",
+        parts: dto.parts ?? current?.parts ?? [],
+        updatedAt: new Date(),
+      };
+      for (const part of values.parts) {
+        if (
+          (part.kind === "list" && part.codes.length === 0) ||
+          (part.kind === "fixed"
+            ? part.value.length === 0
+            : part.value !== "") ||
+          (part.kind === "number" ? part.digits < 1 : part.digits !== 0)
+        )
+          throw new ApiError(
+            400,
+            "VALIDATION_ERROR",
+            "화면 ID 규칙의 부분 값을 확인하세요.",
+          );
+      }
+      const [row] = id
+        ? await tx
+            .update(screenIdRules)
+            .set(values)
+            .where(
+              and(
+                eq(screenIdRules.projectId, projectId),
+                eq(screenIdRules.id, id),
+              ),
+            )
+            .returning({
+              id: screenIdRules.id,
+              name: screenIdRules.name,
+              separator: screenIdRules.separator,
+              parts: screenIdRules.parts,
+            })
+        : await tx
+            .insert(screenIdRules)
+            .values({
+              ...values,
+              projectId,
+              position: Math.max(-1, ...all.map((row) => row.position)) + 1,
+            })
+            .returning({
+              id: screenIdRules.id,
+              name: screenIdRules.name,
+              separator: screenIdRules.separator,
+              parts: screenIdRules.parts,
+            });
+      return { ...row, example: example(row) };
+    });
+  }
+  async removeRule(projectId: string, id: string) {
+    return this.mutate(projectId, async (tx) => {
+      const rows = await tx
+        .delete(screenIdRules)
+        .where(
+          and(eq(screenIdRules.projectId, projectId), eq(screenIdRules.id, id)),
+        )
+        .returning({ id: screenIdRules.id });
+      if (!rows.length) throw notFound();
+    });
+  }
+  async orderRules(projectId: string, ids: string[]) {
+    return this.mutate(projectId, async (tx) => {
+      const all = await this.rules(projectId, tx);
+      const normalized = ids.map((id) => id.toLowerCase());
+      if (
+        normalized.length !== all.length ||
+        new Set(normalized).size !== all.length ||
+        normalized.some((id) => !all.some((row) => row.id === id))
+      )
+        throw conflict(
+          "STALE_ORDER",
+          "화면 ID 규칙 목록이 바뀌었습니다. 새로 고친 뒤 다시 정렬하세요.",
+        );
+      for (const [position, id] of normalized.entries())
+        await tx
+          .update(screenIdRules)
+          .set({ position })
+          .where(
+            and(
+              eq(screenIdRules.projectId, projectId),
+              eq(screenIdRules.id, id),
+            ),
+          );
+      return {
+        items: (await this.rules(projectId, tx)).map((rule) => ({
+          ...rule,
+          example: example(rule),
+        })),
+      };
     });
   }
   private groups(projectId: string, db: IdentityDatabase = this.database.db) {
@@ -316,91 +432,6 @@ export class ProjectsService {
       return { items: await this.groups(projectId, tx) };
     });
   }
-  async listCases(projectId: string, accountId: string) {
-    await this.assertView(projectId, accountId);
-    return {
-      items: await this.database.db
-        .select(caseFields)
-        .from(requiredCases)
-        .where(eq(requiredCases.projectId, projectId))
-        .orderBy(requiredCases.position, requiredCases.id),
-    };
-  }
-  async createCase(
-    projectId: string,
-    dto: CreateRequiredCaseDto,
-  ): Promise<RequiredCaseDto> {
-    return this.mutate(projectId, async (tx) => {
-      const rows = await tx
-        .select({ position: requiredCases.position })
-        .from(requiredCases)
-        .where(eq(requiredCases.projectId, projectId));
-      const [row] = await tx
-        .insert(requiredCases)
-        .values({
-          projectId,
-          description: dto.description.trim(),
-          position: Math.max(-1, ...rows.map((row) => row.position)) + 1,
-          enabled: true,
-          isDefault: false,
-        })
-        .returning(caseFields);
-      return row;
-    });
-  }
-  private async requiredCase(
-    projectId: string,
-    id: string,
-    db: IdentityDatabase,
-  ) {
-    const [row] = await db
-      .select()
-      .from(requiredCases)
-      .where(
-        and(eq(requiredCases.projectId, projectId), eq(requiredCases.id, id)),
-      );
-    if (!row) throw notFound();
-    return row;
-  }
-  async updateCase(
-    projectId: string,
-    id: string,
-    dto: UpdateRequiredCaseDto,
-  ): Promise<RequiredCaseDto> {
-    return this.mutate(projectId, async (tx) => {
-      const current = await this.requiredCase(projectId, id, tx);
-      if (current.isDefault && dto.description !== undefined)
-        throw conflict(
-          "DEFAULT_REQUIRED_CASE",
-          "기본 필수 케이스는 내용을 수정할 수 없습니다.",
-        );
-      const [row] = await tx
-        .update(requiredCases)
-        .set({
-          description: dto.description?.trim() ?? current.description,
-          enabled: dto.enabled ?? current.enabled,
-        })
-        .where(
-          and(eq(requiredCases.projectId, projectId), eq(requiredCases.id, id)),
-        )
-        .returning(caseFields);
-      return row;
-    });
-  }
-  async removeCase(projectId: string, id: string) {
-    return this.mutate(projectId, async (tx) => {
-      if ((await this.requiredCase(projectId, id, tx)).isDefault)
-        throw conflict(
-          "DEFAULT_REQUIRED_CASE",
-          "기본 필수 케이스는 삭제할 수 없습니다. 사용하지 않으려면 끄세요.",
-        );
-      await tx
-        .delete(requiredCases)
-        .where(
-          and(eq(requiredCases.projectId, projectId), eq(requiredCases.id, id)),
-        );
-    });
-  }
   async listScreens(projectId: string, accountId: string) {
     await this.assertView(projectId, accountId);
     const all = await this.database.db
@@ -408,9 +439,17 @@ export class ProjectsService {
       .from(screenStructureItems)
       .where(eq(screenStructureItems.projectId, projectId))
       .orderBy(screenStructureItems.position, screenStructureItems.id);
+    const rules = await this.rules(projectId);
     const children = new Map<string | null, ScreenDto[]>();
-    for (const row of all)
+    for (const item of all) {
+      const row = {
+        ...item,
+        ruleMismatch:
+          rules.length > 0 &&
+          !rules.some((rule) => matches(rule, item.screenId)),
+      };
       children.set(row.parentId, [...(children.get(row.parentId) ?? []), row]);
+    }
     const items: ScreenDto[] = [];
     const pending = [...(children.get(null) ?? [])].reverse();
     while (pending.length) {
@@ -463,6 +502,7 @@ export class ProjectsService {
             ) + 1;
       const values = {
         screenId,
+        type: dto.type ?? current?.type ?? "page",
         name: dto.name?.trim() ?? current?.name ?? "",
         description: dto.description?.trim() ?? current?.description ?? "",
         parentId,
@@ -483,7 +523,13 @@ export class ProjectsService {
             .insert(screenStructureItems)
             .values({ ...values, projectId })
             .returning(screenFields);
-      return row;
+      const rules = await this.rules(projectId, tx);
+      return {
+        ...row,
+        ruleMismatch:
+          rules.length > 0 &&
+          !rules.some((rule) => matches(rule, row.screenId)),
+      };
     });
   }
   async removeScreen(projectId: string, id: string) {
@@ -521,6 +567,93 @@ export class ProjectsService {
             eq(screenStructureItems.id, id),
           ),
         );
+    });
+  }
+  async nextRuleId(
+    projectId: string,
+    accountId: string,
+    ruleId: string,
+    prefix: string,
+  ) {
+    await this.assertView(projectId, accountId);
+    const rule = (await this.rules(projectId)).find(
+      (row) => row.id === ruleId.toLowerCase(),
+    );
+    if (!rule) throw notFound();
+    const ids = await this.database.db
+      .select({ screenId: screenStructureItems.screenId })
+      .from(screenStructureItems)
+      .where(eq(screenStructureItems.projectId, projectId));
+    return {
+      screenId: nextScreenId(
+        rule,
+        prefix === "" ? [] : prefix.split(","),
+        ids.map((row) => row.screenId),
+      ),
+    };
+  }
+  async importScreens(projectId: string, file?: Express.Multer.File) {
+    if (!file?.originalname.toLowerCase().endsWith(".xlsx"))
+      throw new ApiError(400, "VALIDATION_FAILED", "XLSX 파일을 선택하세요.");
+    if (file.size > 5 * 1024 * 1024)
+      throw new ApiError(
+        413,
+        "PAYLOAD_TOO_LARGE",
+        "파일은 5MB 이하여야 합니다.",
+      );
+    const parsed = await readScreens(file.buffer);
+    return this.mutate(projectId, async (tx) => {
+      const existing = await tx
+        .select()
+        .from(screenStructureItems)
+        .where(eq(screenStructureItems.projectId, projectId));
+      const seen = new Set(existing.map((row) => row.screenId));
+      const rows = parsed.rows.filter((row) => {
+        if (seen.has(row.screenId)) return false;
+        seen.add(row.screenId);
+        return true;
+      });
+      for (const row of rows)
+        if (
+          row.screenId.length > 100 ||
+          !row.name ||
+          row.name.length > 200 ||
+          row.description.length > 2000
+        )
+          throw new ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "화면 ID, 이름 또는 설명을 확인하세요.",
+          );
+      const position = Math.max(-1, ...existing.map((row) => row.position)) + 1;
+      // 먼저 모두 삽입해 파일에서 부모보다 먼저 나온 자식도 연결한다.
+      for (const [index, row] of rows.entries())
+        await tx.insert(screenStructureItems).values({
+          id: row.id,
+          projectId,
+          screenId: row.screenId,
+          name: row.name,
+          type: row.type,
+          description: row.description,
+          position: position + index,
+        });
+      for (const row of rows) {
+        const parent = rows.find(
+          (candidate) =>
+            candidate.id !== row.id &&
+            candidate.name === row.parentName &&
+            candidate.depth < row.depth,
+        );
+        if (parent)
+          await tx
+            .update(screenStructureItems)
+            .set({ parentId: parent.id })
+            .where(eq(screenStructureItems.id, row.id));
+      }
+      return {
+        created: rows.length,
+        skipped: parsed.skipped + parsed.rows.length - rows.length,
+      };
     });
   }
   private async memoRow(

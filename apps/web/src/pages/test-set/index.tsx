@@ -1,11 +1,8 @@
 import {
   Avatars,
   Banner,
-  Breadcrumb,
-  BreadcrumbItem,
   Button,
   buttonVariants,
-  Dialog,
   EmptyState,
   IconButton,
   LoadError,
@@ -14,6 +11,7 @@ import {
   Select,
   Tabs,
   TextField,
+  useToast,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -25,7 +23,6 @@ import {
   Link2,
   MoreHorizontal,
   Search,
-  SlidersHorizontal,
   Sparkles,
   Table2,
   Trash2,
@@ -36,20 +33,13 @@ import {
   reviewItemsQuery,
   tempUploadQuery,
 } from "@/entities/generation";
-import {
-  type ColumnErrors,
-  fromTemplateDraft,
-  type TemplateDraft,
-  toTemplateDraft,
-  validateTemplateDraft,
-} from "@/entities/project";
+import { templateQuery } from "@/entities/project";
 import {
   type CaseOp,
   type CellValue,
   cellText,
   groupable,
   groupCases,
-  readCell,
   type TestSet,
   testSetQuery,
 } from "@/entities/test-set";
@@ -58,7 +48,6 @@ import {
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
 import { useCaseOps } from "@/features/edit-cases";
-import { useSaveColumns } from "@/features/edit-test-set-columns";
 import { useExportXlsx } from "@/features/export-xlsx";
 import { GenerateSheet } from "@/features/generate-cases";
 import {
@@ -68,11 +57,10 @@ import {
 import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { sharingQuery } from "@/features/share-test-set";
 import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
-import { isApiFailure, sdk } from "@/shared/api";
+import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
 import { CaseDialog } from "@/widgets/case-dialog";
 import { CaseTable } from "@/widgets/case-table";
-import { ColumnsEditor } from "@/widgets/columns-editor";
 import { NoAccessNotice } from "@/widgets/no-access-notice";
 import { ReviewPanel } from "@/widgets/review-panel";
 import { ShareDialog } from "@/widgets/share-dialog";
@@ -138,9 +126,10 @@ function TestSetScreen({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { queryKey } = testSetQuery(testSet.id);
   const connection = useRef<() => string | null>(() => null);
-  const { apply, state, applyRemote, resync, refresh } = useCaseOps({
+  const { apply, state, applyRemote, resync, refresh, settled } = useCaseOps({
     queryKey,
     fetch: () =>
       queryClient.fetchQuery({ ...testSetQuery(testSet.id), staleTime: 0 }),
@@ -214,14 +203,18 @@ function TestSetScreen({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<
-    "columns" | "rename" | "delete" | "generate" | "share" | null
+    "rename" | "delete" | "generate" | "share" | null
   >(null);
   const readOnly = !testSet.access.canEdit;
   const generation = useQuery(currentGenerationQuery(testSet.id)).data;
   const active =
     generation?.status === "queued" || generation?.status === "running";
-  // 다시 작성은 확인 필요 패널에서 보여주므로 케이스 생성만 진행 중으로 본다
-  const running = active && generation?.kind !== "rewrite";
+  // 다시 작성은 확인 필요 패널에서, 열 채우기는 표에서 보여주므로 케이스 생성만 진행 중으로 본다
+  const running =
+    active &&
+    generation?.kind !== "rewrite" &&
+    generation?.kind !== "fill_column";
+  const filling = active && generation?.kind === "fill_column";
   const reviewItems = useQuery(reviewItemsQuery(testSet.id)).data ?? [];
   const reviewCount = reviewItems.filter(
     (i) => i.status === "pending" || i.status === "rewriting",
@@ -240,6 +233,12 @@ function TestSetScreen({
     enabled: Boolean(uploadId) && !readOnly,
     meta: { quietCodes: ["NOT_FOUND"] },
   }).data;
+  // 열 추가에서 고를 프로젝트 양식의 열. 프로젝트를 볼 수 없으면 직접 정의만 된다.
+  const presetColumns = useQuery({
+    ...templateQuery(testSet.project.id),
+    enabled: !readOnly,
+    meta: { quietCodes: ["NOT_FOUND", "FORBIDDEN"] },
+  }).data?.columns;
 
   const groupColumn =
     testSet.columns.find(
@@ -257,12 +256,12 @@ function TestSetScreen({
     [...selected].filter((id) => testSet.cases.some((c) => c.id === id)),
   );
 
-  const addCase = (values: Record<string, CellValue> = {}) => {
+  const addCase = (
+    values: Record<string, CellValue> = {},
+    afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
+  ) => {
     const caseId = crypto.randomUUID();
-    const last = testSet.cases[testSet.cases.length - 1];
-    apply([
-      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values },
-    ]);
+    apply([{ type: "add_case", caseId, afterCaseId, values }]);
     return caseId;
   };
   const removeSelected = () => {
@@ -270,6 +269,29 @@ function TestSetScreen({
     setSelected(new Set());
   };
   const onOps = (ops: CaseOp[]) => apply(ops);
+  // 열 추가 연산이 저장된 뒤에 채우기를 시작한다
+  const fillColumn = (columnId: string) =>
+    settled()
+      .then(() =>
+        sdk.fillTestSetColumn({
+          path: { testSetId: testSet.id, columnId },
+          throwOnError: true,
+        }),
+      )
+      .then(() =>
+        queryClient.invalidateQueries({
+          queryKey: currentGenerationQuery(testSet.id).queryKey,
+        }),
+      )
+      .catch((error) =>
+        toast.show({
+          message: toApiFailure(error, {
+            unknownResult:
+              "응답을 받지 못했습니다. 새로 고쳐 채우기가 시작됐는지 확인하세요.",
+          }).message,
+          tone: "danger",
+        }),
+      );
 
   const tableProps = {
     columns: testSet.columns,
@@ -285,6 +307,9 @@ function TestSetScreen({
       setView({ rowHeights }),
     presence: live.presence,
     onActiveCellChange: live.select,
+    presetColumns,
+    allCases: testSet.cases,
+    onFillColumn: running ? undefined : fillColumn,
   };
 
   if (live.closed === "session-expired") return null;
@@ -311,16 +336,10 @@ function TestSetScreen({
   return (
     <main className="flex w-full flex-col gap-4 px-8 pt-6 pb-8">
       <div className="flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbItem render={<Link to="/test-sets" />}>
-            테스트 세트
-          </BreadcrumbItem>
-          <BreadcrumbItem current>{testSet.name}</BreadcrumbItem>
-        </Breadcrumb>
         <div className="flex min-h-9 flex-wrap items-center gap-3">
           <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
-          {!readOnly && <SaveStatus state={state} />}
           <span className="flex-1" />
+          {!readOnly && <SaveStatus state={state} />}
           {live.people.length > 0 && (
             <Avatars
               people={live.people.map((p) => ({
@@ -453,17 +472,9 @@ function TestSetScreen({
             <span className="tabular-nums">{reviewCount}</span>
           </Button>
         )}
-        {!readOnly && (
-          <Button
-            size="sm"
-            icon={SlidersHorizontal}
-            onClick={() => setDialog("columns")}
-          >
-            양식 편집
-          </Button>
-        )}
       </div>
 
+      {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
       {running && generation && (
         <Banner
           tone="info"
@@ -520,6 +531,9 @@ function TestSetScreen({
                     aria-label={`${group.label} 케이스`}
                     cases={group.cases}
                     onAddCase={() => addCase({ [groupColumn.id]: group.value })}
+                    onInsertCase={(after) =>
+                      addCase({ [groupColumn.id]: group.value }, after)
+                    }
                     {...tableProps}
                   />
                 </section>
@@ -530,6 +544,7 @@ function TestSetScreen({
               aria-label="케이스"
               cases={cases}
               onAddCase={() => addCase()}
+              onInsertCase={(after) => addCase({}, after)}
               {...tableProps}
             />
           )}
@@ -581,11 +596,6 @@ function TestSetScreen({
         onOps={onOps}
         onClose={() => setOpenCaseId(null)}
       />
-      <ColumnsSheet
-        testSet={testSet}
-        open={dialog === "columns"}
-        onOpenChange={(open) => setDialog(open ? "columns" : null)}
-      />
       <RenameTestSetDialog
         testSet={testSet}
         open={dialog === "rename"}
@@ -603,108 +613,5 @@ function TestSetScreen({
         onDeleted={() => navigate({ to: "/test-sets" })}
       />
     </main>
-  );
-}
-
-/** 이 테스트 세트의 항목만 바꾼다. 프로젝트 기본 양식은 그대로다. */
-function ColumnsSheet({
-  testSet,
-  open,
-  onOpenChange,
-}: {
-  testSet: TestSet;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content placement="side" size="lg">
-        {open && (
-          <ColumnsForm testSet={testSet} onDone={() => onOpenChange(false)} />
-        )}
-      </Dialog.Content>
-    </Dialog.Root>
-  );
-}
-
-function ColumnsForm({
-  testSet,
-  onDone,
-}: {
-  testSet: TestSet;
-  onDone: () => void;
-}) {
-  const save = useSaveColumns(testSet.id);
-  const base = { revision: 1, columns: testSet.columns };
-  const [draft, setDraft] = useState<TemplateDraft>(() =>
-    toTemplateDraft(base),
-  );
-  const [selectedId, setSelectedId] = useState(testSet.columns[0]?.id ?? "");
-  const [errors, setErrors] = useState<Record<string, ColumnErrors> | null>(
-    null,
-  );
-  const dirty =
-    JSON.stringify(fromTemplateDraft(draft).columns) !==
-    JSON.stringify(testSet.columns);
-  // 저장하면 값이 지워지는 항목: 지운 항목, 형식이나 선택 항목이 바뀌어 기존 값이 맞지 않는 항목
-  const next = fromTemplateDraft(draft).columns;
-  const losing = testSet.columns.filter((old) => {
-    const changed = next.find((c) => c.id === old.id);
-    return testSet.cases.some((c) => {
-      const v = c.values[old.id];
-      if (!cellText(old, v)) return false;
-      if (!changed) return true;
-      return (
-        changed.type !== "text" &&
-        JSON.stringify(readCell(changed, v)) !==
-          JSON.stringify(readCell(old, v))
-      );
-    });
-  });
-
-  const submit = () => {
-    const found = validateTemplateDraft(draft);
-    setErrors(found);
-    const first = draft.columns.find((c) => found[c.id]);
-    if (first) {
-      setSelectedId(first.id);
-      return;
-    }
-    save.mutate(draft, { onSuccess: onDone });
-  };
-
-  return (
-    <>
-      <Dialog.Header title="테스트 세트 양식" />
-      <Dialog.Body className="flex-1 overflow-auto">
-        <ColumnsEditor
-          value={draft}
-          onChange={(next) => {
-            setDraft(next);
-            if (errors) setErrors(validateTemplateDraft(next));
-          }}
-          errors={errors ?? undefined}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-      </Dialog.Body>
-      <Dialog.Footer>
-        {losing.length > 0 && (
-          <span className="flex-1 text-caption text-warning">
-            저장하면 {losing.map((c) => c.name).join(", ")} 항목의 기존 값
-            일부가 지워집니다
-          </span>
-        )}
-        <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
-        <Button
-          variant="primary"
-          disabled={!dirty}
-          loading={save.isPending}
-          onClick={submit}
-        >
-          저장
-        </Button>
-      </Dialog.Footer>
-    </>
   );
 }

@@ -588,8 +588,56 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           canDelete: false,
           canExport: true,
         });
+        // 편집 링크여도 열 연산(항목 변경 포함)은 계정만 한다
+        const custom = detail.columns[1];
+        for (const op of [
+          {
+            type: "update_column",
+            columnId: custom.id,
+            name: custom.name,
+            description: custom.description,
+          },
+          { type: "remove_column", columnId: custom.id },
+          {
+            type: "reorder_columns",
+            columnIds: detail.columns.map((c) => c.id),
+          },
+          {
+            type: "add_column",
+            columnId: randomUUID(),
+            column: {
+              name: "방문자 열",
+              type: "select",
+              description: "",
+              options: ["가"],
+              presetKey: null,
+            },
+            afterColumnId: detail.columns[0].id,
+          },
+        ]) {
+          await error(
+            await request(
+              `/shared/${token}/ops`,
+              "POST",
+              { ops: [op] },
+              visitorCookie,
+            ),
+            403,
+            "FORBIDDEN",
+          );
+          assert.deepEqual(
+            await json<SharedTestSetDto>(
+              await request(
+                `/shared/${token}`,
+                "GET",
+                undefined,
+                visitorCookie,
+              ),
+            ).then((d) => [d.version, d.columns]),
+            [detail.version, detail.columns],
+          );
+        }
         for (const [suffix, method, body] of [
-          ["/columns", "PUT", { columns: set.columns }],
           ["", "PATCH", { name: "방문자 변경" }],
           ["", "DELETE", undefined],
           ["/sharing", "PATCH", { visibility: "private" }],
@@ -900,19 +948,50 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       },
     );
     await t.test(
-      "열 편집·AI 결과·확인 필요 추가는 커밋 뒤 resync로 다시 읽게 함",
+      "열 연산은 커밋 뒤 ops로 전파하고 AI 결과·확인 필요 추가는 resync로 다시 읽게 함",
       async () => {
         const c = connect(`/test-sets/${set.id}/live`);
         await c.next("welcome");
         const before = await sets.detail(set.id, admin.account.id);
-        const columns = before.columns.map((col, index) => ({
-          ...col,
-          name: index === 2 ? "바뀐 항목" : col.name,
-        }));
+        const columns = [
+          before.columns[0],
+          ...before.columns.slice(1).reverse(),
+        ];
         const saved = await json<{ version: number }>(
-          await request(`/test-sets/${set.id}/columns`, "PUT", { columns }),
+          await request(`/test-sets/${set.id}/ops`, "POST", {
+            ops: [
+              { type: "reorder_columns", columnIds: columns.map((c) => c.id) },
+            ],
+          }),
         );
-        assert.equal((await c.next("resync")).version, saved.version);
+        const broadcast = await c.next("ops");
+        assert.equal(broadcast.version, saved.version);
+        assert.deepEqual(broadcast.ops, [
+          { type: "reorder_columns", columnIds: columns.map((c) => c.id) },
+        ]);
+        const addedColumnId = randomUUID();
+        for (const op of [
+          {
+            type: "add_column",
+            columnId: addedColumnId,
+            column: {
+              name: "전파 확인",
+              type: "text",
+              description: "",
+              options: [],
+              presetKey: null,
+            },
+            afterColumnId: columns[0].id,
+          },
+          { type: "remove_column", columnId: addedColumnId },
+        ]) {
+          const response = await json<{ version: number }>(
+            await request(`/test-sets/${set.id}/ops`, "POST", { ops: [op] }),
+          );
+          const event = await c.next("ops");
+          assert.equal(event.version, response.version);
+          assert.deepEqual(event.ops, [op]);
+        }
         const [job] = await db
           .insert(generationJobs)
           .values({
@@ -927,7 +1006,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           memo: "",
           frames: [],
           featureGroups: [],
-          requiredCases: [],
+          viewpoints: [],
           screenStructure: [],
           styleExamples: [],
           existingCases: [],

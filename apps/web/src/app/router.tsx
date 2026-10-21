@@ -26,7 +26,6 @@ import { PluginConnectPage } from "@/pages/plugin-connect";
 import {
   ProjectFeatureGroupsPage,
   ProjectMemoPage,
-  ProjectRequiredCasesPage,
   ProjectScreensPage,
   ProjectTemplatePage,
 } from "@/pages/project-settings";
@@ -335,15 +334,6 @@ const projectFeatureGroupsRoute = createRoute({
   },
 });
 
-const projectRequiredCasesRoute = createRoute({
-  getParentRoute: () => projectRoute,
-  path: "/required-cases",
-  component: function ProjectRequiredCasesRoute() {
-    const { projectId } = projectRoute.useParams();
-    return <ProjectRequiredCasesPage projectId={projectId} />;
-  },
-});
-
 const projectScreensRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "/screens",
@@ -466,7 +456,6 @@ const routeTree = rootRoute.addChildren([
       projectIndexRoute,
       projectTemplateRoute,
       projectFeatureGroupsRoute,
-      projectRequiredCasesRoute,
       projectScreensRoute,
       projectMemoRoute,
     ]),

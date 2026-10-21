@@ -3,8 +3,9 @@ import {
   getProjectMemoQueryKey,
   getProjectQueryKey,
   getProjectTemplateQueryKey,
+  getRecentTestSetTemplateQueryKey,
   listProjectFeatureGroupsQueryKey,
-  listProjectRequiredCasesQueryKey,
+  listProjectScreenIdRulesQueryKey,
   listProjectScreensQueryKey,
   listProjectsQueryKey,
   sdk,
@@ -14,12 +15,13 @@ import type {
   Memo,
   Project,
   ProjectSummary,
-  RequiredCase,
   Screen,
+  ScreenIdRule,
   Template,
 } from "./model";
 
 export * from "./column-draft";
+export * from "./column-form";
 export * from "./model";
 
 export const projectsQuery = () =>
@@ -68,12 +70,12 @@ export const featureGroupsQuery = (projectId: string) =>
       ).data.items,
   });
 
-export const requiredCasesQuery = (projectId: string) =>
+export const screensQuery = (projectId: string) =>
   queryOptions({
-    queryKey: listProjectRequiredCasesQueryKey({ path: { projectId } }),
-    queryFn: async ({ signal }): Promise<RequiredCase[]> =>
+    queryKey: listProjectScreensQueryKey({ path: { projectId } }),
+    queryFn: async ({ signal }): Promise<Screen[]> =>
       (
-        await sdk.listProjectRequiredCases({
+        await sdk.listProjectScreens({
           path: { projectId },
           signal,
           throwOnError: true,
@@ -81,12 +83,26 @@ export const requiredCasesQuery = (projectId: string) =>
       ).data.items,
   });
 
-export const screensQuery = (projectId: string) =>
+/** 만들기의 "최근 테스트 세트와 같게"가 실제로 쓸 열. 최근 세트가 없으면 프로젝트 양식의 켜진 열이다. */
+export const recentTemplateQuery = (projectId: string) =>
   queryOptions({
-    queryKey: listProjectScreensQueryKey({ path: { projectId } }),
-    queryFn: async ({ signal }): Promise<Screen[]> =>
+    queryKey: getRecentTestSetTemplateQueryKey({ path: { projectId } }),
+    queryFn: async ({ signal }) =>
       (
-        await sdk.listProjectScreens({
+        await sdk.getRecentTestSetTemplate({
+          path: { projectId },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+  });
+
+export const screenIdRulesQuery = (projectId: string) =>
+  queryOptions({
+    queryKey: listProjectScreenIdRulesQueryKey({ path: { projectId } }),
+    queryFn: async ({ signal }): Promise<ScreenIdRule[]> =>
+      (
+        await sdk.listProjectScreenIdRules({
           path: { projectId },
           signal,
           throwOnError: true,

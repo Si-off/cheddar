@@ -11,10 +11,10 @@ import { AuthorizationService } from "../src/authorization/authorization.service
 import type { Permission } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
 import type { CreateAccountDto } from "../src/contracts/identity.dto";
-import type { TemplateColumnDto } from "../src/contracts/project.dto";
 import type {
-  ColumnsResultDto,
   OpsResultDto,
+  RecentTemplateDto,
+  TestSetColumnDto,
   TestSetDto,
   TestSetListDto,
   TestSetViewDto,
@@ -22,9 +22,12 @@ import type {
 import {
   projectTemplates,
   testCases,
+  testCaseValues,
   testSetMembers,
+  testSets,
 } from "../src/database/schema";
 import { ProjectsService } from "../src/projects/projects.service";
+import { defaultColumns } from "../src/projects/template";
 import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { CaseOperationsService } from "../src/test-sets/case-operations.service";
@@ -161,18 +164,32 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         const template = await projects.template(p.id, admin.account.id);
         assert.deepEqual(
           first.columns.map(({ id: _id, ...c }) => c),
-          template.columns.map(({ id: _id, ...c }) => c),
+          template.columns
+            .filter((c) => c.enabled)
+            .map(({ id: _id, enabled: _enabled, ...c }) => c),
         );
         assert.ok(
           first.columns.every(
             (c) => !template.columns.some((old) => old.id === c.id),
           ),
         );
-        template.columns[2].name = "이후 기본 양식";
+        template.columns[2].enabled = false;
         await projects.saveTemplate(p.id, template);
+        const filtered = await sets.create(admin.account.id, {
+          name: "꺼진 열 제외",
+          projectId: p.id,
+          memo: "",
+        });
+        assert.equal(filtered.columns.length, 12);
+        assert.ok(
+          filtered.columns.every(
+            (c) => c.presetKey !== "test_case" && c.presetKey !== "extra",
+          ),
+        );
+        await sets.remove(filtered.id, admin.account.id);
         assert.equal(
           (await sets.detail(first.id, admin.account.id)).columns[2].name,
-          "테스트 환경",
+          "테스트 케이스",
         );
         await error(
           await request(
@@ -219,7 +236,6 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           ["", "GET", undefined],
           ["", "PATCH", { memo: "메모" }],
           ["", "DELETE", undefined],
-          ["/columns", "PUT", { columns: first.columns }],
           ["/ops", "POST", { ops: [{ type: "delete_cases", caseIds: [] }] }],
           ["/view", "GET", undefined],
           ["/view", "PUT", validView],
@@ -251,7 +267,6 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           for (const [suffix, method, body] of [
             ["", "PATCH", { name: "변경" }],
             ["", "DELETE", undefined],
-            ["/columns", "PUT", { columns: first.columns }],
             ["/ops", "POST", { ops: [{ type: "delete_cases", caseIds: [] }] }],
           ] as const)
             await error(
@@ -334,7 +349,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         await workbook.xlsx.load(await exported.arrayBuffer());
         const sheet = workbook.worksheets[0];
         assert.ok(sheet);
-        const header = (sheet.getRow(1).values as unknown[])
+        const header = (sheet.getRow(2).values as unknown[])
           .slice(1)
           .map(String);
         assert.deepEqual(
@@ -384,7 +399,11 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       caseB = randomUUID(),
       caseC = randomUUID();
     const tid = () => first.columns[0].id,
-      title = () => first.columns[1].id;
+      title = () => {
+        const column = first.columns.find((c) => c.systemKey === "title");
+        assert.ok(column);
+        return column.id;
+      };
     await t.test(
       "연산 추가는 번호와 작성자를 저장하고 이동, 셀 변경, 삭제는 원자적으로 적용",
       async () => {
@@ -585,19 +604,20 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         assert.deepEqual(new Set(numbers), new Set(["TC-1001", "TC-1002"]));
       },
     );
-    let select!: TemplateColumnDto,
-      tags!: TemplateColumnDto,
-      checkbox!: TemplateColumnDto;
+    let select!: TestSetColumnDto,
+      tags!: TestSetColumnDto,
+      checkbox!: TestSetColumnDto;
     await t.test(
-      "열 검증 재사용, 값 정리와 형식 변환은 기본 양식을 바꾸지 않음",
+      "열 추가와 삭제는 다른 열의 값과 기본 양식을 바꾸지 않음",
       async () => {
         const custom = (
           name: string,
-          type: TemplateColumnDto["type"],
+          type: TestSetColumnDto["type"],
           options: string[] = [],
-        ): TemplateColumnDto => ({
+        ): TestSetColumnDto => ({
           id: randomUUID(),
           systemKey: null,
+          presetKey: null,
           name,
           type,
           options,
@@ -611,17 +631,28 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           p.id,
           admin.account.id,
         );
-        first = {
-          ...first,
-          ...(await json<ColumnsResultDto>(
-            await request(
-              `/${first.id}/columns`,
-              "PUT",
-              { columns },
-              editor.cookie,
-            ),
-          )),
-        };
+        await operations.apply(first.id, editor.id, {
+          ops: [select, tags, checkbox].map((c, i) => ({
+            type: "add_column",
+            columnId: c.id,
+            column: {
+              name: c.name,
+              type: c.type,
+              description: c.description,
+              options: c.options,
+              presetKey: c.presetKey,
+            },
+            afterColumnId:
+              i === 0
+                ? first.columns[first.columns.length - 1].id
+                : [select, tags][i - 1].id,
+          })),
+        });
+        first = await sets.detail(first.id, admin.account.id);
+        assert.deepEqual(
+          first.columns.map((c) => c.presetKey),
+          columns.map((c) => c.presetKey),
+        );
         await operations.apply(first.id, editor.id, {
           ops: [
             {
@@ -651,7 +682,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           ],
         });
         for (const [columnId, value] of [
-          [select.id, "다"],
+          [select.id, 3],
           [tags.id, ["가", "가"]],
           [checkbox.id, "예"],
         ])
@@ -662,48 +693,20 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
             400,
             "VALIDATION_FAILED",
           );
-        const trimmed = columns
-          .filter((c) => c.id !== first.columns[2].id)
-          .map((c) =>
-            c.id === select.id
-              ? { ...c, options: ["나"] }
-              : c.id === tags.id
-                ? { ...c, options: ["나"] }
-                : c.id === checkbox.id
-                  ? { ...c, type: "text" as const }
-                  : c,
-          );
-        const saved = await json<ColumnsResultDto>(
-          await request(`/${first.id}/columns`, "PUT", { columns: trimmed }),
-        );
+        const removedId = first.columns[2].id;
+        const saved = await operations.apply(first.id, editor.id, {
+          ops: [{ type: "remove_column", columnId: removedId }],
+        });
         const values = saved.cases.find((c) => c.id === caseA)?.values;
         assert.ok(values);
-        assert.equal(select.id in values, false);
-        assert.deepEqual(values[tags.id], ["나"]);
-        assert.equal(values[checkbox.id], "예");
-        assert.equal(first.columns[2].id in values, false);
+        assert.equal(values[select.id], "가");
+        assert.deepEqual(values[tags.id], ["가", "나"]);
+        assert.equal(values[checkbox.id], true);
+        assert.equal(removedId in values, false);
         assert.deepEqual(
           await projects.template(p.id, admin.account.id),
           originalTemplate,
         );
-        const bad = structuredClone(trimmed);
-        bad[0].name = "변경 금지";
-        await error(
-          await request(`/${first.id}/columns`, "PUT", { columns: bad }),
-          400,
-          "VALIDATION_FAILED",
-        );
-        const foreign = [
-          ...trimmed,
-          { ...other.columns[2], name: "다른 세트 열" },
-        ];
-        const before = await sets.detail(first.id, admin.account.id);
-        await error(
-          await request(`/${first.id}/columns`, "PUT", { columns: foreign }),
-          400,
-          "VALIDATION_FAILED",
-        );
-        assert.deepEqual(await sets.detail(first.id, admin.account.id), before);
         first = await sets.detail(first.id, admin.account.id);
         assert.equal(
           (
@@ -714,6 +717,114 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           ).length,
           1,
         );
+      },
+    );
+    await t.test(
+      "선택 항목은 Excel 목록처럼 바뀌어도 기존 셀 값을 두고 목록 밖 값도 받음",
+      async () => {
+        await operations.apply(first.id, editor.id, {
+          ops: [
+            {
+              type: "set_cell",
+              caseId: caseA,
+              columnId: select.id,
+              value: "다",
+            },
+            {
+              type: "set_cell",
+              caseId: caseA,
+              columnId: tags.id,
+              value: ["가", "목록 밖"],
+            },
+          ],
+        });
+        await operations.apply(first.id, editor.id, {
+          ops: [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: select.name,
+              description: "",
+              options: [" 나 ", "라"],
+            },
+          ],
+        });
+        first = await sets.detail(first.id, admin.account.id);
+        assert.deepEqual(
+          first.columns.find((c) => c.id === select.id)?.options,
+          ["나", "라"],
+        );
+        const values = first.cases.find((c) => c.id === caseA)?.values;
+        assert.equal(values?.[select.id], "다");
+        assert.deepEqual(values?.[tags.id], ["가", "목록 밖"]);
+        // 항목 없이 보내면 항목은 그대로다.
+        await operations.apply(first.id, editor.id, {
+          ops: [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: "선택 열",
+              description: "",
+            },
+          ],
+        });
+        assert.deepEqual(
+          (await sets.detail(first.id, admin.account.id)).columns.find(
+            (c) => c.id === select.id,
+          )?.options,
+          ["나", "라"],
+        );
+        const qaResult = first.columns.find((c) => c.presetKey === "qa_result");
+        for (const [op, status, code] of [
+          [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: "선택 열",
+              description: "",
+              options: ["나", "나"],
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: "선택 열",
+              description: "",
+              options: [],
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          ...(qaResult
+            ? [
+                [
+                  {
+                    type: "update_column",
+                    columnId: qaResult.id,
+                    name: qaResult.name,
+                    description: qaResult.description,
+                    options: ["Pass"],
+                  },
+                  400,
+                  "COLUMN_NOT_EDITABLE",
+                ] as const,
+              ]
+            : []),
+        ] as const) {
+          const before = await sets.detail(first.id, admin.account.id);
+          await error(
+            await request(`/${first.id}/ops`, "POST", { ops: [op] }),
+            status,
+            code,
+          );
+          assert.deepEqual(
+            await sets.detail(first.id, admin.account.id),
+            before,
+          );
+        }
       },
     );
     await t.test(
@@ -769,8 +880,8 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
             "VALIDATION_FAILED",
           );
         await json(
-          await request(`/${first.id}/columns`, "PUT", {
-            columns: first.columns.filter((c) => c.id !== tags.id),
+          await request(`/${first.id}/ops`, "POST", {
+            ops: [{ type: "remove_column", columnId: tags.id }],
           }),
         );
         const cleaned = await json<TestSetViewDto>(
@@ -813,11 +924,12 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           await request("", "POST", { name: "내보내기 세트", projectId: p.id }),
           201,
         );
-        const columns: TemplateColumnDto[] = [
-          ...set.columns.slice(0, 2),
+        const columns: TestSetColumnDto[] = [
+          ...set.columns.filter((c) => c.systemKey),
           {
             id: randomUUID(),
             systemKey: null,
+            presetKey: null,
             name: "영역",
             type: "tags",
             description: "",
@@ -826,16 +938,35 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           {
             id: randomUUID(),
             systemKey: null,
+            presetKey: null,
             name: "자동화",
             type: "checkbox",
             description: "",
             options: [],
           },
         ];
-        const saved = await json<ColumnsResultDto>(
-          await request(`/${set.id}/columns`, "PUT", { columns }),
-        );
-        const [id, title, tags, auto] = saved.columns;
+        await operations.apply(set.id, admin.account.id, {
+          ops: [
+            ...set.columns
+              .filter((c) => !c.systemKey)
+              .map((c) => ({ type: "remove_column", columnId: c.id })),
+            ...columns.slice(2).map((c, i) => ({
+              type: "add_column",
+              columnId: c.id,
+              column: {
+                name: c.name,
+                type: c.type,
+                description: c.description,
+                options: c.options,
+                presetKey: c.presetKey,
+              },
+              afterColumnId: columns[i + 1].id,
+            })),
+          ],
+        });
+        const [id, title, tags, auto] = (
+          await sets.detail(set.id, admin.account.id)
+        ).columns;
         assert.ok(id && title && tags && auto);
         const first = randomUUID(),
           second = randomUUID();
@@ -876,6 +1007,502 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         assert.equal((await request(`/${set.id}`, "DELETE")).status, 204);
       },
     );
+    await t.test(
+      "최근 양식 미리보기는 생성과 같은 열람 범위·정렬·대체 양식을 쓴다",
+      async () => {
+        const project = await projects.create(admin.account.id, {
+          name: "미리보기 프로젝트",
+          description: "",
+        });
+        const creator = await actor(["test_set.create"], [project.id]);
+        const reader = await actor(["test_set.export"], [project.id]);
+        const preview = (who = creator.cookie, projectId = project.id) =>
+          fetch(
+            `${base}/api/v1/projects/${projectId}/recent-test-set-template`,
+            {
+              headers: { Cookie: who },
+            },
+          );
+        const shape = (columns: TestSetColumnDto[]) =>
+          columns.map(({ id: _id, ...c }) => c);
+        const template = await projects.template(project.id, admin.account.id);
+        template.columns[2].enabled = false;
+        await projects.saveTemplate(project.id, template);
+        const empty = await json<RecentTemplateDto>(await preview());
+        assert.equal(empty.testSet, null);
+        assert.deepEqual(
+          empty.columns,
+          template.columns
+            .filter((c) => c.enabled)
+            .map(({ enabled: _enabled, ...c }) => c),
+        );
+        const create = async (
+          name: string,
+          columns?: typeof template.columns,
+        ) =>
+          json<TestSetDto>(
+            await request(
+              "",
+              "POST",
+              {
+                name,
+                projectId: project.id,
+                template: columns
+                  ? { kind: "custom", columns }
+                  : { kind: "recent" },
+              },
+              creator.cookie,
+            ),
+            201,
+          );
+        const first = await create("첫 세트");
+        assert.deepEqual(shape(first.columns), shape(empty.columns));
+        const second = await create(
+          "두 번째 세트",
+          defaultColumns().filter((c) => c.systemKey),
+        );
+        // 같은 수정 시각이면 ID 오름차순으로 고른다.
+        const tied = new Date(Date.now() + 10000);
+        for (const set of [first, second])
+          await db
+            .update(testSets)
+            .set({ updatedAt: tied })
+            .where(eq(testSets.id, set.id));
+        const selected = [first, second].sort((a, b) =>
+          a.id.localeCompare(b.id),
+        )[0];
+        const hidden = await json<TestSetDto>(
+          await request("", "POST", {
+            name: "볼 수 없는 최신 세트",
+            projectId: project.id,
+          }),
+          201,
+        );
+        await db
+          .update(testSets)
+          .set({ updatedAt: new Date(tied.getTime() + 10000) })
+          .where(eq(testSets.id, hidden.id));
+        // 다른 프로젝트에서 공유받은 최신 세트도 제외한다.
+        const elsewhere = await sets.create(admin.account.id, {
+          name: "다른 프로젝트 최신",
+          projectId: otherProject.id,
+          memo: "",
+        });
+        await db.insert(testSetMembers).values({
+          testSetId: elsewhere.id,
+          accountId: creator.id,
+          access: "view",
+        });
+        await db
+          .update(testSets)
+          .set({ updatedAt: new Date(tied.getTime() + 20000) })
+          .where(eq(testSets.id, elsewhere.id));
+        const result = await json<RecentTemplateDto>(await preview());
+        assert.deepEqual(result.testSet, {
+          id: selected.id,
+          name: selected.name,
+        });
+        assert.deepEqual(result.columns, selected.columns);
+        assert.deepEqual(
+          shape((await create("미리보기와 같은 양식")).columns),
+          shape(result.columns),
+        );
+        // 프로젝트만 볼 수 있는 사용자는 볼 수 있는 세트가 없으면 기본 양식을 받는다.
+        assert.deepEqual(
+          await json<RecentTemplateDto>(await preview(reader.cookie)),
+          empty,
+        );
+        await db.insert(testSetMembers).values({
+          testSetId: second.id,
+          accountId: reader.id,
+          access: "view",
+        });
+        assert.deepEqual(
+          (await json<RecentTemplateDto>(await preview(reader.cookie))).testSet,
+          { id: second.id, name: second.name },
+        );
+        assert.deepEqual(
+          (await json<RecentTemplateDto>(await preview(cookie))).testSet,
+          { id: hidden.id, name: hidden.name },
+        );
+        await error(await preview(outsider.cookie), 404, "NOT_FOUND");
+        await error(await preview(cookie, randomUUID()), 404, "NOT_FOUND");
+        assert.equal((await preview("")).status, 401);
+      },
+    );
+    await t.test(
+      "양식 선택은 custom 검증, recent 열람 필터와 기본 양식 대체를 적용",
+      async () => {
+        const create = async (template: unknown, who = editor.cookie) =>
+          json<TestSetDto>(
+            await request(
+              "",
+              "POST",
+              { name: "양식 선택", projectId: p.id, template },
+              who,
+            ),
+            201,
+          );
+        const picked = defaultColumns().filter(
+          (c) => c.systemKey || c.presetKey === "extra",
+        );
+        const custom = await create({ kind: "custom", columns: picked });
+        assert.deepEqual(
+          custom.columns.map((c) => c.presetKey),
+          ["test_id", "title"],
+        );
+        assert.ok(
+          custom.columns.every(
+            (c) => !picked.some((source) => source.id === c.id),
+          ),
+        );
+        const hidden = await create({ kind: "project" }, cookie);
+        await db
+          .update(testSets)
+          .set({ updatedAt: new Date(Date.now() + 10000) })
+          .where(eq(testSets.id, hidden.id));
+        const recent = await create({ kind: "recent" });
+        assert.deepEqual(
+          recent.columns.map((c) => c.presetKey),
+          ["test_id", "title"],
+        );
+        assert.ok(
+          recent.columns.every(
+            (c) => !custom.columns.some((source) => source.id === c.id),
+          ),
+        );
+        const fresh = await projects.create(admin.account.id, {
+          name: "빈 프로젝트",
+          description: "",
+        });
+        const fallback = await json<TestSetDto>(
+          await request("", "POST", {
+            name: "기본 대체",
+            projectId: fresh.id,
+            template: { kind: "recent" },
+          }),
+          201,
+        );
+        assert.deepEqual(
+          fallback.columns.map((c) => c.presetKey),
+          defaultColumns()
+            .filter((c) => c.enabled)
+            .map((c) => c.presetKey),
+        );
+        for (const template of [
+          { kind: "wrong" },
+          { kind: "project", columns: picked },
+          { kind: "custom" },
+          {
+            kind: "custom",
+            columns: picked.map((c) =>
+              c.presetKey === "title" ? { ...c, description: "변조" } : c,
+            ),
+          },
+          {
+            kind: "custom",
+            columns: [
+              ...picked,
+              {
+                ...picked[0],
+                id: randomUUID(),
+                systemKey: null,
+                presetKey: null,
+              },
+            ],
+          },
+        ])
+          assert.equal(
+            (
+              await request("", "POST", {
+                name: "검증",
+                projectId: p.id,
+                template,
+              })
+            ).status,
+            400,
+          );
+        assert.equal(
+          (
+            await request(
+              `/${custom.id}/columns`,
+              "PUT",
+              { columns: custom.columns },
+              editor.cookie,
+            )
+          ).status,
+          404,
+        );
+      },
+    );
+    await t.test(
+      "열 연산의 충돌, 순서, 원자성, version과 값 삭제",
+      async () => {
+        const set = await sets.create(admin.account.id, {
+          name: "열 연산",
+          projectId: p.id,
+          memo: "",
+        });
+        const id = randomUUID();
+        const column = {
+          name: "사용자 열",
+          type: "text",
+          description: "",
+          options: [],
+          presetKey: null,
+        };
+        const add = {
+          type: "add_column",
+          columnId: id,
+          column,
+          afterColumnId: set.columns[0].id,
+        };
+        const result = await json<OpsResultDto>(
+          await request(`/${set.id}/ops`, "POST", { ops: [add] }),
+        );
+        assert.equal(result.version, set.version + 1);
+        const afterAdd = await sets.detail(set.id, admin.account.id);
+        assert.equal(afterAdd.columns[1].id, id);
+        const preset = defaultColumns().find((c) => c.presetKey === "extra");
+        assert.ok(preset);
+        const {
+          id: _id,
+          enabled: _enabled,
+          systemKey: _systemKey,
+          ...definition
+        } = preset;
+        const presetId = randomUUID();
+        await operations.apply(set.id, admin.account.id, {
+          ops: [
+            {
+              type: "add_column",
+              columnId: presetId,
+              column: definition,
+              afterColumnId: id,
+            },
+          ],
+        });
+        for (const [op, status, code] of [
+          [add, 409, "COLUMN_EXISTS"],
+          [{ ...add, columnId: randomUUID() }, 400, "VALIDATION_FAILED"],
+          [
+            {
+              ...add,
+              columnId: randomUUID(),
+              column: {
+                name: set.columns[1].name,
+                type: set.columns[1].type,
+                description: set.columns[1].description,
+                options: set.columns[1].options,
+                presetKey: set.columns[1].presetKey,
+              },
+            },
+            409,
+            "COLUMN_EXISTS",
+          ],
+          [
+            {
+              ...add,
+              columnId: randomUUID(),
+              column: { ...column, name: "새 열" },
+              afterColumnId: null,
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          [
+            {
+              ...add,
+              columnId: randomUUID(),
+              column: { ...definition, presetKey: "test_case", name: "변조" },
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          [
+            { type: "remove_column", columnId: set.columns[0].id },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          [
+            {
+              type: "remove_column",
+              columnId: set.columns.find((c) => c.systemKey === "title")?.id,
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          [
+            {
+              type: "reorder_columns",
+              columnIds: set.columns.map((c) => c.id),
+            },
+            409,
+            "STALE_ORDER",
+          ],
+        ] as const) {
+          const before = await sets.detail(set.id, admin.account.id);
+          await error(
+            await request(`/${set.id}/ops`, "POST", {
+              ops: [{ type: "remove_column", columnId: presetId }, op],
+            }),
+            status,
+            code,
+          );
+          assert.deepEqual(await sets.detail(set.id, admin.account.id), before);
+        }
+        const current = await sets.detail(set.id, admin.account.id);
+        const ids = current.columns.map((c) => c.id);
+        await error(
+          await request(`/${set.id}/ops`, "POST", {
+            ops: [{ type: "reorder_columns", columnIds: [...ids].reverse() }],
+          }),
+          400,
+          "VALIDATION_FAILED",
+        );
+        await error(
+          await request(`/${set.id}/ops`, "POST", {
+            ops: [
+              { type: "reorder_columns", columnIds: ids.map(() => ids[0]) },
+            ],
+          }),
+          409,
+          "STALE_ORDER",
+        );
+        const reordered = [ids[0], ...ids.slice(1).reverse()];
+        const reorderedResult = await operations.apply(
+          set.id,
+          admin.account.id,
+          { ops: [{ type: "reorder_columns", columnIds: reordered }] },
+        );
+        assert.equal(reorderedResult.version, current.version + 1);
+        assert.deepEqual(
+          (await sets.detail(set.id, admin.account.id)).columns.map(
+            (c) => c.id,
+          ),
+          reordered,
+        );
+        const caseId = randomUUID();
+        await operations.apply(set.id, admin.account.id, {
+          ops: [
+            {
+              type: "add_case",
+              caseId,
+              afterCaseId: null,
+              values: { [id]: "삭제할 값" },
+            },
+            { type: "remove_column", columnId: id },
+          ],
+        });
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(testCaseValues)
+              .where(eq(testCaseValues.columnId, id))
+          ).length,
+          0,
+        );
+        assert.equal(
+          (await sets.detail(set.id, admin.account.id)).cases[0].values[id],
+          undefined,
+        );
+      },
+    );
+    await t.test("XLSX 2단 묶음과 상위 경계를 따르는 세로 병합", async () => {
+      const set = await sets.create(admin.account.id, {
+        name: "병합",
+        projectId: otherProject.id,
+        memo: "",
+      });
+      const value = (key: string) => {
+        const column = set.columns.find((c) => c.presetKey === key);
+        assert.ok(column);
+        return column.id;
+      };
+      const caseIds = Array.from({ length: 5 }, () => randomUUID());
+      await operations.apply(set.id, admin.account.id, {
+        ops: caseIds.map((caseId, i) => ({
+          type: "add_case",
+          caseId,
+          afterCaseId: i ? caseIds[i - 1] : null,
+          values: {
+            [value("test_env")]: i < 2 ? "W EB" : i < 4 ? "APP" : "",
+            [value("test_case")]: "같음",
+            [value("title")]: "제목",
+            [value("screen_id")]: "화면",
+            [value("steps")]: "절차",
+            [value("expected")]: "결과",
+          },
+        })),
+      });
+      const workbook = new ExcelJS.Workbook();
+      const exported = await sets.export(set.id, admin.account.id);
+      await workbook.xlsx.load(exported.data as never);
+      const sheet = workbook.worksheets[0];
+      const merges = sheet.model.merges ?? [];
+      assert.ok(merges.includes("I1:J1"));
+      assert.ok(merges.includes("L1:M1"));
+      for (const letter of ["B", "C", "D", "F", "G"]) {
+        assert.ok(merges.includes(`${letter}3:${letter}4`));
+        assert.ok(merges.includes(`${letter}5:${letter}6`));
+      }
+      assert.ok(!merges.some((range) => /^[AH]/.test(range)));
+      assert.equal(sheet.getCell("I1").value, "QA 진행");
+      assert.equal(sheet.getCell("L1").value, "개발 작업상황");
+      // 선택 열은 숨긴 목록 시트를 참조하는 드롭다운을 가진다. 글자 열에는 없다.
+      const lists = workbook.getWorksheet("목록");
+      assert.ok(lists);
+      assert.equal(lists.state, "veryHidden");
+      const qa = set.columns.findIndex((c) => c.presetKey === "qa_result");
+      const qaColumn = set.columns[qa];
+      const listColumn = set.columns
+        .filter((c) => c.type === "select" && c.options.length)
+        .indexOf(qaColumn);
+      const letter = lists.getColumn(listColumn + 1).letter;
+      assert.deepEqual(
+        qaColumn.options.map(
+          (_, row) => lists.getCell(row + 1, listColumn + 1).value,
+        ),
+        qaColumn.options,
+      );
+      for (const row of [3, 7])
+        assert.deepEqual(sheet.getCell(row, qa + 1).dataValidation, {
+          type: "list",
+          allowBlank: true,
+          formulae: [
+            `'목록'!$${letter}$1:$${letter}$${qaColumn.options.length}`,
+          ],
+        });
+      assert.equal(sheet.getCell(3, 1).dataValidation, undefined);
+      assert.deepEqual(
+        (sheet.getRow(2).values as string[]).slice(1),
+        set.columns.map((c) => c.name),
+      );
+      // 둘 다 남아 있어도 이웃하지 않으면 묶지 않는다.
+      const order = [
+        set.columns[0],
+        ...set.columns
+          .slice(1)
+          .filter(
+            (c) => !["qa_owner", "dev_owner"].includes(c.presetKey ?? ""),
+          ),
+        ...set.columns.filter((c) =>
+          ["qa_owner", "dev_owner"].includes(c.presetKey ?? ""),
+        ),
+      ];
+      await operations.apply(set.id, admin.account.id, {
+        ops: [{ type: "reorder_columns", columnIds: order.map((c) => c.id) }],
+      });
+      const single = new ExcelJS.Workbook();
+      await single.xlsx.load(
+        (await sets.export(set.id, admin.account.id)).data as never,
+      );
+      assert.deepEqual(
+        (single.worksheets[0].getRow(1).values as string[]).slice(1),
+        order.map((c) => c.name),
+      );
+    });
   } finally {
     await app.close();
     await lease.close();

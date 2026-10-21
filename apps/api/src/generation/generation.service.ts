@@ -17,7 +17,7 @@ import {
   featureGroups,
   generationJobs,
   generationSteps,
-  requiredCases,
+  projectMemos,
   reviewItems,
   screenStructureItems,
   tempUploads,
@@ -26,6 +26,8 @@ import {
 import { TempUploadsService } from "../temp-uploads/temp-uploads.service";
 import { TestSetsStore } from "../test-sets/test-sets.store";
 import { QueueService } from "./queue.service";
+import { isAiColumn } from "./steps/column-rules";
+import { applicableViewpoints } from "./steps/viewpoints";
 import type { GenerationInput } from "./types";
 import { AiUsageService } from "./usage.service";
 
@@ -40,6 +42,8 @@ export const generationErrorMessage =
   "케이스를 만들지 못했습니다. 테스트 세트에서 설명으로 케이스 추가 생성을 실행하세요.";
 export const rewriteErrorMessage =
   "다시 작성하지 못했습니다. 답변을 확인하고 다시 시도해주세요.";
+export const fillColumnErrorMessage =
+  "열을 채우지 못했습니다. 작성 기준을 확인하고 다시 시도해주세요.";
 export function currentDto(
   job: typeof generationJobs.$inferSelect,
 ): GenerationCurrentDto {
@@ -52,14 +56,18 @@ export function currentDto(
         : job.status === "completed"
           ? "succeeded"
           : job.status,
-    stage: job.kind === "rewrite" ? null : job.currentStage,
+    stage: ["rewrite", "fill_column"].includes(job.kind)
+      ? null
+      : job.currentStage,
     addedCount: job.addedCount,
     reviewCount: job.reviewCount,
     errorMessage:
       job.status === "failed"
-        ? job.kind === "rewrite"
-          ? rewriteErrorMessage
-          : generationErrorMessage
+        ? job.kind === "fill_column"
+          ? fillColumnErrorMessage
+          : job.kind === "rewrite"
+            ? rewriteErrorMessage
+            : generationErrorMessage
         : null,
   };
 }
@@ -140,6 +148,9 @@ export class GenerationService {
           kind: dto.kind,
           uploadId: dto.uploadId ?? null,
           memo: dto.memo ?? null,
+          frameIds: [
+            ...new Set(dto.frameIds?.map((id) => id.toLowerCase()) ?? []),
+          ].sort(),
         });
         const repeated = await this.repeated(
           tx,
@@ -152,6 +163,7 @@ export class GenerationService {
         await this.admission(tx);
         if (!dto.uploadId && (!dto.memo?.trim() || dto.kind === "initial"))
           throw invalid();
+        if (dto.frameIds?.length && !dto.uploadId) throw invalid();
         let frames: GenerationInput["frames"] = [];
         if (dto.uploadId) {
           const upload = await this.uploads.owned(
@@ -162,6 +174,14 @@ export class GenerationService {
           );
           if (upload.claimedAt) throw notFound();
           frames = await this.uploads.frames(dto.uploadId, tx);
+          if (dto.frameIds?.length) {
+            const selected = new Set(
+              dto.frameIds.map((id) => id.toLowerCase()),
+            );
+            if ([...selected].some((id) => !frames.some((f) => f.id === id)))
+              throw invalid();
+            frames = frames.filter((frame) => selected.has(frame.id));
+          }
           await tx
             .update(tempUploads)
             .set({ claimedAt: new Date() })
@@ -216,16 +236,7 @@ export class GenerationService {
             .from(featureGroups)
             .where(eq(featureGroups.projectId, row.projectId))
             .orderBy(featureGroups.position, featureGroups.id),
-          requiredCases: await tx
-            .select()
-            .from(requiredCases)
-            .where(
-              and(
-                eq(requiredCases.projectId, row.projectId),
-                eq(requiredCases.enabled, true),
-              ),
-            )
-            .orderBy(requiredCases.position, requiredCases.id),
+          viewpoints: [],
           screenStructure: await tx
             .select()
             .from(screenStructureItems)
@@ -235,6 +246,10 @@ export class GenerationService {
           existingCases:
             dto.kind === "append" ? await this.store.cases(testSetId, tx) : [],
         };
+        input.viewpoints = applicableViewpoints(
+          input.frames,
+          input.screenStructure,
+        );
         return this.insertJob(
           tx,
           testSetId,
@@ -251,11 +266,54 @@ export class GenerationService {
     await this.dispatch(jobId, "screens");
     return { jobId };
   }
+  async fillColumn(testSetId: string, columnId: string, accountId: string) {
+    await this.expireJobs();
+    const jobId = await this.store.mutate(
+      testSetId,
+      accountId,
+      "canEdit",
+      async (tx, row) => {
+        await this.assertIdle(testSetId, tx);
+        await this.admission(tx);
+        const columns = await this.store.columns(testSetId, tx);
+        const column = columns.find((c) => c.id === columnId.toLowerCase());
+        if (!column) throw notFound();
+        if (!isAiColumn(column))
+          throw new ApiError(
+            400,
+            "COLUMN_NOT_EDITABLE",
+            "AI로 작성할 수 없는 열입니다.",
+          );
+        const [memo] = await tx
+          .select()
+          .from(projectMemos)
+          .where(eq(projectMemos.projectId, row.projectId));
+        const input: GenerationInput = {
+          columns,
+          fillColumn: column,
+          memo: memo?.body ?? "",
+          frames: [],
+          featureGroups: [],
+          viewpoints: [],
+          screenStructure: await tx
+            .select()
+            .from(screenStructureItems)
+            .where(eq(screenStructureItems.projectId, row.projectId))
+            .orderBy(screenStructureItems.position, screenStructureItems.id),
+          styleExamples: [],
+          existingCases: await this.store.cases(testSetId, tx),
+        };
+        return this.insertJob(tx, testSetId, accountId, "fill_column", input);
+      },
+    );
+    await this.dispatch(jobId, "rewrite");
+    return { jobId };
+  }
   async insertJob(
     tx: DatabaseTransaction,
     testSetId: string,
     accountId: string,
-    kind: "initial" | "append" | "rewrite",
+    kind: "initial" | "append" | "rewrite" | "fill_column",
     input: GenerationInput,
     uploadId?: string,
     reviewItemId?: string,
@@ -272,7 +330,9 @@ export class GenerationService {
       reviewItemId,
       clientRequestId,
       requestHash,
-      currentStage: kind === "rewrite" ? "rewrite" : "screens",
+      currentStage: ["rewrite", "fill_column"].includes(kind)
+        ? "rewrite"
+        : "screens",
     });
     await tx.insert(generationSteps).values({
       jobId: id,
@@ -331,7 +391,10 @@ export class GenerationService {
     for (const row of rows)
       await this.dispatch(
         row.id,
-        row.currentStage ?? (row.kind === "rewrite" ? "rewrite" : "screens"),
+        row.currentStage ??
+          (["rewrite", "fill_column"].includes(row.kind)
+            ? "rewrite"
+            : "screens"),
       );
   }
   async expireJobs() {

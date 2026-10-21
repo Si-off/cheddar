@@ -31,18 +31,23 @@ import { CurrentAccount } from "../authorization/guards";
 import { ApiError } from "../common/errors";
 import {
   AddCaseOpDto,
+  AddColumnOpDto,
   ApplyOpsDto,
-  ColumnsResultDto,
   CreateTestSetDto,
+  CustomTemplateChoiceDto,
   DeleteCasesOpDto,
   MoveCaseOpDto,
   OpsResultDto,
+  ProjectTemplateChoiceDto,
+  RecentTemplateChoiceDto,
+  RemoveColumnOpDto,
+  ReorderColumnsOpDto,
   SetCellOpDto,
   TestSetDto,
   TestSetListDto,
   TestSetQueryDto,
   TestSetViewDto,
-  UpdateColumnsDto,
+  UpdateColumnOpDto,
   UpdateTestSetDto,
 } from "../contracts/test-set.dto";
 import { CaseOperationsService } from "./case-operations.service";
@@ -50,7 +55,19 @@ import { TestSetsService } from "./test-sets.service";
 
 @ApiTags("테스트 세트")
 @ApiCookieAuth()
-@ApiExtraModels(SetCellOpDto, AddCaseOpDto, DeleteCasesOpDto, MoveCaseOpDto)
+@ApiExtraModels(
+  SetCellOpDto,
+  AddCaseOpDto,
+  DeleteCasesOpDto,
+  MoveCaseOpDto,
+  AddColumnOpDto,
+  RemoveColumnOpDto,
+  ReorderColumnsOpDto,
+  UpdateColumnOpDto,
+  ProjectTemplateChoiceDto,
+  RecentTemplateChoiceDto,
+  CustomTemplateChoiceDto,
+)
 @Controller("api/v1/test-sets")
 export class TestSetsController {
   constructor(
@@ -120,21 +137,6 @@ export class TestSetsController {
     @CurrentAccount() accountId: string,
   ) {
     return this.service.remove(id, accountId);
-  }
-
-  @Put(":testSetId/columns")
-  @ApiOperation({
-    operationId: "updateTestSetColumns",
-    summary: "테스트 세트 양식 변경",
-  })
-  @ApiBody({ type: UpdateColumnsDto })
-  @ApiOkResponse({ type: ColumnsResultDto })
-  columns(
-    @Param("testSetId", ParseUUIDPipe) id: string,
-    @CurrentAccount() accountId: string,
-    @Body() dto: UpdateColumnsDto,
-  ) {
-    return this.service.saveColumns(id, accountId, dto);
   }
 
   @Post(":testSetId/ops")

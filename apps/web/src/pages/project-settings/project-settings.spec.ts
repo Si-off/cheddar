@@ -4,10 +4,11 @@ import {
   groups,
   project,
   projectSettings,
+  screens,
   template,
 } from "../../shared/testing/project-fixtures";
 
-test("기본 양식: 형식을 선택으로 바꾸면 선택 항목을 채워야 저장되고, 저장하면 revision과 함께 보낸다", async ({
+test("양식: 사전 정의 열은 켜고 끄기만 하고, 사용자 열은 선택 항목을 채워야 추가되며, 저장하면 revision과 함께 보낸다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -21,34 +22,41 @@ test("기본 양식: 형식을 선택으로 바꾸면 선택 항목을 채워야
   await page.goto("/projects/p1");
   await expect(page).toHaveURL(/\/projects\/p1\/template$/);
 
-  // 필수 항목은 이름과 형식을 바꿀 수 없고 지울 수 없다
-  await page.getByRole("button").filter({ hasText: "테스트 ID" }).click();
+  // 테스트 ID와 제목은 끌 수 없고, 사전 정의 열에는 작업 메뉴가 없다
+  await expect(page.getByRole("switch", { name: "테스트 ID" })).toBeDisabled();
   await expect(
-    page.getByRole("textbox", { name: "항목 이름" }),
-  ).toHaveAttribute("readonly", "");
-  await expect(page.getByRole("button", { name: "항목 삭제" })).toHaveCount(0);
+    page.getByRole("button", { name: "수행 절차 작업" }),
+  ).toHaveCount(0);
+  await page.getByRole("switch", { name: "추가 정보" }).click();
 
-  await page.getByRole("button").filter({ hasText: "수행 절차" }).click();
-  await page.getByRole("radio", { name: "단일 선택" }).click();
-  await page.getByRole("button", { name: "저장", exact: true }).click();
-  await expect(page.getByText("빈 선택 항목이 있습니다")).toBeVisible();
-  expect(calls.some((c) => c.key === "PUT /api/v1/projects/p1/template")).toBe(
-    false,
-  );
+  await page.getByRole("button", { name: "열 추가", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "사용자 열 추가" });
+  await dialog.getByRole("textbox", { name: "이름" }).fill("테스트 데이터");
+  await dialog.getByRole("radio", { name: "단일 선택" }).click();
+  await dialog.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(dialog.getByText("빈 선택 항목이 있습니다")).toBeVisible();
+  await dialog.getByRole("textbox", { name: "선택 항목 이름" }).fill("계정 A");
+  await dialog.getByRole("button", { name: "추가", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
 
-  await page.getByRole("textbox", { name: "선택 항목 이름" }).fill("1단계");
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(page.getByText("저장했습니다").first()).toBeVisible();
   const body = calls.find((c) => c.key === "PUT /api/v1/projects/p1/template")
     ?.body as typeof template;
   expect(body.revision).toBe(3);
-  expect(body.columns.map((c) => c.name)).toEqual([
-    "테스트 ID",
-    "제목",
-    "수행 절차",
-    "우선순위",
+  expect(body.columns.map((c) => [c.name, c.enabled])).toEqual([
+    ["테스트 ID", true],
+    ["제목", true],
+    ["수행 절차", true],
+    ["추가 정보", true],
+    ["우선순위", true],
+    ["테스트 데이터", true],
   ]);
-  expect(body.columns[2]).toMatchObject({ type: "select", options: ["1단계"] });
+  expect(body.columns[5]).toMatchObject({
+    presetKey: null,
+    type: "select",
+    options: ["계정 A"],
+  });
 });
 
 test("기능 그룹: 추가하고, 손잡이에서 아래 화살표로 순서를 바꾼다", async ({
@@ -65,10 +73,10 @@ test("기능 그룹: 추가하고, 손잡이에서 아래 화살표로 순서를
     "PUT /api/v1/projects/p1/feature-groups/order": { items: groups },
   });
   await page.goto("/projects/p1/feature-groups");
-  await page
-    .getByRole("textbox", { name: "새 기능 그룹 이름" })
-    .fill("장바구니");
-  await page.getByRole("button", { name: "추가" }).click();
+  await page.getByRole("button", { name: "기능 그룹 추가" }).first().click();
+  const addDialog = page.getByRole("dialog", { name: "기능 그룹 추가" });
+  await addDialog.getByRole("textbox", { name: "그룹 이름" }).fill("장바구니");
+  await addDialog.getByRole("button", { name: "추가" }).click();
   await expect
     .poll(
       () =>
@@ -89,69 +97,40 @@ test("기능 그룹: 추가하고, 손잡이에서 아래 화살표로 순서를
     .toEqual({ ids: ["g2", "g1"] });
 });
 
-test("필수 케이스: 기본 케이스는 끄기만 하고, 직접 추가한 케이스는 지운다", async ({
-  page,
-}) => {
-  const calls = await mockApi(page, {
-    "GET /api/v1/auth/me": me(),
-    ...projectSettings(),
-    "PATCH /api/v1/projects/p1/required-cases/r1": {
-      id: "r1",
-      description: "화면 진입과 첫 상태",
-      enabled: false,
-      isDefault: true,
-    },
-    "DELETE /api/v1/projects/p1/required-cases/r2": reply(204),
-  });
-  await page.goto("/projects/p1/required-cases");
-  await expect(
-    page.getByRole("button", { name: "화면 진입과 첫 상태 삭제" }),
-  ).toHaveCount(0);
-  await page.getByRole("switch", { name: "화면 진입과 첫 상태" }).click();
-  await expect
-    .poll(
-      () =>
-        calls.find(
-          (c) => c.key === "PATCH /api/v1/projects/p1/required-cases/r1",
-        )?.body,
-    )
-    .toEqual({ enabled: false });
-  await page.getByRole("button", { name: "결제 금액 계산 삭제" }).click();
-  await expect
-    .poll(() =>
-      calls.some(
-        (c) => c.key === "DELETE /api/v1/projects/p1/required-cases/r2",
-      ),
-    )
-    .toBe(true);
-});
-
 test("화면 구조: 하위 화면이 있으면 지울 수 없고, 자기 하위를 상위 화면으로 고를 수 없다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
     ...projectSettings(),
+    "GET /api/v1/projects/p1/screen-id-rules/r1/next": {
+      screenId: "PC_SIGNUP_03",
+    },
     "POST /api/v1/projects/p1/screens": reply(201, {
+      ...screens[0],
       id: "s4",
-      screenId: "SIGNUP-DONE",
+      screenId: "PC_SIGNUP_03",
       name: "가입 완료",
       parentId: "s1",
-      description: "",
     }),
   });
   await page.goto("/projects/p1/screens");
-  await expect(
-    page.getByText("하위 화면 1개가 있어 삭제할 수 없습니다"),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "삭제" })).toBeDisabled();
+  await expect(page.getByText("규칙 불일치")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "회원가입 작업" }).click();
+  await expect(page.getByRole("menuitem", { name: "삭제" })).toBeDisabled();
+  await page.getByRole("menuitem", { name: "편집" }).click();
   await page.getByRole("combobox", { name: "상위 화면" }).click();
   await expect(page.getByRole("option", { name: /약관 동의/ })).toHaveCount(0);
   await expect(page.getByRole("option", { name: /주문서/ })).toHaveCount(1);
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "취소" }).click();
 
-  await page.getByRole("button", { name: "화면 추가" }).click();
-  await page.getByRole("textbox", { name: "화면 ID" }).fill("SIGNUP-DONE");
+  // 규칙이 있으면 다음 번호를 붙인 ID를 미리 채운다
+  await page.getByRole("button", { name: "화면 추가" }).first().click();
+  await expect(page.getByRole("textbox", { name: "화면 ID" })).toHaveValue(
+    "PC_SIGNUP_03",
+  );
   await page.getByRole("textbox", { name: "이름" }).fill("가입 완료");
   await page.getByRole("combobox", { name: "상위 화면" }).click();
   await page.getByRole("option", { name: /회원가입/ }).click();
@@ -162,11 +141,42 @@ test("화면 구조: 하위 화면이 있으면 지울 수 없고, 자기 하위
         calls.find((c) => c.key === "POST /api/v1/projects/p1/screens")?.body,
     )
     .toEqual({
-      screenId: "SIGNUP-DONE",
+      screenId: "PC_SIGNUP_03",
       name: "가입 완료",
+      type: "page",
       parentId: "s1",
       description: "",
     });
+});
+
+test("화면 ID 규칙: 예시 ID를 부분별로 보여주고 메뉴에서 확인 뒤 지운다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...projectSettings(),
+    "DELETE /api/v1/projects/p1/screen-id-rules/r1": reply(204),
+  });
+  await page.goto("/projects/p1/screens");
+  const rule = page
+    .getByRole("list", { name: "화면 ID 규칙" })
+    .getByRole("listitem");
+  await expect(rule).toContainText("PC");
+  await expect(rule).toContainText("SIGNUP");
+  await expect(rule).toContainText("01");
+  await rule.getByRole("button", { name: "기본 작업" }).click();
+  await page.getByRole("menuitem", { name: "삭제" }).click();
+  await page
+    .getByRole("dialog", { name: "기본 삭제" })
+    .getByRole("button", { name: "삭제" })
+    .click();
+  await expect
+    .poll(() =>
+      calls.some(
+        (c) => c.key === "DELETE /api/v1/projects/p1/screen-id-rules/r1",
+      ),
+    )
+    .toBe(true);
 });
 
 test("메모: 입력을 멈추면 저장하고 저장됨을 보여준다", async ({ page }) => {
@@ -202,11 +212,14 @@ test("프로젝트 설정 관리 권한이 없으면 설정을 볼 수만 있다
   await expect(
     page.getByRole("button", { name: "저장", exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "항목 추가" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "열 추가", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("switch", { name: "추가 정보" })).toBeDisabled();
   await page.getByRole("link", { name: "기능 그룹" }).click();
   await expect(page.getByText("회원가입")).toBeVisible();
   await expect(
-    page.getByRole("textbox", { name: "새 기능 그룹 이름" }),
+    page.getByRole("button", { name: "기능 그룹 추가" }),
   ).toHaveCount(0);
   await expect(page.getByRole("button", { name: "회원가입 작업" })).toHaveCount(
     0,
@@ -229,7 +242,9 @@ test("기본 양식: 다른 사람이 먼저 저장했으면 입력을 남긴 �
                 ...template.columns,
                 {
                   id: "c-other",
+                  presetKey: null,
                   systemKey: null,
+                  enabled: true,
                   name: "다른 사람 항목",
                   type: "text",
                   description: "",
@@ -251,23 +266,20 @@ test("기본 양식: 다른 사람이 먼저 저장했으면 입력을 남긴 �
     },
   });
   await page.goto("/projects/p1/template");
-  await page.getByRole("button", { name: "항목 추가" }).click();
-  await page.getByRole("textbox", { name: "항목 이름" }).fill("기대 결과");
+  await page.getByRole("switch", { name: "추가 정보" }).click();
   await page.getByRole("button", { name: "저장", exact: true }).click();
   await expect(
     page.getByText("최신 양식을 불러오면 지금 입력한 내용은 사라집니다."),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button").filter({ hasText: "기대 결과" }),
-  ).toBeVisible();
+  await expect(page.getByRole("switch", { name: "추가 정보" })).toBeChecked();
 
   await page.getByRole("button", { name: "최신 양식 불러오기" }).click();
   await expect(
-    page.getByRole("button").filter({ hasText: "다른 사람 항목" }),
+    page.getByRole("switch", { name: "다른 사람 항목" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button").filter({ hasText: "기대 결과" }),
-  ).toHaveCount(0);
+    page.getByRole("switch", { name: "추가 정보" }),
+  ).not.toBeChecked();
   await expect(
     page.getByText("최신 양식을 불러오면 지금 입력한 내용은 사라집니다."),
   ).toHaveCount(0);
@@ -319,17 +331,14 @@ test("기본 양식: 고치는 중에 다른 사람이 저장하면 입력을 �
     }),
   });
   await page.goto("/projects/p1/template");
-  await page.getByRole("button", { name: "항목 추가" }).click();
-  await page.getByRole("textbox", { name: "항목 이름" }).fill("기대 결과");
+  await page.getByRole("switch", { name: "추가 정보" }).click();
 
   newer = true;
   await page.evaluate(() =>
     window.dispatchEvent(new Event("visibilitychange")),
   );
   await expect(page.getByText("저장된 양식이 바뀌었습니다")).toBeVisible();
-  await expect(
-    page.getByRole("button").filter({ hasText: "기대 결과" }),
-  ).toBeVisible();
+  await expect(page.getByRole("switch", { name: "추가 정보" })).toBeChecked();
 });
 
 test("메모: 저장을 기다리는 중에 다른 탭으로 가도 입력을 저장한다", async ({

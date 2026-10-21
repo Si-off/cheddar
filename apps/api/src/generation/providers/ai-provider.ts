@@ -1,4 +1,5 @@
 import type { ModelConfig } from "../model-config";
+import { columnRule, isAiColumn } from "../steps/column-rules";
 import type { GenerationInput, JsonSchema, StepDefinition } from "../types";
 import type { CallObservation } from "../usage";
 export type ProviderObservation = Omit<
@@ -61,9 +62,12 @@ export function requestData(r: AiRequest) {
 }
 export function stableInstructions(r: AiRequest) {
   return JSON.stringify({
-    form: r.context.columns.map(({ id, ...c }) => ({ key: id, ...c })),
-    requiredCases: r.context.requiredCases,
+    form: r.context.columns
+      .filter(isAiColumn)
+      .map((c) => ({ ...c, key: c.id, description: columnRule(c) })),
+    viewpoints: r.context.viewpoints,
     featureGroups: r.context.featureGroups,
+    screenStructure: r.context.screenStructure,
   });
 }
 // 제공자 오류 메시지에 키 일부가 섞일 수 있어 키 형태의 문자열을 지운 뒤 기록한다.

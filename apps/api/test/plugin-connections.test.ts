@@ -798,7 +798,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
 test("환경 설정은 null Origin 플래그를 일반 CORS 목록과 분리하고 development에 한정", () => {
   const env = {
     DATABASE_URL: "postgresql://unused@127.0.0.1/unused",
-    FILE_STORAGE_ROOT: process.env.TEMP,
+    FILE_STORAGE_ROOT: join(tmpdir(), "cheddar-env-test"),
     NODE_ENV: "development",
     AI_PROVIDER: "fake",
   };

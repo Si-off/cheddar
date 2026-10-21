@@ -9,8 +9,11 @@ import {
 import type { Permission } from "../authorization/permissions";
 import { ApiError, notFound } from "../common/errors";
 import type { EffectivePermissionDto } from "../contracts/identity.dto";
-import type { TemplateColumnDto } from "../contracts/project.dto";
-import type { CaseDto, TestSetAccessDto } from "../contracts/test-set.dto";
+import type {
+  CaseDto,
+  TestSetAccessDto,
+  TestSetColumnDto,
+} from "../contracts/test-set.dto";
 import {
   DatabaseService,
   type DatabaseTransaction,
@@ -244,20 +247,23 @@ export class TestSetsStore {
   async columns(
     id: string,
     db: IdentityDatabase = this.database.db,
-  ): Promise<TemplateColumnDto[]> {
+  ): Promise<TestSetColumnDto[]> {
     const rows = await db
       .select()
       .from(testSetColumns)
       .where(eq(testSetColumns.testSetId, id))
       .orderBy(testSetColumns.position, testSetColumns.id);
-    return rows.map(({ id, systemKey, name, type, description, options }) => ({
-      id,
-      systemKey: systemKey as TemplateColumnDto["systemKey"],
-      name,
-      type,
-      description,
-      options,
-    }));
+    return rows.map(
+      ({ id, systemKey, presetKey, name, type, description, options }) => ({
+        id,
+        presetKey,
+        systemKey: systemKey as TestSetColumnDto["systemKey"],
+        name,
+        type,
+        description,
+        options,
+      }),
+    );
   }
   async cases(
     id: string,

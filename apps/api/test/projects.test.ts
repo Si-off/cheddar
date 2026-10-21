@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { eq } from "drizzle-orm";
+import ExcelJS from "exceljs";
 import { AccountsService } from "../src/accounts/accounts.service";
 import { createFirstAdministrator } from "../src/accounts/bootstrap";
 import { AuthService, SESSION_COOKIE } from "../src/auth/auth.service";
@@ -17,8 +18,9 @@ import type {
   MemoDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseListDto,
   ScreenDto,
+  ScreenIdRuleDto,
+  ScreenIdRuleListDto,
   ScreenListDto,
   TemplateDto,
 } from "../src/contracts/project.dto";
@@ -27,10 +29,8 @@ import {
   projectMemos,
   projects,
   projectTemplates,
-  requiredCases,
 } from "../src/database/schema";
 import { ProjectsService } from "../src/projects/projects.service";
-import { DEFAULT_REQUIRED_CASES } from "../src/projects/template";
 import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
@@ -115,7 +115,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     };
     let first!: ProjectDto, second!: ProjectDto;
     await t.test(
-      "만들기는 기본 양식·12개 필수 케이스·빈 메모를 함께 저장",
+      "만들기는 사전 정의 열 14개와 기본 enabled·빈 메모를 함께 저장",
       async () => {
         first = await asJson<ProjectDto>(
           await request("", "POST", { name: "  가 프로젝트  " }),
@@ -140,9 +140,9 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           template.columns.map((c) => c.name),
           [
             "테스트 ID",
-            "제목",
             "테스트 환경",
             "테스트 케이스",
+            "제목",
             "사용자/관리자",
             "화면 ID 또는 URL",
             "수행 절차",
@@ -180,14 +180,15 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         );
         assert.ok(template.columns.every((c) => c.description.length > 0));
         assert.equal(new Set(template.columns.map((c) => c.id)).size, 14);
-        const cases = await asJson<RequiredCaseListDto>(
-          await request(`/${first.id}/required-cases`),
+        assert.equal(
+          new Set(template.columns.map((c) => c.presetKey)).size,
+          14,
         );
-        assert.deepEqual(
-          cases.items.map((c) => c.description),
-          DEFAULT_REQUIRED_CASES,
+        assert.ok(
+          template.columns.every(
+            (c) => c.enabled === (c.presetKey !== "extra"),
+          ),
         );
-        assert.ok(cases.items.every((c) => c.enabled && c.isDefault));
         assert.deepEqual(
           await asJson(await request(`/${first.id}/feature-groups`)),
           { items: [] },
@@ -255,8 +256,8 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           "",
           "/template",
           "/feature-groups",
-          "/required-cases",
           "/screens",
+          "/screen-id-rules",
           "/memo",
         ]) {
           assert.equal(
@@ -355,9 +356,11 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           [`/feature-groups/${randomUUID()}`, "PATCH", {}],
           [`/feature-groups/${randomUUID()}`, "DELETE", undefined],
           ["/feature-groups/order", "PUT", { ids: [] }],
-          ["/required-cases", "POST", {}],
-          [`/required-cases/${randomUUID()}`, "PATCH", {}],
-          [`/required-cases/${randomUUID()}`, "DELETE", undefined],
+          ["/screen-id-rules", "POST", {}],
+          [`/screen-id-rules/${randomUUID()}`, "PATCH", {}],
+          [`/screen-id-rules/${randomUUID()}`, "DELETE", undefined],
+          ["/screen-id-rules/order", "PUT", { ids: [] }],
+          ["/screens/import", "POST", {}],
           ["/screens", "POST", {}],
           [`/screens/${randomUUID()}`, "PATCH", {}],
           [`/screens/${randomUUID()}`, "DELETE", undefined],
@@ -404,8 +407,32 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       const template = await asJson<TemplateDto>(
         await request(`/${first.id}/template`),
       );
-      template.columns[2].name = "사전 준비";
-      template.columns[2].options = ["지움"];
+      for (const mutate of [
+        (columns: TemplateDto["columns"]) => {
+          columns[2].name = "사전 준비";
+        },
+        (columns: TemplateDto["columns"]) => {
+          columns[0].enabled = false;
+        },
+      ]) {
+        const invalid = structuredClone(template);
+        mutate(invalid.columns);
+        await error(
+          await request(`/${first.id}/template`, "PUT", invalid),
+          400,
+          "VALIDATION_FAILED",
+        );
+      }
+      template.columns.push({
+        id: randomUUID(),
+        presetKey: null,
+        enabled: true,
+        systemKey: null,
+        name: "사전 준비",
+        type: "text",
+        description: "",
+        options: ["지움"],
+      });
       const saved = await asJson<TemplateDto>(
         await request(`/${first.id}/template`, "PUT", template, manager.cookie),
       );
@@ -506,61 +533,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           create("동시 추가"),
         ]);
         assert.deepEqual(simultaneous.map((r) => r.status).sort(), [201, 409]);
-      },
-    );
-    await t.test(
-      "기본 필수 케이스는 사용 여부만 변경, 사용자 케이스는 수정과 삭제 허용",
-      async () => {
-        const list = await service.listCases(first.id, admin.account.id),
-          standard = list.items[0];
-        assert.equal(
-          (await service.updateCase(first.id, standard.id, { enabled: false }))
-            .enabled,
-          false,
-        );
-        await assert.rejects(
-          service.updateCase(first.id, standard.id, {
-            description: standard.description,
-          }),
-          code("DEFAULT_REQUIRED_CASE"),
-        );
-        await assert.rejects(
-          service.removeCase(first.id, standard.id),
-          code("DEFAULT_REQUIRED_CASE"),
-        );
-        const custom = await service.createCase(first.id, {
-          description: "  사용자 케이스  ",
-        });
-        assert.equal(custom.description, "사용자 케이스");
-        assert.equal(custom.enabled, true);
-        assert.equal(custom.isDefault, false);
-        assert.equal(
-          (await service.listCases(first.id, admin.account.id)).items.at(-1)
-            ?.id,
-          custom.id,
-        );
-        assert.equal(
-          (
-            await service.updateCase(first.id, custom.id, {
-              description: "수정",
-              enabled: false,
-            })
-          ).description,
-          "수정",
-        );
-        await assert.rejects(
-          service.updateCase(second.id, custom.id, { enabled: true }),
-          code("NOT_FOUND"),
-        );
-        await assert.rejects(
-          service.removeCase(second.id, custom.id),
-          code("NOT_FOUND"),
-        );
-        await service.removeCase(first.id, custom.id);
-        await assert.rejects(
-          service.removeCase(first.id, custom.id),
-          code("NOT_FOUND"),
-        );
       },
     );
     await t.test(
@@ -711,6 +683,285 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         );
       },
     );
+    await t.test("화면 규칙 CRUD·검증·순서·다음 ID·불일치", async () => {
+      const project = await asJson<ProjectDto>(
+        await request("", "POST", { name: "규칙 테스트" }),
+        201,
+      );
+      const root = `/${project.id}`;
+      const body = {
+        name: "페이지",
+        parts: [
+          {
+            name: "환경",
+            kind: "list",
+            codes: [{ code: "PC", meaning: "웹" }],
+            value: "",
+            digits: 0,
+          },
+          { name: "번호", kind: "number", codes: [], value: "", digits: 3 },
+        ],
+      };
+      const screen = await asJson<ScreenDto>(
+        await request(`${root}/screens`, "POST", {
+          screenId: "PC_002",
+          name: "화면",
+          description: "",
+          type: "popup",
+        }),
+        201,
+      );
+      assert.equal(screen.type, "popup");
+      assert.equal(screen.ruleMismatch, false);
+      const rule = await asJson<ScreenIdRuleDto>(
+        await request(`${root}/screen-id-rules`, "POST", body),
+        201,
+      );
+      assert.equal(rule.example, "PC_001");
+      assert.equal(rule.separator, "_");
+      await error(
+        await request(`${root}/screen-id-rules`, "POST", body),
+        409,
+        "DUPLICATE_NAME",
+      );
+      for (const part of [
+        { ...body.parts[0], codes: [] },
+        {
+          ...body.parts[0],
+          codes: [
+            { code: "PC", meaning: "" },
+            { code: "PC", meaning: "" },
+          ],
+        },
+        { ...body.parts[0], value: "잘못된 값" },
+        { ...body.parts[1], digits: 0 },
+        { ...body.parts[1], digits: 7 },
+        { ...body.parts[0], kind: "fixed", value: "" },
+      ])
+        await error(
+          await request(`${root}/screen-id-rules`, "POST", {
+            ...body,
+            name: "거부",
+            parts: [part],
+          }),
+          400,
+          "VALIDATION_ERROR",
+        );
+      const other = await asJson<ScreenIdRuleDto>(
+        await request(`${root}/screen-id-rules`, "POST", {
+          ...body,
+          name: "두 번째",
+        }),
+        201,
+      );
+      for (const ids of [
+        [rule.id],
+        [rule.id, rule.id],
+        [rule.id, randomUUID()],
+      ])
+        await error(
+          await request(`${root}/screen-id-rules/order`, "PUT", { ids }),
+          409,
+          "STALE_ORDER",
+        );
+      const ordered = await asJson<ScreenIdRuleListDto>(
+        await request(`${root}/screen-id-rules/order`, "PUT", {
+          ids: [other.id, rule.id],
+        }),
+      );
+      assert.deepEqual(
+        ordered.items.map((item) => item.id),
+        [other.id, rule.id],
+      );
+      assert.deepEqual(
+        await asJson(
+          await request(`${root}/screen-id-rules/${rule.id}/next?prefix=PC`),
+        ),
+        { screenId: "PC_003" },
+      );
+      await error(
+        await request(`/${second.id}/screen-id-rules/${rule.id}`, "PATCH", {
+          name: "다른 프로젝트",
+        }),
+        404,
+        "NOT_FOUND",
+      );
+      await error(
+        await request(`/${second.id}/screen-id-rules/${rule.id}`, "DELETE"),
+        404,
+        "NOT_FOUND",
+      );
+      await error(
+        await request(
+          `/${second.id}/screen-id-rules/${rule.id}/next?prefix=PC`,
+        ),
+        404,
+        "NOT_FOUND",
+      );
+      await error(
+        await request(
+          `${root}/screen-id-rules/${rule.id}/next?prefix=PC`,
+          "GET",
+          undefined,
+          scoped.cookie,
+        ),
+        404,
+        "NOT_FOUND",
+      );
+      await asJson(
+        await request(`${root}/screens/${screen.id}`, "PATCH", {
+          screenId: "BAD",
+        }),
+      );
+      assert.equal(
+        (await asJson<ScreenListDto>(await request(`${root}/screens`))).items[0]
+          .ruleMismatch,
+        true,
+      );
+      const patched = await asJson<ScreenIdRuleDto>(
+        await request(`${root}/screen-id-rules/${rule.id}`, "PATCH", {
+          parts: [
+            { name: "고정", kind: "fixed", codes: [], value: "BAD", digits: 0 },
+          ],
+        }),
+      );
+      assert.equal(patched.example, "BAD");
+      assert.equal(
+        (await asJson<ScreenListDto>(await request(`${root}/screens`))).items[0]
+          .ruleMismatch,
+        false,
+      );
+      for (const id of [rule.id, other.id])
+        assert.equal(
+          (await request(`${root}/screen-id-rules/${id}`, "DELETE")).status,
+          204,
+        );
+      const saved = (
+        await asJson<ScreenListDto>(await request(`${root}/screens`))
+      ).items[0];
+      assert.equal(saved.screenId, "BAD");
+      assert.equal(saved.ruleMismatch, false);
+      assert.equal(saved.type, "popup");
+    });
+    await t.test(
+      "IA XLSX 가져오기: 중복·빈 ID·부모 연결·유형·머리글·롤백",
+      async () => {
+        const project = await asJson<ProjectDto>(
+          await request("", "POST", { name: "IA 테스트" }),
+          201,
+        );
+        const root = `/${project.id}`;
+        const upload = async (rows: unknown[][], filename = "ia.xlsx") => {
+          const workbook = new ExcelJS.Workbook();
+          workbook.addWorksheet("IA").addRows(rows);
+          workbook.addWorksheet("무시").addRow(["다른 시트"]);
+          const form = new FormData();
+          form.append(
+            "file",
+            new Blob([new Uint8Array(await workbook.xlsx.writeBuffer())]),
+            filename,
+          );
+          return fetch(`${base}/api/v1/projects${root}/screens/import`, {
+            method: "POST",
+            headers: { Cookie: adminCookie },
+            body: form,
+          });
+        };
+        const header = [
+          "Screen ID (화면)",
+          "Type",
+          "module",
+          "1Depth",
+          "2Depth",
+          "3Depth",
+          "4Depth",
+          "5Depth",
+          "Note",
+        ];
+        await asJson(
+          await request(`${root}/screens`, "POST", {
+            screenId: "OLD",
+            name: "기존",
+            description: "",
+          }),
+          201,
+        );
+        const result = await asJson(
+          await upload([
+            ["IA 문서"],
+            header,
+            ["CHILD", "Pop-up", "모듈", "부모", "자식", "", "", "", "설명"],
+            ["ROOT", "Page", "모듈", "부모"],
+            ["CHILD", "Tab", "중복"],
+            ["OLD", "Page", "중복"],
+            ["", "Page", "ID 없음"],
+            ["BT", "BT", "바텀"],
+            ["BOTTOM", "Bottom sheet", "바텀2"],
+            ["TAB", "Tab", "탭"],
+            ["POP", "Popup", "팝업"],
+            ["DEFAULT", "알 수 없음", "기본"],
+          ]),
+          201,
+        );
+        assert.deepEqual(result, { created: 7, skipped: 3 });
+        const list = (
+          await asJson<ScreenListDto>(await request(`${root}/screens`))
+        ).items;
+        const find = (id: string) => {
+          const row = list.find((item) => item.screenId === id);
+          assert.ok(row);
+          return row;
+        };
+        assert.equal(find("CHILD").parentId, find("ROOT").id);
+        assert.equal(find("CHILD").name, "자식");
+        assert.equal(find("CHILD").description, "설명");
+        for (const [id, type] of [
+          ["CHILD", "popup"],
+          ["POP", "popup"],
+          ["BT", "bottom_sheet"],
+          ["BOTTOM", "bottom_sheet"],
+          ["TAB", "tab"],
+          ["DEFAULT", "page"],
+        ])
+          assert.equal(find(id).type, type);
+        await error(
+          await upload([["화면", "유형"]]),
+          400,
+          "IMPORT_HEADER_NOT_FOUND",
+        );
+        await error(await upload([header], "ia.csv"), 400, "VALIDATION_FAILED");
+        await error(
+          await upload([
+            header,
+            ["NEW", "Page", "정상"],
+            ["INVALID", "Page", ""],
+          ]),
+          400,
+          "VALIDATION_FAILED",
+        );
+        assert.equal(
+          (await asJson<ScreenListDto>(await request(`${root}/screens`))).items
+            .length,
+          list.length,
+        );
+        const form = new FormData();
+        form.append(
+          "file",
+          new Blob([new Uint8Array(5 * 1024 * 1024 + 1)]),
+          "large.xlsx",
+        );
+        assert.equal(
+          (
+            await fetch(`${base}/api/v1/projects${root}/screens/import`, {
+              method: "POST",
+              headers: { Cookie: adminCookie },
+              body: form,
+            })
+          ).status,
+          413,
+        );
+      },
+    );
     await t.test("메모 부재 응답, upsert 1행과 마지막 수정 계정", async () => {
       await db.delete(projectMemos).where(eq(projectMemos.projectId, first.id));
       assert.deepEqual(await service.memo(first.id, admin.account.id), {
@@ -754,11 +1005,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           .values({ name: "기본값", createdBy: admin.account.id })
           .returning();
         assert.equal(row.description, "");
-        const [required] = await db
-          .insert(requiredCases)
-          .values({ projectId: row.id, description: "사용자", position: 0 })
-          .returning();
-        assert.equal(required.isDefault, false);
         await db
           .insert(projectMemos)
           .values({ projectId: row.id, authorId: admin.account.id, body: "" });

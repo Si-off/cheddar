@@ -1,16 +1,20 @@
 import { plainToInstance } from "class-transformer";
 import { isUUID, validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
-import type { TemplateColumnDto } from "../contracts/project.dto";
+import type { TestSetColumnDto } from "../contracts/test-set.dto";
 import {
   AddCaseOpDto,
+  AddColumnOpDto,
   ApplyOpsDto,
   type CaseOp,
   type CellValue,
   DeleteCasesOpDto,
   MoveCaseOpDto,
+  RemoveColumnOpDto,
+  ReorderColumnsOpDto,
   SetCellOpDto,
   TestSetViewDto,
+  UpdateColumnOpDto,
 } from "../contracts/test-set.dto";
 
 export const validationFailed = (
@@ -19,7 +23,7 @@ export const validationFailed = (
   throw new ApiError(400, "VALIDATION_FAILED", message);
 };
 export function validateCell(
-  column: TemplateColumnDto,
+  column: TestSetColumnDto,
   value: unknown,
 ): CellValue {
   if (
@@ -28,6 +32,8 @@ export function validateCell(
     value.length > 20000
   )
     return validationFailed("텍스트는 20,000자 이하로 입력하세요.");
+  // 선택과 태그는 Excel의 목록처럼 목록에 없는 값도 받는다(붙여넣기, 항목 변경 뒤 남은 값).
+  // AI 생성은 출력 스키마가 목록으로 제한한다.
   const valid =
     column.type === "text"
       ? typeof value === "string" && value.length <= 20000
@@ -35,11 +41,10 @@ export function validateCell(
         ? typeof value === "boolean"
         : column.type === "select"
           ? value === null ||
-            (typeof value === "string" && column.options.includes(value))
+            (typeof value === "string" && value.length <= 20000)
           : Array.isArray(value) &&
-            value.every(
-              (v) => typeof v === "string" && column.options.includes(v),
-            ) &&
+            value.every((v) => typeof v === "string") &&
+            value.join(", ").length <= 20000 &&
             new Set(value).size === value.length;
   if (!valid)
     return validationFailed("항목의 형식과 선택 값에 맞게 입력해주세요.");
@@ -56,17 +61,20 @@ export function cellText(value: CellValue | undefined): string {
         : value;
 }
 export function reconcileValue(
-  column: TemplateColumnDto,
+  column: TestSetColumnDto,
   value: CellValue,
 ): CellValue | undefined {
   if (column.type === "text") {
     const text = cellText(value);
     return text.length <= 20000 ? text : undefined;
   }
-  if (column.type === "tags" && Array.isArray(value))
-    return [...new Set(value.filter((v) => column.options.includes(v)))];
   try {
-    return validateCell(column, value);
+    return validateCell(
+      column,
+      column.type === "tags" && Array.isArray(value)
+        ? [...new Set(value)]
+        : value,
+    );
   } catch {
     return undefined;
   }
@@ -90,6 +98,10 @@ export function validateOps(input: unknown): CaseOp[] {
     if (!input || typeof input !== "object" || Array.isArray(input))
       return validationFailed("편집 내용을 확인해주세요.");
     const type = new Map<string, new () => CaseOp>([
+      ["add_column", AddColumnOpDto],
+      ["update_column", UpdateColumnOpDto],
+      ["remove_column", RemoveColumnOpDto],
+      ["reorder_columns", ReorderColumnsOpDto],
       ["set_cell", SetCellOpDto],
       ["add_case", AddCaseOpDto],
       ["delete_cases", DeleteCasesOpDto],
@@ -101,7 +113,17 @@ export function validateOps(input: unknown): CaseOp[] {
       validateSync(op, { whitelist: true, forbidNonWhitelisted: true }).length
     )
       return validationFailed("편집 내용을 확인해주세요.");
-    if (op.type === "delete_cases")
+    if (op.type === "reorder_columns")
+      op.columnIds = op.columnIds.map((id) => id.toLowerCase());
+    else if (
+      op.type === "add_column" ||
+      op.type === "remove_column" ||
+      op.type === "update_column"
+    ) {
+      op.columnId = op.columnId.toLowerCase();
+      if (op.type === "add_column")
+        op.afterColumnId = op.afterColumnId?.toLowerCase() ?? null;
+    } else if (op.type === "delete_cases")
       op.caseIds = op.caseIds.map((id) => id.toLowerCase());
     else {
       op.caseId = op.caseId.toLowerCase();

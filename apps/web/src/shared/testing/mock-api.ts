@@ -8,6 +8,9 @@ import type {
 
 /** e2e 전용: 브라우저에서 API 응답을 합성한다. 실제 서버 없이 화면 동작을 검증한다. */
 export const API = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:3101";
+/** 웹 주소. 직접 route를 만들 때 CORS 허용 출처로 쓴다(playwright.config의 baseURL과 같다). */
+export const WEB_ORIGIN =
+  process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5176";
 
 export const affiliations: AffiliationDto[] = [
   { id: "af1", name: "사내" },
