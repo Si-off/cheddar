@@ -19,6 +19,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { PERMISSIONS } from "../authorization/permissions";
+import type { ScreenIdRulePartDto } from "../contracts/project.dto";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const created = () =>
@@ -231,6 +232,10 @@ export const screenStructureItems = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     screenId: varchar("screen_id", { length: 100 }).notNull(),
+    type: varchar("type", { length: 16 })
+      .$type<"page" | "popup" | "bottom_sheet" | "tab">()
+      .notNull()
+      .default("page"),
     name: varchar("name", { length: 200 }).notNull(),
     parentId: uuid("parent_id"),
     description: text("description").notNull().default(""),
@@ -667,4 +672,21 @@ export const aiProviderCosts = pgTable(
     ),
     index("ai_provider_costs_time_idx").on(t.provider, t.bucketStart),
   ],
+);
+
+export const screenIdRules = pgTable(
+  "screen_id_rules",
+  {
+    id: id(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    separator: varchar("separator", { length: 3 }).notNull().default("_"),
+    parts: jsonb("parts").$type<ScreenIdRulePartDto[]>().notNull(),
+    position: integer("position").notNull(),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [unique("screen_id_rules_name").on(t.projectId, t.name)],
 );

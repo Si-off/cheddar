@@ -3,12 +3,15 @@ import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
   IsInt,
   IsString,
   IsUUID,
+  Matches,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -84,7 +87,12 @@ export class UpdateFeatureGroupDto {
   @MaxLength(2000)
   description?: string;
 }
+export const SCREEN_TYPES = ["page", "popup", "bottom_sheet", "tab"] as const;
 export class CreateScreenDto {
+  @ApiPropertyOptional({ enum: SCREEN_TYPES, default: "page" })
+  @ValidateIf(optional)
+  @IsIn(SCREEN_TYPES)
+  type?: (typeof SCREEN_TYPES)[number];
   @ApiProperty({ minLength: 1, maxLength: 100 })
   @Transform(trim)
   @IsString()
@@ -109,6 +117,10 @@ export class CreateScreenDto {
   parentId?: string | null;
 }
 export class UpdateScreenDto {
+  @ApiPropertyOptional({ enum: SCREEN_TYPES, default: "page" })
+  @ValidateIf(optional)
+  @IsIn(SCREEN_TYPES)
+  type?: (typeof SCREEN_TYPES)[number];
   @ApiPropertyOptional({ minLength: 1, maxLength: 100 })
   @ValidateIf(optional)
   @Transform(trim)
@@ -233,6 +245,8 @@ export class FeatureGroupListDto {
   @ApiProperty({ type: [FeatureGroupDto] }) items!: FeatureGroupDto[];
 }
 export class ScreenDto {
+  @ApiProperty({ enum: SCREEN_TYPES }) type!: (typeof SCREEN_TYPES)[number];
+  @ApiProperty() ruleMismatch!: boolean;
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty() screenId!: string;
   @ApiProperty() name!: string;
@@ -265,4 +279,104 @@ export class MemoDto {
     additionalProperties: false,
   })
   updatedBy!: MemoAuthorDto | null;
+}
+
+export class ScreenIdRuleCodeDto {
+  @ApiProperty({ minLength: 1, maxLength: 40, pattern: "^[A-Za-z0-9_-]+$" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  code!: string;
+  @ApiProperty({ maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  meaning!: string;
+}
+export class ScreenIdRulePartDto {
+  @ApiProperty({ minLength: 1, maxLength: 40 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  name!: string;
+  @ApiProperty({ enum: ["list", "fixed", "number"] })
+  @IsIn(["list", "fixed", "number"])
+  kind!: "list" | "fixed" | "number";
+  @ApiProperty({ type: [ScreenIdRuleCodeDto] })
+  @IsArray()
+  @ArrayUnique((item: ScreenIdRuleCodeDto) => item?.code)
+  @ValidateNested({ each: true })
+  @Type(() => ScreenIdRuleCodeDto)
+  codes!: ScreenIdRuleCodeDto[];
+  @ApiProperty({ maxLength: 40 })
+  @IsString()
+  @MaxLength(40)
+  value!: string;
+  @ApiProperty({ type: "integer", minimum: 0, maximum: 6 })
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  digits!: number;
+}
+export class CreateScreenIdRuleDto {
+  @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name!: string;
+  @ApiPropertyOptional({ default: "_", maxLength: 3 })
+  @IsString()
+  @MaxLength(3)
+  separator = "_";
+  @ApiProperty({ type: [ScreenIdRulePartDto], minItems: 1, maxItems: 8 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => ScreenIdRulePartDto)
+  parts!: ScreenIdRulePartDto[];
+}
+export class UpdateScreenIdRuleDto {
+  @ApiPropertyOptional({ minLength: 1, maxLength: 100 })
+  @ValidateIf(optional)
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name?: string;
+  @ApiPropertyOptional({ maxLength: 3 })
+  @ValidateIf(optional)
+  @IsString()
+  @MaxLength(3)
+  separator?: string;
+  @ApiPropertyOptional({
+    type: [ScreenIdRulePartDto],
+    minItems: 1,
+    maxItems: 8,
+  })
+  @ValidateIf(optional)
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => ScreenIdRulePartDto)
+  parts?: ScreenIdRulePartDto[];
+}
+export class ScreenIdRuleDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() separator!: string;
+  @ApiProperty({ type: [ScreenIdRulePartDto] }) parts!: ScreenIdRulePartDto[];
+  @ApiProperty() example!: string;
+}
+export class ScreenIdRuleListDto {
+  @ApiProperty({ type: [ScreenIdRuleDto] }) items!: ScreenIdRuleDto[];
+}
+export class NextScreenIdDto {
+  @ApiProperty({ type: String, nullable: true }) screenId!: string | null;
+}
+export class ImportScreensResultDto {
+  @ApiProperty({ type: "integer" }) created!: number;
+  @ApiProperty({ type: "integer" }) skipped!: number;
 }

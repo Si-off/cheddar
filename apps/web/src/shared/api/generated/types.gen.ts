@@ -262,7 +262,48 @@ export type FeatureGroupOrderDto = {
     ids: Array<string>;
 };
 
+export type ScreenIdRuleCodeDto = {
+    code: string;
+    meaning: string;
+};
+
+export type ScreenIdRulePartDto = {
+    name: string;
+    kind: 'list' | 'fixed' | 'number';
+    codes: Array<ScreenIdRuleCodeDto>;
+    value: string;
+    digits: number;
+};
+
+export type ScreenIdRuleDto = {
+    id: string;
+    name: string;
+    separator: string;
+    parts: Array<ScreenIdRulePartDto>;
+    example: string;
+};
+
+export type ScreenIdRuleListDto = {
+    items: Array<ScreenIdRuleDto>;
+};
+
+export type CreateScreenIdRuleDto = {
+    name: string;
+    separator?: {
+        [key: string]: unknown;
+    };
+    parts: Array<ScreenIdRulePartDto>;
+};
+
+export type UpdateScreenIdRuleDto = {
+    name?: string;
+    separator?: string;
+    parts?: Array<ScreenIdRulePartDto>;
+};
+
 export type ScreenDto = {
+    type: 'page' | 'popup' | 'bottom_sheet' | 'tab';
+    ruleMismatch: boolean;
     id: string;
     screenId: string;
     name: string;
@@ -275,6 +316,7 @@ export type ScreenListDto = {
 };
 
 export type CreateScreenDto = {
+    type?: 'page' | 'popup' | 'bottom_sheet' | 'tab';
     screenId: string;
     name: string;
     description: string;
@@ -282,10 +324,20 @@ export type CreateScreenDto = {
 };
 
 export type UpdateScreenDto = {
+    type?: 'page' | 'popup' | 'bottom_sheet' | 'tab';
     screenId?: string;
     name?: string;
     description?: string;
     parentId?: string | null;
+};
+
+export type NextScreenIdDto = {
+    screenId: string | null;
+};
+
+export type ImportScreensResultDto = {
+    created: number;
+    skipped: number;
 };
 
 export type MemoDto = {
@@ -2981,6 +3033,268 @@ export type ReorderProjectFeatureGroupsResponses = {
 
 export type ReorderProjectFeatureGroupsResponse = ReorderProjectFeatureGroupsResponses[keyof ReorderProjectFeatureGroupsResponses];
 
+export type ListProjectScreenIdRulesData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screen-id-rules';
+};
+
+export type ListProjectScreenIdRulesErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ListProjectScreenIdRulesError = ListProjectScreenIdRulesErrors[keyof ListProjectScreenIdRulesErrors];
+
+export type ListProjectScreenIdRulesResponses = {
+    200: ScreenIdRuleListDto;
+};
+
+export type ListProjectScreenIdRulesResponse = ListProjectScreenIdRulesResponses[keyof ListProjectScreenIdRulesResponses];
+
+export type CreateProjectScreenIdRuleData = {
+    body: CreateScreenIdRuleDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screen-id-rules';
+};
+
+export type CreateProjectScreenIdRuleErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type CreateProjectScreenIdRuleError = CreateProjectScreenIdRuleErrors[keyof CreateProjectScreenIdRuleErrors];
+
+export type CreateProjectScreenIdRuleResponses = {
+    201: ScreenIdRuleDto;
+};
+
+export type CreateProjectScreenIdRuleResponse = CreateProjectScreenIdRuleResponses[keyof CreateProjectScreenIdRuleResponses];
+
+export type DeleteProjectScreenIdRuleData = {
+    body?: never;
+    path: {
+        projectId: string;
+        ruleId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}';
+};
+
+export type DeleteProjectScreenIdRuleErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type DeleteProjectScreenIdRuleError = DeleteProjectScreenIdRuleErrors[keyof DeleteProjectScreenIdRuleErrors];
+
+export type DeleteProjectScreenIdRuleResponses = {
+    204: void;
+};
+
+export type DeleteProjectScreenIdRuleResponse = DeleteProjectScreenIdRuleResponses[keyof DeleteProjectScreenIdRuleResponses];
+
+export type UpdateProjectScreenIdRuleData = {
+    body: UpdateScreenIdRuleDto;
+    path: {
+        projectId: string;
+        ruleId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}';
+};
+
+export type UpdateProjectScreenIdRuleErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UpdateProjectScreenIdRuleError = UpdateProjectScreenIdRuleErrors[keyof UpdateProjectScreenIdRuleErrors];
+
+export type UpdateProjectScreenIdRuleResponses = {
+    200: ScreenIdRuleDto;
+};
+
+export type UpdateProjectScreenIdRuleResponse = UpdateProjectScreenIdRuleResponses[keyof UpdateProjectScreenIdRuleResponses];
+
+export type ReorderProjectScreenIdRulesData = {
+    body: FeatureGroupOrderDto;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screen-id-rules/order';
+};
+
+export type ReorderProjectScreenIdRulesErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ReorderProjectScreenIdRulesError = ReorderProjectScreenIdRulesErrors[keyof ReorderProjectScreenIdRulesErrors];
+
+export type ReorderProjectScreenIdRulesResponses = {
+    200: ScreenIdRuleListDto;
+};
+
+export type ReorderProjectScreenIdRulesResponse = ReorderProjectScreenIdRulesResponses[keyof ReorderProjectScreenIdRulesResponses];
+
 export type ListProjectScreensData = {
     body?: never;
     path: {
@@ -3190,6 +3504,115 @@ export type UpdateProjectScreenResponses = {
 };
 
 export type UpdateProjectScreenResponse = UpdateProjectScreenResponses[keyof UpdateProjectScreenResponses];
+
+export type GetProjectNextScreenIdData = {
+    body?: never;
+    path: {
+        projectId: string;
+        ruleId: string;
+    };
+    query?: {
+        prefix?: string;
+    };
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}/next';
+};
+
+export type GetProjectNextScreenIdErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetProjectNextScreenIdError = GetProjectNextScreenIdErrors[keyof GetProjectNextScreenIdErrors];
+
+export type GetProjectNextScreenIdResponses = {
+    200: NextScreenIdDto;
+};
+
+export type GetProjectNextScreenIdResponse = GetProjectNextScreenIdResponses[keyof GetProjectNextScreenIdResponses];
+
+export type ImportProjectScreensData = {
+    body: {
+        file: Blob | File;
+    };
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/screens/import';
+};
+
+export type ImportProjectScreensErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type ImportProjectScreensError = ImportProjectScreensErrors[keyof ImportProjectScreensErrors];
+
+export type ImportProjectScreensResponses = {
+    201: ImportScreensResultDto;
+};
+
+export type ImportProjectScreensResponse = ImportProjectScreensResponses[keyof ImportProjectScreensResponses];
 
 export type GetProjectMemoData = {
     body?: never;

@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvitation, acceptReviewItem, applySharedTestSetOps, applyTestSetOps, approvePluginConnection, createAccount, createAffiliation, createGeneration, createPluginConnection, createProject, createProjectFeatureGroup, createProjectScreen, createRole, createTempUpload, createTestSet, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectScreen, deleteRole, deleteTestSet, duplicateRole, exchangePluginConnection, exportSharedTestSet, exportTestSet, getAccount, getAffiliation, getCurrentGeneration, getLiveness, getMe, getPluginConnectionRequest, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, getSharedTestSet, getSharedTestSetView, getTempFrameThumbnail, getTempUpload, getTestSet, getTestSetSharing, getTestSetView, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listOwnedTestSets, listProjectFeatureGroups, listProjects, listProjectScreens, listReviewItems, listRoles, listSharingCandidates, listTestSets, login, logout, type Options, reactivateAccount, reissueInvitation, removeTestSetMember, reorderProjectFeatureGroups, replaceTestSetLink, resetPassword, revokePluginConnection, rewriteReviewItem, setTestSetMember, transferTestSetOwner, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectScreen, updateProjectTemplate, updateReviewItem, updateRole, updateSharedTestSetView, updateTestSet, updateTestSetSharing, updateTestSetView } from '../sdk.gen';
-import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, AcceptReviewItemData, AcceptReviewItemError, AcceptReviewItemResponse, ApplySharedTestSetOpsData, ApplySharedTestSetOpsError, ApplySharedTestSetOpsResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, ApprovePluginConnectionData, ApprovePluginConnectionError, ApprovePluginConnectionResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateGenerationData, CreateGenerationError, CreateGenerationResponse, CreatePluginConnectionData, CreatePluginConnectionError, CreatePluginConnectionResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, CreateTempUploadData, CreateTempUploadError, CreateTempUploadResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, ExchangePluginConnectionData, ExchangePluginConnectionError, ExchangePluginConnectionResponse, ExportSharedTestSetData, ExportSharedTestSetError, ExportSharedTestSetResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetCurrentGenerationData, GetCurrentGenerationError, GetCurrentGenerationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetPluginConnectionRequestData, GetPluginConnectionRequestError, GetPluginConnectionRequestResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, GetSharedTestSetData, GetSharedTestSetError, GetSharedTestSetResponse, GetSharedTestSetViewData, GetSharedTestSetViewError, GetSharedTestSetViewResponse, GetTempFrameThumbnailData, GetTempFrameThumbnailError, GetTempFrameThumbnailResponse, GetTempUploadData, GetTempUploadError, GetTempUploadResponse, GetTestSetData, GetTestSetError, GetTestSetResponse, GetTestSetSharingData, GetTestSetSharingError, GetTestSetSharingResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListOwnedTestSetsData, ListOwnedTestSetsError, ListOwnedTestSetsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListReviewItemsData, ListReviewItemsError, ListReviewItemsResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSharingCandidatesData, ListSharingCandidatesError, ListSharingCandidatesResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, RemoveTestSetMemberData, RemoveTestSetMemberError, RemoveTestSetMemberResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ReplaceTestSetLinkData, ReplaceTestSetLinkError, ReplaceTestSetLinkResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, RevokePluginConnectionData, RevokePluginConnectionError, RevokePluginConnectionResponse, RewriteReviewItemData, RewriteReviewItemError, RewriteReviewItemResponse, SetTestSetMemberData, SetTestSetMemberError, SetTestSetMemberResponse, TransferTestSetOwnerData, TransferTestSetOwnerError, TransferTestSetOwnerResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateReviewItemData, UpdateReviewItemError, UpdateReviewItemResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse, UpdateSharedTestSetViewData, UpdateSharedTestSetViewError, UpdateSharedTestSetViewResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetSharingData, UpdateTestSetSharingError, UpdateTestSetSharingResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse } from '../types.gen';
+import { acceptInvitation, acceptReviewItem, applySharedTestSetOps, applyTestSetOps, approvePluginConnection, createAccount, createAffiliation, createGeneration, createPluginConnection, createProject, createProjectFeatureGroup, createProjectScreen, createProjectScreenIdRule, createRole, createTempUpload, createTestSet, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectScreen, deleteProjectScreenIdRule, deleteRole, deleteTestSet, duplicateRole, exchangePluginConnection, exportSharedTestSet, exportTestSet, getAccount, getAffiliation, getCurrentGeneration, getLiveness, getMe, getPluginConnectionRequest, getProject, getProjectMemo, getProjectNextScreenId, getProjectTemplate, getReadiness, getRole, getSharedTestSet, getSharedTestSetView, getTempFrameThumbnail, getTempUpload, getTestSet, getTestSetSharing, getTestSetView, importProjectScreens, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listOwnedTestSets, listProjectFeatureGroups, listProjects, listProjectScreenIdRules, listProjectScreens, listReviewItems, listRoles, listSharingCandidates, listTestSets, login, logout, type Options, reactivateAccount, reissueInvitation, removeTestSetMember, reorderProjectFeatureGroups, reorderProjectScreenIdRules, replaceTestSetLink, resetPassword, revokePluginConnection, rewriteReviewItem, setTestSetMember, transferTestSetOwner, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectScreen, updateProjectScreenIdRule, updateProjectTemplate, updateReviewItem, updateRole, updateSharedTestSetView, updateTestSet, updateTestSetSharing, updateTestSetView } from '../sdk.gen';
+import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, AcceptReviewItemData, AcceptReviewItemError, AcceptReviewItemResponse, ApplySharedTestSetOpsData, ApplySharedTestSetOpsError, ApplySharedTestSetOpsResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, ApprovePluginConnectionData, ApprovePluginConnectionError, ApprovePluginConnectionResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateGenerationData, CreateGenerationError, CreateGenerationResponse, CreatePluginConnectionData, CreatePluginConnectionError, CreatePluginConnectionResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenIdRuleData, CreateProjectScreenIdRuleError, CreateProjectScreenIdRuleResponse, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, CreateTempUploadData, CreateTempUploadError, CreateTempUploadResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenIdRuleData, DeleteProjectScreenIdRuleError, DeleteProjectScreenIdRuleResponse, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, ExchangePluginConnectionData, ExchangePluginConnectionError, ExchangePluginConnectionResponse, ExportSharedTestSetData, ExportSharedTestSetError, ExportSharedTestSetResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetCurrentGenerationData, GetCurrentGenerationError, GetCurrentGenerationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetPluginConnectionRequestData, GetPluginConnectionRequestError, GetPluginConnectionRequestResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectNextScreenIdData, GetProjectNextScreenIdError, GetProjectNextScreenIdResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, GetSharedTestSetData, GetSharedTestSetError, GetSharedTestSetResponse, GetSharedTestSetViewData, GetSharedTestSetViewError, GetSharedTestSetViewResponse, GetTempFrameThumbnailData, GetTempFrameThumbnailError, GetTempFrameThumbnailResponse, GetTempUploadData, GetTempUploadError, GetTempUploadResponse, GetTestSetData, GetTestSetError, GetTestSetResponse, GetTestSetSharingData, GetTestSetSharingError, GetTestSetSharingResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, ImportProjectScreensData, ImportProjectScreensError, ImportProjectScreensResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListOwnedTestSetsData, ListOwnedTestSetsError, ListOwnedTestSetsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectScreenIdRulesData, ListProjectScreenIdRulesError, ListProjectScreenIdRulesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListReviewItemsData, ListReviewItemsError, ListReviewItemsResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSharingCandidatesData, ListSharingCandidatesError, ListSharingCandidatesResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, RemoveTestSetMemberData, RemoveTestSetMemberError, RemoveTestSetMemberResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ReorderProjectScreenIdRulesData, ReorderProjectScreenIdRulesError, ReorderProjectScreenIdRulesResponse, ReplaceTestSetLinkData, ReplaceTestSetLinkError, ReplaceTestSetLinkResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, RevokePluginConnectionData, RevokePluginConnectionError, RevokePluginConnectionResponse, RewriteReviewItemData, RewriteReviewItemError, RewriteReviewItemResponse, SetTestSetMemberData, SetTestSetMemberError, SetTestSetMemberResponse, TransferTestSetOwnerData, TransferTestSetOwnerError, TransferTestSetOwnerResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenIdRuleData, UpdateProjectScreenIdRuleError, UpdateProjectScreenIdRuleResponse, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateReviewItemData, UpdateReviewItemError, UpdateReviewItemResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse, UpdateSharedTestSetViewData, UpdateSharedTestSetViewError, UpdateSharedTestSetViewResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetSharingData, UpdateTestSetSharingError, UpdateTestSetSharingResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -891,6 +891,92 @@ export const reorderProjectFeatureGroupsMutation = (options?: Partial<Options<Re
     return mutationOptions;
 };
 
+export const listProjectScreenIdRulesQueryKey = (options: Options<ListProjectScreenIdRulesData>) => createQueryKey('listProjectScreenIdRules', options);
+
+/**
+ * 화면 ID 규칙 목록
+ */
+export const listProjectScreenIdRulesOptions = (options: Options<ListProjectScreenIdRulesData>) => queryOptions<ListProjectScreenIdRulesResponse, ListProjectScreenIdRulesError, ListProjectScreenIdRulesResponse, ReturnType<typeof listProjectScreenIdRulesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProjectScreenIdRules({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProjectScreenIdRulesQueryKey(options)
+});
+
+/**
+ * 화면 ID 규칙 추가
+ */
+export const createProjectScreenIdRuleMutation = (options?: Partial<Options<CreateProjectScreenIdRuleData>>): UseMutationOptions<CreateProjectScreenIdRuleResponse, CreateProjectScreenIdRuleError, Options<CreateProjectScreenIdRuleData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectScreenIdRuleResponse, CreateProjectScreenIdRuleError, Options<CreateProjectScreenIdRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createProjectScreenIdRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 화면 ID 규칙 삭제
+ */
+export const deleteProjectScreenIdRuleMutation = (options?: Partial<Options<DeleteProjectScreenIdRuleData>>): UseMutationOptions<DeleteProjectScreenIdRuleResponse, DeleteProjectScreenIdRuleError, Options<DeleteProjectScreenIdRuleData>> => {
+    const mutationOptions: UseMutationOptions<DeleteProjectScreenIdRuleResponse, DeleteProjectScreenIdRuleError, Options<DeleteProjectScreenIdRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteProjectScreenIdRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 화면 ID 규칙 수정
+ */
+export const updateProjectScreenIdRuleMutation = (options?: Partial<Options<UpdateProjectScreenIdRuleData>>): UseMutationOptions<UpdateProjectScreenIdRuleResponse, UpdateProjectScreenIdRuleError, Options<UpdateProjectScreenIdRuleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectScreenIdRuleResponse, UpdateProjectScreenIdRuleError, Options<UpdateProjectScreenIdRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProjectScreenIdRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 화면 ID 규칙 순서 변경
+ */
+export const reorderProjectScreenIdRulesMutation = (options?: Partial<Options<ReorderProjectScreenIdRulesData>>): UseMutationOptions<ReorderProjectScreenIdRulesResponse, ReorderProjectScreenIdRulesError, Options<ReorderProjectScreenIdRulesData>> => {
+    const mutationOptions: UseMutationOptions<ReorderProjectScreenIdRulesResponse, ReorderProjectScreenIdRulesError, Options<ReorderProjectScreenIdRulesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reorderProjectScreenIdRules({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listProjectScreensQueryKey = (options: Options<ListProjectScreensData>) => createQueryKey('listProjectScreens', options);
 
 /**
@@ -950,6 +1036,41 @@ export const updateProjectScreenMutation = (options?: Partial<Options<UpdateProj
     const mutationOptions: UseMutationOptions<UpdateProjectScreenResponse, UpdateProjectScreenError, Options<UpdateProjectScreenData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateProjectScreen({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getProjectNextScreenIdQueryKey = (options: Options<GetProjectNextScreenIdData>) => createQueryKey('getProjectNextScreenId', options);
+
+/**
+ * 다음 화면 ID 계산
+ */
+export const getProjectNextScreenIdOptions = (options: Options<GetProjectNextScreenIdData>) => queryOptions<GetProjectNextScreenIdResponse, GetProjectNextScreenIdError, GetProjectNextScreenIdResponse, ReturnType<typeof getProjectNextScreenIdQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getProjectNextScreenId({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getProjectNextScreenIdQueryKey(options)
+});
+
+/**
+ * IA 화면 구조 가져오기
+ */
+export const importProjectScreensMutation = (options?: Partial<Options<ImportProjectScreensData>>): UseMutationOptions<ImportProjectScreensResponse, ImportProjectScreensError, Options<ImportProjectScreensData>> => {
+    const mutationOptions: UseMutationOptions<ImportProjectScreensResponse, ImportProjectScreensError, Options<ImportProjectScreensData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await importProjectScreens({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
