@@ -32,6 +32,8 @@ export function validateCell(
     value.length > 20000
   )
     return validationFailed("텍스트는 20,000자 이하로 입력하세요.");
+  // 선택과 태그는 Excel의 목록처럼 목록에 없는 값도 받는다(붙여넣기, 항목 변경 뒤 남은 값).
+  // AI 생성은 출력 스키마가 목록으로 제한한다.
   const valid =
     column.type === "text"
       ? typeof value === "string" && value.length <= 20000
@@ -39,11 +41,10 @@ export function validateCell(
         ? typeof value === "boolean"
         : column.type === "select"
           ? value === null ||
-            (typeof value === "string" && column.options.includes(value))
+            (typeof value === "string" && value.length <= 20000)
           : Array.isArray(value) &&
-            value.every(
-              (v) => typeof v === "string" && column.options.includes(v),
-            ) &&
+            value.every((v) => typeof v === "string") &&
+            value.join(", ").length <= 20000 &&
             new Set(value).size === value.length;
   if (!valid)
     return validationFailed("항목의 형식과 선택 값에 맞게 입력해주세요.");
@@ -67,10 +68,13 @@ export function reconcileValue(
     const text = cellText(value);
     return text.length <= 20000 ? text : undefined;
   }
-  if (column.type === "tags" && Array.isArray(value))
-    return [...new Set(value.filter((v) => column.options.includes(v)))];
   try {
-    return validateCell(column, value);
+    return validateCell(
+      column,
+      column.type === "tags" && Array.isArray(value)
+        ? [...new Set(value)]
+        : value,
+    );
   } catch {
     return undefined;
   }

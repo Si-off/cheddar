@@ -411,6 +411,10 @@ export type UpdateColumnOpDto = {
     columnId: string;
     name: string;
     description: string;
+    /**
+     * 선택과 태그 열의 항목. 없으면 바꾸지 않는다. 규칙은 양식의 options와 같다. 기존 셀 값은 바꾸지 않는다
+     */
+    options?: Array<string>;
 };
 
 export type ProjectTemplateChoiceDto = {

@@ -100,7 +100,7 @@ test("테스트 세트 DTO는 이름 100자, 메모 5000자, UUID, 필터와 알
   );
 });
 
-test("셀 값은 형식, 선택 항목, 태그 중복, 텍스트 경계를 검증하고 변환", () => {
+test("셀 값은 형식, 태그 중복, 텍스트 경계를 검증하고 선택 목록 밖 값은 Excel처럼 받음", () => {
   const column = (type: TemplateColumnDto["type"]): TemplateColumnDto => ({
     ...defaultColumns()[2],
     type,
@@ -110,12 +110,12 @@ test("셀 값은 형식, 선택 항목, 태그 중복, 텍스트 경계를 검�
     ["text", null],
     ["text", false],
     ["text", "a".repeat(20001)],
-    ["select", "다"],
     ["select", 1],
+    ["select", ["가"]],
+    ["select", "a".repeat(20001)],
     ["checkbox", "true"],
     ["checkbox", null],
     ["tags", ["가", "가"]],
-    ["tags", ["다"]],
     ["tags", "가"],
     ["tags", null],
   ] as const)
@@ -124,13 +124,18 @@ test("셀 값은 형식, 선택 항목, 태그 중복, 텍스트 경계를 검�
     ["text", "a".repeat(20000)],
     ["select", null],
     ["select", "가"],
+    ["select", "다"],
     ["checkbox", false],
     ["tags", []],
     ["tags", ["나", "가"]],
+    ["tags", ["다"]],
   ] as const)
     assert.deepEqual(validateCell(column(type), value), value);
-  assert.equal(reconcileValue(column("select"), "다"), undefined);
-  assert.deepEqual(reconcileValue(column("tags"), ["가", "다"]), ["가"]);
+  assert.equal(reconcileValue(column("select"), "다"), "다");
+  assert.deepEqual(reconcileValue(column("tags"), ["가", "다", "가"]), [
+    "가",
+    "다",
+  ]);
   assert.equal(reconcileValue(column("checkbox"), "가"), undefined);
   for (const [value, text] of [
     ["가", "가"],

@@ -421,8 +421,9 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
         );
         await error(
           await request(`/review-items/${item.id}`, "PATCH", {
+            // 목록 밖 글자는 Excel처럼 받지만 형식이 다른 값은 거절한다.
             draft: {
-              [select.id]: "잘못된 선택",
+              [select.id]: ["형식이 다른 값"],
             },
           }),
           400,

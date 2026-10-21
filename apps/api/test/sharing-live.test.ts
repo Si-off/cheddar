@@ -588,6 +588,55 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           canDelete: false,
           canExport: true,
         });
+        // 편집 링크여도 열 연산(항목 변경 포함)은 계정만 한다
+        const custom = detail.columns[1];
+        for (const op of [
+          {
+            type: "update_column",
+            columnId: custom.id,
+            name: custom.name,
+            description: custom.description,
+          },
+          { type: "remove_column", columnId: custom.id },
+          {
+            type: "reorder_columns",
+            columnIds: detail.columns.map((c) => c.id),
+          },
+          {
+            type: "add_column",
+            columnId: randomUUID(),
+            column: {
+              name: "방문자 열",
+              type: "select",
+              description: "",
+              options: ["가"],
+              presetKey: null,
+            },
+            afterColumnId: detail.columns[0].id,
+          },
+        ]) {
+          await error(
+            await request(
+              `/shared/${token}/ops`,
+              "POST",
+              { ops: [op] },
+              visitorCookie,
+            ),
+            403,
+            "FORBIDDEN",
+          );
+          assert.deepEqual(
+            await json<SharedTestSetDto>(
+              await request(
+                `/shared/${token}`,
+                "GET",
+                undefined,
+                visitorCookie,
+              ),
+            ).then((d) => [d.version, d.columns]),
+            [detail.version, detail.columns],
+          );
+        }
         for (const [suffix, method, body] of [
           ["", "PATCH", { name: "방문자 변경" }],
           ["", "DELETE", undefined],

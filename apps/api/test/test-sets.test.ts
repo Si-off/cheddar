@@ -682,7 +682,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           ],
         });
         for (const [columnId, value] of [
-          [select.id, "다"],
+          [select.id, 3],
           [tags.id, ["가", "가"]],
           [checkbox.id, "예"],
         ])
@@ -717,6 +717,114 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           ).length,
           1,
         );
+      },
+    );
+    await t.test(
+      "선택 항목은 Excel 목록처럼 바뀌어도 기존 셀 값을 두고 목록 밖 값도 받음",
+      async () => {
+        await operations.apply(first.id, editor.id, {
+          ops: [
+            {
+              type: "set_cell",
+              caseId: caseA,
+              columnId: select.id,
+              value: "다",
+            },
+            {
+              type: "set_cell",
+              caseId: caseA,
+              columnId: tags.id,
+              value: ["가", "목록 밖"],
+            },
+          ],
+        });
+        await operations.apply(first.id, editor.id, {
+          ops: [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: select.name,
+              description: "",
+              options: [" 나 ", "라"],
+            },
+          ],
+        });
+        first = await sets.detail(first.id, admin.account.id);
+        assert.deepEqual(
+          first.columns.find((c) => c.id === select.id)?.options,
+          ["나", "라"],
+        );
+        const values = first.cases.find((c) => c.id === caseA)?.values;
+        assert.equal(values?.[select.id], "다");
+        assert.deepEqual(values?.[tags.id], ["가", "목록 밖"]);
+        // 항목 없이 보내면 항목은 그대로다.
+        await operations.apply(first.id, editor.id, {
+          ops: [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: "선택 열",
+              description: "",
+            },
+          ],
+        });
+        assert.deepEqual(
+          (await sets.detail(first.id, admin.account.id)).columns.find(
+            (c) => c.id === select.id,
+          )?.options,
+          ["나", "라"],
+        );
+        const qaResult = first.columns.find((c) => c.presetKey === "qa_result");
+        for (const [op, status, code] of [
+          [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: "선택 열",
+              description: "",
+              options: ["나", "나"],
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          [
+            {
+              type: "update_column",
+              columnId: select.id,
+              name: "선택 열",
+              description: "",
+              options: [],
+            },
+            400,
+            "VALIDATION_FAILED",
+          ],
+          ...(qaResult
+            ? [
+                [
+                  {
+                    type: "update_column",
+                    columnId: qaResult.id,
+                    name: qaResult.name,
+                    description: qaResult.description,
+                    options: ["Pass"],
+                  },
+                  400,
+                  "COLUMN_NOT_EDITABLE",
+                ] as const,
+              ]
+            : []),
+        ] as const) {
+          const before = await sets.detail(first.id, admin.account.id);
+          await error(
+            await request(`/${first.id}/ops`, "POST", { ops: [op] }),
+            status,
+            code,
+          );
+          assert.deepEqual(
+            await sets.detail(first.id, admin.account.id),
+            before,
+          );
+        }
       },
     );
     await t.test(
@@ -1342,6 +1450,31 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       assert.ok(!merges.some((range) => /^[AH]/.test(range)));
       assert.equal(sheet.getCell("I1").value, "QA 진행");
       assert.equal(sheet.getCell("L1").value, "개발 작업상황");
+      // 선택 열은 숨긴 목록 시트를 참조하는 드롭다운을 가진다. 글자 열에는 없다.
+      const lists = workbook.getWorksheet("목록");
+      assert.ok(lists);
+      assert.equal(lists.state, "veryHidden");
+      const qa = set.columns.findIndex((c) => c.presetKey === "qa_result");
+      const qaColumn = set.columns[qa];
+      const listColumn = set.columns
+        .filter((c) => c.type === "select" && c.options.length)
+        .indexOf(qaColumn);
+      const letter = lists.getColumn(listColumn + 1).letter;
+      assert.deepEqual(
+        qaColumn.options.map(
+          (_, row) => lists.getCell(row + 1, listColumn + 1).value,
+        ),
+        qaColumn.options,
+      );
+      for (const row of [3, 7])
+        assert.deepEqual(sheet.getCell(row, qa + 1).dataValidation, {
+          type: "list",
+          allowBlank: true,
+          formulae: [
+            `'목록'!$${letter}$1:$${letter}$${qaColumn.options.length}`,
+          ],
+        });
+      assert.equal(sheet.getCell(3, 1).dataValidation, undefined);
       assert.deepEqual(
         (sheet.getRow(2).values as string[]).slice(1),
         set.columns.map((c) => c.name),

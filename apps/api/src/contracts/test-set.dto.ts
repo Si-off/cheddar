@@ -13,6 +13,7 @@ import {
   IsArray,
   IsIn,
   IsObject,
+  IsOptional,
   IsString,
   IsUUID,
   MaxLength,
@@ -199,6 +200,21 @@ export class UpdateColumnOpDto {
   @IsString()
   @MaxLength(200)
   description!: string;
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      "선택과 태그 열의 항목. 없으면 바꾸지 않는다. 규칙은 양식의 options와 같다. 기존 셀 값은 바꾸지 않는다",
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value.map((v) => (typeof v === "string" ? v.trim() : v))
+      : value,
+  )
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
 }
 export class RemoveColumnOpDto {
   @ApiProperty({ enum: ["remove_column"] })

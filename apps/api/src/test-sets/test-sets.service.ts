@@ -427,6 +427,29 @@ export class TestSetsService {
       column.width = 24;
       column.alignment = { wrapText: true, vertical: "top" };
     });
+    // 선택 열은 시트에서도 드롭다운으로 고르게 한다. 목록은 숨긴 시트에 두어 255자 제한을 피한다.
+    // 목록에 없는 기존 값은 Excel처럼 그대로 둔다. 태그는 Excel에 여러 값 고르기가 없어 글자로만 둔다.
+    const selects = set.columns.flatMap((column, index) =>
+      column.type === "select" && column.options.length
+        ? [{ column, index }]
+        : [],
+    );
+    if (selects.length) {
+      const lists = workbook.addWorksheet("목록", { state: "veryHidden" });
+      for (const [listIndex, { column, index }] of selects.entries()) {
+        const letter = lists.getColumn(listIndex + 1).letter;
+        column.options.forEach((option, row) => {
+          lists.getCell(row + 1, listIndex + 1).value = option;
+        });
+        const range = `'목록'!$${letter}$1:$${letter}$${column.options.length}`;
+        for (let row = 1; row <= set.cases.length; row++)
+          sheet.getCell(row + headerRows, index + 1).dataValidation = {
+            type: "list",
+            allowBlank: true,
+            formulae: [range],
+          };
+      }
+    }
     const data = new Uint8Array(await workbook.xlsx.writeBuffer());
     return { fileName: `${set.name}.xlsx`, data };
   }

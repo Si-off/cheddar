@@ -20,6 +20,8 @@ export type CaseOp =
       columnId: string;
       name: string;
       description: string;
+      /** 선택과 태그 열의 항목. 없으면 바꾸지 않는다. 기존 셀 값은 그대로 둔다. */
+      options?: string[];
     }
   | { type: "reorder_columns"; columnIds: string[] }
   | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
@@ -90,7 +92,10 @@ export function isCaseOp(v: unknown): v is CaseOp {
     return (
       uuid(v.columnId) &&
       typeof v.name === "string" &&
-      typeof v.description === "string"
+      typeof v.description === "string" &&
+      (v.options === undefined ||
+        (Array.isArray(v.options) &&
+          v.options.every((x) => typeof x === "string")))
     );
   if (v.type === "reorder_columns")
     return Array.isArray(v.columnIds) && v.columnIds.every(uuid);
