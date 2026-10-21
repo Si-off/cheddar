@@ -87,19 +87,15 @@ export const mergeable = (column: Pick<Column, "presetKey">) =>
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";
 
-/** 형식에 맞지 않는 값은 빈 값으로 본다 */
+/** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 Excel처럼 목록에 없는 값도 그대로 읽는다. */
 export function readCell(column: Column, value: CellValue | undefined) {
   switch (column.type) {
     case "checkbox":
       return value === true;
     case "tags":
-      return Array.isArray(value)
-        ? value.filter((v) => column.options.includes(v))
-        : [];
+      return Array.isArray(value) ? value : [];
     case "select":
-      return typeof value === "string" && column.options.includes(value)
-        ? value
-        : null;
+      return typeof value === "string" && value ? value : null;
     default:
       return typeof value === "string" ? value : "";
   }
@@ -123,18 +119,13 @@ export function parseCell(column: Column, text: string): CellValue | undefined {
       return ["예", "true", "y", "o", "v", "✓"].includes(t.toLowerCase())
         ? true
         : undefined;
+    // 선택과 태그는 Excel의 목록처럼 목록에 없는 값도 그대로 넣는다.
     case "select":
-      if (!t) return null;
-      return column.options.includes(t) ? t : undefined;
-    case "tags": {
-      if (!t) return [];
-      const tags = [...new Set(t.split(/[,\n]/).map((s) => s.trim()))].filter(
+      return t || null;
+    case "tags":
+      return [...new Set(t.split(/[,\n]/).map((s) => s.trim()))].filter(
         Boolean,
       );
-      return tags.every((tag) => column.options.includes(tag))
-        ? tags
-        : undefined;
-    }
     default:
       return text;
   }
@@ -177,7 +168,12 @@ export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
       case "update_column":
         columns = columns.map((c) =>
           c.id === op.columnId
-            ? { ...c, name: op.name, description: op.description }
+            ? {
+                ...c,
+                name: op.name,
+                description: op.description,
+                options: op.options ?? c.options,
+              }
             : c,
         );
         break;
@@ -271,7 +267,16 @@ export function groupCases(
         cases: cases.filter((c) => groupValue(c) !== true),
       },
     ];
-  const lanes: CaseGroup[] = group.options.map((option) => ({
+  // 목록에 없는 값(붙여넣기, 항목 변경 뒤 남은 값)도 사라지지 않게 목록 항목 뒤에 구역을 둔다.
+  const extra = [
+    ...new Set(
+      cases.flatMap((c) => {
+        const v = groupValue(c);
+        return Array.isArray(v) ? v : typeof v === "string" ? [v] : [];
+      }),
+    ),
+  ].filter((v) => !group.options.includes(v));
+  const lanes: CaseGroup[] = [...group.options, ...extra].map((option) => ({
     key: `o:${option}`,
     label: option,
     value: group.type === "tags" ? [option] : option,

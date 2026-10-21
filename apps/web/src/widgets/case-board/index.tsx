@@ -27,7 +27,12 @@ function movedValue(
     ? tags.filter((t) => !(from.value as string[]).includes(t))
     : tags;
   const added = Array.isArray(to.value) ? to.value : [];
-  return group.options.filter((o) => removed.includes(o) || added.includes(o));
+  // 목록 순서를 따르고, 목록에 없는 태그는 그대로 뒤에 둔다.
+  const next = new Set([...removed, ...added]);
+  return [
+    ...group.options.filter((o) => next.has(o)),
+    ...[...next].filter((t) => !group.options.includes(t)),
+  ];
 }
 
 export interface CaseBoardProps {

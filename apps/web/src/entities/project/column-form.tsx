@@ -116,6 +116,7 @@ export function ColumnForm({
             <span className="text-label text-fg">선택 항목</span>
             <SortableList
               aria-label="선택 항목"
+              className="max-h-72 overflow-auto"
               items={draft.options}
               getId={(o) => o.id}
               getHandleLabel={(o) => `${o.value.trim() || "빈 항목"} 순서 이동`}

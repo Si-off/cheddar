@@ -10,6 +10,7 @@ import {
   type GridPresence,
   IconButton,
   Menu,
+  Popover,
   useToast,
 } from "@cheddar/ui";
 import {
@@ -17,7 +18,9 @@ import {
   ArrowUpToLine,
   ClipboardPaste,
   Copy,
+  Eraser,
   MoreHorizontal,
+  Pencil,
   Plus,
   SquareSplitVertical,
   Trash2,
@@ -40,6 +43,7 @@ import {
   type TestCase,
 } from "@/entities/test-set";
 import { AddColumnDialog, RenameColumnDialog } from "./column-dialogs";
+import { OptionsPanel } from "./options-panel";
 
 export interface CaseTableProps {
   "aria-label": string;
@@ -140,6 +144,23 @@ export function CaseTable({
   );
   const [renaming, setRenaming] = useState<Column | null>(null);
   const [removing, setRemoving] = useState<Column | null>(null);
+  // 머리글 메뉴에서 연 항목 편집. 머리글 아래에 같은 편집 패널을 띄운다.
+  const [optionsColumnId, setOptionsColumnId] = useState<string | null>(null);
+  const headerAnchors = useRef(new Map<string, HTMLElement>());
+  const editsOptions = (column: Column) =>
+    canEditColumns &&
+    column.presetKey === null &&
+    (column.type === "select" || column.type === "tags");
+  const saveOptions = (column: Column, options: string[]) =>
+    onOps([
+      {
+        type: "update_column",
+        columnId: column.id,
+        name: column.name,
+        description: column.description,
+        options,
+      },
+    ]);
   // 셀을 눌러 생긴 포커스인지 구분한다
   const pointerFocus = useRef(false);
   // 고른 셀이 바뀔 때 표 안에 포커스가 있었는지
@@ -364,59 +385,92 @@ export function CaseTable({
     fixed: column.systemKey === "test_id",
     mergeKey: mergeable(column) ? mergeKeyOf(column) : undefined,
     headerAction: !canEditColumns ? undefined : (
-      <Menu.Root>
-        <Menu.Trigger
-          render={
-            <IconButton
-              icon={MoreHorizontal}
-              label={`${column.name} 열 작업`}
-              size="sm"
-            />
-          }
-        />
-        <Menu.Popup align="end">
-          {column.presetKey === null && (
-            <>
-              <Menu.Item onClick={() => setRenaming(column)}>
-                이름 변경
-              </Menu.Item>
-              <Menu.Separator />
-            </>
-          )}
-          {column.systemKey !== "test_id" && (
-            <Menu.Item
-              onClick={() =>
-                setAdding({
-                  afterColumnId:
-                    columns[columns.findIndex((c) => c.id === column.id) - 1]
-                      ?.id ?? null,
-                })
-              }
-            >
-              왼쪽에 열 추가
-            </Menu.Item>
-          )}
-          <Menu.Item onClick={() => setAdding({ afterColumnId: column.id })}>
-            오른쪽에 열 추가
-          </Menu.Item>
-          {column.systemKey === null && (
-            <>
-              <Menu.Separator />
+      <span
+        className="inline-flex"
+        ref={(el) => {
+          if (el) headerAnchors.current.set(column.id, el);
+          else headerAnchors.current.delete(column.id);
+        }}
+      >
+        <Menu.Root>
+          <Menu.Trigger
+            render={
+              <IconButton
+                icon={MoreHorizontal}
+                label={`${column.name} 열 작업`}
+                size="sm"
+              />
+            }
+          />
+          <Menu.Popup align="end">
+            {column.presetKey === null && (
+              <>
+                <Menu.Item onClick={() => setRenaming(column)}>
+                  이름 변경
+                </Menu.Item>
+                {editsOptions(column) && (
+                  <Menu.Item onClick={() => setOptionsColumnId(column.id)}>
+                    선택 항목 편집
+                  </Menu.Item>
+                )}
+                <Menu.Separator />
+              </>
+            )}
+            {column.systemKey !== "test_id" && (
               <Menu.Item
-                icon={Trash2}
-                tone="danger"
                 onClick={() =>
-                  filledCount(column) > 0
-                    ? setRemoving(column)
-                    : removeColumn(column)
+                  setAdding({
+                    afterColumnId:
+                      columns[columns.findIndex((c) => c.id === column.id) - 1]
+                        ?.id ?? null,
+                  })
                 }
               >
-                삭제
+                왼쪽에 열 추가
               </Menu.Item>
-            </>
-          )}
-        </Menu.Popup>
-      </Menu.Root>
+            )}
+            <Menu.Item onClick={() => setAdding({ afterColumnId: column.id })}>
+              오른쪽에 열 추가
+            </Menu.Item>
+            {column.systemKey === null && (
+              <>
+                <Menu.Separator />
+                <Menu.Item
+                  icon={Trash2}
+                  tone="danger"
+                  onClick={() =>
+                    filledCount(column) > 0
+                      ? setRemoving(column)
+                      : removeColumn(column)
+                  }
+                >
+                  삭제
+                </Menu.Item>
+              </>
+            )}
+          </Menu.Popup>
+        </Menu.Root>
+        {optionsColumnId === column.id && (
+          <Popover.Root
+            open
+            onOpenChange={(open) => !open && setOptionsColumnId(null)}
+          >
+            <Popover.Popup
+              align="end"
+              anchor={headerAnchors.current.get(column.id) ?? null}
+              aria-label={`${column.name} 항목 편집`}
+            >
+              <OptionsPanel
+                column={column}
+                onDone={(options) => {
+                  if (options) saveOptions(column, options);
+                  setOptionsColumnId(null);
+                }}
+              />
+            </Popover.Popup>
+          </Popover.Root>
+        )}
+      </span>
     ),
     cell: (row) => {
       const value = row.values[column.id];
@@ -456,6 +510,11 @@ export function CaseTable({
             column={column}
             value={value}
             onChange={(next) => set(row.id, column.id, next)}
+            onSaveOptions={
+              editsOptions(column)
+                ? (options) => saveOptions(column, options)
+                : undefined
+            }
             onClose={finish}
           >
             <CellDisplay column={column} value={value} />
@@ -585,6 +644,16 @@ export function CaseTable({
                   }
                 >
                   붙여넣기
+                </ContextMenu.Item>
+              )}
+              {!readOnly && (
+                <ContextMenu.Item
+                  icon={Eraser}
+                  onClick={() =>
+                    set(active.rowId, activeColumn.id, empty(activeColumn))
+                  }
+                >
+                  내용 지우기
                 </ContextMenu.Item>
               )}
               {!readOnly && onInsertCase && (
@@ -718,15 +787,26 @@ function CellDisplay({
         <span className="sr-only">{v ? "예" : "아니오"}</span>
       </span>
     );
-  if (Array.isArray(v))
+  // 목록에 없는 값(붙여넣기, 항목 변경 뒤 남은 값)은 Excel처럼 그대로 두고 칩 없이 글자로 보여준다.
+  if (Array.isArray(v)) {
+    const outside = v.filter((tag) => !column.options.includes(tag));
     return (
-      <span className="flex flex-wrap gap-1">
-        {v.map((tag) => (
-          <Badge key={tag}>{tag}</Badge>
-        ))}
+      <span className="flex flex-wrap items-center gap-1">
+        {v
+          .filter((tag) => column.options.includes(tag))
+          .map((tag) => (
+            <Badge key={tag}>{tag}</Badge>
+          ))}
+        {outside.length > 0 && <span>{outside.join(", ")}</span>}
       </span>
     );
-  if (column.type === "select") return v ? <Badge>{v}</Badge> : null;
+  }
+  if (column.type === "select")
+    return !v ? null : column.options.includes(v as string) ? (
+      <Badge>{v}</Badge>
+    ) : (
+      <>{v}</>
+    );
   return <>{v}</>;
 }
 
@@ -801,52 +881,98 @@ function TextEditor({
   );
 }
 
-/** 선택 항목에서 고른다. 태그는 여러 개를 고르고, 단일 선택은 하나를 고르면 닫힌다. */
+/**
+ * 선택 항목에서 고른다. 태그는 여러 개를 고르고, 단일 선택은 하나를 고르면 닫힌다.
+ * 비우기는 Excel처럼 Delete 키나 셀 메뉴의 내용 지우기로 한다.
+ * onSaveOptions가 있으면 목록 아래 연필로 같은 자리에서 항목을 고친다.
+ */
 function OptionEditor({
   column,
   value,
   onChange,
+  onSaveOptions,
   onClose,
   children,
 }: {
   column: Column;
   value: CellValue | undefined;
   onChange: (value: CellValue) => void;
+  onSaveOptions?: (options: string[]) => void;
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const [editingOptions, setEditingOptions] = useState(false);
+  // 연필로 편집 상태로 바꿀 때 메뉴가 닫혀도 셀 편집은 끝내지 않는다
+  const switching = useRef(false);
   const current = readCell(column, value);
   const tags = Array.isArray(current) ? current : [];
+  const trigger = <span className="block min-h-5 w-full" />;
+  if (editingOptions)
+    return (
+      <Popover.Root defaultOpen onOpenChange={(open) => !open && onClose()}>
+        <Popover.Trigger render={trigger}>{children}</Popover.Trigger>
+        <Popover.Popup align="center" aria-label={`${column.name} 항목 편집`}>
+          <OptionsPanel
+            column={column}
+            onDone={(options) => {
+              if (options) onSaveOptions?.(options);
+              onClose();
+            }}
+          />
+        </Popover.Popup>
+      </Popover.Root>
+    );
   return (
-    <Menu.Root defaultOpen onOpenChange={(open) => !open && onClose()}>
-      <Menu.Trigger
-        render={<span className="block min-h-5 w-full" />}
-        aria-label={`${column.name} 고르기`}
-      >
+    <Menu.Root
+      defaultOpen
+      onOpenChange={(open) => {
+        if (open) return;
+        if (switching.current) switching.current = false;
+        else onClose();
+      }}
+    >
+      <Menu.Trigger render={trigger} aria-label={`${column.name} 고르기`}>
         {children}
       </Menu.Trigger>
-      <Menu.Popup>
-        {column.type === "tags" ? (
-          column.options.map((option) => (
-            <Menu.CheckboxItem
-              key={option}
-              checked={tags.includes(option)}
-              onCheckedChange={(checked) =>
-                onChange(
-                  checked
-                    ? column.options.filter(
-                        (o) => o === option || tags.includes(o),
-                      )
-                    : tags.filter((t) => t !== option),
-                )
-              }
-            >
-              {option}
-            </Menu.CheckboxItem>
-          ))
-        ) : (
-          <>
-            {column.options.map((option) => (
+      <Menu.Popup
+        align="center"
+        footer={
+          onSaveOptions && (
+            <Menu.Item
+              icon={Pencil}
+              aria-label={`${column.name} 항목 편집`}
+              className="w-9 justify-center px-0"
+              onClick={() => {
+                switching.current = true;
+                setEditingOptions(true);
+              }}
+            />
+          )
+        }
+      >
+        {column.type === "tags"
+          ? column.options.map((option) => (
+              <Menu.CheckboxItem
+                key={option}
+                checked={tags.includes(option)}
+                onCheckedChange={(checked) =>
+                  onChange(
+                    checked
+                      ? [
+                          ...column.options.filter(
+                            (o) => o === option || tags.includes(o),
+                          ),
+                          // 목록에 없는 기존 태그는 그대로 둔다
+                          ...tags.filter((t) => !column.options.includes(t)),
+                        ]
+                      : tags.filter((t) => t !== option),
+                  )
+                }
+              >
+                {option}
+              </Menu.CheckboxItem>
+            ))
+          : column.options.map((option) => (
               <Menu.CheckboxItem
                 key={option}
                 closeOnClick
@@ -856,10 +982,6 @@ function OptionEditor({
                 {option}
               </Menu.CheckboxItem>
             ))}
-            <Menu.Separator />
-            <Menu.Item onClick={() => onChange(null)}>비우기</Menu.Item>
-          </>
-        )}
       </Menu.Popup>
     </Menu.Root>
   );

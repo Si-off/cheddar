@@ -69,19 +69,23 @@ export function validateTemplateDraft(draft: TemplateDraft) {
     if (c.description.trim().length > 2000)
       found.description = "2000자 이하로 입력하세요";
     if (hasOptions(c.type)) {
-      const values = c.options.map((o) => o.value.trim());
-      if (values.length === 0)
-        found.options = "선택 항목을 하나 이상 추가하세요";
-      else if (values.some((v) => !v))
-        found.options = "빈 선택 항목이 있습니다";
-      else if (values.some((v) => v.length > 100))
-        found.options = "선택 항목은 100자 이하로 입력하세요";
-      else if (new Set(values).size !== values.length)
-        found.options = "같은 선택 항목이 있습니다";
-      else if (values.length > 50)
-        found.options = "선택 항목은 50개까지 둘 수 있습니다";
+      const options = validateOptions(c.options);
+      if (options) found.options = options;
     }
     if (Object.keys(found).length > 0) errors[c.id] = found;
   }
   return errors;
+}
+
+/** 선택 항목 목록을 서버와 같은 조건으로 확인한다. 문제가 없으면 undefined. */
+export function validateOptions(options: readonly OptionDraft[]) {
+  const values = options.map((o) => o.value.trim());
+  if (values.length === 0) return "선택 항목을 하나 이상 추가하세요";
+  if (values.some((v) => !v)) return "빈 선택 항목이 있습니다";
+  if (values.some((v) => v.length > 100))
+    return "선택 항목은 100자 이하로 입력하세요";
+  if (new Set(values).size !== values.length)
+    return "같은 선택 항목이 있습니다";
+  if (values.length > 50) return "선택 항목은 50개까지 둘 수 있습니다";
+  return undefined;
 }

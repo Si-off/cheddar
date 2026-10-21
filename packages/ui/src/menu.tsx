@@ -8,7 +8,13 @@ import {
   useId,
 } from "react";
 import { DrawnCheck, Icon } from "./icon";
-import { PopupHighlight, popupFrame, popupItem } from "./popup-list";
+import {
+  PopupHighlight,
+  popupFrame,
+  popupItem,
+  popupScroll,
+  popupShell,
+} from "./popup-list";
 import { cn } from "./utils";
 
 const HighlightContext = createContext("");
@@ -16,16 +22,40 @@ const HighlightContext = createContext("");
 interface MenuPopupProps {
   children: ReactNode;
   align?: "start" | "center" | "end";
+  /** 목록 아래에 고정하는 영역. 목록만 스크롤되고 이 영역은 늘 보인다. */
+  footer?: ReactNode;
   className?: string;
 }
 
-function MenuPopup({ children, align = "start", className }: MenuPopupProps) {
+function MenuPopup({
+  children,
+  align = "start",
+  footer,
+  className,
+}: MenuPopupProps) {
   const highlightId = useId();
   return (
     <BaseMenu.Portal>
       <BaseMenu.Positioner sideOffset={4} align={align} className="z-50">
-        <BaseMenu.Popup className={cn(popupFrame, "min-w-44", className)}>
-          <HighlightContext value={highlightId}>{children}</HighlightContext>
+        <BaseMenu.Popup
+          className={cn(
+            footer ? cn(popupShell, "flex flex-col") : popupFrame,
+            "min-w-44",
+            className,
+          )}
+        >
+          <HighlightContext value={highlightId}>
+            {footer ? (
+              <>
+                <div className={popupScroll}>{children}</div>
+                <div className="flex justify-end border-line border-t p-1">
+                  {footer}
+                </div>
+              </>
+            ) : (
+              children
+            )}
+          </HighlightContext>
         </BaseMenu.Popup>
       </BaseMenu.Positioner>
     </BaseMenu.Portal>

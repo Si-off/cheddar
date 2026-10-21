@@ -143,7 +143,7 @@ test("케이스를 추가한 뒤 바로 치면 새 케이스의 제목이 된다
     });
 });
 
-test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에 맞는 값만 바꾼다", async ({
+test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 Excel처럼 목록 밖 값도 넣고 체크박스에 맞지 않는 값만 건너뛴다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -154,7 +154,10 @@ test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에
   await cell(page, 1, "예상 결과").click();
   await page.evaluate(() => {
     const data = new DataTransfer();
-    data.setData("text/plain", "가입 실패\t낮음\n버튼 활성\t없는값\n");
+    data.setData(
+      "text/plain",
+      "가입 실패\t낮음\n버튼 활성\t없는값\t회원, 새 태그\t아마도\n",
+    );
     document.activeElement?.dispatchEvent(
       new ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
     );
@@ -164,10 +167,83 @@ test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에
     { type: "set_cell", caseId: "k1", columnId: "c-exp", value: "가입 실패" },
     { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
     { type: "set_cell", caseId: "k2", columnId: "c-exp", value: "버튼 활성" },
+    { type: "set_cell", caseId: "k2", columnId: "c-pri", value: "없는값" },
+    {
+      type: "set_cell",
+      caseId: "k2",
+      columnId: "c-tags",
+      value: ["회원", "새 태그"],
+    },
   ]);
+  await expect(cell(page, 2, "우선순위")).toHaveText("없는값");
   await expect(
     page.getByText("1칸은 항목 형식에 맞지 않거나 표 밖이라 넣지 않았습니다"),
   ).toBeVisible();
+});
+
+test("드롭다운 아래 연필로 그 자리에서 선택 항목을 고치면 열 항목만 바뀌고 셀 값은 남는다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await expect(cell(page, 1, "우선순위")).toHaveText("높음");
+  await cell(page, 1, "우선순위").click();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: "우선순위 항목 편집" }).click();
+  const panel = page.getByRole("dialog", { name: "우선순위 항목 편집" });
+  const items = panel.getByRole("textbox", { name: "선택 항목 이름" });
+  await expect(items).toHaveCount(3);
+  // 같은 이름이 생기면 완료하지 않는다
+  await items.nth(0).fill("보통");
+  await panel.getByRole("button", { name: "완료" }).click();
+  await expect(panel.getByRole("alert")).toHaveText(
+    "같은 선택 항목이 있습니다",
+  );
+  await items.nth(0).fill("매우 높음");
+  await panel.getByRole("button", { name: "항목 추가" }).click();
+  await page.keyboard.type("긴급");
+  await panel.getByRole("button", { name: "완료" }).click();
+  await expect(panel).toBeHidden();
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      {
+        type: "update_column",
+        columnId: "c-pri",
+        name: "우선순위",
+        description: "",
+        options: ["매우 높음", "보통", "낮음", "긴급"],
+      },
+    ]);
+  // Excel의 목록처럼 이미 입력된 값은 바꾸지 않는다
+  await expect(cell(page, 1, "우선순위")).toHaveText("높음");
+
+  // 머리글 메뉴에서도 같은 편집 패널을 연다. Esc로 닫으면 보내지 않는다.
+  await page.getByRole("button", { name: "우선순위 열 작업" }).click();
+  await page.getByRole("menuitem", { name: "선택 항목 편집" }).click();
+  await expect(panel.getByRole("textbox")).toHaveCount(4);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  expect(opsBodies(calls)).toHaveLength(1);
+});
+
+test("셀 메뉴의 내용 지우기로 값을 비운다", async ({ page }) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "우선순위").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "내용 지우기" }).click();
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: null },
+    ]);
+  await expect(cell(page, 1, "우선순위")).toHaveText("");
 });
 
 test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 값이 바뀐다", async ({
