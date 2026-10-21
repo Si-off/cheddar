@@ -26,6 +26,17 @@ export class TestSetColumnDto extends OmitType(TemplateColumnDto, [
   "enabled",
 ] as const) {}
 
+export class RecentTemplateTestSetDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty() name!: string;
+}
+export class RecentTemplateDto {
+  @ApiProperty({ type: RecentTemplateTestSetDto, nullable: true })
+  testSet!: RecentTemplateTestSetDto | null;
+  @ApiProperty({ type: [TestSetColumnDto] })
+  columns!: TestSetColumnDto[];
+}
+
 export type CellValue = string | boolean | string[] | null;
 export const CELL_SCHEMA = {
   oneOf: [

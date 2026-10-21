@@ -575,6 +575,16 @@ export type SharedTestSetDto = {
     owner: SharedOwnerDto;
 };
 
+export type RecentTemplateTestSetDto = {
+    id: string;
+    name: string;
+};
+
+export type RecentTemplateDto = {
+    testSet: RecentTemplateTestSetDto | null;
+    columns: Array<TestSetColumnDto>;
+};
+
 export type UploadMultipartDto = {
     /**
      * JSON: { frames: [{ name, document, imageCount }] }
@@ -4772,6 +4782,58 @@ export type ExportSharedTestSetResponses = {
 };
 
 export type ExportSharedTestSetResponse = ExportSharedTestSetResponses[keyof ExportSharedTestSetResponses];
+
+export type GetRecentTestSetTemplateData = {
+    body?: never;
+    path: {
+        projectId: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{projectId}/recent-test-set-template';
+};
+
+export type GetRecentTestSetTemplateErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetRecentTestSetTemplateError = GetRecentTestSetTemplateErrors[keyof GetRecentTestSetTemplateErrors];
+
+export type GetRecentTestSetTemplateResponses = {
+    200: RecentTemplateDto;
+};
+
+export type GetRecentTestSetTemplateResponse = GetRecentTestSetTemplateResponses[keyof GetRecentTestSetTemplateResponses];
 
 export type CreateTempUploadData = {
     body: {

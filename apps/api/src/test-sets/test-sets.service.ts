@@ -4,8 +4,11 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import type { IdentityDatabase } from "../authorization/authorization.service";
 import { ApiError, notFound } from "../common/errors";
+import type { EffectivePermissionDto } from "../contracts/identity.dto";
+import type { TemplateColumnDto } from "../contracts/project.dto";
 import type {
   CreateTestSetDto,
+  RecentTemplateDto,
   TestSetDto,
   TestSetListDto,
   TestSetQueryDto,
@@ -125,35 +128,16 @@ export class TestSetsService {
       let source = template.columns;
       if (dto.template?.kind === "custom") source = dto.template.columns;
       if (dto.template?.kind === "recent") {
-        const candidates = await tx
-          .select({ row: testSets, member: testSetMembers.access })
-          .from(testSets)
-          .leftJoin(
-            testSetMembers,
-            and(
-              eq(testSetMembers.testSetId, testSets.id),
-              eq(testSetMembers.accountId, accountId),
-            ),
+        source = (
+          await this.resolveRecentTemplate(
+            dto.projectId,
+            accountId,
+            grants,
+            template.columns,
+            tx,
+            true,
           )
-          .where(eq(testSets.projectId, dto.projectId))
-          .orderBy(desc(testSets.updatedAt), testSets.id);
-        for (const candidate of candidates) {
-          if (
-            !setAccess(
-              candidate.row,
-              accountId,
-              candidate.member ?? undefined,
-              grants,
-            ).canView
-          )
-            continue;
-          // 열 연산과 삭제가 사본을 읽는 도중 끼어들지 않게 세트 행을 잠근다.
-          await this.store.visible(candidate.row.id, accountId, tx, true);
-          source = (await this.store.columns(candidate.row.id, tx)).map(
-            (c) => ({ ...c, enabled: true }),
-          );
-          break;
-        }
+        ).columns.map((c) => ({ ...c, enabled: true }));
       }
       const columns = validateSetColumns({ revision: 1, columns: source })
         .columns.filter((c) => c.enabled)
@@ -174,6 +158,72 @@ export class TestSetsService {
         );
       return this.detail(row.id, accountId, tx);
     });
+  }
+  async recentTemplate(
+    projectId: string,
+    accountId: string,
+  ): Promise<RecentTemplateDto> {
+    return this.store.database.db.transaction(
+      async (tx) => {
+        const grants = await this.store.authorization.effective(accountId, tx);
+        if (!this.store.authorization.projectAccess(grants, projectId).canView)
+          throw notFound();
+        const [template] = await tx
+          .select({ columns: projectTemplates.columns })
+          .from(projects)
+          .innerJoin(
+            projectTemplates,
+            eq(projectTemplates.projectId, projects.id),
+          )
+          .where(eq(projects.id, projectId));
+        if (!template) throw notFound();
+        return this.resolveRecentTemplate(
+          projectId,
+          accountId,
+          grants,
+          template.columns,
+          tx,
+        );
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
+  }
+  private async resolveRecentTemplate(
+    projectId: string,
+    accountId: string,
+    grants: EffectivePermissionDto[],
+    fallback: TemplateColumnDto[],
+    db: IdentityDatabase,
+    lock = false,
+  ): Promise<RecentTemplateDto> {
+    const candidates = await db
+      .select({ row: testSets, member: testSetMembers.access })
+      .from(testSets)
+      .leftJoin(
+        testSetMembers,
+        and(
+          eq(testSetMembers.testSetId, testSets.id),
+          eq(testSetMembers.accountId, accountId),
+        ),
+      )
+      .where(eq(testSets.projectId, projectId))
+      .orderBy(desc(testSets.updatedAt), testSets.id);
+    for (const { row, member } of candidates) {
+      if (!setAccess(row, accountId, member ?? undefined, grants).canView)
+        continue;
+      // 만들기는 열 연산과 삭제가 사본을 읽는 도중 끼어들지 않게 잠근다.
+      if (lock) await this.store.visible(row.id, accountId, db, true);
+      return {
+        testSet: { id: row.id, name: row.name },
+        columns: await this.store.columns(row.id, db),
+      };
+    }
+    return {
+      testSet: null,
+      columns: validateSetColumns({ revision: 1, columns: fallback })
+        .columns.filter((c) => c.enabled)
+        .map(({ enabled: _enabled, ...c }) => c),
+    };
   }
   async detail(
     id: string,

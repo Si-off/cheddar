@@ -13,6 +13,7 @@ import { createApp } from "../src/common/application";
 import type { CreateAccountDto } from "../src/contracts/identity.dto";
 import type {
   OpsResultDto,
+  RecentTemplateDto,
   TestSetColumnDto,
   TestSetDto,
   TestSetListDto,
@@ -896,6 +897,129 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         assert.deepEqual(row(3), ["TC-002", "탈퇴한다", "", ""]);
         assert.equal(sheet.rowCount, 3);
         assert.equal((await request(`/${set.id}`, "DELETE")).status, 204);
+      },
+    );
+    await t.test(
+      "최근 양식 미리보기는 생성과 같은 열람 범위·정렬·대체 양식을 쓴다",
+      async () => {
+        const project = await projects.create(admin.account.id, {
+          name: "미리보기 프로젝트",
+          description: "",
+        });
+        const creator = await actor(["test_set.create"], [project.id]);
+        const reader = await actor(["test_set.export"], [project.id]);
+        const preview = (who = creator.cookie, projectId = project.id) =>
+          fetch(
+            `${base}/api/v1/projects/${projectId}/recent-test-set-template`,
+            {
+              headers: { Cookie: who },
+            },
+          );
+        const shape = (columns: TestSetColumnDto[]) =>
+          columns.map(({ id: _id, ...c }) => c);
+        const template = await projects.template(project.id, admin.account.id);
+        template.columns[2].enabled = false;
+        await projects.saveTemplate(project.id, template);
+        const empty = await json<RecentTemplateDto>(await preview());
+        assert.equal(empty.testSet, null);
+        assert.deepEqual(
+          empty.columns,
+          template.columns
+            .filter((c) => c.enabled)
+            .map(({ enabled: _enabled, ...c }) => c),
+        );
+        const create = async (
+          name: string,
+          columns?: typeof template.columns,
+        ) =>
+          json<TestSetDto>(
+            await request(
+              "",
+              "POST",
+              {
+                name,
+                projectId: project.id,
+                template: columns
+                  ? { kind: "custom", columns }
+                  : { kind: "recent" },
+              },
+              creator.cookie,
+            ),
+            201,
+          );
+        const first = await create("첫 세트");
+        assert.deepEqual(shape(first.columns), shape(empty.columns));
+        const second = await create(
+          "두 번째 세트",
+          defaultColumns().filter((c) => c.systemKey),
+        );
+        // 같은 수정 시각이면 ID 오름차순으로 고른다.
+        const tied = new Date(Date.now() + 10000);
+        for (const set of [first, second])
+          await db
+            .update(testSets)
+            .set({ updatedAt: tied })
+            .where(eq(testSets.id, set.id));
+        const selected = [first, second].sort((a, b) =>
+          a.id.localeCompare(b.id),
+        )[0];
+        const hidden = await json<TestSetDto>(
+          await request("", "POST", {
+            name: "볼 수 없는 최신 세트",
+            projectId: project.id,
+          }),
+          201,
+        );
+        await db
+          .update(testSets)
+          .set({ updatedAt: new Date(tied.getTime() + 10000) })
+          .where(eq(testSets.id, hidden.id));
+        // 다른 프로젝트에서 공유받은 최신 세트도 제외한다.
+        const elsewhere = await sets.create(admin.account.id, {
+          name: "다른 프로젝트 최신",
+          projectId: otherProject.id,
+          memo: "",
+        });
+        await db.insert(testSetMembers).values({
+          testSetId: elsewhere.id,
+          accountId: creator.id,
+          access: "view",
+        });
+        await db
+          .update(testSets)
+          .set({ updatedAt: new Date(tied.getTime() + 20000) })
+          .where(eq(testSets.id, elsewhere.id));
+        const result = await json<RecentTemplateDto>(await preview());
+        assert.deepEqual(result.testSet, {
+          id: selected.id,
+          name: selected.name,
+        });
+        assert.deepEqual(result.columns, selected.columns);
+        assert.deepEqual(
+          shape((await create("미리보기와 같은 양식")).columns),
+          shape(result.columns),
+        );
+        // 프로젝트만 볼 수 있는 사용자는 볼 수 있는 세트가 없으면 기본 양식을 받는다.
+        assert.deepEqual(
+          await json<RecentTemplateDto>(await preview(reader.cookie)),
+          empty,
+        );
+        await db.insert(testSetMembers).values({
+          testSetId: second.id,
+          accountId: reader.id,
+          access: "view",
+        });
+        assert.deepEqual(
+          (await json<RecentTemplateDto>(await preview(reader.cookie))).testSet,
+          { id: second.id, name: second.name },
+        );
+        assert.deepEqual(
+          (await json<RecentTemplateDto>(await preview(cookie))).testSet,
+          { id: hidden.id, name: hidden.name },
+        );
+        await error(await preview(outsider.cookie), 404, "NOT_FOUND");
+        await error(await preview(cookie, randomUUID()), 404, "NOT_FOUND");
+        assert.equal((await preview("")).status, 401);
       },
     );
     await t.test(

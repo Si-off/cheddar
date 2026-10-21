@@ -49,7 +49,7 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
           ).length,
         0,
       ),
-      90,
+      91,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
@@ -68,6 +68,21 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       ajv.addSchema(schema, `#/components/schemas/${name}`);
     for (const name of Object.keys(components))
       assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
+    const recent =
+      document.paths["/api/v1/projects/{projectId}/recent-test-set-template"]
+        .get;
+    assert.equal(recent?.operationId, "getRecentTestSetTemplate");
+    const recentResponse = recent?.responses["200"];
+    assert.ok(recentResponse && !("$ref" in recentResponse));
+    assert.deepEqual(recentResponse.content?.["application/json"].schema, {
+      $ref: "#/components/schemas/RecentTemplateDto",
+    });
+    const recentSchema = components.RecentTemplateDto;
+    assert.ok(recentSchema && !("$ref" in recentSchema));
+    assert.deepEqual(recentSchema.required, ["testSet", "columns"]);
+    const recentSetSchema = recentSchema.properties?.testSet;
+    assert.ok(recentSetSchema && !("$ref" in recentSetSchema));
+    assert.equal(recentSetSchema.nullable, true);
     const owned =
       document.paths["/api/v1/accounts/{accountId}/owned-test-sets"].get;
     assert.equal(owned?.operationId, "listOwnedTestSets");
