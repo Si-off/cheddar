@@ -120,3 +120,7 @@ pnpm --filter @cheddar/api openapi:check
 ## 디자인 토큰과 공통 컴포넌트
 
 토큰 원본은 `packages/design-tokens/src/theme.css`다. 색, 간격, radius, 폰트, 모션은 토큰만 쓴다. `@cheddar/ui`는 Base UI 위에 토큰과 모션 원칙을 적용한 공통 컴포넌트이며 사용법은 [공통 UI 안내](packages/ui/README.md)에 있다.
+
+## 로컬 시연
+
+개발 도구 설치 없이 Docker로 웹, API, DB와 Figma 플러그인을 준비하려면 [시연 가이드](demo/README.md)를 따른다. 전달받은 API 설정을 `apps/api/.env.local`에 두고 `docker compose up -d --build`를 실행한다. 시연 데이터는 개발 DB와 별도의 Docker 볼륨에 저장한다.
