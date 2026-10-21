@@ -328,7 +328,7 @@ export class CreateScreenIdRuleDto {
   @ApiPropertyOptional({ default: "_", maxLength: 3 })
   @IsString()
   @MaxLength(3)
-  separator = "_";
+  separator: string = "_";
   @ApiProperty({ type: [ScreenIdRulePartDto], minItems: 1, maxItems: 8 })
   @IsArray()
   @ArrayMinSize(1)

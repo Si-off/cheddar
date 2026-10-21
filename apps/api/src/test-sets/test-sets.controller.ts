@@ -47,6 +47,7 @@ import {
   TestSetListDto,
   TestSetQueryDto,
   TestSetViewDto,
+  UpdateColumnOpDto,
   UpdateTestSetDto,
 } from "../contracts/test-set.dto";
 import { CaseOperationsService } from "./case-operations.service";
@@ -62,6 +63,7 @@ import { TestSetsService } from "./test-sets.service";
   AddColumnOpDto,
   RemoveColumnOpDto,
   ReorderColumnsOpDto,
+  UpdateColumnOpDto,
   ProjectTemplateChoiceDto,
   RecentTemplateChoiceDto,
   CustomTemplateChoiceDto,

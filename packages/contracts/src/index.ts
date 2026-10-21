@@ -15,6 +15,12 @@ export type CaseOp =
       afterColumnId: string | null;
     }
   | { type: "remove_column"; columnId: string }
+  | {
+      type: "update_column";
+      columnId: string;
+      name: string;
+      description: string;
+    }
   | { type: "reorder_columns"; columnIds: string[] }
   | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
   | {
@@ -80,6 +86,12 @@ export function isCaseOp(v: unknown): v is CaseOp {
   if (v.type === "delete_cases")
     return Array.isArray(v.caseIds) && v.caseIds.every(uuid);
   if (v.type === "remove_column") return uuid(v.columnId);
+  if (v.type === "update_column")
+    return (
+      uuid(v.columnId) &&
+      typeof v.name === "string" &&
+      typeof v.description === "string"
+    );
   if (v.type === "reorder_columns")
     return Array.isArray(v.columnIds) && v.columnIds.every(uuid);
   if (v.type === "add_column")

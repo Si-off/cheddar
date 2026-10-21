@@ -14,6 +14,7 @@ import {
   ReorderColumnsOpDto,
   SetCellOpDto,
   TestSetViewDto,
+  UpdateColumnOpDto,
 } from "../contracts/test-set.dto";
 
 export const validationFailed = (
@@ -94,6 +95,7 @@ export function validateOps(input: unknown): CaseOp[] {
       return validationFailed("편집 내용을 확인해주세요.");
     const type = new Map<string, new () => CaseOp>([
       ["add_column", AddColumnOpDto],
+      ["update_column", UpdateColumnOpDto],
       ["remove_column", RemoveColumnOpDto],
       ["reorder_columns", ReorderColumnsOpDto],
       ["set_cell", SetCellOpDto],
@@ -109,7 +111,11 @@ export function validateOps(input: unknown): CaseOp[] {
       return validationFailed("편집 내용을 확인해주세요.");
     if (op.type === "reorder_columns")
       op.columnIds = op.columnIds.map((id) => id.toLowerCase());
-    else if (op.type === "add_column" || op.type === "remove_column") {
+    else if (
+      op.type === "add_column" ||
+      op.type === "remove_column" ||
+      op.type === "update_column"
+    ) {
       op.columnId = op.columnId.toLowerCase();
       if (op.type === "add_column")
         op.afterColumnId = op.afterColumnId?.toLowerCase() ?? null;

@@ -957,7 +957,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           memo: "",
           frames: [],
           featureGroups: [],
-          requiredCases: [],
+          viewpoints: [],
           screenStructure: [],
           styleExamples: [],
           existingCases: [],

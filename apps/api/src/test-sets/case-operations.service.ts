@@ -238,6 +238,27 @@ export class CaseOperationsService {
           options: column.options,
           presetKey: column.presetKey,
         };
+      } else if (op.type === "update_column") {
+        const column = columnMap.get(op.columnId);
+        if (!column) throw notFound();
+        if (column.presetKey !== null)
+          throw new ApiError(
+            400,
+            "COLUMN_NOT_EDITABLE",
+            "사전 정의 열은 변경할 수 없습니다.",
+          );
+        if (columns.some((c) => c.id !== column.id && c.name === op.name))
+          return validationFailed("열 이름은 세트 안에서 중복될 수 없습니다.");
+        Object.assign(column, { name: op.name, description: op.description });
+        await tx
+          .update(testSetColumns)
+          .set({ name: op.name, description: op.description })
+          .where(
+            and(
+              eq(testSetColumns.testSetId, id),
+              eq(testSetColumns.id, column.id),
+            ),
+          );
       } else if (op.type === "remove_column") {
         const column = columnMap.get(op.columnId);
         if (!column) throw notFound();

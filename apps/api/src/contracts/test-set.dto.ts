@@ -173,6 +173,22 @@ export class AddColumnOpDto {
   @IsUUID()
   afterColumnId!: string | null;
 }
+export class UpdateColumnOpDto {
+  @ApiProperty({ enum: ["update_column"] })
+  @IsIn(["update_column"])
+  type!: "update_column";
+  @ApiProperty({ format: "uuid" }) @IsUUID() columnId!: string;
+  @ApiProperty({ minLength: 1, maxLength: 50 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(50)
+  name!: string;
+  @ApiProperty({ maxLength: 200 })
+  @IsString()
+  @MaxLength(200)
+  description!: string;
+}
 export class RemoveColumnOpDto {
   @ApiProperty({ enum: ["remove_column"] })
   @IsIn(["remove_column"])
@@ -190,6 +206,7 @@ export class ReorderColumnsOpDto {
   columnIds!: string[];
 }
 export type CaseOp =
+  | UpdateColumnOpDto
   | AddColumnOpDto
   | RemoveColumnOpDto
   | ReorderColumnsOpDto
@@ -208,6 +225,7 @@ export class ApplyOpsDto {
         AddCaseOpDto,
         DeleteCasesOpDto,
         MoveCaseOpDto,
+        UpdateColumnOpDto,
         AddColumnOpDto,
         RemoveColumnOpDto,
         ReorderColumnsOpDto,

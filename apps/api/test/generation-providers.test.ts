@@ -32,7 +32,7 @@ const context: GenerationInput = {
   memo: "",
   frames: [],
   featureGroups: [],
-  requiredCases: [],
+  viewpoints: [],
   screenStructure: [],
   styleExamples: [],
   existingCases: [],

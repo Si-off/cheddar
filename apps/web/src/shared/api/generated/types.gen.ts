@@ -289,9 +289,7 @@ export type ScreenIdRuleListDto = {
 
 export type CreateScreenIdRuleDto = {
     name: string;
-    separator?: {
-        [key: string]: unknown;
-    };
+    separator?: string;
     parts: Array<ScreenIdRulePartDto>;
 };
 
@@ -408,6 +406,13 @@ export type ReorderColumnsOpDto = {
     columnIds: Array<string>;
 };
 
+export type UpdateColumnOpDto = {
+    type: 'update_column';
+    columnId: string;
+    name: string;
+    description: string;
+};
+
 export type ProjectTemplateChoiceDto = {
     kind: 'project';
 };
@@ -494,7 +499,7 @@ export type UpdateTestSetDto = {
 };
 
 export type ApplyOpsDto = {
-    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto | AddColumnOpDto | RemoveColumnOpDto | ReorderColumnsOpDto>;
+    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto | UpdateColumnOpDto | AddColumnOpDto | RemoveColumnOpDto | ReorderColumnsOpDto>;
 };
 
 export type OpsResultDto = {
@@ -591,7 +596,7 @@ export type TempUploadDto = {
 
 export type GenerationCurrentDto = {
     jobId: string;
-    kind: 'initial' | 'append' | 'rewrite';
+    kind: 'initial' | 'append' | 'rewrite' | 'fill_column';
     status: 'queued' | 'running' | 'succeeded' | 'failed';
     stage: 'screens' | 'flows' | 'cases' | 'finish';
     addedCount: number;
@@ -606,6 +611,7 @@ export type CreateGenerationDto = {
     clientRequestId?: string;
     kind: 'initial' | 'append';
     uploadId?: string;
+    frameIds?: Array<string>;
     memo?: string;
 };
 
@@ -4983,6 +4989,63 @@ export type CreateGenerationResponses = {
 };
 
 export type CreateGenerationResponse = CreateGenerationResponses[keyof CreateGenerationResponses];
+
+export type FillTestSetColumnData = {
+    body?: never;
+    path: {
+        testSetId: string;
+        columnId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/test-set-columns/{columnId}/fill';
+};
+
+export type FillTestSetColumnErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 동시 생성 한도 초과
+     */
+    429: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type FillTestSetColumnError = FillTestSetColumnErrors[keyof FillTestSetColumnErrors];
+
+export type FillTestSetColumnResponses = {
+    202: GenerationAcceptedDto;
+};
+
+export type FillTestSetColumnResponse = FillTestSetColumnResponses[keyof FillTestSetColumnResponses];
 
 export type GetCurrentGenerationData = {
     body?: never;

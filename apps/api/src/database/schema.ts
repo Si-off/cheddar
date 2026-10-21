@@ -475,7 +475,7 @@ export const generationJobs = pgTable(
     uploadId: uuid("upload_id").references(() => tempUploads.id, {
       onDelete: "set null",
     }),
-    kind: varchar("kind", { length: 10 }).notNull(),
+    kind: varchar("kind", { length: 16 }).notNull(),
     status: jobStatusEnum("status").notNull().default("pending"),
     currentStage: varchar("current_stage", { length: 30 }),
     errorCode: text("error_code"),
@@ -495,7 +495,7 @@ export const generationJobs = pgTable(
   (t) => [
     check(
       "generation_jobs_kind",
-      sql`${t.kind} IN ('initial', 'append', 'rewrite')`,
+      sql`${t.kind} IN ('initial', 'append', 'rewrite', 'fill_column')`,
     ),
     unique("generation_jobs_request").on(t.requestedBy, t.clientRequestId),
     uniqueIndex("generation_jobs_active_set")

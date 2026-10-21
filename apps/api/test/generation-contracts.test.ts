@@ -79,7 +79,9 @@ const input = (): GenerationInput => ({
     },
   ],
   featureGroups: [],
-  requiredCases: [{ id: randomUUID(), description: "화면 진입" }],
+  viewpoints: [
+    { id: "screen_entry", name: "화면 진입", when: "진입 화면이 있을 때" },
+  ],
   screenStructure: [],
   existingCases: [],
   styleExamples: [],

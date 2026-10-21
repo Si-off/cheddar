@@ -15,7 +15,8 @@ export type GenerationInput = {
     imageStorageKeys: string[];
   }[];
   featureGroups: { id: string; name: string; description: string }[];
-  requiredCases: { id: string; description: string }[];
+  viewpoints: { id: string; name: string; when: string }[];
+  fillColumn?: TestSetColumnDto;
   screenStructure: unknown[];
   styleExamples: CaseDto[];
   existingCases: CaseDto[];
@@ -35,7 +36,7 @@ export type CaseOutput = {
     draft: Draft;
   }[];
   coverage: {
-    requiredCaseId: string;
+    viewpointId: string;
     status: "covered" | "not_applicable";
     explanation: string;
   }[];

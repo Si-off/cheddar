@@ -59,6 +59,25 @@ export class GenerationController {
   ) {
     return this.service.create(id, accountId, dto);
   }
+  @Post("test-sets/:testSetId/test-set-columns/:columnId/fill")
+  @HttpCode(202)
+  @ApiOperation({
+    operationId: "fillTestSetColumn",
+    summary: "열의 빈 셀 AI로 채우기",
+  })
+  @ApiAcceptedResponse({ type: GenerationAcceptedDto })
+  @ApiResponse({
+    status: 429,
+    description: "동시 생성 한도 초과",
+    type: ErrorResponseDto,
+  })
+  fillColumn(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @Param("columnId", ParseUUIDPipe) columnId: string,
+    @CurrentAccount() accountId: string,
+  ) {
+    return this.service.fillColumn(id, columnId, accountId);
+  }
   @Get("test-sets/:testSetId/generations/current")
   @ApiOperation({
     operationId: "getCurrentGeneration",
@@ -127,7 +146,7 @@ export class GenerationController {
         const job = await this.service.visibleJob(id, accountId);
         if (stopped) return;
         // 짧은 단계가 폴링 사이에 끝나도 저장된 단계 기록으로 순서대로 전한다.
-        if (job.kind !== "rewrite") {
+        if (!["rewrite", "fill_column"].includes(job.kind)) {
           for (const stage of await this.service.startedStages(id)) {
             const index = order.indexOf(stage);
             if (index > lastStage) {
