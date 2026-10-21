@@ -17,7 +17,6 @@ import {
   featureGroups,
   generationJobs,
   generationSteps,
-  requiredCases,
   reviewItems,
   screenStructureItems,
   tempUploads,
@@ -216,16 +215,8 @@ export class GenerationService {
             .from(featureGroups)
             .where(eq(featureGroups.projectId, row.projectId))
             .orderBy(featureGroups.position, featureGroups.id),
-          requiredCases: await tx
-            .select()
-            .from(requiredCases)
-            .where(
-              and(
-                eq(requiredCases.projectId, row.projectId),
-                eq(requiredCases.enabled, true),
-              ),
-            )
-            .orderBy(requiredCases.position, requiredCases.id),
+          // 4단계에서 점검 관점 상수로 교체
+          requiredCases: [],
           screenStructure: await tx
             .select()
             .from(screenStructureItems)

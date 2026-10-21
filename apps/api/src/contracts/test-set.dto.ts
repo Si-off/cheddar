@@ -3,6 +3,7 @@ import {
   ApiPropertyOptional,
   type ApiPropertyOptions,
   getSchemaPath,
+  OmitType,
 } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 import {
@@ -18,6 +19,10 @@ import {
   ValidateIf,
 } from "class-validator";
 import { TemplateColumnDto } from "./project.dto";
+
+export class TestSetColumnDto extends OmitType(TemplateColumnDto, [
+  "enabled",
+] as const) {}
 
 export type CellValue = string | boolean | string[] | null;
 export const CELL_SCHEMA = {
@@ -125,11 +130,11 @@ export class ApplyOpsDto {
   ops!: CaseOp[];
 }
 export class UpdateColumnsDto {
-  @ApiProperty({ type: [TemplateColumnDto], minItems: 2, maxItems: 50 })
+  @ApiProperty({ type: [TestSetColumnDto], minItems: 2, maxItems: 50 })
   @IsArray()
   @ArrayMinSize(2)
   @ArrayMaxSize(50)
-  columns!: TemplateColumnDto[];
+  columns!: TestSetColumnDto[];
 }
 export class TestSetViewDto {
   @ApiProperty({ enum: ["table", "card"] }) @IsIn(["table", "card"]) view!:
@@ -187,13 +192,13 @@ export class TestSetDto {
   @ApiProperty() isPublic!: boolean;
   @ApiProperty({ type: "integer" }) version!: number;
   @ApiProperty({ type: TestSetAccessDto }) access!: TestSetAccessDto;
-  @ApiProperty({ type: [TemplateColumnDto] }) columns!: TemplateColumnDto[];
+  @ApiProperty({ type: [TestSetColumnDto] }) columns!: TestSetColumnDto[];
   @ApiProperty({ type: [CaseDto] }) cases!: CaseDto[];
   @ApiProperty({ format: "date-time" }) updatedAt!: string;
 }
 export class ColumnsResultDto {
   @ApiProperty({ type: "integer" }) version!: number;
-  @ApiProperty({ type: [TemplateColumnDto] }) columns!: TemplateColumnDto[];
+  @ApiProperty({ type: [TestSetColumnDto] }) columns!: TestSetColumnDto[];
   @ApiProperty({ type: [CaseDto] }) cases!: CaseDto[];
 }
 export class OpsResultDto {

@@ -1,9 +1,12 @@
-import type { TemplateColumnDto } from "../contracts/project.dto";
-import type { CaseDto, CellValue } from "../contracts/test-set.dto";
+import type {
+  CaseDto,
+  CellValue,
+  TestSetColumnDto,
+} from "../contracts/test-set.dto";
 import type { Stage } from "./model-config";
 export type Draft = Record<string, CellValue>;
 export type GenerationInput = {
-  columns: TemplateColumnDto[];
+  columns: TestSetColumnDto[];
   memo: string;
   frames: {
     id: string;

@@ -25,7 +25,7 @@ import {
   testSets,
   viewPreferences,
 } from "../database/schema";
-import { validateTemplate } from "../projects/template";
+import { validateSetColumns } from "../projects/template";
 import {
   forbidden,
   hasGrant,
@@ -131,10 +131,12 @@ export class TestSetsService {
         .from(projectTemplates)
         .where(eq(projectTemplates.projectId, dto.projectId));
       if (!template) throw notFound();
-      const columns = validateTemplate({
+      const columns = validateSetColumns({
         revision: template.revision,
         columns: template.columns,
-      }).columns.map((c) => ({ ...c, id: randomUUID() }));
+      })
+        .columns.filter((c) => c.enabled)
+        .map(({ enabled: _enabled, ...c }) => ({ ...c, id: randomUUID() }));
       const [row] = await tx
         .insert(testSets)
         .values({
@@ -215,11 +217,25 @@ export class TestSetsService {
   ): Promise<ColumnsResultDto> {
     return this.store.mutate(id, accountId, "canEdit", async (tx, row) => {
       // HTTP 전용 DTO에 기대지 않고 기존 기본 양식 검증을 그대로 재사용한다.
-      const columns = validateTemplate({
-        revision: 1,
-        columns: input.columns,
-      }).columns;
       const old = await this.store.columns(id, tx);
+      const columns = validateSetColumns({
+        revision: 1,
+        columns: Array.isArray(input.columns)
+          ? input.columns.map((c) => {
+              const previous = old.find(
+                (column) =>
+                  typeof c?.id === "string" && column.id === c.id.toLowerCase(),
+              );
+              return {
+                ...c,
+                enabled: true,
+                presetKey: previous
+                  ? previous.presetKey
+                  : (c?.presetKey ?? null),
+              };
+            })
+          : input.columns,
+      }).columns.map(({ enabled: _enabled, ...c }) => c);
       const cases = await this.store.cases(id, tx);
       let counter = BigInt(row.testIdCounter);
       const oldTestId = old.find((c) => c.systemKey === "test_id")?.id;

@@ -17,7 +17,6 @@ import type {
   MemoDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseListDto,
   ScreenDto,
   ScreenListDto,
   TemplateDto,
@@ -27,10 +26,8 @@ import {
   projectMemos,
   projects,
   projectTemplates,
-  requiredCases,
 } from "../src/database/schema";
 import { ProjectsService } from "../src/projects/projects.service";
-import { DEFAULT_REQUIRED_CASES } from "../src/projects/template";
 import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
@@ -115,7 +112,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     };
     let first!: ProjectDto, second!: ProjectDto;
     await t.test(
-      "만들기는 기본 양식·12개 필수 케이스·빈 메모를 함께 저장",
+      "만들기는 사전 정의 열 14개와 기본 enabled·빈 메모를 함께 저장",
       async () => {
         first = await asJson<ProjectDto>(
           await request("", "POST", { name: "  가 프로젝트  " }),
@@ -140,9 +137,9 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           template.columns.map((c) => c.name),
           [
             "테스트 ID",
-            "제목",
             "테스트 환경",
             "테스트 케이스",
+            "제목",
             "사용자/관리자",
             "화면 ID 또는 URL",
             "수행 절차",
@@ -180,14 +177,15 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         );
         assert.ok(template.columns.every((c) => c.description.length > 0));
         assert.equal(new Set(template.columns.map((c) => c.id)).size, 14);
-        const cases = await asJson<RequiredCaseListDto>(
-          await request(`/${first.id}/required-cases`),
+        assert.equal(
+          new Set(template.columns.map((c) => c.presetKey)).size,
+          14,
         );
-        assert.deepEqual(
-          cases.items.map((c) => c.description),
-          DEFAULT_REQUIRED_CASES,
+        assert.ok(
+          template.columns.every(
+            (c) => c.enabled === (c.presetKey !== "extra"),
+          ),
         );
-        assert.ok(cases.items.every((c) => c.enabled && c.isDefault));
         assert.deepEqual(
           await asJson(await request(`/${first.id}/feature-groups`)),
           { items: [] },
@@ -255,7 +253,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           "",
           "/template",
           "/feature-groups",
-          "/required-cases",
           "/screens",
           "/memo",
         ]) {
@@ -355,9 +352,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           [`/feature-groups/${randomUUID()}`, "PATCH", {}],
           [`/feature-groups/${randomUUID()}`, "DELETE", undefined],
           ["/feature-groups/order", "PUT", { ids: [] }],
-          ["/required-cases", "POST", {}],
-          [`/required-cases/${randomUUID()}`, "PATCH", {}],
-          [`/required-cases/${randomUUID()}`, "DELETE", undefined],
           ["/screens", "POST", {}],
           [`/screens/${randomUUID()}`, "PATCH", {}],
           [`/screens/${randomUUID()}`, "DELETE", undefined],
@@ -404,8 +398,32 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       const template = await asJson<TemplateDto>(
         await request(`/${first.id}/template`),
       );
-      template.columns[2].name = "사전 준비";
-      template.columns[2].options = ["지움"];
+      for (const mutate of [
+        (columns: TemplateDto["columns"]) => {
+          columns[2].name = "사전 준비";
+        },
+        (columns: TemplateDto["columns"]) => {
+          columns[0].enabled = false;
+        },
+      ]) {
+        const invalid = structuredClone(template);
+        mutate(invalid.columns);
+        await error(
+          await request(`/${first.id}/template`, "PUT", invalid),
+          400,
+          "VALIDATION_FAILED",
+        );
+      }
+      template.columns.push({
+        id: randomUUID(),
+        presetKey: null,
+        enabled: true,
+        systemKey: null,
+        name: "사전 준비",
+        type: "text",
+        description: "",
+        options: ["지움"],
+      });
       const saved = await asJson<TemplateDto>(
         await request(`/${first.id}/template`, "PUT", template, manager.cookie),
       );
@@ -506,61 +524,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           create("동시 추가"),
         ]);
         assert.deepEqual(simultaneous.map((r) => r.status).sort(), [201, 409]);
-      },
-    );
-    await t.test(
-      "기본 필수 케이스는 사용 여부만 변경, 사용자 케이스는 수정과 삭제 허용",
-      async () => {
-        const list = await service.listCases(first.id, admin.account.id),
-          standard = list.items[0];
-        assert.equal(
-          (await service.updateCase(first.id, standard.id, { enabled: false }))
-            .enabled,
-          false,
-        );
-        await assert.rejects(
-          service.updateCase(first.id, standard.id, {
-            description: standard.description,
-          }),
-          code("DEFAULT_REQUIRED_CASE"),
-        );
-        await assert.rejects(
-          service.removeCase(first.id, standard.id),
-          code("DEFAULT_REQUIRED_CASE"),
-        );
-        const custom = await service.createCase(first.id, {
-          description: "  사용자 케이스  ",
-        });
-        assert.equal(custom.description, "사용자 케이스");
-        assert.equal(custom.enabled, true);
-        assert.equal(custom.isDefault, false);
-        assert.equal(
-          (await service.listCases(first.id, admin.account.id)).items.at(-1)
-            ?.id,
-          custom.id,
-        );
-        assert.equal(
-          (
-            await service.updateCase(first.id, custom.id, {
-              description: "수정",
-              enabled: false,
-            })
-          ).description,
-          "수정",
-        );
-        await assert.rejects(
-          service.updateCase(second.id, custom.id, { enabled: true }),
-          code("NOT_FOUND"),
-        );
-        await assert.rejects(
-          service.removeCase(second.id, custom.id),
-          code("NOT_FOUND"),
-        );
-        await service.removeCase(first.id, custom.id);
-        await assert.rejects(
-          service.removeCase(first.id, custom.id),
-          code("NOT_FOUND"),
-        );
       },
     );
     await t.test(
@@ -754,11 +717,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           .values({ name: "기본값", createdBy: admin.account.id })
           .returning();
         assert.equal(row.description, "");
-        const [required] = await db
-          .insert(requiredCases)
-          .values({ projectId: row.id, description: "사용자", position: 0 })
-          .returning();
-        assert.equal(required.isDefault, false);
         await db
           .insert(projectMemos)
           .values({ projectId: row.id, authorId: admin.account.id, body: "" });

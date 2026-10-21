@@ -15,24 +15,18 @@ import type { EffectivePermissionDto } from "../src/contracts/identity.dto";
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
-  CreateRequiredCaseDto,
   CreateScreenDto,
   FeatureGroupOrderDto,
   UpdateFeatureGroupDto,
   UpdateMemoDto,
   UpdateProjectDto,
-  UpdateRequiredCaseDto,
   UpdateScreenDto,
   UpdateTemplateDto,
 } from "../src/contracts/project.dto";
 import type { DatabaseService } from "../src/database/database.service";
 import { ProjectsController } from "../src/projects/projects.controller";
 import { ProjectsService } from "../src/projects/projects.service";
-import {
-  DEFAULT_REQUIRED_CASES,
-  defaultColumns,
-  validateTemplate,
-} from "../src/projects/template";
+import { defaultColumns, validateTemplate } from "../src/projects/template";
 
 const failed = (error: unknown) =>
   error instanceof ApiError &&
@@ -50,10 +44,6 @@ test("프로젝트 DTO는 공백, 길이, null, 형식과 알 수 없는 속성�
     [CreateFeatureGroupDto, { name: "기능" }],
     [UpdateFeatureGroupDto, { name: " " }],
     [UpdateFeatureGroupDto, { description: "a".repeat(2001) }],
-    [CreateRequiredCaseDto, { description: " " }],
-    [CreateRequiredCaseDto, { description: "a".repeat(301) }],
-    [UpdateRequiredCaseDto, { enabled: null }],
-    [UpdateRequiredCaseDto, { enabled: "false" }],
     [CreateScreenDto, { screenId: " ", name: "화면", description: "" }],
     [
       CreateScreenDto,
@@ -103,7 +93,6 @@ test("양식 검증은 시스템 항목, UUID, 이름, 형식, 선택 값과 경
     assert.ok(column);
     return column;
   };
-  assert.equal(DEFAULT_REQUIRED_CASES.length, 12);
   const mutations: ((dto: ReturnType<typeof valid>) => void)[] = [
     (dto) => {
       dto.revision = 0;
@@ -115,7 +104,7 @@ test("양식 검증은 시스템 항목, UUID, 이름, 형식, 선택 값과 경
       dto.columns = Array.from({ length: 51 }, () => defaultColumns()[0]);
     },
     (dto) => {
-      dto.columns.reverse();
+      dto.columns[0].enabled = false;
     },
     (dto) => {
       dto.columns[0].systemKey = null;
@@ -177,33 +166,94 @@ test("양식 검증은 시스템 항목, UUID, 이름, 형식, 선택 값과 경
     { ...valid(), unknown: true },
   ])
     assert.throws(() => validateTemplate(dto), failed);
-  const dto = valid();
-  dto.columns[0].options = ["저장하지 않음"];
-  dto.columns[0].description = "  설명 변경 가능  ";
-  dto.columns[2].type = "checkbox";
-  dto.columns[2].options = ["저장하지 않음"];
-  choice(dto).type = "tags";
-  choice(dto).options = ["  값  "];
-  const normalized = validateTemplate(dto);
-  assert.deepEqual(normalized.columns[0].options, []);
-  assert.equal(normalized.columns[0].description, "설명 변경 가능");
-  assert.deepEqual(normalized.columns[2].options, []);
-  assert.deepEqual(choice(normalized).options, ["값"]);
+  const reordered = valid();
+  reordered.columns.reverse();
+  assert.equal(validateTemplate(reordered).columns.length, 14);
+  for (const mutate of [
+    (dto: ReturnType<typeof valid>) => {
+      dto.columns.pop();
+    },
+    (dto: ReturnType<typeof valid>) => {
+      dto.columns.push({ ...dto.columns[2], id: randomUUID() });
+    },
+    (dto: ReturnType<typeof valid>) => {
+      dto.columns[2].presetKey = "unknown";
+    },
+    (dto: ReturnType<typeof valid>) => {
+      dto.columns[2].description = "변경";
+    },
+    (dto: ReturnType<typeof valid>) => {
+      dto.columns[3].enabled = false;
+    },
+  ]) {
+    const dto = valid();
+    mutate(dto);
+    assert.throws(() => validateTemplate(dto), failed);
+  }
   const max = valid();
   while (max.columns.length < 50)
     max.columns.push({
       id: randomUUID(),
       systemKey: null,
+      presetKey: null,
+      enabled: true,
       name: `항목 ${max.columns.length}`,
       type: "text",
       options: [],
       description: "",
     });
   assert.equal(validateTemplate(max).columns.length, 50);
+  assert.throws(
+    () =>
+      validateTemplate({ revision: 1, columns: defaultColumns().slice(0, 2) }),
+    failed,
+  );
+});
+
+test("사용자 열은 이름 유일성과 선택 값 경계를 지키며 값을 정규화", () => {
+  const custom = {
+    id: randomUUID(),
+    systemKey: null,
+    presetKey: null,
+    enabled: true,
+    name: "사용자 열",
+    type: "tags",
+    description: "  설명  ",
+    options: ["  값  "],
+  };
+  const input = (column: object) => ({
+    revision: 1,
+    columns: [...defaultColumns(), column],
+  });
+  const saved = validateTemplate(input(custom)).columns.at(-1);
+  assert.equal(saved?.description, "설명");
+  assert.deepEqual(saved?.options, ["값"]);
+  for (const change of [
+    { name: "제목" },
+    { type: "unknown" },
+    { options: [] },
+    { options: ["값", " 값 "] },
+    { options: [""] },
+    { options: ["a".repeat(101)] },
+    { options: Array.from({ length: 51 }, (_, i) => String(i)) },
+  ])
+    assert.throws(
+      () => validateTemplate(input({ ...custom, ...change })),
+      failed,
+    );
   assert.equal(
-    validateTemplate({ revision: 1, columns: defaultColumns().slice(0, 2) })
-      .columns.length,
-    2,
+    validateTemplate(
+      input({
+        ...custom,
+        options: Array.from({ length: 50 }, (_, i) => String(i)),
+      }),
+    ).columns.at(-1)?.options.length,
+    50,
+  );
+  assert.deepEqual(
+    validateTemplate(input({ ...custom, type: "text" })).columns.at(-1)
+      ?.options,
+    [],
   );
 });
 
@@ -295,7 +345,6 @@ test("실제 HTTP는 DB 없이 DTO 400과 양식 VALIDATION_FAILED, 권한 가�
         "PUT",
         { ids: ["wrong"] },
       ],
-      [`/projects/${projectId}/required-cases`, "POST", { description: " " }],
       [
         `/projects/${projectId}/screens`,
         "POST",

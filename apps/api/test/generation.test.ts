@@ -457,10 +457,9 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
         assert.equal((await waitJob(jobId)).status, "succeeded");
         item = (await reviews()).find((r) => r.id === item.id) as ReviewItemDto;
         assert.equal(item.status, "pending");
-        assert.match(
-          String(item.draft[set.columns[1].id]),
-          /완료 화면으로 이동/,
-        );
+        const titleColumn = set.columns.find((c) => c.systemKey === "title");
+        assert.ok(titleColumn);
+        assert.match(String(item.draft[titleColumn.id]), /완료 화면으로 이동/);
         const accepted = await json<{
           item: ReviewItemDto;
           case: { values: Record<string, string> };

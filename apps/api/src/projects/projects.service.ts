@@ -8,18 +8,15 @@ import { ApiError, notFound } from "../common/errors";
 import type {
   CreateFeatureGroupDto,
   CreateProjectDto,
-  CreateRequiredCaseDto,
   CreateScreenDto,
   FeatureGroupDto,
   MemoDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseDto,
   ScreenDto,
   TemplateDto,
   UpdateFeatureGroupDto,
   UpdateProjectDto,
-  UpdateRequiredCaseDto,
   UpdateScreenDto,
 } from "../contracts/project.dto";
 import {
@@ -32,25 +29,14 @@ import {
   projectMemos,
   projects,
   projectTemplates,
-  requiredCases,
   screenStructureItems,
 } from "../database/schema";
-import {
-  DEFAULT_REQUIRED_CASES,
-  defaultColumns,
-  validateTemplate,
-} from "./template";
+import { defaultColumns, validateTemplate } from "./template";
 
 const groupFields = {
   id: featureGroups.id,
   name: featureGroups.name,
   description: featureGroups.description,
-};
-const caseFields = {
-  id: requiredCases.id,
-  description: requiredCases.description,
-  enabled: requiredCases.enabled,
-  isDefault: requiredCases.isDefault,
 };
 const screenFields = {
   id: screenStructureItems.id,
@@ -157,15 +143,6 @@ export class ProjectsService {
       await tx
         .insert(projectTemplates)
         .values({ projectId: row.id, columns: defaultColumns() });
-      await tx.insert(requiredCases).values(
-        DEFAULT_REQUIRED_CASES.map((description, position) => ({
-          projectId: row.id,
-          description,
-          position,
-          enabled: true,
-          isDefault: true,
-        })),
-      );
       await tx
         .insert(projectMemos)
         .values({ projectId: row.id, authorId: accountId, body: "" });
@@ -314,91 +291,6 @@ export class ProjectsService {
             ),
           );
       return { items: await this.groups(projectId, tx) };
-    });
-  }
-  async listCases(projectId: string, accountId: string) {
-    await this.assertView(projectId, accountId);
-    return {
-      items: await this.database.db
-        .select(caseFields)
-        .from(requiredCases)
-        .where(eq(requiredCases.projectId, projectId))
-        .orderBy(requiredCases.position, requiredCases.id),
-    };
-  }
-  async createCase(
-    projectId: string,
-    dto: CreateRequiredCaseDto,
-  ): Promise<RequiredCaseDto> {
-    return this.mutate(projectId, async (tx) => {
-      const rows = await tx
-        .select({ position: requiredCases.position })
-        .from(requiredCases)
-        .where(eq(requiredCases.projectId, projectId));
-      const [row] = await tx
-        .insert(requiredCases)
-        .values({
-          projectId,
-          description: dto.description.trim(),
-          position: Math.max(-1, ...rows.map((row) => row.position)) + 1,
-          enabled: true,
-          isDefault: false,
-        })
-        .returning(caseFields);
-      return row;
-    });
-  }
-  private async requiredCase(
-    projectId: string,
-    id: string,
-    db: IdentityDatabase,
-  ) {
-    const [row] = await db
-      .select()
-      .from(requiredCases)
-      .where(
-        and(eq(requiredCases.projectId, projectId), eq(requiredCases.id, id)),
-      );
-    if (!row) throw notFound();
-    return row;
-  }
-  async updateCase(
-    projectId: string,
-    id: string,
-    dto: UpdateRequiredCaseDto,
-  ): Promise<RequiredCaseDto> {
-    return this.mutate(projectId, async (tx) => {
-      const current = await this.requiredCase(projectId, id, tx);
-      if (current.isDefault && dto.description !== undefined)
-        throw conflict(
-          "DEFAULT_REQUIRED_CASE",
-          "기본 필수 케이스는 내용을 수정할 수 없습니다.",
-        );
-      const [row] = await tx
-        .update(requiredCases)
-        .set({
-          description: dto.description?.trim() ?? current.description,
-          enabled: dto.enabled ?? current.enabled,
-        })
-        .where(
-          and(eq(requiredCases.projectId, projectId), eq(requiredCases.id, id)),
-        )
-        .returning(caseFields);
-      return row;
-    });
-  }
-  async removeCase(projectId: string, id: string) {
-    return this.mutate(projectId, async (tx) => {
-      if ((await this.requiredCase(projectId, id, tx)).isDefault)
-        throw conflict(
-          "DEFAULT_REQUIRED_CASE",
-          "기본 필수 케이스는 삭제할 수 없습니다. 사용하지 않으려면 끄세요.",
-        );
-      await tx
-        .delete(requiredCases)
-        .where(
-          and(eq(requiredCases.projectId, projectId), eq(requiredCases.id, id)),
-        );
     });
   }
   async listScreens(projectId: string, accountId: string) {

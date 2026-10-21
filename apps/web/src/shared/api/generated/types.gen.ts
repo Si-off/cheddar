@@ -215,6 +215,8 @@ export type UpdateProjectDto = {
 };
 
 export type TemplateColumnDto = {
+    presetKey: string | null;
+    enabled: boolean;
     id: string;
     systemKey: 'test_id' | 'title' | null;
     name: string;
@@ -258,26 +260,6 @@ export type UpdateFeatureGroupDto = {
 
 export type FeatureGroupOrderDto = {
     ids: Array<string>;
-};
-
-export type RequiredCaseDto = {
-    id: string;
-    description: string;
-    enabled: boolean;
-    isDefault: boolean;
-};
-
-export type RequiredCaseListDto = {
-    items: Array<RequiredCaseDto>;
-};
-
-export type CreateRequiredCaseDto = {
-    description: string;
-};
-
-export type UpdateRequiredCaseDto = {
-    description?: string;
-    enabled?: boolean;
 };
 
 export type ScreenDto = {
@@ -378,6 +360,19 @@ export type TestSetAccessDto = {
     canExport: boolean;
 };
 
+export type TestSetColumnDto = {
+    presetKey: string | null;
+    id: string;
+    systemKey: 'test_id' | 'title' | null;
+    name: string;
+    type: 'text' | 'select' | 'checkbox' | 'tags';
+    description: string;
+    /**
+     * 선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장
+     */
+    options: Array<string>;
+};
+
 export type CaseDto = {
     id: string;
     values: {
@@ -394,7 +389,7 @@ export type TestSetDto = {
     isPublic: boolean;
     version: number;
     access: TestSetAccessDto;
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
     updatedAt: string;
 };
@@ -405,12 +400,12 @@ export type UpdateTestSetDto = {
 };
 
 export type UpdateColumnsDto = {
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TestSetColumnDto>;
 };
 
 export type ColumnsResultDto = {
     version: number;
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
 };
 
@@ -484,7 +479,7 @@ export type SharedTestSetDto = {
     isPublic: boolean;
     version: number;
     access: TestSetAccessDto;
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
     updatedAt: string;
     me: SharedActorDto;
@@ -2953,216 +2948,6 @@ export type ReorderProjectFeatureGroupsResponses = {
 };
 
 export type ReorderProjectFeatureGroupsResponse = ReorderProjectFeatureGroupsResponses[keyof ReorderProjectFeatureGroupsResponses];
-
-export type ListProjectRequiredCasesData = {
-    body?: never;
-    path: {
-        projectId: string;
-    };
-    query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases';
-};
-
-export type ListProjectRequiredCasesErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type ListProjectRequiredCasesError = ListProjectRequiredCasesErrors[keyof ListProjectRequiredCasesErrors];
-
-export type ListProjectRequiredCasesResponses = {
-    200: RequiredCaseListDto;
-};
-
-export type ListProjectRequiredCasesResponse = ListProjectRequiredCasesResponses[keyof ListProjectRequiredCasesResponses];
-
-export type CreateProjectRequiredCaseData = {
-    body: CreateRequiredCaseDto;
-    path: {
-        projectId: string;
-    };
-    query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases';
-};
-
-export type CreateProjectRequiredCaseErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type CreateProjectRequiredCaseError = CreateProjectRequiredCaseErrors[keyof CreateProjectRequiredCaseErrors];
-
-export type CreateProjectRequiredCaseResponses = {
-    201: RequiredCaseDto;
-};
-
-export type CreateProjectRequiredCaseResponse = CreateProjectRequiredCaseResponses[keyof CreateProjectRequiredCaseResponses];
-
-export type DeleteProjectRequiredCaseData = {
-    body?: never;
-    path: {
-        projectId: string;
-        caseId: string;
-    };
-    query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases/{caseId}';
-};
-
-export type DeleteProjectRequiredCaseErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type DeleteProjectRequiredCaseError = DeleteProjectRequiredCaseErrors[keyof DeleteProjectRequiredCaseErrors];
-
-export type DeleteProjectRequiredCaseResponses = {
-    204: void;
-};
-
-export type DeleteProjectRequiredCaseResponse = DeleteProjectRequiredCaseResponses[keyof DeleteProjectRequiredCaseResponses];
-
-export type UpdateProjectRequiredCaseData = {
-    body: UpdateRequiredCaseDto;
-    path: {
-        projectId: string;
-        caseId: string;
-    };
-    query?: never;
-    url: '/api/v1/projects/{projectId}/required-cases/{caseId}';
-};
-
-export type UpdateProjectRequiredCaseErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type UpdateProjectRequiredCaseError = UpdateProjectRequiredCaseErrors[keyof UpdateProjectRequiredCaseErrors];
-
-export type UpdateProjectRequiredCaseResponses = {
-    200: RequiredCaseDto;
-};
-
-export type UpdateProjectRequiredCaseResponse = UpdateProjectRequiredCaseResponses[keyof UpdateProjectRequiredCaseResponses];
 
 export type ListProjectScreensData = {
     body?: never;

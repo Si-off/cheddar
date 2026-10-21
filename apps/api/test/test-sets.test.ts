@@ -11,10 +11,10 @@ import { AuthorizationService } from "../src/authorization/authorization.service
 import type { Permission } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
 import type { CreateAccountDto } from "../src/contracts/identity.dto";
-import type { TemplateColumnDto } from "../src/contracts/project.dto";
 import type {
   ColumnsResultDto,
   OpsResultDto,
+  TestSetColumnDto,
   TestSetDto,
   TestSetListDto,
   TestSetViewDto,
@@ -161,18 +161,32 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         const template = await projects.template(p.id, admin.account.id);
         assert.deepEqual(
           first.columns.map(({ id: _id, ...c }) => c),
-          template.columns.map(({ id: _id, ...c }) => c),
+          template.columns
+            .filter((c) => c.enabled)
+            .map(({ id: _id, enabled: _enabled, ...c }) => c),
         );
         assert.ok(
           first.columns.every(
             (c) => !template.columns.some((old) => old.id === c.id),
           ),
         );
-        template.columns[2].name = "이후 기본 양식";
+        template.columns[2].enabled = false;
         await projects.saveTemplate(p.id, template);
+        const filtered = await sets.create(admin.account.id, {
+          name: "꺼진 열 제외",
+          projectId: p.id,
+          memo: "",
+        });
+        assert.equal(filtered.columns.length, 12);
+        assert.ok(
+          filtered.columns.every(
+            (c) => c.presetKey !== "test_case" && c.presetKey !== "extra",
+          ),
+        );
+        await sets.remove(filtered.id, admin.account.id);
         assert.equal(
           (await sets.detail(first.id, admin.account.id)).columns[2].name,
-          "테스트 환경",
+          "테스트 케이스",
         );
         await error(
           await request(
@@ -384,7 +398,11 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       caseB = randomUUID(),
       caseC = randomUUID();
     const tid = () => first.columns[0].id,
-      title = () => first.columns[1].id;
+      title = () => {
+        const column = first.columns.find((c) => c.systemKey === "title");
+        assert.ok(column);
+        return column.id;
+      };
     await t.test(
       "연산 추가는 번호와 작성자를 저장하고 이동, 셀 변경, 삭제는 원자적으로 적용",
       async () => {
@@ -585,19 +603,20 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         assert.deepEqual(new Set(numbers), new Set(["TC-1001", "TC-1002"]));
       },
     );
-    let select!: TemplateColumnDto,
-      tags!: TemplateColumnDto,
-      checkbox!: TemplateColumnDto;
+    let select!: TestSetColumnDto,
+      tags!: TestSetColumnDto,
+      checkbox!: TestSetColumnDto;
     await t.test(
       "열 검증 재사용, 값 정리와 형식 변환은 기본 양식을 바꾸지 않음",
       async () => {
         const custom = (
           name: string,
-          type: TemplateColumnDto["type"],
+          type: TestSetColumnDto["type"],
           options: string[] = [],
-        ): TemplateColumnDto => ({
+        ): TestSetColumnDto => ({
           id: randomUUID(),
           systemKey: null,
+          presetKey: null,
           name,
           type,
           options,
@@ -622,6 +641,17 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
             ),
           )),
         };
+        assert.deepEqual(
+          first.columns.map((c) => c.presetKey),
+          columns.map((c) => c.presetKey),
+        );
+        const preserved = await sets.saveColumns(first.id, editor.id, {
+          columns: first.columns.map((c) => ({ ...c, presetKey: "forged" })),
+        });
+        assert.deepEqual(
+          preserved.columns.map((c) => c.presetKey),
+          first.columns.map((c) => c.presetKey),
+        );
         await operations.apply(first.id, editor.id, {
           ops: [
             {
@@ -813,11 +843,12 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           await request("", "POST", { name: "내보내기 세트", projectId: p.id }),
           201,
         );
-        const columns: TemplateColumnDto[] = [
-          ...set.columns.slice(0, 2),
+        const columns: TestSetColumnDto[] = [
+          ...set.columns.filter((c) => c.systemKey),
           {
             id: randomUUID(),
             systemKey: null,
+            presetKey: null,
             name: "영역",
             type: "tags",
             description: "",
@@ -826,6 +857,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           {
             id: randomUUID(),
             systemKey: null,
+            presetKey: null,
             name: "자동화",
             type: "checkbox",
             description: "",

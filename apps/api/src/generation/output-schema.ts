@@ -1,4 +1,4 @@
-import type { TemplateColumnDto } from "../contracts/project.dto";
+import type { TestSetColumnDto } from "../contracts/test-set.dto";
 import {
   normalizeValues,
   validateCell,
@@ -21,7 +21,7 @@ export const object = (properties: Record<string, JsonSchema>): JsonSchema => ({
   required: Object.keys(properties),
   additionalProperties: false,
 });
-export function formSchema(columns: TemplateColumnDto[]): JsonSchema {
+export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
   return object(
     Object.fromEntries(
       columns
@@ -143,7 +143,7 @@ export function validateSchema(
   }
 }
 export function validateDraft(
-  columns: TemplateColumnDto[],
+  columns: TestSetColumnDto[],
   value: unknown,
 ): Draft {
   const values = normalizeValues(value);

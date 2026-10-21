@@ -197,6 +197,8 @@ export const projectTemplates = pgTable(
           id: string;
           name: string;
           type: "text" | "select" | "checkbox" | "tags";
+          presetKey: string | null;
+          enabled: boolean;
           systemKey: "test_id" | "title" | null;
           description: string;
           options: string[];
@@ -221,16 +223,6 @@ export const featureGroups = pgTable(
   },
   (t) => [unique("feature_groups_name").on(t.projectId, t.name)],
 );
-export const requiredCases = pgTable("required_cases", {
-  id: id(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  description: text("description").notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-  isDefault: boolean("is_default").notNull().default(false),
-  position: integer("position").notNull(),
-});
 export const screenStructureItems = pgTable(
   "screen_structure_items",
   {
@@ -317,6 +309,7 @@ export const testSetColumns = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     type: columnTypeEnum("type").notNull(),
     systemKey: varchar("system_key", { length: 10 }),
+    presetKey: varchar("preset_key", { length: 40 }),
     description: text("description").notNull().default(""),
     options: jsonb("options").$type<string[]>().notNull().default([]),
     position: integer("position").notNull(),

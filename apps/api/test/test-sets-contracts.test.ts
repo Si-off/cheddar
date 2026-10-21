@@ -313,7 +313,11 @@ test("실제 HTTP는 DB 없이 테스트 세트 DTO, UUID, 연산과 보기 설�
       ["/bad-id", "GET", undefined],
       ["?filter=bad", "GET", undefined],
       [`/${id}/columns`, "PUT", { columns: [null, null] }],
-      [`/${id}/columns`, "PUT", { columns: defaultColumns().reverse() }],
+      [
+        `/${id}/columns`,
+        "PUT",
+        { columns: defaultColumns().filter((c) => c.systemKey !== "title") },
+      ],
       [`/${id}/ops`, "POST", { ops: [] }],
       [`/${id}/ops`, "POST", { ops: [{ type: "move_case", caseId: id }] }],
       [

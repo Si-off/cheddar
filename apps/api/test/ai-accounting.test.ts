@@ -196,6 +196,13 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
     await t.test(
       "재시도와 1회 수정 요청은 각각 한 행이고 단계 합계와 일치",
       async () => {
+        // 캐시 쓰기 계측은 이를 지원하는 공급자로 고정한다. 제품 기본 모델과 무관하다.
+        const previousModel = f.config.ai.models.screens;
+        f.config.ai.models.screens = {
+          provider: "anthropic",
+          model: "claude-haiku-5-5",
+          effort: "low",
+        };
         const { jobId, context } = await start();
         let count = 0;
         f.providers.fake.generate = async (r) => {
@@ -259,6 +266,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
           );
           assert.doesNotMatch(JSON.stringify(rows), /입력 비밀|출력 비밀/);
         } finally {
+          f.config.ai.models.screens = previousModel;
           f.providers.fake.generate = original;
           await f.generation.fail(jobId, "TEST_FINISHED");
         }

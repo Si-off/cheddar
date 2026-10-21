@@ -23,6 +23,7 @@ const context: GenerationInput = {
       id: "7a0bb214-2038-4ac5-8aa3-b75ca61b76b8",
       name: "태그",
       systemKey: null,
+      presetKey: null,
       type: "tags",
       options: ["화면", "업무"],
       description: "허용 태그",

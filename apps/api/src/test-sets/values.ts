@@ -1,7 +1,7 @@
 import { plainToInstance } from "class-transformer";
 import { isUUID, validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
-import type { TemplateColumnDto } from "../contracts/project.dto";
+import type { TestSetColumnDto } from "../contracts/test-set.dto";
 import {
   AddCaseOpDto,
   ApplyOpsDto,
@@ -19,7 +19,7 @@ export const validationFailed = (
   throw new ApiError(400, "VALIDATION_FAILED", message);
 };
 export function validateCell(
-  column: TemplateColumnDto,
+  column: TestSetColumnDto,
   value: unknown,
 ): CellValue {
   if (
@@ -56,7 +56,7 @@ export function cellText(value: CellValue | undefined): string {
         : value;
 }
 export function reconcileValue(
-  column: TemplateColumnDto,
+  column: TestSetColumnDto,
   value: CellValue,
 ): CellValue | undefined {
   if (column.type === "text") {

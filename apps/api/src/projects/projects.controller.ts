@@ -29,7 +29,6 @@ import {
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
-  CreateRequiredCaseDto,
   CreateScreenDto,
   FeatureGroupDto,
   FeatureGroupListDto,
@@ -37,15 +36,12 @@ import {
   MemoDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseDto,
-  RequiredCaseListDto,
   ScreenDto,
   ScreenListDto,
   TemplateDto,
   UpdateFeatureGroupDto,
   UpdateMemoDto,
   UpdateProjectDto,
-  UpdateRequiredCaseDto,
   UpdateScreenDto,
   UpdateTemplateDto,
 } from "../contracts/project.dto";
@@ -208,65 +204,6 @@ export class ProjectsController {
     @Body() dto: FeatureGroupOrderDto,
   ) {
     return this.service.orderGroups(id, dto.ids);
-  }
-
-  @Get(":projectId/required-cases")
-  @ApiOperation({
-    operationId: "listProjectRequiredCases",
-    summary: "필수 케이스 목록",
-  })
-  @ApiOkResponse({ type: RequiredCaseListDto })
-  cases(
-    @Param("projectId", ParseUUIDPipe) id: string,
-    @CurrentAccount() accountId: string,
-  ) {
-    return this.service.listCases(id, accountId);
-  }
-
-  @Post(":projectId/required-cases")
-  @RequirePermission("project.manage", projectSource)
-  @ApiOperation({
-    operationId: "createProjectRequiredCase",
-    summary: "필수 케이스 추가",
-  })
-  @ApiBody({ type: CreateRequiredCaseDto })
-  @ApiCreatedResponse({ type: RequiredCaseDto })
-  createCase(
-    @Param("projectId", ParseUUIDPipe) id: string,
-    @Body() dto: CreateRequiredCaseDto,
-  ) {
-    return this.service.createCase(id, dto);
-  }
-
-  @Patch(":projectId/required-cases/:caseId")
-  @RequirePermission("project.manage", projectSource)
-  @ApiOperation({
-    operationId: "updateProjectRequiredCase",
-    summary: "필수 케이스 수정",
-  })
-  @ApiBody({ type: UpdateRequiredCaseDto })
-  @ApiOkResponse({ type: RequiredCaseDto })
-  updateCase(
-    @Param("projectId", ParseUUIDPipe) id: string,
-    @Param("caseId", ParseUUIDPipe) caseId: string,
-    @Body() dto: UpdateRequiredCaseDto,
-  ) {
-    return this.service.updateCase(id, caseId, dto);
-  }
-
-  @Delete(":projectId/required-cases/:caseId")
-  @RequirePermission("project.manage", projectSource)
-  @HttpCode(204)
-  @ApiOperation({
-    operationId: "deleteProjectRequiredCase",
-    summary: "추가한 필수 케이스 삭제",
-  })
-  @ApiNoContentResponse()
-  removeCase(
-    @Param("projectId", ParseUUIDPipe) id: string,
-    @Param("caseId", ParseUUIDPipe) caseId: string,
-  ) {
-    return this.service.removeCase(id, caseId);
   }
 
   @Get(":projectId/screens")

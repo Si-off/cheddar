@@ -84,24 +84,6 @@ export class UpdateFeatureGroupDto {
   @MaxLength(2000)
   description?: string;
 }
-export class CreateRequiredCaseDto {
-  @ApiProperty({ minLength: 1, maxLength: 300 })
-  @Transform(trim)
-  @IsString()
-  @MinLength(1)
-  @MaxLength(300)
-  description!: string;
-}
-export class UpdateRequiredCaseDto {
-  @ApiPropertyOptional({ minLength: 1, maxLength: 300 })
-  @ValidateIf(optional)
-  @Transform(trim)
-  @IsString()
-  @MinLength(1)
-  @MaxLength(300)
-  description?: string;
-  @ApiPropertyOptional() @ValidateIf(optional) @IsBoolean() enabled?: boolean;
-}
 export class CreateScreenDto {
   @ApiProperty({ minLength: 1, maxLength: 100 })
   @Transform(trim)
@@ -169,6 +151,13 @@ export class FeatureGroupOrderDto {
 }
 export const COLUMN_TYPES = ["text", "select", "checkbox", "tags"] as const;
 export class TemplateColumnDto {
+  @ApiProperty({ type: String, nullable: true, maxLength: 40 })
+  @ValidateIf((_o, value) => value !== null)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  presetKey!: string | null;
+  @ApiProperty() @IsBoolean() enabled!: boolean;
   @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
   @ApiProperty({
     type: String,
@@ -242,15 +231,6 @@ export class FeatureGroupDto {
 }
 export class FeatureGroupListDto {
   @ApiProperty({ type: [FeatureGroupDto] }) items!: FeatureGroupDto[];
-}
-export class RequiredCaseDto {
-  @ApiProperty({ format: "uuid" }) id!: string;
-  @ApiProperty() description!: string;
-  @ApiProperty() enabled!: boolean;
-  @ApiProperty() isDefault!: boolean;
-}
-export class RequiredCaseListDto {
-  @ApiProperty({ type: [RequiredCaseDto] }) items!: RequiredCaseDto[];
 }
 export class ScreenDto {
   @ApiProperty({ format: "uuid" }) id!: string;
