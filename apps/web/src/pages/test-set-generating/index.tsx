@@ -1,6 +1,4 @@
 import {
-  Breadcrumb,
-  BreadcrumbItem,
   buttonVariants,
   Icon,
   LoadError,
@@ -153,12 +151,6 @@ export function TestSetGeneratingPage({
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-6 pt-8 pb-12">
-      <Breadcrumb>
-        <BreadcrumbItem render={<Link to="/test-sets" />}>
-          테스트 세트
-        </BreadcrumbItem>
-        <BreadcrumbItem current>{name}</BreadcrumbItem>
-      </Breadcrumb>
       {current.isError ? (
         <LoadError
           title="진행 상황을 불러오지 못했습니다"
