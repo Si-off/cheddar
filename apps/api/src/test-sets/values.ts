@@ -4,11 +4,14 @@ import { ApiError } from "../common/errors";
 import type { TestSetColumnDto } from "../contracts/test-set.dto";
 import {
   AddCaseOpDto,
+  AddColumnOpDto,
   ApplyOpsDto,
   type CaseOp,
   type CellValue,
   DeleteCasesOpDto,
   MoveCaseOpDto,
+  RemoveColumnOpDto,
+  ReorderColumnsOpDto,
   SetCellOpDto,
   TestSetViewDto,
 } from "../contracts/test-set.dto";
@@ -90,6 +93,9 @@ export function validateOps(input: unknown): CaseOp[] {
     if (!input || typeof input !== "object" || Array.isArray(input))
       return validationFailed("편집 내용을 확인해주세요.");
     const type = new Map<string, new () => CaseOp>([
+      ["add_column", AddColumnOpDto],
+      ["remove_column", RemoveColumnOpDto],
+      ["reorder_columns", ReorderColumnsOpDto],
       ["set_cell", SetCellOpDto],
       ["add_case", AddCaseOpDto],
       ["delete_cases", DeleteCasesOpDto],
@@ -101,7 +107,13 @@ export function validateOps(input: unknown): CaseOp[] {
       validateSync(op, { whitelist: true, forbidNonWhitelisted: true }).length
     )
       return validationFailed("편집 내용을 확인해주세요.");
-    if (op.type === "delete_cases")
+    if (op.type === "reorder_columns")
+      op.columnIds = op.columnIds.map((id) => id.toLowerCase());
+    else if (op.type === "add_column" || op.type === "remove_column") {
+      op.columnId = op.columnId.toLowerCase();
+      if (op.type === "add_column")
+        op.afterColumnId = op.afterColumnId?.toLowerCase() ?? null;
+    } else if (op.type === "delete_cases")
       op.caseIds = op.caseIds.map((id) => id.toLowerCase());
     else {
       op.caseId = op.caseId.toLowerCase();

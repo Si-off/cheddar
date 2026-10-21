@@ -21,7 +21,7 @@ function validateColumns(input: unknown, project: boolean): UpdateTemplateDto {
   const presets = new Set<string>();
   const systems = new Set<string>();
   for (const column of dto.columns) {
-    if (project && column.presetKey !== null) {
+    if (column.presetKey !== null) {
       const preset = findPresetColumn(column.presetKey);
       if (
         !preset ||
@@ -71,6 +71,8 @@ function validateColumns(input: unknown, project: boolean): UpdateTemplateDto {
   if (systems.size !== 2) return fail("테스트 ID와 제목이 필요합니다.");
   if (project && presets.size !== PRESET_COLUMNS.length)
     return fail("사전 정의 열은 모두 하나씩 있어야 합니다.");
+  if (!project && dto.columns[0]?.systemKey !== "test_id")
+    return fail("테스트 ID는 맨 앞에 있어야 합니다.");
   return dto;
 }
 export const PRESET_COLUMNS: readonly Readonly<
@@ -227,7 +229,7 @@ export function defaultColumns(): TemplateColumnDto[] {
 export function validateTemplate(input: unknown): UpdateTemplateDto {
   return validateColumns(input, true);
 }
-// 세트 전체 교체는 2단계의 열 연산 도입 전까지 기존 편집 규칙을 유지한다.
+// 세트는 사전 정의 열 일부를 생략할 수 있다.
 export function validateSetColumns(input: unknown): UpdateTemplateDto {
   return validateColumns(input, false);
 }

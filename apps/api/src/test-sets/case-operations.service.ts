@@ -5,7 +5,14 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { ApiError, notFound } from "../common/errors";
 import type { CellValue, OpsResultDto } from "../contracts/test-set.dto";
 import type { DatabaseTransaction } from "../database/database.service";
-import { testCases, testCaseValues, viewPreferences } from "../database/schema";
+import {
+  reviewItems,
+  testCases,
+  testCaseValues,
+  testSetColumns,
+  viewPreferences,
+} from "../database/schema";
+import { findPresetColumn, validateSetColumns } from "../projects/template";
 import { forbidden, type SetSubject, TestSetsStore } from "./test-sets.store";
 import {
   normalizeValues,
@@ -190,12 +197,140 @@ export class CaseOperationsService {
           changed.delete(caseId);
           deleted.add(caseId);
         }
+      } else if (op.type === "add_column") {
+        if (
+          columnMap.has(op.columnId) ||
+          (op.column.presetKey !== null &&
+            columns.some((c) => c.presetKey === op.column.presetKey))
+        )
+          throw new ApiError(409, "COLUMN_EXISTS", "이미 있는 열입니다.");
+        if (op.afterColumnId === null)
+          return validationFailed("테스트 ID 앞에는 열을 추가할 수 없습니다.");
+        const after = columns.findIndex((c) => c.id === op.afterColumnId);
+        if (after < 0) throw notFound();
+        const candidate = {
+          ...op.column,
+          id: op.columnId,
+          systemKey: op.column.presetKey
+            ? (findPresetColumn(op.column.presetKey)?.systemKey ?? null)
+            : null,
+        };
+        const next = [...columns];
+        next.splice(after + 1, 0, candidate);
+        const validated = validateSetColumns({
+          revision: 1,
+          columns: next.map((c) => ({ ...c, enabled: true })),
+        }).columns[after + 1];
+        const { enabled: _enabled, ...column } = validated;
+        const inserted = await tx
+          .insert(testSetColumns)
+          .values({ ...column, testSetId: id, position: after + 1 })
+          .onConflictDoNothing()
+          .returning({ id: testSetColumns.id });
+        if (!inserted.length)
+          throw new ApiError(409, "COLUMN_EXISTS", "이미 있는 열입니다.");
+        columns.splice(after + 1, 0, column);
+        columnMap.set(column.id, column);
+        op.column = {
+          name: column.name,
+          type: column.type,
+          description: column.description,
+          options: column.options,
+          presetKey: column.presetKey,
+        };
+      } else if (op.type === "remove_column") {
+        const column = columnMap.get(op.columnId);
+        if (!column) throw notFound();
+        if (column.systemKey)
+          return validationFailed("테스트 ID와 제목은 삭제할 수 없습니다.");
+        const prefs = await tx
+          .select()
+          .from(viewPreferences)
+          .where(eq(viewPreferences.testSetId, id));
+        for (const pref of prefs) {
+          const widths = { ...pref.columnWidths };
+          delete widths[column.id];
+          await tx
+            .update(viewPreferences)
+            .set({
+              columnWidths: widths,
+              groupByColumnId:
+                pref.groupByColumnId === column.id
+                  ? null
+                  : pref.groupByColumnId,
+            })
+            .where(eq(viewPreferences.id, pref.id));
+        }
+        await tx
+          .update(reviewItems)
+          .set({
+            draft: sql`${reviewItems.draft} - ${column.id}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(reviewItems.testSetId, id));
+        // FK cascade가 이 열의 test_case_values도 함께 지운다.
+        await tx
+          .delete(testSetColumns)
+          .where(
+            and(
+              eq(testSetColumns.testSetId, id),
+              eq(testSetColumns.id, column.id),
+            ),
+          );
+        columns.splice(
+          columns.findIndex((c) => c.id === column.id),
+          1,
+        );
+        columnMap.delete(column.id);
+        for (const c of byId.values()) {
+          if (Object.hasOwn(c.values, column.id)) {
+            delete c.values[column.id];
+            changed.add(c.id);
+          }
+        }
+      } else if (op.type === "reorder_columns") {
+        if (
+          op.columnIds.length !== columns.length ||
+          new Set(op.columnIds).size !== columns.length ||
+          op.columnIds.some((id) => !columnMap.has(id))
+        )
+          throw new ApiError(
+            409,
+            "STALE_ORDER",
+            "열 목록이 변경되었습니다. 다시 확인해주세요.",
+          );
+        if (op.columnIds[0] !== testId.id)
+          return validationFailed("테스트 ID는 맨 앞에 있어야 합니다.");
+        columns.splice(
+          0,
+          columns.length,
+          ...op.columnIds.map((id) => {
+            const column = columnMap.get(id);
+            if (!column) throw notFound();
+            return column;
+          }),
+        );
       } else {
         requireCase(op.caseId);
         place(op.caseId, op.afterCaseId);
         changed.add(op.caseId);
       }
     }
+    if (
+      ops.some((op) =>
+        ["add_column", "remove_column", "reorder_columns"].includes(op.type),
+      )
+    )
+      for (const [position, column] of columns.entries())
+        await tx
+          .update(testSetColumns)
+          .set({ position })
+          .where(
+            and(
+              eq(testSetColumns.testSetId, id),
+              eq(testSetColumns.id, column.id),
+            ),
+          );
     for (const [position, caseId] of order.entries())
       await tx
         .update(testCases)

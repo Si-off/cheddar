@@ -1,6 +1,21 @@
 // HTTP와 실시간 클라이언트가 공유하는 전송 계약. 런타임 의존성은 없다.
 export type CellValue = string | boolean | string[] | null;
+export type ColumnDefinition = {
+  name: string;
+  type: "text" | "select" | "checkbox" | "tags";
+  description: string;
+  options: string[];
+  presetKey: string | null;
+};
 export type CaseOp =
+  | {
+      type: "add_column";
+      columnId: string;
+      column: ColumnDefinition;
+      afterColumnId: string | null;
+    }
+  | { type: "remove_column"; columnId: string }
+  | { type: "reorder_columns"; columnIds: string[] }
   | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
   | {
       type: "add_case";
@@ -64,6 +79,23 @@ export function isCaseOp(v: unknown): v is CaseOp {
   if (!object(v)) return false;
   if (v.type === "delete_cases")
     return Array.isArray(v.caseIds) && v.caseIds.every(uuid);
+  if (v.type === "remove_column") return uuid(v.columnId);
+  if (v.type === "reorder_columns")
+    return Array.isArray(v.columnIds) && v.columnIds.every(uuid);
+  if (v.type === "add_column")
+    return (
+      uuid(v.columnId) &&
+      (v.afterColumnId === null || uuid(v.afterColumnId)) &&
+      object(v.column) &&
+      typeof v.column.name === "string" &&
+      typeof v.column.description === "string" &&
+      ["text", "select", "checkbox", "tags"].includes(
+        v.column.type as string,
+      ) &&
+      (v.column.presetKey === null || typeof v.column.presetKey === "string") &&
+      Array.isArray(v.column.options) &&
+      v.column.options.every((x) => typeof x === "string")
+    );
   if (!uuid(v.caseId)) return false;
   if (v.type === "set_cell") return uuid(v.columnId) && value(v.value);
   if (v.type !== "add_case" && v.type !== "move_case") return false;

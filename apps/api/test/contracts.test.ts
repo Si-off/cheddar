@@ -49,7 +49,7 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
           ).length,
         0,
       ),
-      83,
+      82,
     );
     assert.ok(
       Object.keys(document.paths).every((p) =>
@@ -111,6 +111,39 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       false,
     );
     assert.equal(ops({ ops: [] }), false);
+    assert.equal(
+      document.paths["/api/v1/test-sets/{testSetId}/columns"],
+      undefined,
+    );
+    for (const op of [
+      {
+        type: "add_column",
+        columnId,
+        column: {
+          name: "사용자 열",
+          type: "text",
+          description: "",
+          options: [],
+          presetKey: null,
+        },
+        afterColumnId: caseId,
+      },
+      { type: "remove_column", columnId },
+      { type: "reorder_columns", columnIds: [caseId, columnId] },
+    ])
+      assert.equal(ops({ ops: [op] }), true, JSON.stringify(ops.errors));
+    const createSet = ajv.getSchema("#/components/schemas/CreateTestSetDto");
+    assert.ok(createSet);
+    for (const template of [
+      { kind: "project" },
+      { kind: "recent" },
+      { kind: "custom", columns: defaultColumns() },
+    ])
+      assert.equal(
+        createSet({ name: "세트", projectId: caseId, template }),
+        true,
+        JSON.stringify(createSet.errors),
+      );
     const binary =
       document.paths["/api/v1/test-sets/{testSetId}/export"].get?.responses[
         "200"

@@ -21,7 +21,7 @@ import {
   UpdateTestSetDto,
 } from "../src/contracts/test-set.dto";
 import type { testSets } from "../src/database/schema";
-import { defaultColumns, validateTemplate } from "../src/projects/template";
+import { defaultColumns } from "../src/projects/template";
 import { CaseOperationsService } from "../src/test-sets/case-operations.service";
 import { TestSetsController } from "../src/test-sets/test-sets.controller";
 import { TestSetsService } from "../src/test-sets/test-sets.service";
@@ -275,11 +275,6 @@ test("실제 HTTP는 DB 없이 테스트 세트 DTO, UUID, 연산과 보기 설�
           create: () => {
             creates++;
           },
-          saveColumns: (
-            _id: string,
-            _actor: string,
-            input: { columns: unknown },
-          ) => validateTemplate({ revision: 1, columns: input.columns }),
           saveView: (_id: string, _actor: string, input: unknown) =>
             validateView(input),
         },
@@ -312,12 +307,6 @@ test("실제 HTTP는 DB 없이 테스트 세트 DTO, UUID, 연산과 보기 설�
       [`/${id}`, "PATCH", { projectId: randomUUID() }],
       ["/bad-id", "GET", undefined],
       ["?filter=bad", "GET", undefined],
-      [`/${id}/columns`, "PUT", { columns: [null, null] }],
-      [
-        `/${id}/columns`,
-        "PUT",
-        { columns: defaultColumns().filter((c) => c.systemKey !== "title") },
-      ],
       [`/${id}/ops`, "POST", { ops: [] }],
       [`/${id}/ops`, "POST", { ops: [{ type: "move_case", caseId: id }] }],
       [

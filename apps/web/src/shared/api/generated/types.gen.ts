@@ -328,6 +328,47 @@ export type MoveCaseOpDto = {
     afterCaseId: string | null;
 };
 
+export type AddColumnDefinitionDto = {
+    presetKey: string | null;
+    name: string;
+    type: 'text' | 'select' | 'checkbox' | 'tags';
+    description: string;
+    /**
+     * 선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장
+     */
+    options: Array<string>;
+};
+
+export type AddColumnOpDto = {
+    type: 'add_column';
+    columnId: string;
+    column: AddColumnDefinitionDto;
+    afterColumnId: string | null;
+};
+
+export type RemoveColumnOpDto = {
+    type: 'remove_column';
+    columnId: string;
+};
+
+export type ReorderColumnsOpDto = {
+    type: 'reorder_columns';
+    columnIds: Array<string>;
+};
+
+export type ProjectTemplateChoiceDto = {
+    kind: 'project';
+};
+
+export type RecentTemplateChoiceDto = {
+    kind: 'recent';
+};
+
+export type CustomTemplateChoiceDto = {
+    kind: 'custom';
+    columns: Array<TemplateColumnDto>;
+};
+
 export type TestSetPersonDto = {
     id: string;
     name: string;
@@ -348,6 +389,7 @@ export type TestSetListDto = {
 };
 
 export type CreateTestSetDto = {
+    template?: ProjectTemplateChoiceDto | RecentTemplateChoiceDto | CustomTemplateChoiceDto;
     name: string;
     projectId: string;
     memo?: string;
@@ -399,18 +441,8 @@ export type UpdateTestSetDto = {
     memo?: string;
 };
 
-export type UpdateColumnsDto = {
-    columns: Array<TestSetColumnDto>;
-};
-
-export type ColumnsResultDto = {
-    version: number;
-    columns: Array<TestSetColumnDto>;
-    cases: Array<CaseDto>;
-};
-
 export type ApplyOpsDto = {
-    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto>;
+    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto | AddColumnOpDto | RemoveColumnOpDto | ReorderColumnsOpDto>;
 };
 
 export type OpsResultDto = {
@@ -3521,58 +3553,6 @@ export type UpdateTestSetResponses = {
 };
 
 export type UpdateTestSetResponse = UpdateTestSetResponses[keyof UpdateTestSetResponses];
-
-export type UpdateTestSetColumnsData = {
-    body: UpdateColumnsDto;
-    path: {
-        testSetId: string;
-    };
-    query?: never;
-    url: '/api/v1/test-sets/{testSetId}/columns';
-};
-
-export type UpdateTestSetColumnsErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type UpdateTestSetColumnsError = UpdateTestSetColumnsErrors[keyof UpdateTestSetColumnsErrors];
-
-export type UpdateTestSetColumnsResponses = {
-    200: ColumnsResultDto;
-};
-
-export type UpdateTestSetColumnsResponse = UpdateTestSetColumnsResponses[keyof UpdateTestSetColumnsResponses];
 
 export type ApplyTestSetOpsData = {
     body: ApplyOpsDto;
