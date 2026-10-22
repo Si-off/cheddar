@@ -15,6 +15,7 @@ import {
 import {
   buildScreenDocument,
   linkTargets,
+  type ScreenDocument,
   type SourceNode,
 } from "./screen-document";
 
@@ -26,14 +27,19 @@ const PROJECT_KEY = "cheddar.lastProjectId";
 
 // 원격 UI 빌드의 __html__은 원격 주소로 이동하는 짧은 문서다
 figma.showUI(__html__, { width: 360, height: 560, themeColors: true });
+/** 업로드 한 번에서 올릴 프레임 목록. 문서를 지켜보지 않고, 프레임마다 읽는 순간의 모습을 올린다. */
 type Session = {
   id: string;
-  fileKey: string;
-  page: PageNode;
   frames: SelectedFrame[];
-  changed: boolean;
-  onChange: () => void;
 };
+/** 읽는 도중 프레임이 바뀌면 조용히 다시 읽는 횟수 */
+const SNAPSHOT_ATTEMPTS = 3;
+/** 이미지가 너무 크면 이 배율들로 차례로 다시 그린다 */
+const EXPORT_SCALES = [1, 0.5, 0.25];
+/** 사용자에게 띄우지 않는 기록. Figma 개발 콘솔에서 본다. */
+function note(message: string, detail?: Record<string, unknown>) {
+  console.info(`[cheddar] ${message}`, detail ?? "");
+}
 let selectionVersion = 0;
 let session: Session | undefined;
 function send(message: MainToUiMessage) {
@@ -120,15 +126,73 @@ figma.on("currentpagechange", () => {
   publishSelection();
 });
 function release() {
-  if (session && !session.page.removed)
-    session.page.off("nodechange", session.onChange);
   session = undefined;
 }
 function active(id: string): Session {
   if (!session || session.id !== id) throw new Error("SESSION_EXPIRED");
-  if (session.changed || session.page.removed) throw new Error("FRAME_CHANGED");
   return session;
 }
+/**
+ * 화면 문서가 너무 크면 줄인다. 구조 트리, 연결, 주석, 글자 순으로 덜어내고 보드 정보는 남긴다.
+ * 막지 않고 올릴 수 있는 만큼 올린다.
+ */
+function fitDocument(document: ScreenDocument): string {
+  let data = JSON.stringify(document);
+  if (utf8Size(data) <= MAX_FRAME_DATA_BYTES) return data;
+  const smaller: ScreenDocument = { ...document, tree: [] };
+  data = JSON.stringify(smaller);
+  for (const key of ["links", "notes", "texts"] as const) {
+    while (utf8Size(data) > MAX_FRAME_DATA_BYTES && smaller[key].length > 0) {
+      smaller[key] = smaller[key].slice(
+        0,
+        Math.floor(smaller[key].length / 2),
+      ) as never;
+      data = JSON.stringify(smaller);
+    }
+  }
+  note("화면 문서를 줄여서 올립니다", { board: document.board.name });
+  return data;
+}
+async function exportImage(node: FrameNode) {
+  for (const scale of EXPORT_SCALES) {
+    const image = await node.exportAsync({
+      format: "PNG",
+      constraint: { type: "SCALE", value: scale },
+    });
+    if (image.length && image.length <= MAX_IMAGE_BYTES) {
+      if (scale < 1)
+        note("이미지를 줄여서 올립니다", { frame: node.name, scale });
+      return image;
+    }
+  }
+  throw new Error("IMAGE_TOO_LARGE");
+}
+async function readDocument(node: FrameNode) {
+  const source = node as unknown as SourceNode;
+  const external = new Map<string, string>();
+  for (const id of linkTargets(source)) {
+    const target = await figma.getNodeByIdAsync(id);
+    if (target && "name" in target) external.set(id, target.name);
+  }
+  return buildScreenDocument(source, external);
+}
+/**
+ * 프레임 하나를 읽는 순간의 모습. 이미지를 그리는 사이 프레임이 바뀌었으면 다시 읽고,
+ * 그래도 계속 바뀌면 마지막으로 읽은 모습을 쓴다.
+ */
+async function snapshot(node: FrameNode) {
+  let document = await readDocument(node);
+  let image = await exportImage(node);
+  for (let attempt = 1; attempt < SNAPSHOT_ATTEMPTS; attempt += 1) {
+    const after = await readDocument(node);
+    if (JSON.stringify(after) === JSON.stringify(document)) break;
+    note("읽는 사이 프레임이 바뀌어 다시 읽습니다", { frame: node.name });
+    document = after;
+    image = await exportImage(node);
+  }
+  return { document, image };
+}
+
 // TextEncoder isn't available in the Figma main sandbox.
 function utf8Size(value: string) {
   let bytes = 0;
@@ -237,35 +301,22 @@ async function handle(
     });
     return;
   }
+  // 누른 순간의 선택을 그대로 쓴다. 프레임이 아닌 레이어와 빈 Section은 건너뛰고 프레임만 올린다.
   if (message.type === "prepare-upload") {
     const selected = selection();
-    if (
-      selected.version !== message.selectionVersion ||
-      selected.unsupportedCount ||
-      selected.emptySectionCount ||
-      !selected.frames.length
-    )
-      throw new Error("INVALID_SELECTION");
-    if (!selected.fileKey) throw new Error("FILE_KEY_UNAVAILABLE");
-    release();
-    const current: Session = {
-      id: message.requestId,
-      fileKey: selected.fileKey,
-      page: figma.currentPage,
-      frames: selected.frames,
-      changed: false,
-      onChange: () => {
-        current.changed = true;
-      },
-    };
-    current.page.on("nodechange", current.onChange);
-    session = current;
+    if (!selected.frames.length) throw new Error("INVALID_SELECTION");
+    if (selected.unsupportedCount || selected.emptySectionCount)
+      note("프레임이 아닌 레이어와 빈 Section은 빼고 올립니다", {
+        unsupported: selected.unsupportedCount,
+        emptySections: selected.emptySectionCount,
+      });
+    session = { id: message.requestId, frames: selected.frames };
     send({
       type: "upload-prepared",
       requestId: message.requestId,
-      sessionId: current.id,
-      fileKey: current.fileKey,
-      frames: current.frames,
+      sessionId: session.id,
+      fileKey: selected.fileKey,
+      frames: session.frames,
     });
     return;
   }
@@ -283,43 +334,27 @@ async function handle(
   );
   if (!expected) throw new Error("INVALID_SELECTION");
   const node = await figma.getNodeByIdAsync(message.nodeId);
-  if (
-    node?.type !== "FRAME" ||
-    node.removed ||
-    JSON.stringify(metadata(node)) !== JSON.stringify(expected)
-  )
-    throw new Error("FRAME_CHANGED");
-  const source = node as unknown as SourceNode;
-  const external = new Map<string, string>();
-  for (const id of linkTargets(source)) {
-    const target = await figma.getNodeByIdAsync(id);
-    if (target && "name" in target) external.set(id, target.name);
+  // 지워진 프레임만 빼고 나머지는 올린다. 이름과 크기가 바뀌었으면 지금 모습으로 올린다.
+  if (node?.type !== "FRAME" || node.removed) {
+    note("업로드 중 지워진 프레임은 뺍니다", { nodeId: message.nodeId });
+    throw new Error("FRAME_REMOVED");
   }
-  const data = JSON.stringify(buildScreenDocument(source, external));
-  if (utf8Size(data) > MAX_FRAME_DATA_BYTES) throw new Error("DATA_TOO_LARGE");
-  const image = await node.exportAsync({
-    format: "PNG",
-    constraint: { type: "SCALE", value: 1 },
-  });
-  if (!image.length || image.length > MAX_IMAGE_BYTES)
-    throw new Error("IMAGE_TOO_LARGE");
-  active(current.id);
-  if (JSON.stringify(metadata(node)) !== JSON.stringify(expected))
-    throw new Error("FRAME_CHANGED");
+  const { document, image } = await snapshot(node);
   send({
     type: "frame-exported",
     requestId: message.requestId,
     sessionId: current.id,
-    frame: expected,
+    // 지금 모습으로 올리되 메시지 계약(이름 1~255자)에 맞춘다
+    frame: {
+      ...metadata(node),
+      name: (node.name || expected.name).slice(0, 255),
+    },
     image,
-    data,
+    data: fitDocument(document),
   });
 }
 figma.on("selectionchange", publishSelection);
-figma.on("stylechange", () => {
-  if (session) session.changed = true;
-  publishSelection();
-});
+figma.on("stylechange", publishSelection);
 figma.on("close", () => {
   if (!observedPage.removed) observedPage.off("nodechange", publishSelection);
   release();
@@ -338,10 +373,8 @@ figma.ui.onmessage = (message: unknown) => {
   void handle(message).catch((error: unknown) => {
     const known: ExportErrorCode[] = [
       "INVALID_SELECTION",
-      "FILE_KEY_UNAVAILABLE",
-      "FRAME_CHANGED",
+      "FRAME_REMOVED",
       "IMAGE_TOO_LARGE",
-      "DATA_TOO_LARGE",
       "SESSION_EXPIRED",
       "WEB_UNAVAILABLE",
     ];
@@ -349,6 +382,8 @@ figma.ui.onmessage = (message: unknown) => {
       error instanceof Error && known.includes(error.message as ExportErrorCode)
         ? (error.message as ExportErrorCode)
         : "EXPORT_FAILED";
+    if (code === "EXPORT_FAILED")
+      note("프레임을 읽지 못했습니다", { error: String(error) });
     send({ type: "export-error", requestId: message.requestId, code });
   });
 };

@@ -184,12 +184,6 @@ export function exportSelectedFrame(sessionId: string, nodeId: string) {
     "frame-exported",
   );
 }
-export function validateFrameUpload(sessionId: string) {
-  return request(
-    { type: "validate-upload", requestId: createRequestId(), sessionId },
-    "upload-validated",
-  );
-}
 export function releaseFrameUpload(sessionId: string) {
   post({ type: "release-upload", sessionId });
 }
