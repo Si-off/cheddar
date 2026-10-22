@@ -9,7 +9,11 @@ export interface ApiEnv {
   databaseUrl: string;
   storageRoot: string;
   port: number;
+  /** listen 주소. 기본은 loopback이고 외부 호스팅에서는 0.0.0.0 */
+  host: string;
   corsOrigins: string[];
+  /** 웹과 API가 다른 사이트에 있을 때만 none. Secure가 필요해 production에서만 허용한다 */
+  cookieSameSite: "lax" | "none";
   allowFigmaNullOrigin?: boolean;
   /** 원격으로 호스팅한 플러그인 UI의 Origin. 플러그인 경로에만 credentials 없이 허용한다 */
   pluginUiOrigin?: string;
@@ -48,9 +52,16 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       "FILE_STORAGE_ROOT must be an absolute, dedicated directory.",
     );
   }
-  const port = Number(env.API_PORT ?? 3101);
+  // 호스팅 서비스가 정해 주는 PORT는 API_PORT가 없을 때만 따른다
+  const port = Number(env.API_PORT || env.PORT || 3101);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error("API_PORT is invalid.");
+  const host = env.API_HOST?.trim() || "127.0.0.1";
+  const cookieSameSite = env.COOKIE_SAME_SITE?.trim() || "lax";
+  if (cookieSameSite !== "lax" && cookieSameSite !== "none")
+    throw new Error("COOKIE_SAME_SITE must be lax or none.");
+  if (cookieSameSite === "none" && env.NODE_ENV !== "production")
+    throw new Error("COOKIE_SAME_SITE=none requires NODE_ENV=production.");
   const corsOrigins = (env.CORS_ORIGINS ?? "http://127.0.0.1:5173")
     .split(",")
     .map((s) => s.trim());
@@ -111,7 +122,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     databaseUrl: databaseUrl as string,
     storageRoot: resolve(storageRoot),
     port,
+    host,
     corsOrigins,
+    cookieSameSite,
     allowFigmaNullOrigin: allowNullOrigin === "true",
     pluginUiOrigin,
     production: env.NODE_ENV === "production",

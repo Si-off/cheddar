@@ -26,6 +26,8 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
       storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
       port: 3101,
+      host: "127.0.0.1",
+      cookieSameSite: "lax",
       corsOrigins: [],
       workersEnabled: false,
     },

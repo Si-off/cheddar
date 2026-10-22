@@ -56,7 +56,7 @@ export class AuthController {
     const result = await this.service.login(dto.email, dto.password);
     response.cookie(SESSION_COOKIE, result.token, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: this.config.cookieSameSite,
       secure: this.config.production === true,
       path: "/",
       maxAge: SESSION_SECONDS * 1000,
@@ -75,7 +75,7 @@ export class AuthController {
     await this.service.logout(sessionCookie(request));
     response.clearCookie(SESSION_COOKIE, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: this.config.cookieSameSite,
       secure: this.config.production === true,
       path: "/",
     });

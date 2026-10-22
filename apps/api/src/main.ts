@@ -14,9 +14,9 @@ async function main() {
     const database = app.get(DatabaseService);
     await checkMigrations(database, resolve(process.cwd(), "migrations"));
     app.enableShutdownHooks();
-    await app.listen(config.port, "127.0.0.1");
+    await app.listen(config.port, config.host);
     process.stdout.write(
-      `Cheddar API listening on http://127.0.0.1:${config.port}\n`,
+      `Cheddar API listening on http://${config.host}:${config.port}\n`,
     );
   } catch {
     await app.close();
