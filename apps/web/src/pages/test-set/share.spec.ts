@@ -178,6 +178,80 @@ test("다른 사람의 연산과 셀 선택이 바로 보인다", async ({ page 
   ).toBeVisible();
 });
 
+test("실행취소할 셀을 그 사이 다른 사람이 바꿨으면 그 셀은 되돌리지 않고 알린다", async ({
+  page,
+}) => {
+  const caseId = liveSet.cases[0].id;
+  const expId = columnId("c-exp");
+  let socket: WebSocketRoute | undefined;
+  const calls = await mockApi(
+    page,
+    {
+      "GET /api/v1/auth/me": me(),
+      ...testSetResponses({
+        "GET /api/v1/test-sets/t1": liveSet,
+        "POST /api/v1/test-sets/t1/ops": () => ({
+          version: testSet.version + 1,
+          cases: [],
+          deletedCaseIds: [],
+        }),
+      }),
+    },
+    {
+      live: (ws) => {
+        socket = ws;
+        ws.onMessage((message) => {
+          if (JSON.parse(String(message)).type === "hello") welcome(ws);
+        });
+      },
+    },
+  );
+  await page.goto("/test-sets/t1");
+  await expect(
+    page.getByRole("listitem", { name: "춤추는 수달 (방문자)" }),
+  ).toBeVisible();
+  const expected = page
+    .getByRole("table", { name: "케이스" })
+    .getByRole("row")
+    .nth(1)
+    .getByRole("cell")
+    .nth(3);
+  await expected.click();
+  await page.keyboard.type("내가 고침");
+  await page.keyboard.press("Enter");
+  await expect(expected).toHaveText("내가 고침");
+  await expect
+    .poll(
+      () =>
+        calls.filter((c) => c.key === "POST /api/v1/test-sets/t1/ops").length,
+    )
+    .toBe(1);
+  socket?.send(
+    JSON.stringify({
+      type: "ops",
+      version: testSet.version + 2,
+      ops: [
+        { type: "set_cell", caseId, columnId: expId, value: "수달이 고침" },
+      ],
+      connectionId: "00000000-0000-4000-8000-000000000002",
+      actor: {
+        kind: "visitor",
+        id: "00000000-0000-4000-8000-0000000000b1",
+        name: "춤추는 수달",
+      },
+    }),
+  );
+  await expect(expected).toHaveText("수달이 고침");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(
+    page.getByText("다른 사람이 바꾼 셀은 되돌리지 않았습니다"),
+  ).toBeVisible();
+  await expect(expected).toHaveText("수달이 고침");
+  expect(
+    calls.filter((c) => c.key === "POST /api/v1/test-sets/t1/ops"),
+  ).toHaveLength(1);
+});
+
 test("권한을 잃어 연결이 끊기면 화면을 닫는다", async ({ page }) => {
   await mockApi(
     page,

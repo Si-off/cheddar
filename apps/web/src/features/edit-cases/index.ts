@@ -10,6 +10,8 @@ import {
 } from "@/entities/test-set";
 import { isApiFailure, type OpsResultDto, toApiFailure } from "@/shared/api";
 
+export * from "./history";
+
 /** 서버가 한 요청에서 받는 연산 수 */
 const MAX_OPS = 500;
 /** 다시 읽은 내용이 알려진 순번보다 오래됐을 때 더 읽는 횟수 */

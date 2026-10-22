@@ -48,7 +48,7 @@ import {
   liveConnectionHeader,
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
-import { useCaseOps } from "@/features/edit-cases";
+import { useCaseHistory, useCaseOps } from "@/features/edit-cases";
 import { useExportXlsx } from "@/features/export-xlsx";
 import { GenerateSheet } from "@/features/generate-cases";
 import {
@@ -61,7 +61,7 @@ import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
 import { CaseBoard } from "@/widgets/case-board";
 import { CaseDialog } from "@/widgets/case-dialog";
-import { CaseTable } from "@/widgets/case-table";
+import { CaseTable, CellToolbar } from "@/widgets/case-table";
 import { NoAccessNotice } from "@/widgets/no-access-notice";
 import { ReviewPanel } from "@/widgets/review-panel";
 import { ShareDialog } from "@/widgets/share-dialog";
@@ -167,6 +167,8 @@ function TestSetScreen({
     },
   });
   connection.current = live.connectionId;
+  // 내가 한 편집만 되돌린다
+  const history = useCaseHistory({ queryKey, apply });
   // 로그인이 끝나 연결이 닫히면 로그인 뒤 이 화면으로 돌아온다
   useEffect(() => {
     if (live.closed === "session-expired")
@@ -250,14 +252,14 @@ function TestSetScreen({
     afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
   ) => {
     const caseId = crypto.randomUUID();
-    apply([{ type: "add_case", caseId, afterCaseId, values }]);
+    history.record([{ type: "add_case", caseId, afterCaseId, values }]);
     return caseId;
   };
   const removeSelected = () => {
-    apply([{ type: "delete_cases", caseIds: [...selectedIds] }]);
+    history.record([{ type: "delete_cases", caseIds: [...selectedIds] }]);
     setSelected(new Set());
   };
-  const onOps = (ops: CaseOp[]) => apply(ops);
+  const onOps = (ops: CaseOp[]) => history.record(ops);
   // 열 추가 연산이 저장된 뒤에 채우기를 시작한다
   const fillColumn = (columnId: string) =>
     settled()
@@ -392,6 +394,18 @@ function TestSetScreen({
             <span ref={setCellTools} className="contents" />
           </>
         )}
+        {view.view === "table" && testSet.cases.length === 0 && !readOnly && (
+          // 마지막 행을 지운 뒤에도 바로 되살릴 수 있게 실행취소는 남긴다
+          <>
+            <ToolbarSeparator />
+            <CellToolbar
+              actions={{
+                undo: history.canUndo ? history.undo : null,
+                redo: history.canRedo ? history.redo : null,
+              }}
+            />
+          </>
+        )}
         {view.view === "card" && (
           <Select
             size="sm"
@@ -516,6 +530,10 @@ function TestSetScreen({
               onAddCase={() => addCase()}
               onInsertCase={(after) => addCase({}, after)}
               toolsTarget={cellTools}
+              onUndo={history.undo}
+              onRedo={history.redo}
+              canUndo={history.canUndo}
+              canRedo={history.canRedo}
               {...tableProps}
             />
           )}

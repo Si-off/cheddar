@@ -24,7 +24,7 @@ import {
   liveConnectionHeader,
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
-import { useCaseOps } from "@/features/edit-cases";
+import { useCaseHistory, useCaseOps } from "@/features/edit-cases";
 import { useExportSharedXlsx } from "@/features/export-xlsx";
 import { sharedViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk } from "@/shared/api";
@@ -95,6 +95,8 @@ function SharedScreen({
       });
     },
   });
+  // 내가 한 편집만 되돌린다
+  const history = useCaseHistory({ queryKey, apply });
   const live = useLiveTestSet(`shared/${encodeURIComponent(linkToken)}`, {
     version: () =>
       queryClient.getQueryData<SharedTestSet>(queryKey)?.version ?? 0,
@@ -152,7 +154,7 @@ function SharedScreen({
     afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
   ) => {
     const caseId = crypto.randomUUID();
-    apply([{ type: "add_case", caseId, afterCaseId, values: {} }]);
+    history.record([{ type: "add_case", caseId, afterCaseId, values: {} }]);
     return caseId;
   };
 
@@ -232,7 +234,7 @@ function SharedScreen({
           cases={cases}
           readOnly={readOnly}
           canEditColumns={!readOnly && !visitor}
-          onOps={apply}
+          onOps={history.record}
           onAddCase={() => addCase()}
           onInsertCase={addCase}
           presence={live.presence}
@@ -242,6 +244,10 @@ function SharedScreen({
           onColumnWidthsChange={(columnWidths) => setView({ columnWidths })}
           onRowHeightsChange={(rowHeights) => setView({ rowHeights })}
           toolsTarget={cellTools}
+          onUndo={history.undo}
+          onRedo={history.redo}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
         />
       </main>
     </div>

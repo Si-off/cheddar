@@ -225,6 +225,82 @@ export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
     : { columns, cases: next };
 }
 
+/** 형식별 빈 값 */
+export const emptyValue = (column: Pick<Column, "type">): CellValue =>
+  column.type === "checkbox"
+    ? false
+    : column.type === "tags"
+      ? []
+      : column.type === "select"
+        ? null
+        : "";
+
+/** 되돌릴 때 그 셀이 아직 이 값이어야 한다(그 사이 다른 사람이 바꾸지 않았는지 확인한다) */
+export interface CellExpectation {
+  caseId: string;
+  columnId: string;
+  value: CellValue;
+}
+
+export interface Reversal {
+  ops: CaseOp[];
+  expect: CellExpectation[];
+}
+
+/**
+ * 연산을 되돌리는 연산. 셀 값과 케이스 추가·삭제·이동만 되돌리고 열 연산은 되돌리지 않는다.
+ * 지운 케이스는 같은 ID와 값(테스트 ID 포함)으로 원래 자리에 다시 넣는다.
+ */
+export function invertOps(state: SheetState, ops: CaseOp[]): Reversal {
+  let work = state;
+  const groups: CaseOp[][] = [];
+  const expect: CellExpectation[] = [];
+  for (const op of ops) {
+    const inverse: CaseOp[] = [];
+    if (op.type === "set_cell") {
+      const target = work.cases.find((c) => c.id === op.caseId);
+      const column = work.columns.find((c) => c.id === op.columnId);
+      if (target && column) {
+        inverse.push({
+          type: "set_cell",
+          caseId: op.caseId,
+          columnId: op.columnId,
+          value: target.values[op.columnId] ?? emptyValue(column),
+        });
+        expect.push({
+          caseId: op.caseId,
+          columnId: op.columnId,
+          value: op.value,
+        });
+      }
+    } else if (op.type === "add_case") {
+      inverse.push({ type: "delete_cases", caseIds: [op.caseId] });
+    } else if (op.type === "delete_cases") {
+      const ids = new Set(op.caseIds);
+      work.cases.forEach((c, index) => {
+        if (!ids.has(c.id)) return;
+        inverse.push({
+          type: "add_case",
+          caseId: c.id,
+          afterCaseId: work.cases[index - 1]?.id ?? null,
+          values: c.values,
+        });
+      });
+    } else if (op.type === "move_case") {
+      const index = work.cases.findIndex((c) => c.id === op.caseId);
+      if (index >= 0)
+        inverse.push({
+          type: "move_case",
+          caseId: op.caseId,
+          afterCaseId: work.cases[index - 1]?.id ?? null,
+        });
+    }
+    groups.unshift(inverse);
+    work = applyOps(work, [op]);
+  }
+  return { ops: groups.flat(), expect };
+}
+
 /** 서버가 돌려준 바뀐 케이스로 덮는다. 순서는 화면 순서를 지킨다. */
 export function mergeCases(
   cases: TestCase[],
