@@ -21,12 +21,6 @@ export function AppHeader() {
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-6 border-b border-line bg-surface px-6">
-      <Link
-        to="/test-sets"
-        className="text-title-sm font-bold text-fg no-underline"
-      >
-        Cheddar
-      </Link>
       <NavTabs variant="pill" aria-label="주요 메뉴">
         <NavTab
           render={<Link to="/test-sets" />}

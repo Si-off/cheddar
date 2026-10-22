@@ -3,7 +3,7 @@ import { ChevronDown, ExternalLink, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { openHomeInWeb } from "@/shared/lib/figma-bridge";
 
-/** 플러그인 창 한 장. 머리글, 내용, 아래 버튼 줄 */
+/** 플러그인 창 한 장. 계정 머리글(로그인했을 때만), 내용, 아래 버튼 줄 */
 export function PluginShell({
   account,
   onSignOut,
@@ -19,10 +19,8 @@ export function PluginShell({
   const toast = useToast();
   return (
     <div className="flex h-screen flex-col bg-surface text-body-sm text-fg">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-line border-b pr-2.5 pl-4">
-        <span className="font-bold text-title-sm">Cheddar</span>
-        <span className="flex-1" />
-        {account && (
+      {account && (
+        <header className="flex h-11 shrink-0 items-center justify-end border-line border-b px-2.5">
           <Menu.Root>
             <Menu.Trigger
               aria-label={`${account.name} 계정 메뉴`}
@@ -63,8 +61,8 @@ export function PluginShell({
               </Menu.Item>
             </Menu.Popup>
           </Menu.Root>
-        )}
-      </header>
+        </header>
+      )}
       <main className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-3.5">
         {children}
       </main>

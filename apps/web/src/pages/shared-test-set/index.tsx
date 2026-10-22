@@ -156,8 +156,6 @@ function SharedScreen({
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
       <header className="flex min-h-14 flex-wrap items-center gap-3 border-line border-b bg-surface px-6 py-2">
-        <span className="font-bold text-title">Cheddar</span>
-        <span className="h-5 w-px bg-line" />
         <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
         {readOnly ? (
           <Badge tone="info" icon={Eye}>
