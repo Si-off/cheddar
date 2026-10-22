@@ -3,7 +3,6 @@ import {
   Banner,
   Button,
   buttonVariants,
-  cn,
   EmptyState,
   IconButton,
   LoadError,
@@ -330,12 +329,8 @@ function TestSetScreen({
     );
 
   return (
-    <main
-      className={cn(
-        "flex w-full flex-col gap-4 px-8 pt-6 pb-8",
-        canvas && "min-h-0 flex-1",
-      )}
-    >
+    // 표와 캔버스는 화면 높이를 채우고 안에서 스크롤한다
+    <main className="flex min-h-0 w-full flex-1 flex-col gap-4 px-8 pt-6 pb-8">
       <div className="flex min-h-9 flex-wrap items-center gap-3">
         <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
         {!readOnly && <SaveStatus state={state} />}
@@ -563,13 +558,8 @@ function TestSetScreen({
         />
       )}
 
-      <div
-        className={cn(
-          "flex flex-col gap-4 lg:flex-row",
-          canvas ? "min-h-0 flex-1" : "items-start",
-        )}
-      >
-        <div className={cn("min-w-0 flex-1", canvas && "flex flex-col")}>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col">
           {canvas ? (
             <CaseCanvas
               columns={testSet.columns}
@@ -594,18 +584,22 @@ function TestSetScreen({
               }
             />
           ) : (
-            <CaseTable
-              aria-label="케이스"
-              cases={cases}
-              onAddCase={() => addCase()}
-              onInsertCase={(after) => addCase({}, after)}
-              toolsTarget={cellTools}
-              onUndo={history.undo}
-              onRedo={history.redo}
-              canUndo={history.canUndo}
-              canRedo={history.canRedo}
-              {...tableProps}
-            />
+            <div className="relative min-h-96 flex-1">
+              <div className="absolute inset-0 flex flex-col">
+                <CaseTable
+                  aria-label="케이스"
+                  cases={cases}
+                  onAddCase={() => addCase()}
+                  onInsertCase={(after) => addCase({}, after)}
+                  toolsTarget={cellTools}
+                  onUndo={history.undo}
+                  onRedo={history.redo}
+                  canUndo={history.canUndo}
+                  canRedo={history.canRedo}
+                  {...tableProps}
+                />
+              </div>
+            </div>
           )}
         </div>
         <ReviewPanel
