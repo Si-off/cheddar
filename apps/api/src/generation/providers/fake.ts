@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
+import { scenarioColumns } from "../scenarios";
 import { isAiColumn } from "../steps/column-rules";
-import type { CaseOutput, Draft, FlowOutput, ScreenOutput } from "../types";
+import type {
+  CaseOutput,
+  Draft,
+  FlowOutput,
+  ScenarioOutput,
+  ScreenOutput,
+} from "../types";
 import {
   type AiProvider,
   type AiRequest,
@@ -13,7 +20,7 @@ export class FakeProvider implements AiProvider {
     const source = r.sourceData as {
       screens?: ScreenOutput;
       group?: FlowOutput["groups"][number];
-      outputs?: (CaseOutput & { groupKey?: string })[];
+      outputs?: (ScenarioOutput & { groupKey?: string })[];
     };
     const draft = (title: string): Draft =>
       Object.fromEntries(
@@ -79,26 +86,36 @@ export class FakeProvider implements AiProvider {
       output = draft(`답변 반영: ${input.review?.answer ?? ""}`);
     else if (definition.key === "finish") {
       const all = source.outputs ?? [];
-      const reviews = all
-        .flatMap((o) =>
-          o.reviews.map((r) => ({ review: r, groupKey: o.groupKey ?? null })),
-        )
-        .slice(0, 1);
       output = {
-        cases: all.flatMap((o) => o.cases),
-        reviews: reviews.map((r) => r.review),
-        caseGroupKeys: all.flatMap((o) =>
-          o.cases.map(() => o.groupKey ?? null),
+        scenarios: all.flatMap((o) =>
+          o.scenarios.map((s) => ({ ...s, groupKey: o.groupKey ?? null })),
         ),
-        reviewGroupKeys: reviews.map((r) => r.groupKey),
+        reviews: all
+          .flatMap((o) =>
+            o.reviews.map((r) => ({ ...r, groupKey: o.groupKey ?? null })),
+          )
+          .slice(0, 1),
         coverage,
         mergedCount: 0,
-      } satisfies CaseOutput;
-    } else
+      } satisfies ScenarioOutput;
+    } else {
+      // 두 행은 같은 시나리오에서 절차를 공유해 펼친 결과가 병합 모양이 된다.
+      const { testCase, title, steps } = scenarioColumns(input.columns);
+      const row = (name: string) => {
+        const values = draft(name);
+        for (const column of [testCase, title])
+          if (column) delete values[column.id];
+        return values;
+      };
+      const tasks = ["진입", "완료"].map((step, index) => {
+        const name = `${source.group?.name ?? "화면"} ${step} ${signature}`;
+        const values = row(name);
+        if (steps && index) values[steps.id] = null;
+        return { title: name, rows: [values] };
+      });
       output = {
-        cases: [
-          draft(`${source.group?.name ?? "화면"} 진입 ${signature}`),
-          draft(`${source.group?.name ?? "화면"} 완료 ${signature}`),
+        scenarios: [
+          { name: testCase ? `${testCase.name} 확인` : "시나리오", tasks },
         ],
         reviews: [
           {
@@ -114,7 +131,8 @@ export class FakeProvider implements AiProvider {
         ],
         coverage,
         mergedCount: 0,
-      } satisfies CaseOutput;
+      } satisfies ScenarioOutput;
+    }
     return { text: JSON.stringify(output), usage: emptyUsage() };
   }
 }

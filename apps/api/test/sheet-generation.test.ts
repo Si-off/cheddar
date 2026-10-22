@@ -7,6 +7,7 @@ import { AccountsService } from "../src/accounts/accounts.service";
 import { ApiError } from "../src/common/errors";
 import type { TestSetColumnDto } from "../src/contracts/test-set.dto";
 import {
+  generationJobs,
   generationSteps,
   projectMemos,
   reviewItems,
@@ -21,6 +22,7 @@ import {
 } from "../src/generation/output-schema";
 import { stableInstructions } from "../src/generation/providers/ai-provider";
 import { FakeProvider } from "../src/generation/providers/fake";
+import { flattenScenarios } from "../src/generation/scenarios";
 import { StageRunner } from "../src/generation/stage-runner";
 import { DEFINITIONS } from "../src/generation/steps";
 import { COLUMN_RULES, isQaRecord } from "../src/generation/steps/column-rules";
@@ -28,7 +30,11 @@ import {
   applicableViewpoints,
   VIEWPOINTS,
 } from "../src/generation/steps/viewpoints";
-import type { CaseOutput, GenerationInput } from "../src/generation/types";
+import type {
+  CaseOutput,
+  GenerationInput,
+  ScenarioOutput,
+} from "../src/generation/types";
 import { validatedOutput } from "../src/generation/validated-output";
 import { type LiveChange, LiveEvents } from "../src/live/live-events";
 import { defaultColumns } from "../src/projects/template";
@@ -581,6 +587,110 @@ test("최종 생성은 QA 기록을 빈 값으로 저장하고 해당 기록이 
     for (const stage of ["screens", "flows", "cases", "finish"] as const)
       await f.runner.process(second.jobId, stage);
     assert.equal((await f.generation.store.cases(set.id)).length, cases.length);
+  } finally {
+    await f.close();
+  }
+});
+
+const contextOf = async (
+  f: Awaited<ReturnType<typeof generationFixture>>,
+  jobId: string,
+) => {
+  const [context] = await f.db
+    .select()
+    .from(generationSteps)
+    .where(
+      and(
+        eq(generationSteps.jobId, jobId),
+        eq(generationSteps.stage, "context"),
+      ),
+    );
+  return context.input as GenerationInput;
+};
+
+test("시나리오로 받은 500개가 넘는 행도 순서대로 모두 저장한다", async () => {
+  const f = await generationFixture();
+  try {
+    const set = await f.makeSet();
+    const { jobId } = await f.generation.create(set.id, f.accountId, {
+      kind: "append",
+      memo: "많은 행",
+    });
+    const input = await contextOf(f, jobId);
+    const [job] = await f.db
+      .select()
+      .from(generationJobs)
+      .where(eq(generationJobs.id, jobId));
+    const expected = input.columns.find((c) => c.presetKey === "expected");
+    const steps = input.columns.find((c) => c.presetKey === "steps");
+    assert.ok(expected && steps);
+    const rows = (from: number, count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        [steps.id]: i ? null : "1. 진입",
+        [expected.id]: `결과 ${from + i}`,
+      }));
+    await f.runner.finish(
+      job,
+      input,
+      flattenScenarios(input.columns, {
+        scenarios: [
+          {
+            name: "대량",
+            groupKey: null,
+            tasks: [
+              { title: "앞", rows: rows(0, 500) },
+              { title: "뒤", rows: rows(500, 1) },
+            ],
+          },
+        ],
+        reviews: [],
+        coverage: [],
+        mergedCount: 0,
+      }),
+    );
+    const saved = await f.generation.store.cases(set.id);
+    assert.equal(saved.length, 501);
+    assert.deepEqual(
+      saved.map((c) => c.values[expected.id]),
+      Array.from({ length: 501 }, (_, i) => `결과 ${i}`),
+    );
+    assert.ok(saved.every((c) => c.values[steps.id] === "1. 진입"));
+  } finally {
+    await f.close();
+  }
+});
+
+test("이전 형식으로 저장된 케이스 단계 출력으로도 최종 점검을 마친다", async () => {
+  const f = await generationFixture();
+  try {
+    const set = await f.makeSet();
+    const { jobId } = await f.generation.create(set.id, f.accountId, {
+      kind: "append",
+      memo: "재개",
+    });
+    for (const stage of ["screens", "flows", "cases"] as const)
+      await f.runner.process(jobId, stage);
+    const input = await contextOf(f, jobId);
+    const where = and(
+      eq(generationSteps.jobId, jobId),
+      eq(generationSteps.stage, "cases"),
+    );
+    const [step] = await f.db.select().from(generationSteps).where(where);
+    const {
+      caseGroupKeys: _,
+      reviewGroupKeys: __,
+      ...legacy
+    } = flattenScenarios(input.columns, step.output as ScenarioOutput);
+    await f.db.update(generationSteps).set({ output: legacy }).where(where);
+    await f.runner.process(jobId, "finish");
+    assert.equal(
+      (await f.generation.current(set.id, f.accountId))?.status,
+      "succeeded",
+    );
+    assert.equal(
+      (await f.generation.store.cases(set.id)).length,
+      legacy.cases.length,
+    );
   } finally {
     await f.close();
   }

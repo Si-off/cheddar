@@ -32,10 +32,11 @@ import {
   emptyUsage,
 } from "../src/generation/providers/ai-provider";
 import { FakeProvider } from "../src/generation/providers/fake";
+import { flattenScenarios } from "../src/generation/scenarios";
 import { heartbeat, jobEvent } from "../src/generation/sse";
 import { boundedMap } from "../src/generation/stage-runner";
 import { DEFINITIONS } from "../src/generation/steps";
-import type { GenerationInput } from "../src/generation/types";
+import type { GenerationInput, ScenarioOutput } from "../src/generation/types";
 import { validatedOutput } from "../src/generation/validated-output";
 import { defaultColumns } from "../src/projects/template";
 import { ReviewItemsController } from "../src/review-items/review-items.controller";
@@ -151,7 +152,7 @@ test("양식 스키마는 UUID 키, 선택 enum, 태그 중복과 필수 항목�
   assert.ok(!schema.required?.includes(context.columns[0].id));
   const output = JSON.parse((await new FakeProvider().generate(r)).text);
   validateSchema(r.schema, output);
-  const draft = output.cases[0];
+  const draft = flattenScenarios(context.columns, output).cases[0];
   validateDraft(context.columns, draft);
   const select = context.columns.find((column) => column.type === "select");
   const tags = context.columns.find((column) => column.type === "tags");
@@ -299,7 +300,10 @@ test("fake는 모든 단계에서 결정적인 양식 결과와 확인 필요를
     validateSchema(r.schema, JSON.parse(first.text));
     outputs[stage] = JSON.parse(first.text);
   }
-  const cases = outputs.cases as { cases: unknown[]; reviews: unknown[] };
+  const cases = flattenScenarios(
+    context.columns,
+    outputs.cases as ScenarioOutput,
+  );
   assert.equal(cases.cases.length, 2);
   assert.equal(cases.reviews.length, 1);
 });
