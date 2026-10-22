@@ -39,17 +39,17 @@ export class AuthService {
     @Inject(AuthorizationService)
     private readonly authorization: AuthorizationService,
   ) {}
-  async login(email: string, password: string) {
+  async login(loginId: string, password: string) {
     const [initial] = await this.database.db
       .select()
       .from(accounts)
-      .where(eq(accounts.email, email.trim().toLowerCase()));
+      .where(eq(accounts.loginId, loginId.trim().toLowerCase()));
     const valid = await verifyPassword(password, initial?.passwordHash ?? null);
     if (!initial || !valid || accountState(initial) !== "active")
       throw new ApiError(
         401,
         "INVALID_CREDENTIALS",
-        "이메일과 비밀번호 또는 계정 상태를 확인해주세요.",
+        "아이디와 비밀번호를 확인해주세요. 계속 로그인할 수 없다면 관리자에게 문의해주세요.",
       );
     return this.authorization.mutate(async (tx) => {
       const current = await this.accountsService.row(initial.id, tx);
@@ -157,7 +157,7 @@ export class AuthService {
     const row = await this.tokenRecord(token, purpose, this.database.db);
     return {
       name: row.account.name,
-      email: row.account.email,
+      loginId: row.account.loginId,
       expiresAt: row.token.expiresAt.toISOString(),
     };
   }

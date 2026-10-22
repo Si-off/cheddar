@@ -1601,7 +1601,7 @@
             }
           }
         },
-        "summary": "이메일과 비밀번호로 로그인",
+        "summary": "아이디와 비밀번호로 로그인",
         "tags": [
           "인증"
         ]
@@ -11115,9 +11115,8 @@
           "name": {
             "type": "string"
           },
-          "email": {
-            "type": "string",
-            "format": "email"
+          "loginId": {
+            "type": "string"
           },
           "affiliation": {
             "$ref": "#/components/schemas/AffiliationDto"
@@ -11151,7 +11150,7 @@
         "required": [
           "id",
           "name",
-          "email",
+          "loginId",
           "affiliation",
           "status",
           "expiresAt",
@@ -11186,10 +11185,11 @@
             "type": "string",
             "maxLength": 100
           },
-          "email": {
+          "loginId": {
             "type": "string",
-            "format": "email",
-            "maxLength": 254
+            "minLength": 3,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9._@-]{3,64}$"
           },
           "affiliationId": {
             "type": "string",
@@ -11210,7 +11210,7 @@
         },
         "required": [
           "name",
-          "email",
+          "loginId",
           "affiliationId",
           "assignments"
         ],
@@ -11294,10 +11294,11 @@
             "type": "string",
             "maxLength": 100
           },
-          "email": {
+          "loginId": {
             "type": "string",
-            "format": "email",
-            "maxLength": 254
+            "minLength": 3,
+            "maxLength": 64,
+            "pattern": "^[a-z0-9._@-]{3,64}$"
           },
           "affiliationId": {
             "type": "string",
@@ -11339,9 +11340,9 @@
       "LoginDto": {
         "type": "object",
         "properties": {
-          "email": {
+          "loginId": {
             "type": "string",
-            "format": "email",
+            "minLength": 1,
             "maxLength": 254
           },
           "password": {
@@ -11352,7 +11353,7 @@
           }
         },
         "required": [
-          "email",
+          "loginId",
           "password"
         ],
         "additionalProperties": false
@@ -11407,9 +11408,8 @@
           "name": {
             "type": "string"
           },
-          "email": {
-            "type": "string",
-            "format": "email"
+          "loginId": {
+            "type": "string"
           },
           "affiliation": {
             "$ref": "#/components/schemas/AffiliationDto"
@@ -11449,7 +11449,7 @@
         "required": [
           "id",
           "name",
-          "email",
+          "loginId",
           "affiliation",
           "status",
           "expiresAt",
@@ -11465,9 +11465,8 @@
           "name": {
             "type": "string"
           },
-          "email": {
-            "type": "string",
-            "format": "email"
+          "loginId": {
+            "type": "string"
           },
           "expiresAt": {
             "type": "string",
@@ -11476,7 +11475,7 @@
         },
         "required": [
           "name",
-          "email",
+          "loginId",
           "expiresAt"
         ],
         "additionalProperties": false
@@ -13170,7 +13169,7 @@
           "name": {
             "type": "string"
           },
-          "email": {
+          "loginId": {
             "type": "string"
           },
           "affiliation": {
@@ -13181,7 +13180,7 @@
         "required": [
           "id",
           "name",
-          "email",
+          "loginId",
           "affiliation"
         ],
         "additionalProperties": false

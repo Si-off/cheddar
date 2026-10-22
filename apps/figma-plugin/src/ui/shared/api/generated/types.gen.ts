@@ -37,7 +37,7 @@ export type AssignmentDto = {
 export type AccountDto = {
     id: string;
     name: string;
-    email: string;
+    loginId: string;
     affiliation: AffiliationDto;
     status: 'invited' | 'active' | 'expired' | 'inactive';
     expiresAt: string | null;
@@ -55,7 +55,7 @@ export type AccountPageDto = {
 
 export type CreateAccountDto = {
     name: string;
-    email: string;
+    loginId: string;
     affiliationId: string;
     assignments: Array<AssignmentDto>;
     expiresAt?: string | null;
@@ -86,7 +86,7 @@ export type TransferTestSetOwnerDto = {
 
 export type UpdateAccountDto = {
     name?: string;
-    email?: string;
+    loginId?: string;
     affiliationId?: string;
     assignments?: Array<AssignmentDto>;
     expiresAt?: string | null;
@@ -101,7 +101,7 @@ export type IssuedTokenDto = {
 };
 
 export type LoginDto = {
-    email: string;
+    loginId: string;
 };
 
 export type EffectivePermissionDto = {
@@ -113,7 +113,7 @@ export type EffectivePermissionDto = {
 export type MeDto = {
     id: string;
     name: string;
-    email: string;
+    loginId: string;
     affiliation: AffiliationDto;
     status: 'invited' | 'active' | 'expired' | 'inactive';
     expiresAt: string | null;
@@ -127,7 +127,7 @@ export type MeDto = {
 
 export type TokenInfoDto = {
     name: string;
-    email: string;
+    loginId: string;
     expiresAt: string;
 };
 
@@ -526,7 +526,7 @@ export type TestSetViewDto = {
 export type SharingPersonDto = {
     id: string;
     name: string;
-    email: string;
+    loginId: string;
     affiliation: string | null;
 };
 
@@ -677,7 +677,7 @@ export type RewriteReviewItemDto = {
 };
 
 export type LoginDtoWritable = {
-    email: string;
+    loginId: string;
     password: string;
 };
 

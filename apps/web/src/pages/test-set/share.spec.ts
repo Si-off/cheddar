@@ -10,13 +10,13 @@ import {
 const owner = {
   id: "a1",
   name: "최하늘",
-  email: "haneul.choi@cheddar.app",
+  loginId: "haneul.choi@cheddar.app",
   affiliation: "사내",
 };
 const kim = {
   id: "a2",
   name: "김지은",
-  email: "jieun.kim@cheddar.app",
+  loginId: "jieun.kim@cheddar.app",
   affiliation: "A사",
 };
 const sharing = (overrides: Record<string, unknown> = {}) => ({

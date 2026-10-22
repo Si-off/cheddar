@@ -59,7 +59,7 @@ export const accounts = pgTable(
   {
     id: id(),
     name: varchar("name", { length: 100 }).notNull(),
-    email: varchar("email", { length: 254 }).notNull().unique(),
+    loginId: varchar("login_id", { length: 254 }).notNull().unique(),
     affiliationId: uuid("affiliation_id")
       .notNull()
       .references(() => affiliations.id, { onDelete: "restrict" }),
@@ -71,8 +71,8 @@ export const accounts = pgTable(
   },
   (t) => [
     check(
-      "accounts_email_normalized",
-      sql`${t.email} = lower(btrim(${t.email}))`,
+      "accounts_login_id_normalized",
+      sql`${t.loginId} = lower(btrim(${t.loginId}))`,
     ),
     check(
       "accounts_active_password",

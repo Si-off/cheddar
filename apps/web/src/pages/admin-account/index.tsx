@@ -71,7 +71,7 @@ function AccountDetail({ account }: { account: Account }) {
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const found = validateAccountDraft(draft, roles);
+    const found = validateAccountDraft(draft, roles, "edit");
     setErrors(found);
     if (Object.keys(found).length === 0)
       actions.update.mutate({ draft, original: account });

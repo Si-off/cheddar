@@ -22,7 +22,7 @@ import { appLinks } from "@/shared/config/links";
 
 export interface AccountDraft {
   name: string;
-  email: string;
+  loginId: string;
   affiliationId: string;
   assignments: Assignment[];
   /** YYYY-MM-DD */
@@ -33,7 +33,7 @@ export interface AccountDraft {
 
 export const emptyAccountDraft: AccountDraft = {
   name: "",
-  email: "",
+  loginId: "",
   affiliationId: "",
   assignments: [],
   expiresOn: null,
@@ -43,7 +43,7 @@ export const emptyAccountDraft: AccountDraft = {
 export function draftFromAccount(account: Account): AccountDraft {
   return {
     name: account.name,
-    email: account.email,
+    loginId: account.loginId,
     affiliationId: account.affiliation.id,
     assignments: account.assignments.map((a) => ({
       ...a,
@@ -55,14 +55,22 @@ export function draftFromAccount(account: Account): AccountDraft {
 }
 
 type DraftErrors = Partial<
-  Record<"name" | "email" | "affiliationId" | "expiresOn", string>
+  Record<"name" | "loginId" | "affiliationId" | "expiresOn", string>
 >;
 
-function validate(draft: AccountDraft, roles: readonly Role[]): DraftErrors {
+function validate(
+  draft: AccountDraft,
+  roles: readonly Role[],
+  mode: "create" | "edit" = "create",
+): DraftErrors {
   const errors: DraftErrors = {};
   if (!draft.name.trim()) errors.name = "이름을 입력하세요";
-  if (!/^\S+@\S+\.\S+$/.test(draft.email.trim()))
-    errors.email = "이메일 형식이 아닙니다";
+  // 아이디는 만들 때만 정한다. 이 형식 이전의 계정도 다른 정보를 고칠 수 있어야 한다.
+  if (
+    mode === "create" &&
+    !/^[a-z0-9._@-]{3,64}$/.test(draft.loginId.trim().toLowerCase())
+  )
+    errors.loginId = "영문, 숫자, ._-@로 3~64자를 입력하세요";
   if (!draft.affiliationId) errors.affiliationId = "소속을 고르세요";
   const roleIds = draft.assignments.map((a) => a.roleId);
   if (expiryRequirement(roles, roleIds) && !draft.expiresOn)
@@ -84,12 +92,12 @@ const globalOnlyLabels = new Map(
 export interface AccountFormProps {
   value: AccountDraft;
   onChange: (next: AccountDraft) => void;
-  /** 수정 화면에서는 이메일(로그인 ID)을 바꾸지 않는다 */
+  /** 수정 화면에서는 로그인 아이디를 바꾸지 않는다 */
   mode: "create" | "edit";
   errors?: DraftErrors;
 }
 
-/** 이름, 이메일, 소속, 만료일, 역할 할당을 입력한다. 할당된 역할이 만료일을 요구하면 만료일이 필수가 된다. */
+/** 이름, 아이디, 소속, 만료일, 역할 할당을 입력한다. 할당된 역할이 만료일을 요구하면 만료일이 필수가 된다. */
 export function AccountForm({
   value,
   onChange,
@@ -134,13 +142,14 @@ export function AccountForm({
           onChange={(e) => onChange({ ...value, name: e.target.value })}
         />
         <TextField
-          label="이메일"
-          type="email"
+          label="아이디"
           required
           readOnly={mode === "edit"}
-          value={value.email}
-          error={errors.email}
-          onChange={(e) => onChange({ ...value, email: e.target.value })}
+          autoCapitalize="none"
+          spellCheck={false}
+          value={value.loginId}
+          error={errors.loginId}
+          onChange={(e) => onChange({ ...value, loginId: e.target.value })}
         />
         <Select
           label="소속"
@@ -381,7 +390,7 @@ export function CreateAccountDialog({
       sdk.createAccount({
         body: {
           name: draft.name.trim(),
-          email: draft.email.trim(),
+          loginId: draft.loginId.trim(),
           affiliationId: draft.affiliationId,
           assignments: toApiAssignments(draft.assignments),
           expiresAt: expiryToApi(draft.expiresOn),

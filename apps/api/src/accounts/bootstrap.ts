@@ -1,19 +1,19 @@
-import { isEmail } from "class-validator";
 import { eq } from "drizzle-orm";
 import type { AuthorizationService } from "../authorization/authorization.service";
 import { ApiError, invalid } from "../common/errors";
+import { LOGIN_ID_PATTERN } from "../contracts/identity.dto";
 import { accounts, roleAssignments, roles } from "../database/schema";
 import { DEFAULT_AFFILIATION_ID, seedInitialData } from "../database/seed";
 import type { AccountsService } from "./accounts.service";
 export async function createFirstAdministrator(
   authorization: AuthorizationService,
   service: AccountsService,
-  email: string,
+  loginId: string,
   name: string,
 ) {
-  email = email.trim().toLowerCase();
+  loginId = loginId.trim().toLowerCase();
   name = name.trim();
-  if (!isEmail(email) || email.length > 254 || !name || name.length > 100)
+  if (!LOGIN_ID_PATTERN.test(loginId) || !name || name.length > 100)
     throw invalid();
   return authorization.mutate(async (tx) => {
     await seedInitialData(tx);
@@ -30,7 +30,7 @@ export async function createFirstAdministrator(
     if (!role) throw new Error("기본 관리자 역할이 없습니다.");
     const [account] = await tx
       .insert(accounts)
-      .values({ name, email, affiliationId: DEFAULT_AFFILIATION_ID })
+      .values({ name, loginId, affiliationId: DEFAULT_AFFILIATION_ID })
       .returning();
     await tx
       .insert(roleAssignments)

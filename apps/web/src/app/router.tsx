@@ -109,16 +109,16 @@ const loginRoute = createRoute({
   path: "/login",
   validateSearch: (
     search: Record<string, unknown>,
-  ): { redirect?: string; email?: string } => ({
+  ): { redirect?: string; loginId?: string } => ({
     redirect: sameOriginPath(search.redirect),
-    email: typeof search.email === "string" ? search.email : undefined,
+    loginId: typeof search.loginId === "string" ? search.loginId : undefined,
   }),
   component: function LoginRoute() {
     const search = loginRoute.useSearch();
     const navigate = useNavigate();
     return (
       <LoginPage
-        defaultEmail={search.email}
+        defaultLoginId={search.loginId}
         onLoggedIn={() =>
           search.redirect
             ? navigate({ href: search.redirect })
@@ -150,7 +150,7 @@ const inviteRoute = createRoute({
       <PasswordSetupPage
         kind="invite"
         token={token}
-        onDone={(email) => navigate({ to: "/login", search: { email } })}
+        onDone={(loginId) => navigate({ to: "/login", search: { loginId } })}
       />
     );
   },
@@ -167,7 +167,7 @@ const passwordResetRoute = createRoute({
       <PasswordSetupPage
         kind="reset"
         token={token}
-        onDone={(email) => navigate({ to: "/login", search: { email } })}
+        onDone={(loginId) => navigate({ to: "/login", search: { loginId } })}
       />
     );
   },

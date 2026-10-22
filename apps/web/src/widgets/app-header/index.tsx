@@ -56,7 +56,9 @@ export function AppHeader() {
         <Menu.Popup align="end" className="w-64">
           <div className="flex flex-col gap-0.5 px-2 py-2">
             <span className="text-title-sm text-fg">{account.name}</span>
-            <span className="text-caption text-fg-muted">{account.email}</span>
+            <span className="text-caption text-fg-muted">
+              {account.loginId}
+            </span>
             <span className="text-caption text-fg-muted">
               {account.affiliation.name}
             </span>

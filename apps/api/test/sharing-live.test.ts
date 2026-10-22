@@ -176,7 +176,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
     lease.accountIds.push(admin.account.id);
     const password = "공동편집-비밀번호-12345";
     await auth.setPassword(admin.token, password, "invite");
-    const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const project = await projects.create(admin.account.id, {
       name: "공동 편집",
       description: "",
@@ -214,7 +214,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       }
       const result = await accounts.create({
         name: "초대 후보",
-        email: `${randomUUID()}@example.com`,
+        loginId: `${randomUUID()}@example.com`,
         affiliationId: admin.account.affiliation.id,
         assignments,
       });
@@ -222,10 +222,10 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       if (active) await auth.setPassword(result.token, password, "invite");
       return {
         id: result.account.id,
-        email: result.account.email,
+        loginId: result.account.loginId,
         roleId,
         cookie: active
-          ? `${SESSION_COOKIE}=${(await auth.login(result.account.email, password)).token}`
+          ? `${SESSION_COOKIE}=${(await auth.login(result.account.loginId, password)).token}`
           : "",
       };
     };
@@ -359,7 +359,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         const candidates = Array.from({ length: 23 }, () => ({
           id: randomUUID(),
           name: "목록 사용자",
-          email: `${randomUUID()}@example.com`,
+          loginId: `${randomUUID()}@example.com`,
           affiliationId: admin.account.affiliation.id,
           status: "active" as const,
           passwordHash: "사용하지 않는 후보 비밀번호",
@@ -421,13 +421,13 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         for (const who of [admin.account, edit, inactive])
           assert.ok(!byName.some((p) => p.id === who.id));
         assert.ok(byName.length <= 20);
-        const byEmail = await json<SharingPersonDto[]>(
+        const byLoginId = await json<SharingPersonDto[]>(
           await request(
-            `${sharing}/candidates?search=${candidate.email.slice(5, 18)}`,
+            `${sharing}/candidates?search=${candidate.loginId.slice(5, 18)}`,
           ),
         );
         assert.deepEqual(
-          byEmail.map((p) => p.id),
+          byLoginId.map((p) => p.id),
           [candidate.id],
         );
         await error(

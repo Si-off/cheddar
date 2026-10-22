@@ -96,7 +96,7 @@ export function AdminAccountsPage() {
           >
             {a.name}
           </Link>
-          <span className="text-caption text-fg-muted">{a.email}</span>
+          <span className="text-caption text-fg-muted">{a.loginId}</span>
         </span>
       ),
     },
@@ -141,7 +141,7 @@ export function AdminAccountsPage() {
         <TextField
           size="sm"
           icon={Search}
-          placeholder="이름 또는 이메일"
+          placeholder="이름 또는 아이디"
           aria-label="계정 검색"
           className="w-60 max-w-full"
           value={search}

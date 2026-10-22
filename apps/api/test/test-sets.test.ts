@@ -58,7 +58,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
     );
     lease.accountIds.push(admin.account.id);
     await auth.setPassword(admin.token, password, "invite");
-    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",
@@ -104,7 +104,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       }
       const result = await accounts.create({
         name: "세트 사용자",
-        email: `${randomUUID()}@example.com`,
+        loginId: `${randomUUID()}@example.com`,
         affiliationId: admin.account.affiliation.id,
         assignments,
       });
@@ -112,7 +112,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       await auth.setPassword(result.token, password, "invite");
       return {
         id: result.account.id,
-        cookie: `${SESSION_COOKIE}=${(await auth.login(result.account.email, password)).token}`,
+        cookie: `${SESSION_COOKIE}=${(await auth.login(result.account.loginId, password)).token}`,
       };
     };
     const p = await projects.create(admin.account.id, {

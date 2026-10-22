@@ -53,7 +53,7 @@ pnpm install --frozen-lockfile
 
 ```sh
 pnpm db:migrate
-pnpm --filter @cheddar/api admin:create --email admin@example.com --name "첫 관리자"
+pnpm --filter @cheddar/api admin:create --login-id admin --name "첫 관리자"
 pnpm dev:api
 ```
 

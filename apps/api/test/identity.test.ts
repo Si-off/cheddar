@@ -73,7 +73,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
     const create = async (overrides: Partial<CreateAccountDto> = {}) => {
       const result = await service.create({
         name: "새 계정",
-        email: `${randomUUID()}@example.com`,
+        loginId: `qa.${randomUUID()}`,
         affiliationId,
         assignments: [],
         ...overrides,
@@ -112,7 +112,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
       assert.deepEqual(external.permissions, ["test_set.export"]);
       assert.equal(external.defaultExpiryDays, 90);
       assert.equal(bootstrap.account.status, "invited");
-      assert.equal(bootstrap.account.email, "admin@example.com");
+      assert.equal(bootstrap.account.loginId, "admin@example.com");
       await assert.rejects(
         auth.login("admin@example.com", password),
         code("INVALID_CREDENTIALS"),
@@ -135,7 +135,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
       );
     });
     const login = await request("/api/v1/auth/login", "POST", {
-      email: "ADMIN@example.com",
+      loginId: "ADMIN@example.com",
       password,
     });
     assert.equal(login.status, 200);
@@ -200,11 +200,11 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
         );
         const account = await create();
         await assert.rejects(
-          auth.login(account.account.email, password),
+          auth.login(account.account.loginId, password),
           code("INVALID_CREDENTIALS"),
         );
         await auth.setPassword(account.token, password, "invite");
-        const session = await auth.login(account.account.email, password);
+        const session = await auth.login(account.account.loginId, password);
         await service.update(account.account.id, {
           expiresAt: new Date(Date.now() - 1000).toISOString(),
         });
@@ -213,7 +213,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
           "expired",
         );
         await assert.rejects(
-          auth.login(account.account.email, password),
+          auth.login(account.account.loginId, password),
           code("INVALID_CREDENTIALS"),
         );
         await assert.rejects(
@@ -223,11 +223,11 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
         await service.update(account.account.id, { expiresAt: null });
         await service.setActive(account.account.id, false);
         await assert.rejects(
-          auth.login(account.account.email, password),
+          auth.login(account.account.loginId, password),
           code("INVALID_CREDENTIALS"),
         );
         await service.setActive(account.account.id, true);
-        assert.ok(await auth.login(account.account.email, password));
+        assert.ok(await auth.login(account.account.loginId, password));
       },
     );
     await t.test("초대 재발급·7일 만료·용도 구분·한 번만 수락", async () => {
@@ -277,7 +277,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
       async () => {
         const account = await create();
         await auth.setPassword(account.token, password, "invite");
-        const session = await auth.login(account.account.email, password);
+        const session = await auth.login(account.account.loginId, password);
         const reset = await service.issue(account.account.id, "reset");
         const replacement = `${password}-새값`;
         await auth.setPassword(reset.token, replacement, "reset");
@@ -286,14 +286,14 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
           code("UNAUTHENTICATED"),
         );
         await assert.rejects(
-          auth.login(account.account.email, password),
+          auth.login(account.account.loginId, password),
           code("INVALID_CREDENTIALS"),
         );
         await assert.rejects(
           auth.setPassword(reset.token, replacement, "reset"),
           code("INVALID_AUTH_TOKEN"),
         );
-        const logged = await auth.login(account.account.email, replacement);
+        const logged = await auth.login(account.account.loginId, replacement);
         await auth.logout(logged.token);
         await assert.rejects(
           auth.authenticate(logged.token),
@@ -373,7 +373,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
           await authorization.can(account.account.id, "project.create"),
           true,
         );
-        const login = await auth.login(account.account.email, password);
+        const login = await auth.login(account.account.loginId, password);
         // Global-only capabilities in project assignments cannot grant access to controllers.
         await service.update(account.account.id, {
           assignments: [
@@ -636,7 +636,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
             "POST",
             {
               name: "중복",
-              email: "admin@example.com",
+              loginId: "admin@example.com",
               affiliationId,
               assignments: [],
             },
@@ -656,7 +656,7 @@ test("실제 PostgreSQL에서 계정, 초대, 세션과 권한 계약", async (t
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: "admin@example.com", password }),
+            body: JSON.stringify({ loginId: "admin@example.com", password }),
           },
         );
         assert.equal(response.status, 200);

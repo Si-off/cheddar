@@ -4,7 +4,7 @@ import { AuthCard } from "@/widgets/auth-card";
 export interface PasswordSetupPageProps {
   kind: "invite" | "reset";
   token: string;
-  onDone: (email: string) => void;
+  onDone: (loginId: string) => void;
 }
 
 /** 초대 링크와 재설정 링크가 여는 비밀번호 설정 화면 */

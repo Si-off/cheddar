@@ -243,7 +243,7 @@ function PeopleSection({
             <TextField
               icon={Search}
               aria-label="초대할 사람"
-              placeholder="이름 또는 이메일"
+              placeholder="이름 또는 아이디"
               className="min-w-0 flex-1"
               value={picked ? picked.name : search}
               onChange={(e) => {
@@ -282,7 +282,7 @@ function PeopleSection({
                         {c.affiliation && <Tag>{c.affiliation}</Tag>}
                       </span>
                       <span className="text-caption text-fg-muted">
-                        {c.email}
+                        {c.loginId}
                       </span>
                     </button>
                   </li>
@@ -314,7 +314,7 @@ function PeopleSection({
                 {person.affiliation && <Tag>{person.affiliation}</Tag>}
               </span>
               <span className="truncate text-caption text-fg-muted">
-                {person.email}
+                {person.loginId}
               </span>
             </div>
             {access === null ? (

@@ -72,7 +72,7 @@ export function PluginConnectPage({ requestToken }: { requestToken?: string }) {
             <div className="flex flex-col gap-2">
               <h1 className="m-0 text-title-lg">Figma 플러그인 연결</h1>
               <p className="m-0 text-fg-muted">
-                {account.name}({account.email}) 계정으로 플러그인에
+                {account.name}({account.loginId}) 계정으로 플러그인에
                 로그인합니다.
               </p>
             </div>

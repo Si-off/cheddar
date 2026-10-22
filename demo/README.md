@@ -24,7 +24,7 @@ docker compose ps -a
 
 브라우저에서 http://127.0.0.1:5173 을 열고 로그인하세요.
 
-- 이메일: `demo@example.com`
+- 아이디: `demo@example.com`
 - 비밀번호: `Demo-Scenario-2026!`
 
 ## 4. Figma에 등록하기

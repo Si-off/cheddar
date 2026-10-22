@@ -34,13 +34,13 @@ test("실제 PostgreSQL에서 소유 테스트 세트 목록과 한 세트 소�
     lease.accountIds.push(admin.account.id);
     const password = "소유자-이전-비밀번호-12345";
     await auth.setPassword(admin.token, password, "invite");
-    const login = async (email: string) =>
-      `${SESSION_COOKIE}=${(await auth.login(email, password)).token}`;
-    const adminCookie = await login(admin.account.email);
+    const login = async (loginId: string) =>
+      `${SESSION_COOKIE}=${(await auth.login(loginId, password)).token}`;
+    const adminCookie = await login(admin.account.loginId);
     const person = async (active = true) => {
       const result = await accounts.create({
         name: "이전 대상",
-        email: `${randomUUID()}@example.com`,
+        loginId: `${randomUUID()}@example.com`,
         affiliationId: admin.account.affiliation.id,
         assignments: [],
       });
@@ -229,7 +229,7 @@ test("실제 PostgreSQL에서 소유 테스트 세트 목록과 한 세트 소�
       "account.manage가 없거나 프로젝트 범위에만 있으면 두 API 모두 403",
       async () => {
         const set = await createSet(source.id),
-          cookie = await login(outsider.email);
+          cookie = await login(outsider.loginId);
         const denied = async () => {
           await error(
             await request(

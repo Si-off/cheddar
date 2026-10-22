@@ -60,7 +60,7 @@ export function account(overrides: Partial<AccountDto> = {}): AccountDto {
   return {
     id: "a1",
     name: "최하늘",
-    email: "haneul.choi@cheddar.app",
+    loginId: "haneul.choi@cheddar.app",
     affiliation: affiliations[0],
     status: "active",
     expiresAt: null,
