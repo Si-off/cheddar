@@ -13,7 +13,7 @@ export class FakeProvider implements AiProvider {
     const source = r.sourceData as {
       screens?: ScreenOutput;
       group?: FlowOutput["groups"][number];
-      outputs?: CaseOutput[];
+      outputs?: (CaseOutput & { groupKey?: string })[];
     };
     const draft = (title: string): Draft =>
       Object.fromEntries(
@@ -79,9 +79,18 @@ export class FakeProvider implements AiProvider {
       output = draft(`답변 반영: ${input.review?.answer ?? ""}`);
     else if (definition.key === "finish") {
       const all = source.outputs ?? [];
+      const reviews = all
+        .flatMap((o) =>
+          o.reviews.map((r) => ({ review: r, groupKey: o.groupKey ?? null })),
+        )
+        .slice(0, 1);
       output = {
         cases: all.flatMap((o) => o.cases),
-        reviews: all.flatMap((o) => o.reviews).slice(0, 1),
+        reviews: reviews.map((r) => r.review),
+        caseGroupKeys: all.flatMap((o) =>
+          o.cases.map(() => o.groupKey ?? null),
+        ),
+        reviewGroupKeys: reviews.map((r) => r.groupKey),
         coverage,
         mergedCount: 0,
       } satisfies CaseOutput;

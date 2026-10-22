@@ -6,6 +6,7 @@ import { ApiError, notFound } from "../common/errors";
 import type { CellValue, OpsResultDto } from "../contracts/test-set.dto";
 import type { DatabaseTransaction } from "../database/database.service";
 import {
+  featureGroups,
   reviewItems,
   testCases,
   testCaseValues,
@@ -80,11 +81,17 @@ export class CaseOperationsService {
     id = row.id;
     if (!access.canEdit) throw forbidden();
     const ops = validateOps(input);
-    // 링크 방문자는 셀 편집과 케이스 추가·삭제만 한다.
+    // 링크 방문자는 셀·기능 그룹 편집과 케이스 추가·삭제만 한다.
     if (
       actor.kind === "visitor" &&
       ops.some(
-        (op) => !["set_cell", "add_case", "delete_cases"].includes(op.type),
+        (op) =>
+          ![
+            "set_cell",
+            "set_feature_group",
+            "add_case",
+            "delete_cases",
+          ].includes(op.type),
       )
     )
       throw forbidden();
@@ -106,6 +113,20 @@ export class CaseOperationsService {
       const c = byId.get(caseId);
       if (!c) throw notFound();
       return c;
+    };
+    const requireFeatureGroup = async (featureGroupId: string | null) => {
+      if (featureGroupId === null) return;
+      const [group] = await tx
+        .select({ id: featureGroups.id })
+        .from(featureGroups)
+        .where(
+          and(
+            eq(featureGroups.id, featureGroupId),
+            eq(featureGroups.projectId, row.projectId),
+          ),
+        )
+        .for("key share");
+      if (!group) throw notFound();
     };
     const checkedValues = (values: Record<string, CellValue>) =>
       Object.fromEntries(
@@ -148,6 +169,17 @@ export class CaseOperationsService {
     };
     for (const op of ops) {
       if (op.type === "add_case") {
+        if (op.afterCaseId === op.caseId)
+          return validationFailed("이동할 위치를 확인해주세요.");
+        const featureGroupId =
+          op.featureGroupId !== undefined
+            ? op.featureGroupId
+            : op.afterCaseId === null
+              ? null
+              : requireCase(op.afterCaseId).featureGroupId;
+        await requireFeatureGroup(featureGroupId);
+        // 전파되는 연산에도 상속 결과를 넣어 클라이언트 상태를 일치시킨다.
+        op.featureGroupId = featureGroupId;
         const values = checkedValues(op.values ?? {});
         if (!values[testId.id]) {
           values[testId.id] = `TC-${String(++counter).padStart(3, "0")}`;
@@ -161,6 +193,7 @@ export class CaseOperationsService {
             id: op.caseId,
             testSetId: id,
             position: 0,
+            featureGroupId,
             createdBy: actor.kind === "account" ? actor.id : null,
             authorName: actor.name,
           })
@@ -172,10 +205,19 @@ export class CaseOperationsService {
             "DUPLICATE_CASE",
             "이미 있는 테스트 케이스입니다. 목록을 확인해주세요.",
           );
-        byId.set(op.caseId, { id: op.caseId, values });
+        byId.set(op.caseId, { id: op.caseId, values, featureGroupId });
         place(op.caseId, op.afterCaseId);
         await saveValues(op.caseId, values);
         deleted.delete(op.caseId);
+        changed.add(op.caseId);
+      } else if (op.type === "set_feature_group") {
+        const c = requireCase(op.caseId);
+        await requireFeatureGroup(op.featureGroupId);
+        c.featureGroupId = op.featureGroupId;
+        await tx
+          .update(testCases)
+          .set({ featureGroupId: op.featureGroupId, updatedAt: new Date() })
+          .where(and(eq(testCases.testSetId, id), eq(testCases.id, op.caseId)));
         changed.add(op.caseId);
       } else if (op.type === "set_cell") {
         const c = requireCase(op.caseId);
@@ -304,6 +346,11 @@ export class CaseOperationsService {
                 pref.groupByColumnId === column.id
                   ? null
                   : pref.groupByColumnId,
+              canvasGroup:
+                pref.groupByColumnId === column.id &&
+                pref.canvasGroup === "column"
+                  ? "feature"
+                  : pref.canvasGroup,
             })
             .where(eq(viewPreferences.id, pref.id));
         }

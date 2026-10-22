@@ -67,6 +67,7 @@ export const cases = [
       "c-tags": ["회원"],
       "c-auto": true,
     },
+    featureGroupId: "g1",
   },
   {
     id: "k2",
@@ -78,6 +79,7 @@ export const cases = [
       "c-tags": ["약관"],
       "c-auto": false,
     },
+    featureGroupId: "g2",
   },
 ];
 
@@ -92,12 +94,18 @@ export const testSet = {
   access: { canEdit: true, canRename: true, canDelete: true, canExport: true },
   columns,
   cases,
+  featureGroups: [
+    { id: "g1", name: "이메일 가입" },
+    { id: "g2", name: "약관 동의" },
+  ],
   updatedAt: "2026-10-19T00:00:00Z",
 };
 
 export const defaultViewResponse = {
   view: "table",
+  canvasGroup: "feature",
   groupByColumnId: null,
+  canvasDensity: "brief",
   columnWidths: {},
   rowHeights: {},
 };

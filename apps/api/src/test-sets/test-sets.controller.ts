@@ -42,6 +42,7 @@ import {
   RemoveColumnOpDto,
   ReorderColumnsOpDto,
   SetCellOpDto,
+  SetFeatureGroupOpDto,
   TestSetDto,
   TestSetListDto,
   TestSetQueryDto,
@@ -56,6 +57,7 @@ import { TestSetsService } from "./test-sets.service";
 @ApiCookieAuth()
 @ApiExtraModels(
   SetCellOpDto,
+  SetFeatureGroupOpDto,
   AddCaseOpDto,
   DeleteCasesOpDto,
   MoveCaseOpDto,

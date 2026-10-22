@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | app | router, providers, `global.css` | 라우트 트리, 로그인과 관리자 경계, Query와 motion 설정 |
 | pages | login, no-access, admin-accounts, admin-account, test-sets, test-set-new, test-set-generating, test-set, shared-test-set(공개 링크), projects(목록과 만들기), project-settings, plugin-connect | 화면 조립. 데이터 가져오기와 레이아웃만 |
-| widgets | app-header, admin-shell, auth-card, project-shell, case-table, case-board, case-dialog, columns-editor, review-panel, share-dialog, no-access-notice | 여러 기능이 모인 화면 덩어리 |
+| widgets | app-header, admin-shell, auth-card, project-shell, case-table, case-canvas, case-dialog, columns-editor, review-panel, share-dialog, no-access-notice | 여러 기능이 모인 화면 덩어리 |
 | features | auth(로그인, 로그아웃, 내 비밀번호 바꾸기), manage-account(계정 양식, 만들기, 등급 변경, 비활성화, 비밀번호 다시 정하기), create-project, edit-project, edit-project-memo, edit-template, manage-feature-groups, manage-required-cases, manage-screens, create-test-set, manage-test-set, edit-test-set-columns, edit-cases, test-set-view, collaborate-test-set, generate-cases, resolve-review, export-xlsx, share-test-set | 사용자 행동 하나와 그 상태 |
 | entities | test-set(케이스 포함), generation(생성 작업과 확인 필요), project, account(등급과 관리자 판단 포함) | 도메인 타입, 생성 API 타입을 도메인 타입으로 바꾸는 변환, Query 키와 조회 훅 |
 | shared | api(생성 코드와 클라이언트 설정, 오류 변환), config(환경, 공유 링크 경로), testing(e2e용 API 응답 합성) | 도메인을 모르는 도구 |
@@ -140,7 +140,9 @@
 - 세트 쓰기는 세트 행의 `FOR UPDATE` 잠금 안에서 권한을 확인하고 처리한다. 이름과 메모, 양식, 케이스 연산의 성공은 version과 updated_at을 올린다. 보기 설정은 세트 내용 버전을 바꾸지 않는다. `CaseOperationsService.apply`는 HTTP에 의존하지 않으며 권한 확인부터 연산 검증과 트랜잭션까지 포함해 6단계 WebSocket에서도 재사용한다. 한 요청의 연산은 순서대로 적용되고 하나라도 실패하면 전체를 되돌린다. 같은 셀은 나중 연산의 값으로 저장한다.
 - 셀은 열 UUID로 연결하며 텍스트 최대 20000자, 선택 항목 소속, 체크박스 boolean, 태그 소속과 중복을 검증한다. 추가할 때 작성 계정과 당시 이름을 저장한다. 비어 있는 테스트 ID는 `TC-001`부터 세 자리 이상 번호를 채운다. 큰 사용자 지정 번호도 정밀도 손실 없이 처리하고 삭제한 번호를 다시 사용하지 않도록 마지막 번호를 문자열로 저장하는 `test_sets.test_id_counter`를 Drizzle `0002`로 추가했다. 기존 0000과 0001은 유지한다. 기존 세트의 현재 번호도 연산 시작 시 합산한다.
 - 열 편집은 프로젝트의 `validateTemplate`을 그대로 재사용한다. 삭제한 열의 값은 함께 지우고 형식과 선택 항목이 바뀌면 유효한 값만 남긴다. 태그는 남은 선택 값만 유지하고 텍스트 변환은 태그를 `, `로 연결하고 체크박스를 `예`/빈 문자열로 바꾼다. 모든 사람의 보기 설정에서 삭제된 열 너비와 사용할 수 없는 묶기 기준을 정리한다. 케이스 삭제는 해당 행 높이도 정리한다.
-- 보기 설정은 계정별로 따로 upsert하며 기본값은 표 보기, 묶기 없음, 빈 크기 맵이다. 묶기는 같은 세트의 선택, 태그, 체크박스 열만 허용한다. 크기 맵은 같은 세트의 열과 케이스만 참조하고 너비 40~2000, 높이 24~2000 정수만 저장한다. 세트 삭제는 묶기 열의 RESTRICT FK에 걸리지 않도록 보기 설정부터 삭제한다.
+- 보기 설정은 계정과 링크 방문자별로 따로 upsert하며 기본값은 표 보기(`table`), 캔버스 그룹화 기능 그룹(`canvasGroup: feature`), 간략 표시(`canvasDensity: brief`), 빈 크기 맵이다. `view`는 `table|canvas`이고(이전 `card`는 마이그레이션으로 `canvas`가 됐다), `canvasGroup`은 `feature|column|none`이다. `column`이면 `groupByColumnId`가 필수이며 같은 세트의 선택, 태그, 체크박스 열만 허용한다. 그룹화하던 열을 지우면 `groupByColumnId`를 비우고 `column`이었으면 `feature`로 돌린다. 크기 맵은 같은 세트의 열과 케이스만 참조하고 너비 40~2000, 높이 24~2000 정수만 저장한다. 세트 삭제는 묶기 열의 RESTRICT FK에 걸리지 않도록 보기 설정부터 삭제한다.
+- 케이스의 기능 그룹: `test_cases.feature_group_id`는 같은 프로젝트의 기능 그룹만 가리키며 서버가 연산 적용 때 프로젝트 일치를 검사한다. `add_case`는 `featureGroupId`를 생략하면 바로 앞 케이스의 그룹을 따르고(맨 앞이면 null), null을 주면 상속하지 않는다. 서버가 정한 값을 넣어 전파한다. `set_feature_group`(링크 편집 방문자도 가능)은 기존 버전, 트랜잭션, 실시간 ops 경계를 공유한다. `TestSetDto`와 `SharedTestSetDto`는 프로젝트의 `featureGroups`(position, id 순)를 함께 돌려준다. 기능 그룹 추가, 이름 변경, 삭제, 정렬은 그 프로젝트의 모든 테스트 세트 버전을 같은 트랜잭션에서 올리고 커밋 뒤 세트마다 resync를 발행한다.
+- 생성 결과의 기능 그룹: 기능 그룹별 케이스 작성 단계의 키를 최종 점검(`caseGroupKeys`, `reviewGroupKeys`)까지 보존하고, 저장 때 실제 존재하는 프로젝트 그룹만 연결한다(없거나 삭제된 그룹, 제안용 키는 null). 확인 필요 항목도 `review_items.feature_group_id`로 원래 그룹을 보존해 수락 때 케이스에 반영한다.
 - XLSX는 `exceljs@4.4.0`으로 만든다. 시트 하나에 현재 열 이름을 머리글로, 저장된 케이스를 화면 순서로 넣는다. 태그는 ", "로 잇고 체크박스는 "예"/빈칸이다. 파일 이름은 테스트 세트 이름이며 `Content-Disposition`에 UTF-8로 인코딩한다.
 - DB 없는 DTO, 값 검증과 변환, 접근 계산, HTTP 400 테스트와 PostgreSQL 계약 테스트를 분리했다. PostgreSQL 테스트는 기존 전용 `TEST_DATABASE_URL`과 안전 검사를 그대로 쓰며 권한, 목록, 양식 복사와 값 정리, 연산의 원자성과 세트 경계, 번호, 작성자, 개인 보기를 검증한다. XLSX는 머리글과 응답 헤더를 검증한다. 실제 DB 실행 여부는 검증 결과에서 별도로 보고한다.
 
@@ -180,9 +182,9 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | project_memos | 프로젝트당 1행, 마지막 수정 계정(author_id), 본문, 생성·수정 시각. 생성 입력과 분리 |
 | test_sets | 프로젝트, 소유 계정, 이름, 메모, private/public, view/edit 링크 권한, 유일 원문 링크 토큰(link_token, 32바이트 base64url), version, 마지막 테스트 ID 번호. 공유 창에서 링크를 다시 복사해야 하므로 0004에서 해시를 원문으로 바꾸며 기존 해시 링크는 비공개로 전환해 무효화한다. 기본 private, 공개일 때 링크 필수, 링크 만료 컬럼 없음 |
 | test_set_columns | 세트, 열 UUID, 이름, 형식 enum, 설명, 선택 값 배열, 순서. 시스템 키 test_id/title은 세트 안 유일하고 text 형식 |
-| test_cases | 세트, 순서, 작성 계정과 작성 당시 이름, 시각. 프레임·요구사항·화면 구조 근거 FK 없음 |
+| test_cases | 세트, 순서, 작성 계정과 작성 당시 이름, 시각, 기능 그룹(nullable FK, 그룹 삭제 시 null). 프레임·요구사항·화면 구조 근거 FK 없음 |
 | test_case_values | 케이스+열 복합 PK, JSONB 값. 세트 ID를 포함한 복합 FK로 다른 세트의 케이스·열 연결 금지 |
-| view_preferences | 세트, 계정 또는 방문자 중 정확히 하나, table/card, 묶기 열, 열 너비·행 높이 맵. 사람별 1행, 묶기 열·방문자는 같은 세트 FK |
+| view_preferences | 세트, 계정 또는 방문자 중 정확히 하나, table/canvas, 캔버스 그룹화(feature/column/none)와 그룹화 열, 표시(brief/detail), 열 너비·행 높이 맵. 사람별 1행, 묶기 열·방문자는 같은 세트 FK |
 | generation_jobs | 세트, 요청 계정, 임시 업로드, initial/append/rewrite, 작업 상태, 표시 단계, 오류 코드. 임시 업로드 삭제 시 FK만 비움 |
 | generation_steps | 작업, 단계, 분할 실행 키, 상태, 시도 횟수, 임시 입력·출력, prompt 버전, 모델·토큰·시간·비용·필수 충족률·확인 필요 비율. 작업+단계+실행 키 유일 |
 | review_items | 세트, 이유, 남겨 둘 화면 설명, 질문·답변 배열, 초안, pending/rewriting/excluded/resolved. 임시 프레임과 영속 FK로 연결하지 않음 |
@@ -263,7 +265,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 ### API
 
 - `projects` 모듈: 양식 PUT은 사전 정의 열의 켜짐·순서와 사용자 열 목록만 받고, 사전 정의 열의 이름·형식·작성 기준 변경은 `400`으로 거절한다. 필수 케이스 엔드포인트를 제거한다. 화면 구조에 유형과 IA 가져오기(XLSX 업로드, module·Depth·Type·Screen ID 열 해석, ID 없는 행 건너뛰기, 같은 ID는 첫 행만)를 더한다. 화면 ID 규칙 CRUD와 "다음 ID" 계산, 규칙 불일치 판정을 더한다.
-- `test-sets` 모듈: 만들기가 양식 선택(프로젝트 기본, 최근 세트 복사, 직접 고른 열 목록)을 받는다. 양식 전체 교체 대신 열 추가(사전 정의 열 되돌리기 또는 사용자 열 정의), 열 삭제(값 함께 삭제), 열 순서 변경 연산을 둔다. 열 연산은 세트 version을 올리고 공동 편집으로 전파한다. `POST /test-sets`는 선택적인 `template`(`project`·`recent`·`custom`)을 받으며 생략 시 `project`다. `recent`는 같은 프로젝트의 열람 가능한 세트 중 최근 수정순(동률은 ID순)으로 열 사본을 만들고 없으면 프로젝트 양식을 쓴다. 사본의 열 UUID는 새로 만들며 `presetKey`는 보존한다. `POST /test-sets/:id/ops`의 `add_column`·`remove_column`·`reorder_columns`는 기존 케이스 연산과 같은 잠금·권한·트랜잭션을 쓰며 요청당 version을 한 번 올린다. 삭제는 값, 모든 상태의 확인 필요 초안 키, 개인 보기 참조도 정리한다. `PUT /test-sets/:id/columns`는 없다. `update_column`은 사용자 열의 이름·작성 기준과 선택적인 `options`(선택·태그 항목, 양식과 같은 검사)를 바꾸며 사전 정의 열은 400이다. 항목을 바꿔도 셀 값은 손대지 않는다. 링크 방문자의 열 연산(`add_column`·`remove_column`·`reorder_columns`·`update_column`)은 편집 링크여도 403이다. `set_cell` 등 사람이 넣는 선택·태그 값은 Excel 목록처럼 목록 밖 글자도 받고(형식과 태그 중복만 검사), AI 결과는 출력 스키마의 enum으로 목록 안에 묶는다. XLSX는 선택 열에 숨긴 `목록` 시트를 참조하는 데이터 유효성을 붙인다. 공유 계약은 `packages/contracts`에 있다.
+- `test-sets` 모듈: 만들기가 양식 선택(프로젝트 기본, 최근 세트 복사, 직접 고른 열 목록)을 받는다. 양식 전체 교체 대신 열 추가(사전 정의 열 되돌리기 또는 사용자 열 정의), 열 삭제(값 함께 삭제), 열 순서 변경 연산을 둔다. 열 연산은 세트 version을 올리고 공동 편집으로 전파한다. `POST /test-sets`는 선택적인 `template`(`project`·`recent`·`custom`)을 받으며 생략 시 `project`다. `recent`는 같은 프로젝트의 열람 가능한 세트 중 최근 수정순(동률은 ID순)으로 열 사본을 만들고 없으면 프로젝트 양식을 쓴다. 사본의 열 UUID는 새로 만들며 `presetKey`는 보존한다. `POST /test-sets/:id/ops`의 `add_column`·`remove_column`·`reorder_columns`는 기존 케이스 연산과 같은 잠금·권한·트랜잭션을 쓰며 요청당 version을 한 번 올린다. 삭제는 값, 모든 상태의 확인 필요 초안 키, 개인 보기 참조도 정리한다. `PUT /test-sets/:id/columns`는 없다. `update_column`은 사용자 열의 이름·작성 기준과 선택적인 `options`(선택·태그 항목, 양식과 같은 검사)를 바꾸며 사전 정의 열은 400이다. 항목을 바꿔도 셀 값은 손대지 않는다. 링크 방문자의 열 연산(`add_column`·`remove_column`·`reorder_columns`·`update_column`)은 편집 링크여도 403이다. `set_cell` 등 사람이 넣는 선택·태그 값은 스프레드시트 목록처럼 목록 밖 글자도 받고(형식과 태그 중복만 검사), AI 결과는 출력 스키마의 enum으로 목록 안에 묶는다. XLSX는 선택 열에 숨긴 `목록` 시트를 참조하는 데이터 유효성을 붙인다. 공유 계약은 `packages/contracts`에 있다.
 - `generation` 모듈: 열 하나만 채우는 작업 `fill_column`(`POST /test-sets/:id/test-set-columns/:columnId/fill`, 열 추가 시 "기존 케이스 AI로 채우기")은 `rewrite`와 같은 단계 실행기를 쓰고 외부 `stage`는 null이다. 세트당 하나의 작업 제한과 서버 동시 한도를 공유하며, 값이 있는 셀은 덮지 않고 확인 필요 항목을 만들지 않는다. `POST /generations`의 `frameIds`로 올린 프레임 중 일부만 입력에 넣는다(비우면 전부).
 - `exports`: QA 결과·담당자 또는 개발 진행 상태·담당자가 이웃하면 2단 머리글의 해당 묶음을 병합한다(순서가 뒤집혀도 이웃하면 묶음). 어느 묶음도 성립하지 않으면 1단이다. `test_env`·`test_case`·`title`·`screen_id`·`steps`는 현재 열 순서에 따라 공백 제거 후 같은 연속 값을 세로 병합하며 앞선 대상 열의 경계를 넘지 않는다. 빈 값, 테스트 ID와 예상 결과는 병합하지 않는다.
 

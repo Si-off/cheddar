@@ -2,7 +2,6 @@ import {
   Badge,
   Button,
   ConfirmDialog,
-  ContextMenu,
   cn,
   DataGrid,
   type DataGridColumn,
@@ -13,18 +12,7 @@ import {
   Popover,
   useToast,
 } from "@cheddar/ui";
-import {
-  ArrowDownToLine,
-  ArrowUpToLine,
-  ClipboardPaste,
-  Copy,
-  Eraser,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  SquareSplitVertical,
-  Trash2,
-} from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   type ClipboardEvent,
   type KeyboardEvent,
@@ -32,18 +20,31 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   type CaseOp,
   type CellValue,
   type Column,
   cellText,
+  emptyValue,
   mergeable,
   parseCell,
   readCell,
   type TestCase,
 } from "@/entities/test-set";
+import { isMac, shortcut } from "@/shared/lib/shortcut";
+import { type CellActions, CellContextItems, CellToolbar } from "./cell-tools";
 import { AddColumnDialog, RenameColumnDialog } from "./column-dialogs";
+import {
+  type CellRef,
+  type FindOptions,
+  FindReplaceDialog,
+  findMatches,
+  replaceOps,
+} from "./find-replace";
 import { OptionsPanel } from "./options-panel";
+
+export { CellToolbar } from "./cell-tools";
 
 export interface CaseTableProps {
   "aria-label": string;
@@ -74,6 +75,15 @@ export interface CaseTableProps {
   presence?: GridPresence[];
   /** 내가 고른 셀이 바뀌면 알린다(다른 사람에게 보여주기 위해) */
   onActiveCellChange?: (cell: { caseId: string; columnId: string }) => void;
+  /** 셀 도구(실행취소, 수정, 삽입, 셀 병합)를 그려 넣을 곳. 페이지의 도구 상자 안에 둔다. */
+  toolsTarget?: HTMLElement | null;
+  /** 실행취소와 재실행. 없으면 셀 도구에 두지 않는다. */
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  /** 행을 위아래로 옮길 수 있는지. 기본은 열 편집 권한과 같다(링크 방문자는 옮기지 못한다). */
+  canMoveRows?: boolean;
 }
 
 interface Editing {
@@ -85,14 +95,9 @@ interface Editing {
   typed?: boolean;
 }
 
-const empty = (column: Column): CellValue =>
-  column.type === "checkbox"
-    ? false
-    : column.type === "tags"
-      ? []
-      : column.type === "select"
-        ? null
-        : "";
+// 글자를 쳐서 값을 넣을 수 있는 형식. 선택과 태그도 스프레드시트처럼 목록 밖 값을 칠 수 있다.
+const typable = (column: Column) =>
+  column.type === "text" || column.type === "select" || column.type === "tags";
 
 const widthFor = (column: Column) =>
   column.systemKey === "test_id"
@@ -129,6 +134,12 @@ export function CaseTable({
   presetColumns,
   allCases = cases,
   onFillColumn,
+  toolsTarget,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  canMoveRows = canEditColumns,
 }: CaseTableProps) {
   const toast = useToast();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -137,6 +148,14 @@ export function CaseTable({
     columnId: string;
   } | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
+  // 범위 선택의 반대쪽 끝(활성 셀이 한쪽 끝)
+  const [rangeEnd, setRangeEnd] = useState<{
+    rowId: string;
+    columnId: string;
+  } | null>(null);
+  const [finding, setFinding] = useState(false);
+  // 값이 다른 셀을 병합하기 전에 묻는다(스프레드시트와 같다)
+  const [confirmMerge, setConfirmMerge] = useState(false);
   // 병합을 풀어 따로 보이는 셀("rowId:columnId"). 보기 상태라 저장하지 않는다.
   const [split, setSplit] = useState<ReadonlySet<string>>(new Set());
   const [adding, setAdding] = useState<{ afterColumnId: string | null } | null>(
@@ -282,6 +301,265 @@ export function CaseTable({
     setEditing(null);
     focusGrid();
   };
+  const activeRow = active ? caseOf(active.rowId) : undefined;
+  // 검색으로 고른 셀의 행이 숨으면 셀 도구가 그 행에 작용하지 않게 한다
+  const current = active && activeRow && activeColumn ? active : null;
+  // 선택 범위. 범위가 없으면 고른 셀 하나다.
+  const bounds = (() => {
+    if (!current) return null;
+    const ra = activeIndex;
+    const ca = columns.findIndex((c) => c.id === current.columnId);
+    const endRow = rangeEnd
+      ? cases.findIndex((c) => c.id === rangeEnd.rowId)
+      : -1;
+    const endCol = rangeEnd
+      ? columns.findIndex((c) => c.id === rangeEnd.columnId)
+      : -1;
+    const rb = endRow < 0 ? ra : endRow;
+    const cb = endCol < 0 ? ca : endCol;
+    return {
+      r0: Math.min(ra, rb),
+      r1: Math.max(ra, rb),
+      c0: Math.min(ca, cb),
+      c1: Math.max(ca, cb),
+    };
+  })();
+  const rangeRows = bounds ? cases.slice(bounds.r0, bounds.r1 + 1) : [];
+  const rangeColumns = bounds ? columns.slice(bounds.c0, bounds.c1 + 1) : [];
+  const isRange = rangeRows.length > 1 || rangeColumns.length > 1;
+  // 범위를 스프레드시트 형식(탭과 줄바꿈, 여러 줄 셀은 따옴표) 글자로
+  const rangeText = () =>
+    rangeRows
+      .map((row) =>
+        rangeColumns
+          .map((column) => quoteCell(cellText(column, row.values[column.id])))
+          .join("\t"),
+      )
+      .join("\n");
+  // 범위의 값을 지운다. 셀 하나면 병합된 묶음 전체를 지운다.
+  const clearRange = () => {
+    if (!current || !activeColumn) return;
+    if (!isRange) {
+      set(current.rowId, activeColumn.id, emptyValue(activeColumn));
+      return;
+    }
+    const ops: CaseOp[] = rangeRows.flatMap((row) =>
+      rangeColumns.map((column) => ({
+        type: "set_cell" as const,
+        caseId: row.id,
+        columnId: column.id,
+        value: emptyValue(column),
+      })),
+    );
+    onOps(ops);
+  };
+  // 아래로 채우기: 범위의 첫 행 값으로 나머지 행을 채운다. 한 행이면 바로 위 행 값을 가져온다.
+  const fillDown = () => {
+    if (!bounds) return;
+    const source = rangeRows.length > 1 ? rangeRows[0] : cases[bounds.r0 - 1];
+    const targets = rangeRows.length > 1 ? rangeRows.slice(1) : rangeRows;
+    if (!source) return;
+    const ops: CaseOp[] = [];
+    for (const column of rangeColumns) {
+      if (column.systemKey === "test_id") continue;
+      const value = source.values[column.id] ?? emptyValue(column);
+      for (const row of targets)
+        if (cellText(column, row.values[column.id]) !== cellText(column, value))
+          ops.push({
+            type: "set_cell",
+            caseId: row.id,
+            columnId: column.id,
+            value,
+          });
+    }
+    if (ops.length > 0) onOps(ops);
+  };
+  // 범위 행들을 한 칸 위나 아래로 옮긴다. 이웃 행을 범위 반대편으로 옮기는 한 번의 이동이다.
+  const moveRows = (direction: -1 | 1) => {
+    if (!bounds) return;
+    if (direction === -1) {
+      const above = cases[bounds.r0 - 1];
+      const last = cases[bounds.r1];
+      if (above && last)
+        onOps([{ type: "move_case", caseId: above.id, afterCaseId: last.id }]);
+    } else {
+      const below = cases[bounds.r1 + 1];
+      if (below)
+        onOps([
+          {
+            type: "move_case",
+            caseId: below.id,
+            afterCaseId: cases[bounds.r0 - 1]?.id ?? null,
+          },
+        ]);
+    }
+  };
+  // 세로로 병합: 한 열의 여러 행을 맨 위 값으로 맞춰 한 칸으로 보이게 한다
+  const mergeColumn =
+    rangeColumns.length === 1 &&
+    rangeRows.length > 1 &&
+    rangeColumns[0] &&
+    mergeable(rangeColumns[0])
+      ? rangeColumns[0]
+      : null;
+  const topValue =
+    mergeColumn && rangeRows[0]
+      ? rangeRows[0].values[mergeColumn.id]
+      : undefined;
+  const mergeVertical = () => {
+    if (!mergeColumn || topValue === undefined) return;
+    setSplit((prev) => {
+      const next = new Set(prev);
+      for (const row of rangeRows) next.delete(`${row.id}:${mergeColumn.id}`);
+      return next;
+    });
+    const ops: CaseOp[] = rangeRows
+      .slice(1)
+      .filter(
+        (row) =>
+          cellText(mergeColumn, row.values[mergeColumn.id]) !==
+          cellText(mergeColumn, topValue),
+      )
+      .map((row) => ({
+        type: "set_cell" as const,
+        caseId: row.id,
+        columnId: mergeColumn.id,
+        value: topValue,
+      }));
+    if (ops.length > 0) onOps(ops);
+  };
+  // 붙여넣기는 범위의 왼쪽 위부터 채운다
+  const pasteOrigin = () => {
+    const row = bounds ? cases[bounds.r0] : undefined;
+    const column = bounds ? columns[bounds.c0] : undefined;
+    return row && column ? { rowId: row.id, columnId: column.id } : null;
+  };
+  const pasteFromClipboard = (at: { rowId: string; columnId: string }) =>
+    navigator.clipboard
+      .readText()
+      .then((text) => text && pasteAt(at, text))
+      .catch(() =>
+        toast.show({
+          message: `붙여넣기는 ${shortcut("paste")}로 할 수 있습니다`,
+          tone: "info",
+        }),
+      );
+  // 쓸 수 없는 작업은 null(흐리게), 이 표에 없는 작업은 undefined(메뉴에서 뺀다)
+  const when = (ok: boolean, run: () => void) => (ok ? run : null);
+  const editable = !readOnly;
+  const movable = editable && canMoveRows;
+  const actions: CellActions = {
+    undo: onUndo && editable ? when(Boolean(canUndo), onUndo) : undefined,
+    redo: onRedo && editable ? when(Boolean(canRedo), onRedo) : undefined,
+    cut: !editable
+      ? undefined
+      : when(Boolean(current), () => {
+          // 클립보드에 옮겨진 뒤에만 지운다. 옮기지 못하면 원본을 둔다.
+          navigator.clipboard
+            .writeText(rangeText())
+            .then(clearRange)
+            .catch(() =>
+              toast.show({
+                message: `잘라내기는 ${shortcut("cut")}로 할 수 있습니다`,
+                tone: "info",
+              }),
+            );
+        }),
+    copy: when(Boolean(current), () => {
+      void navigator.clipboard.writeText(rangeText());
+    }),
+    paste: !editable
+      ? undefined
+      : when(Boolean(current), () => {
+          const origin = pasteOrigin();
+          if (origin) pasteFromClipboard(origin);
+        }),
+    fillDown: !editable
+      ? undefined
+      : when(
+          Boolean(bounds && (rangeRows.length > 1 || bounds.r0 > 0)),
+          fillDown,
+        ),
+    moveUp: !movable
+      ? undefined
+      : when(Boolean(bounds && bounds.r0 > 0), () => moveRows(-1)),
+    moveDown: !movable
+      ? undefined
+      : when(Boolean(bounds && bounds.r1 < cases.length - 1), () =>
+          moveRows(1),
+        ),
+    clear: !editable ? undefined : when(Boolean(current), clearRange),
+    deleteRow: !editable
+      ? undefined
+      : when(Boolean(current), () =>
+          onOps([
+            { type: "delete_cases", caseIds: rangeRows.map((row) => row.id) },
+          ]),
+        ),
+    findReplace: () => setFinding(true),
+    insertAbove:
+      !editable || !onInsertCase
+        ? undefined
+        : when(Boolean(current), () =>
+            insertCase(cases[(bounds?.r0 ?? activeIndex) - 1]?.id ?? null),
+          ),
+    insertBelow:
+      !editable || !onInsertCase
+        ? undefined
+        : when(Boolean(current), () => {
+            const last = bounds ? cases[bounds.r1] : undefined;
+            if (last) insertCase(last.id);
+          }),
+    mergeVertical: !editable
+      ? undefined
+      : when(
+          Boolean(
+            mergeColumn &&
+              topValue !== undefined &&
+              cellText(mergeColumn, topValue),
+          ),
+          () => {
+            const top = mergeColumn ? cellText(mergeColumn, topValue) : "";
+            const differs =
+              mergeColumn &&
+              rangeRows.some((row) => {
+                const text = cellText(mergeColumn, row.values[mergeColumn.id]);
+                return text !== "" && text !== top;
+              });
+            if (differs) setConfirmMerge(true);
+            else mergeVertical();
+          },
+        ),
+    unmerge: when(
+      Boolean(
+        current &&
+          activeColumn &&
+          mergeable(activeColumn) &&
+          mergedCases(current.rowId, activeColumn.id).length > 1,
+      ),
+      () => current && splitCell(current.rowId, current.columnId),
+    ),
+  };
+  // 셀 도구의 단축키. 스프레드시트처럼 Mac은 ⌘, 그 밖은 Ctrl을 쓴다.
+  const onShortcut = (event: KeyboardEvent<HTMLElement>) => {
+    const mod = isMac() ? event.metaKey : event.ctrlKey;
+    if (!mod) return false;
+    const key = event.key.toLowerCase();
+    const run = (action: (() => void) | null | undefined) => {
+      event.preventDefault();
+      action?.();
+      return true;
+    };
+    if (key === "z") return run(event.shiftKey ? actions.redo : actions.undo);
+    if (key === "y") return run(actions.redo);
+    if (key === "d") return run(actions.fillDown);
+    // 행 삽입과 삭제는 ⌘⌥(Ctrl+Alt)와 =, -. Option을 누르면 key가 바뀌므로 code로 본다.
+    if (event.altKey && event.code === "Equal") return run(actions.insertAbove);
+    if (event.altKey && event.code === "Minus") return run(actions.deleteRow);
+    if (key === "h" && (event.shiftKey || !isMac()))
+      return run(actions.findReplace);
+    return false;
+  };
 
   const onCellKeyDown = (
     cell: { rowId: string; columnId: string },
@@ -290,6 +568,7 @@ export function CaseTable({
     const column = columnOf(cell.columnId);
     const row = caseOf(cell.rowId);
     if (!column || !row) return;
+    if (onShortcut(event)) return;
     const mod = event.ctrlKey || event.metaKey;
     if (readOnly || mod) return;
     if (event.key === "Enter" || event.key === "F2") {
@@ -302,48 +581,41 @@ export function CaseTable({
       set(row.id, column.id, !readCell(column, row.values[column.id]));
     } else if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
-      set(row.id, column.id, empty(column));
+      clearRange();
     } else if (
       (event.target as HTMLElement).dataset.gridInput === "idle" &&
-      column.type === "text"
+      typable(column)
     ) {
       // 미리 둔 입력 칸이 글자를 그대로 받는다. 한글 조합도 끊기지 않는다.
-    } else if (
-      event.key.length === 1 &&
-      !event.altKey &&
-      column.type === "text"
-    ) {
+    } else if (event.key.length === 1 && !event.altKey && typable(column)) {
       event.preventDefault();
       setEditing({ caseId: row.id, columnId: column.id, initial: event.key });
     }
   };
 
   const onCopy = (event: ClipboardEvent) => {
-    if (!active || editing || isInput(event.target)) return;
-    const column = columnOf(active.columnId);
-    const row = caseOf(active.rowId);
-    if (!column || !row) return;
+    if (!current || editing || isInput(event.target)) return;
     event.preventDefault();
-    event.clipboardData.setData(
-      "text/plain",
-      cellText(column, row.values[column.id]),
-    );
+    event.clipboardData.setData("text/plain", rangeText());
+  };
+  const onCut = (event: ClipboardEvent) => {
+    if (readOnly || !current || editing || isInput(event.target)) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", rangeText());
+    clearRange();
   };
 
   // 고른 셀부터 오른쪽과 아래로 채운다. 형식에 맞지 않는 값과 표 밖은 건너뛴다.
   const onPaste = (event: ClipboardEvent) => {
-    if (readOnly || !active || editing || isInput(event.target)) return;
+    if (readOnly || !current || editing || isInput(event.target)) return;
     const text = event.clipboardData.getData("text/plain");
     if (!text) return;
     event.preventDefault();
-    pasteAt(active, text);
+    const origin = pasteOrigin();
+    if (origin) pasteAt(origin, text);
   };
   const pasteAt = (at: { rowId: string; columnId: string }, text: string) => {
-    const grid = text
-      .replace(/\r\n/g, "\n")
-      .replace(/\n$/, "")
-      .split("\n")
-      .map((line) => line.split("\t"));
+    const grid = parseTsv(text);
     const r0 = cases.findIndex((c) => c.id === at.rowId);
     const c0 = columns.findIndex((c) => c.id === at.columnId);
     const ops: CaseOp[] = [];
@@ -377,6 +649,22 @@ export function CaseTable({
       });
   };
 
+  // 찾기 및 바꾸기. 고른 셀 다음부터 표 순서대로 찾는다.
+  const goTo = (cell: { rowId: string; columnId: string }) => {
+    setActive(cell);
+    setRangeEnd(null);
+    onActiveCellChange?.({ caseId: cell.rowId, columnId: cell.columnId });
+  };
+  const findNext = (options: FindOptions) => {
+    const matches = findMatches(columns, cases, options);
+    if (matches.length === 0) return false;
+    const order = (cell: { rowId: string; columnId: string }) =>
+      cases.findIndex((c) => c.id === cell.rowId) * columns.length +
+      columns.findIndex((c) => c.id === cell.columnId);
+    const here = current ? order(current) : -1;
+    goTo(matches.find((m) => order(m) > here) ?? (matches[0] as CellRef));
+    return true;
+  };
   const gridColumns: DataGridColumn<TestCase>[] = columns.map((column) => ({
     id: column.id,
     header: column.name,
@@ -478,14 +766,31 @@ export function CaseTable({
         editing?.caseId === row.id && editing.columnId === column.id;
       const isActive =
         active?.rowId === row.id && active.columnId === column.id;
-      // 고른 글자 셀에는 보이지 않는 입력 칸을 미리 두고, 치기 시작하면 같은 칸이 편집 칸이 된다.
+      // 글자로 고치는 중인지. 선택과 태그는 Enter나 두 번 누르기면 목록을, 글자를 치면 입력 칸을 연다.
+      const typing =
+        isEditing &&
+        (column.type === "text" ||
+          editing.typed === true ||
+          editing.initial !== undefined);
+      // 고른 셀에는 보이지 않는 입력 칸을 미리 두고, 치기 시작하면 같은 칸이 편집 칸이 된다.
       // 한글처럼 조합하는 입력이 첫 키부터 이 칸에서 시작해야 글자가 빠지지 않는다.
-      if (column.type === "text" && !readOnly && (isEditing || isActive))
+      if (typable(column) && !readOnly && (typing || (isActive && !isEditing)))
         return (
           <>
-            {!isEditing && <CellDisplay column={column} value={value} />}
+            {!isEditing && (
+              <CellDisplay
+                column={column}
+                value={value}
+                markId={`outside-${row.id}-${column.id}`}
+              />
+            )}
             <TextEditor
               label={column.name}
+              describedBy={
+                !isEditing && isOutside(column, value)
+                  ? `outside-${row.id}-${column.id}`
+                  : undefined
+              }
               dormant={!isEditing}
               seed={
                 !isEditing || editing.typed
@@ -496,8 +801,10 @@ export function CaseTable({
                 setEditing({ caseId: row.id, columnId: column.id, typed: true })
               }
               onCommit={(next) => {
-                if (next !== cellText(column, value))
-                  set(row.id, column.id, next);
+                if (next !== cellText(column, value)) {
+                  const parsed = parseCell(column, next);
+                  if (parsed !== undefined) set(row.id, column.id, parsed);
+                }
                 finish();
               }}
               onCancel={finish}
@@ -541,6 +848,7 @@ export function CaseTable({
     // biome-ignore lint/a11y/noStaticElementInteractions: 이벤트 위임용 틀이다
     <div
       onCopy={onCopy}
+      onCut={onCut}
       onPaste={onPaste}
       // 키보드로 표에 들어오면 첫 셀을 고른다
       onFocus={(event) => {
@@ -573,6 +881,8 @@ export function CaseTable({
         rows={cases}
         getRowId={(c) => c.id}
         activeCell={active}
+        rangeEnd={rangeEnd}
+        onRangeEndChange={setRangeEnd}
         onActiveCellChange={(cell) => {
           restoreFocus.current = Boolean(
             gridRef.current?.contains(document.activeElement),
@@ -615,93 +925,7 @@ export function CaseTable({
         // 오른쪽 클릭이 먼저 셀을 고르므로 메뉴는 늘 고른 셀 기준이다. 틀을 늘 둬야 표가 다시 만들어지지 않는다.
         cellMenu={
           active && activeColumn ? (
-            <>
-              <ContextMenu.Item
-                icon={Copy}
-                onClick={() => {
-                  const row = caseOf(active.rowId);
-                  if (row)
-                    void navigator.clipboard.writeText(
-                      cellText(activeColumn, row.values[activeColumn.id]),
-                    );
-                }}
-              >
-                복사
-              </ContextMenu.Item>
-              {!readOnly && (
-                <ContextMenu.Item
-                  icon={ClipboardPaste}
-                  onClick={() =>
-                    navigator.clipboard
-                      .readText()
-                      .then((text) => text && pasteAt(active, text))
-                      .catch(() =>
-                        toast.show({
-                          message: "붙여넣기는 Ctrl+V(⌘V)로 할 수 있습니다",
-                          tone: "info",
-                        }),
-                      )
-                  }
-                >
-                  붙여넣기
-                </ContextMenu.Item>
-              )}
-              {!readOnly && (
-                <ContextMenu.Item
-                  icon={Eraser}
-                  onClick={() =>
-                    set(active.rowId, activeColumn.id, empty(activeColumn))
-                  }
-                >
-                  내용 지우기
-                </ContextMenu.Item>
-              )}
-              {!readOnly && onInsertCase && (
-                <>
-                  <ContextMenu.Separator />
-                  <ContextMenu.Item
-                    icon={ArrowUpToLine}
-                    onClick={() =>
-                      insertCase(cases[activeIndex - 1]?.id ?? null)
-                    }
-                  >
-                    위에 케이스 추가
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    icon={ArrowDownToLine}
-                    onClick={() => insertCase(active.rowId)}
-                  >
-                    아래에 케이스 추가
-                  </ContextMenu.Item>
-                </>
-              )}
-              {mergeable(activeColumn) &&
-                mergedCases(active.rowId, activeColumn.id).length > 1 && (
-                  <>
-                    <ContextMenu.Separator />
-                    <ContextMenu.Item
-                      icon={SquareSplitVertical}
-                      onClick={() => splitCell(active.rowId, activeColumn.id)}
-                    >
-                      셀 나누기
-                    </ContextMenu.Item>
-                  </>
-                )}
-              {!readOnly && (
-                <>
-                  <ContextMenu.Separator />
-                  <ContextMenu.Item
-                    icon={Trash2}
-                    tone="danger"
-                    onClick={() =>
-                      onOps([{ type: "delete_cases", caseIds: [active.rowId] }])
-                    }
-                  >
-                    케이스 삭제
-                  </ContextMenu.Item>
-                </>
-              )}
-            </>
+            <CellContextItems actions={actions} />
           ) : (
             // 고른 셀이 없을 때. 메뉴는 고른 셀에서만 열리므로 틀만 유지한다.
             <span hidden />
@@ -721,6 +945,42 @@ export function CaseTable({
             </Button>
           ) : undefined
         }
+      />
+      {toolsTarget &&
+        createPortal(<CellToolbar actions={actions} />, toolsTarget)}
+      <FindReplaceDialog
+        open={finding}
+        onOpenChange={(open) => {
+          setFinding(open);
+          if (!open) focusGrid();
+        }}
+        readOnly={readOnly}
+        onFind={findNext}
+        onReplace={(options, replacement) => {
+          if (
+            current &&
+            findMatches(columns, cases, options).some(
+              (m) =>
+                m.rowId === current.rowId && m.columnId === current.columnId,
+            )
+          ) {
+            const ops = replaceOps(
+              columns,
+              cases,
+              [current],
+              options,
+              replacement,
+            );
+            if (ops.length > 0) onOps(ops);
+          }
+          findNext(options);
+        }}
+        onReplaceAll={(options, replacement) => {
+          const found = findMatches(columns, cases, options);
+          const ops = replaceOps(columns, cases, found, options, replacement);
+          if (ops.length > 0) onOps(ops);
+          return { found: found.length, replaced: ops.length };
+        }}
       />
       <AddColumnDialog
         open={adding !== null}
@@ -750,6 +1010,17 @@ export function CaseTable({
         }}
       />
       <ConfirmDialog
+        open={confirmMerge}
+        onOpenChange={setConfirmMerge}
+        title="셀 병합"
+        description="병합하면 맨 위 셀의 값만 남고 나머지 값은 사라집니다."
+        confirmLabel="병합"
+        onConfirm={() => {
+          mergeVertical();
+          setConfirmMerge(false);
+        }}
+      />
+      <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
         title={`${removing?.name ?? ""} 삭제`}
@@ -767,17 +1038,64 @@ export function CaseTable({
   );
 }
 
+/** 탭이나 줄바꿈, 따옴표가 든 셀은 스프레드시트처럼 따옴표로 감싼다 */
+const quoteCell = (text: string) =>
+  /[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+
+/** 스프레드시트에서 복사한 글자(탭과 줄바꿈, 따옴표로 감싼 여러 줄 셀)를 칸으로 나눈다 */
+function parseTsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  const input = text.replace(/\r\n/g, "\n").replace(/\n$/, "");
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === "\t") {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += ch;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows;
+}
+
 const isInput = (target: EventTarget) =>
   target instanceof HTMLElement &&
   target.dataset.gridInput !== "idle" &&
   Boolean(target.closest("input, textarea, [contenteditable=true]"));
 
+// 선택과 태그 셀에 목록에 없는 값이 들었는지
+const isOutside = (column: Column, value: CellValue | undefined) => {
+  const v = readCell(column, value);
+  if (Array.isArray(v)) return v.some((tag) => !column.options.includes(tag));
+  return (
+    column.type === "select" && !!v && !column.options.includes(v as string)
+  );
+};
+
 function CellDisplay({
   column,
   value,
+  markId,
 }: {
   column: Column;
   value: CellValue | undefined;
+  /** 목록 밖 표시의 id. 셀의 입력 칸이 이 상태를 설명으로 읽게 한다. */
+  markId?: string;
 }) {
   const v = readCell(column, value);
   if (column.type === "checkbox")
@@ -787,7 +1105,7 @@ function CellDisplay({
         <span className="sr-only">{v ? "예" : "아니오"}</span>
       </span>
     );
-  // 목록에 없는 값(붙여넣기, 항목 변경 뒤 남은 값)은 Excel처럼 그대로 두고 칩 없이 글자로 보여준다.
+  // 목록에 없는 값은 스프레드시트처럼 그대로 두고 칩 없이 글자로 보여주며, 셀 모서리에 빨간 표시를 단다.
   if (Array.isArray(v)) {
     const outside = v.filter((tag) => !column.options.includes(tag));
     return (
@@ -797,7 +1115,12 @@ function CellDisplay({
           .map((tag) => (
             <Badge key={tag}>{tag}</Badge>
           ))}
-        {outside.length > 0 && <span>{outside.join(", ")}</span>}
+        {outside.length > 0 && (
+          <>
+            <span>{outside.join(", ")}</span>
+            <OutsideMark id={markId} />
+          </>
+        )}
       </span>
     );
   }
@@ -805,9 +1128,27 @@ function CellDisplay({
     return !v ? null : column.options.includes(v as string) ? (
       <Badge>{v}</Badge>
     ) : (
-      <>{v}</>
+      <>
+        {v}
+        <OutsideMark id={markId} />
+      </>
     );
   return <>{v}</>;
+}
+
+/** 목록에 없는 값이 든 셀의 오른쪽 위 빨간 삼각형 */
+function OutsideMark({ id }: { id?: string }) {
+  return (
+    <>
+      <span
+        aria-hidden
+        className="absolute top-0 right-0 border-t-8 border-l-8 border-t-danger border-l-transparent"
+      />
+      <span id={id} className="sr-only">
+        목록에 없는 값
+      </span>
+    </>
+  );
 }
 
 /**
@@ -816,6 +1157,7 @@ function CellDisplay({
  */
 function TextEditor({
   label,
+  describedBy,
   dormant,
   seed,
   onStart,
@@ -823,6 +1165,8 @@ function TextEditor({
   onCancel,
 }: {
   label: string;
+  /** 셀 상태를 설명하는 요소의 id(목록 밖 값 등) */
+  describedBy?: string;
   dormant: boolean;
   /** 편집을 시작할 때 채울 값. 없으면 친 글자를 그대로 둔다. */
   seed: string | undefined;
@@ -858,6 +1202,7 @@ function TextEditor({
     <textarea
       ref={ref}
       aria-label={label}
+      aria-describedby={describedBy}
       data-grid-input={dormant ? "idle" : "editing"}
       onInput={() => dormant && onStart()}
       onCompositionStart={() => dormant && onStart()}
@@ -883,7 +1228,7 @@ function TextEditor({
 
 /**
  * 선택 항목에서 고른다. 태그는 여러 개를 고르고, 단일 선택은 하나를 고르면 닫힌다.
- * 비우기는 Excel처럼 Delete 키나 셀 메뉴의 내용 지우기로 한다.
+ * 비우기는 스프레드시트처럼 Delete 키나 셀 메뉴의 값 삭제로 한다.
  * onSaveOptions가 있으면 목록 아래 연필로 같은 자리에서 항목을 고친다.
  */
 function OptionEditor({

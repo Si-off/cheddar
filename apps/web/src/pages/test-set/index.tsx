@@ -3,19 +3,23 @@ import {
   Banner,
   Button,
   buttonVariants,
+  cn,
   EmptyState,
   IconButton,
   LoadError,
   Menu,
   SaveStatus,
-  Select,
   Tabs,
   TextField,
+  Toolbar,
+  ToolbarMenu,
+  ToolbarSeparator,
   useToast,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  AlignLeft,
   CircleHelp,
   Columns3,
   Download,
@@ -39,7 +43,6 @@ import {
   type CellValue,
   cellText,
   groupable,
-  groupCases,
   type TestSet,
   testSetQuery,
 } from "@/entities/test-set";
@@ -47,7 +50,7 @@ import {
   liveConnectionHeader,
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
-import { useCaseOps } from "@/features/edit-cases";
+import { useCaseHistory, useCaseOps } from "@/features/edit-cases";
 import { useExportXlsx } from "@/features/export-xlsx";
 import { GenerateSheet } from "@/features/generate-cases";
 import {
@@ -58,9 +61,9 @@ import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { sharingQuery } from "@/features/share-test-set";
 import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
-import { CaseBoard } from "@/widgets/case-board";
+import { CaseCanvas } from "@/widgets/case-canvas";
 import { CaseDialog } from "@/widgets/case-dialog";
-import { CaseTable } from "@/widgets/case-table";
+import { CaseTable, CellToolbar } from "@/widgets/case-table";
 import { NoAccessNotice } from "@/widgets/no-access-notice";
 import { ReviewPanel } from "@/widgets/review-panel";
 import { ShareDialog } from "@/widgets/share-dialog";
@@ -166,6 +169,8 @@ function TestSetScreen({
     },
   });
   connection.current = live.connectionId;
+  // 내가 한 편집만 되돌린다
+  const history = useCaseHistory({ queryKey, apply });
   // 로그인이 끝나 연결이 닫히면 로그인 뒤 이 화면으로 돌아온다
   useEffect(() => {
     if (live.closed === "session-expired")
@@ -208,6 +213,8 @@ function TestSetScreen({
   // 제외한 항목을 되돌릴 수 있도록 처리하지 않은 항목이 남아 있으면 버튼을 둔다
   const hasReview = reviewItems.some((i) => i.status !== "resolved");
   const [reviewOpen, setReviewOpen] = useState(false);
+  // 표의 셀 도구를 그려 넣을 도구 상자 안 자리
+  const [cellTools, setCellTools] = useState<HTMLElement | null>(null);
   const review = useReviewActions(testSet.id);
   // 다시 작성 중에 새로 고쳤으면 그 작업이 끝날 때를 다시 기다린다
   useRewriteWatch(
@@ -226,10 +233,16 @@ function TestSetScreen({
     meta: { quietCodes: ["NOT_FOUND", "FORBIDDEN"] },
   }).data?.columns;
 
+  const canvas = view.view === "canvas";
   const groupColumn =
     testSet.columns.find(
       (c) => c.id === view.groupByColumnId && groupable(c.type),
     ) ?? null;
+  // 캔버스를 나눌 기준. 열을 골랐는데 그 열이 없어졌으면 기능 그룹으로 나눈다.
+  const canvasGroup =
+    view.canvasGroup === "column" && !groupColumn
+      ? "feature"
+      : view.canvasGroup;
   const cases = query
     ? testSet.cases.filter((c) =>
         testSet.columns.some((col) =>
@@ -247,14 +260,14 @@ function TestSetScreen({
     afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
   ) => {
     const caseId = crypto.randomUUID();
-    apply([{ type: "add_case", caseId, afterCaseId, values }]);
+    history.record([{ type: "add_case", caseId, afterCaseId, values }]);
     return caseId;
   };
   const removeSelected = () => {
-    apply([{ type: "delete_cases", caseIds: [...selectedIds] }]);
+    history.record([{ type: "delete_cases", caseIds: [...selectedIds] }]);
     setSelected(new Set());
   };
-  const onOps = (ops: CaseOp[]) => apply(ops);
+  const onOps = (ops: CaseOp[]) => history.record(ops);
   // 열 추가 연산이 저장된 뒤에 채우기를 시작한다
   const fillColumn = (columnId: string) =>
     settled()
@@ -317,118 +330,185 @@ function TestSetScreen({
     );
 
   return (
-    <main className="flex w-full flex-col gap-4 px-8 pt-6 pb-8">
-      <div className="flex flex-col gap-2">
-        <div className="flex min-h-9 flex-wrap items-center gap-3">
-          <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
-          <span className="flex-1" />
-          {!readOnly && <SaveStatus state={state} />}
-          {live.people.length > 0 && (
-            <Avatars
-              people={live.people.map((p) => ({
-                id: p.connectionId,
-                name: p.connectionId === live.me?.connectionId ? "나" : p.name,
-                color: p.color,
-                guest: p.kind === "visitor",
-              }))}
+    <main
+      className={cn(
+        "flex w-full flex-col gap-4 px-8 pt-6 pb-8",
+        canvas && "min-h-0 flex-1",
+      )}
+    >
+      <div className="flex min-h-9 flex-wrap items-center gap-3">
+        <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
+        {!readOnly && <SaveStatus state={state} />}
+        <span className="flex-1" />
+        {live.people.length > 0 && (
+          <Avatars
+            people={live.people.map((p) => ({
+              id: p.connectionId,
+              name: p.connectionId === live.me?.connectionId ? "나" : p.name,
+              color: p.color,
+              guest: p.kind === "visitor",
+            }))}
+          />
+        )}
+        <Button icon={Link2} onClick={() => setDialog("share")}>
+          공유
+        </Button>
+        {(testSet.access.canRename || testSet.access.canDelete) && (
+          <Menu.Root>
+            <Menu.Trigger
+              render={
+                <IconButton
+                  icon={MoreHorizontal}
+                  label="테스트 세트 작업"
+                  variant="solid"
+                />
+              }
             />
-          )}
-          <Button icon={Link2} onClick={() => setDialog("share")}>
-            공유
-          </Button>
-          {testSet.access.canExport && (
-            <Button
-              icon={Download}
-              loading={exportXlsx.isPending}
-              onClick={() => exportXlsx.mutate()}
-            >
-              XLSX 내보내기
-            </Button>
-          )}
-          {!readOnly && (
-            <Button
-              variant="ai"
-              icon={Sparkles}
-              disabled={running}
-              onClick={() => setDialog("generate")}
-            >
-              케이스 추가 생성
-            </Button>
-          )}
-          {(testSet.access.canRename || testSet.access.canDelete) && (
-            <Menu.Root>
-              <Menu.Trigger
-                render={
-                  <IconButton
-                    icon={MoreHorizontal}
-                    label="테스트 세트 작업"
-                    variant="solid"
-                  />
-                }
-              />
-              <Menu.Popup align="end">
-                {testSet.access.canRename && (
-                  <Menu.Item onClick={() => setDialog("rename")}>
-                    이름 변경
+            <Menu.Popup align="end">
+              {testSet.access.canRename && (
+                <Menu.Item onClick={() => setDialog("rename")}>
+                  이름 변경
+                </Menu.Item>
+              )}
+              {testSet.access.canDelete && (
+                <>
+                  <Menu.Separator />
+                  <Menu.Item
+                    icon={Trash2}
+                    tone="danger"
+                    onClick={() => setDialog("delete")}
+                  >
+                    삭제
                   </Menu.Item>
-                )}
-                {testSet.access.canDelete && (
-                  <>
-                    <Menu.Separator />
-                    <Menu.Item
-                      icon={Trash2}
-                      tone="danger"
-                      onClick={() => setDialog("delete")}
-                    >
-                      삭제
-                    </Menu.Item>
-                  </>
-                )}
-              </Menu.Popup>
-            </Menu.Root>
-          )}
-        </div>
+                </>
+              )}
+            </Menu.Popup>
+          </Menu.Root>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-line border-t pt-1">
+      <Toolbar aria-label="테스트 세트 도구">
         <Tabs.Root
           value={view.view}
-          onValueChange={(v) => setView({ view: v as "table" | "card" })}
+          onValueChange={(v) => setView({ view: v as "table" | "canvas" })}
         >
           <Tabs.List variant="pill" aria-label="보기">
             <Tabs.Tab value="table" icon={Table2}>
               표
             </Tabs.Tab>
-            <Tabs.Tab value="card" icon={Columns3}>
-              카드
+            <Tabs.Tab value="canvas" icon={Columns3}>
+              캔버스
             </Tabs.Tab>
           </Tabs.List>
         </Tabs.Root>
-        <TextField
-          size="sm"
-          icon={Search}
-          placeholder="케이스 검색"
-          aria-label="케이스 검색"
-          className="w-60 max-w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Select
-          size="sm"
-          aria-label="묶기 기준"
-          className="w-40"
-          value={groupColumn?.id ?? ""}
-          items={[
-            { value: "", label: "묶지 않음" },
-            ...testSet.columns
-              .filter((c) => groupable(c.type))
-              .map((c) => ({ value: c.id, label: c.name })),
-          ]}
-          onValueChange={(id) => setView({ groupByColumnId: id || null })}
-        />
+        {view.view === "table" && testSet.cases.length > 0 && (
+          <>
+            <ToolbarSeparator />
+            <span ref={setCellTools} className="contents" />
+          </>
+        )}
+        {view.view === "table" && testSet.cases.length === 0 && !readOnly && (
+          // 마지막 행을 지운 뒤에도 바로 되살릴 수 있게 실행취소는 남긴다
+          <>
+            <ToolbarSeparator />
+            <CellToolbar
+              actions={{
+                undo: history.canUndo ? history.undo : null,
+                redo: history.canRedo ? history.redo : null,
+              }}
+            />
+          </>
+        )}
+        {canvas && (
+          <>
+            <ToolbarSeparator />
+            {!readOnly && (
+              <CellToolbar
+                actions={{
+                  undo: history.canUndo ? history.undo : null,
+                  redo: history.canRedo ? history.redo : null,
+                }}
+              />
+            )}
+            <ToolbarMenu icon={Columns3} label="그룹화">
+              {[
+                { key: "feature", label: "기능 그룹" },
+                ...testSet.columns
+                  .filter((c) => groupable(c.type))
+                  .map((c) => ({ key: c.id, label: c.name })),
+                { key: "none", label: "없음" },
+              ].map((option) => {
+                const checked =
+                  option.key === "feature" || option.key === "none"
+                    ? canvasGroup === option.key
+                    : canvasGroup === "column" &&
+                      groupColumn?.id === option.key;
+                return (
+                  <Menu.CheckboxItem
+                    key={option.key}
+                    closeOnClick
+                    checked={checked}
+                    onCheckedChange={() =>
+                      setView(
+                        option.key === "feature" || option.key === "none"
+                          ? { canvasGroup: option.key }
+                          : {
+                              canvasGroup: "column",
+                              groupByColumnId: option.key,
+                            },
+                      )
+                    }
+                  >
+                    {option.label}
+                  </Menu.CheckboxItem>
+                );
+              })}
+            </ToolbarMenu>
+            <ToolbarMenu icon={AlignLeft} label="표시">
+              {(
+                [
+                  { key: "brief", label: "간략" },
+                  { key: "detail", label: "상세" },
+                ] as const
+              ).map((option) => (
+                <Menu.CheckboxItem
+                  key={option.key}
+                  closeOnClick
+                  checked={view.canvasDensity === option.key}
+                  onCheckedChange={() => setView({ canvasDensity: option.key })}
+                >
+                  {option.label}
+                </Menu.CheckboxItem>
+              ))}
+            </ToolbarMenu>
+          </>
+        )}
+        {(!readOnly || testSet.access.canExport) && <ToolbarSeparator />}
+        {!readOnly && (
+          <Button
+            size="sm"
+            variant="ai"
+            icon={Sparkles}
+            disabled={running}
+            onClick={() => setDialog("generate")}
+          >
+            케이스 추가 생성
+          </Button>
+        )}
+        {testSet.access.canExport && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Download}
+            loading={exportXlsx.isPending}
+            onClick={() => exportXlsx.mutate()}
+          >
+            XLSX 내보내기
+          </Button>
+        )}
         {view.view === "table" && selectedIds.size > 0 && (
           <>
-            <span className="mx-1 h-5 w-px bg-line" />
+            <ToolbarSeparator />
             <span className="text-caption text-fg-muted">
               {selectedIds.size}개 선택
             </span>
@@ -443,6 +523,15 @@ function TestSetScreen({
           </>
         )}
         <span className="flex-1" />
+        <TextField
+          size="sm"
+          icon={Search}
+          placeholder="케이스 검색"
+          aria-label="케이스 검색"
+          className="w-60 max-w-full"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         {(hasReview || reviewOpen) && (
           <Button
             size="sm"
@@ -455,7 +544,7 @@ function TestSetScreen({
             <span className="tabular-nums">{reviewCount}</span>
           </Button>
         )}
-      </div>
+      </Toolbar>
 
       {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
       {running && generation && (
@@ -474,17 +563,25 @@ function TestSetScreen({
         />
       )}
 
-      <div className="flex flex-col items-start gap-4 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          {view.view === "card" ? (
-            <CaseBoard
+      <div
+        className={cn(
+          "flex flex-col gap-4 lg:flex-row",
+          canvas ? "min-h-0 flex-1" : "items-start",
+        )}
+      >
+        <div className={cn("min-w-0 flex-1", canvas && "flex flex-col")}>
+          {canvas ? (
+            <CaseCanvas
               columns={testSet.columns}
               cases={cases}
+              allCases={testSet.cases}
+              featureGroups={testSet.featureGroups ?? []}
+              group={canvasGroup}
               groupColumnId={groupColumn?.id ?? null}
+              density={view.canvasDensity}
               readOnly={readOnly}
               onOps={onOps}
               onOpenCase={setOpenCaseId}
-              onAddCase={(values) => setOpenCaseId(addCase(values))}
             />
           ) : testSet.cases.length === 0 ? (
             <EmptyState
@@ -496,38 +593,17 @@ function TestSetScreen({
                 )
               }
             />
-          ) : groupColumn ? (
-            <div className="flex flex-col gap-6">
-              {groupCases(groupColumn, cases).map((group) => (
-                <section
-                  key={group.key}
-                  aria-label={group.label}
-                  className="flex flex-col gap-2"
-                >
-                  <h2 className="m-0 text-title-sm text-fg">
-                    {group.label}{" "}
-                    <span className="text-caption text-fg-muted tabular-nums">
-                      {group.cases.length}
-                    </span>
-                  </h2>
-                  <CaseTable
-                    aria-label={`${group.label} 케이스`}
-                    cases={group.cases}
-                    onAddCase={() => addCase({ [groupColumn.id]: group.value })}
-                    onInsertCase={(after) =>
-                      addCase({ [groupColumn.id]: group.value }, after)
-                    }
-                    {...tableProps}
-                  />
-                </section>
-              ))}
-            </div>
           ) : (
             <CaseTable
               aria-label="케이스"
               cases={cases}
               onAddCase={() => addCase()}
               onInsertCase={(after) => addCase({}, after)}
+              toolsTarget={cellTools}
+              onUndo={history.undo}
+              onRedo={history.redo}
+              canUndo={history.canUndo}
+              canRedo={history.canRedo}
               {...tableProps}
             />
           )}

@@ -27,6 +27,9 @@ import {
   TextArea,
   TextField,
   ToastProvider,
+  Toolbar,
+  ToolbarMenu,
+  ToolbarSeparator,
   useToast,
 } from "@cheddar/ui";
 import {
@@ -388,6 +391,19 @@ function Preview() {
             </Menu.Popup>
           </Menu.Root>
         </Row>
+        <Toolbar aria-label="도구 상자">
+          <IconButton icon={Copy} label="복사" size="sm" />
+          <ToolbarSeparator />
+          <ToolbarMenu icon={MoreHorizontal} label="수정">
+            <Menu.Item icon={Copy} shortcut="⌘C">
+              복사
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Item icon={Trash2} tone="danger" disabled>
+              행 삭제
+            </Menu.Item>
+          </ToolbarMenu>
+        </Toolbar>
         <Tabs.Root defaultValue="template">
           <Tabs.List aria-label="프로젝트 설정">
             <Tabs.Tab value="template">기본 양식</Tabs.Tab>

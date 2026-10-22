@@ -214,6 +214,7 @@ export class GenerationService {
           for (const c of (await this.store.cases(set.id, tx)).slice(0, 3))
             styleExamples.push({
               id: c.id,
+              featureGroupId: c.featureGroupId,
               values: Object.fromEntries(
                 columns.flatMap((column) => {
                   const old = oldColumns.find(

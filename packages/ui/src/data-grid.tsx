@@ -53,6 +53,12 @@ export interface DataGridProps<Row> {
   activeCell?: CellPosition | null;
   defaultActiveCell?: CellPosition | null;
   onActiveCellChange?: (cell: CellPosition) => void;
+  /**
+   * 범위 선택의 반대쪽 끝. 활성 셀부터 이 셀까지의 사각형이 선택 범위다.
+   * Shift+클릭, Shift+방향키, 끌기로 늘린다. 없으면 활성 셀 하나만 고른다.
+   */
+  rangeEnd?: CellPosition | null;
+  onRangeEndChange?: (cell: CellPosition | null) => void;
   /** "none"이면 셀을 고르지 않는 읽기 전용 목록 */
   selection?: "cell" | "none";
   presence?: GridPresence[];
@@ -106,6 +112,8 @@ export function DataGrid<Row>({
   activeCell: activeCellProp,
   defaultActiveCell = null,
   onActiveCellChange,
+  rangeEnd = null,
+  onRangeEndChange,
   selection = "cell",
   presence = [],
   selectedRowIds,
@@ -131,7 +139,16 @@ export function DataGrid<Row>({
     if (selection === "none") return;
     setInnerActive(cell);
     onActiveCellChange?.(cell);
+    if (rangeEnd) onRangeEndChange?.(null);
   };
+  const extendTo = (cell: CellPosition) => {
+    if (selection === "none" || !onRangeEndChange || !activeCell) return;
+    const same =
+      cell.rowId === activeCell.rowId && cell.columnId === activeCell.columnId;
+    onRangeEndChange(same ? null : cell);
+  };
+  // 끌어서 범위를 고르는 중인지
+  const selecting = useRef(false);
 
   const [innerWidths, setInnerWidths] = useState<Record<string, number>>({});
   const [innerHeights, setInnerHeights] = useState<Record<string, number>>({});
@@ -174,6 +191,22 @@ export function DataGrid<Row>({
   );
   const selectable = selectedRowIds !== undefined;
   const rowIds = rows.map(getRowId);
+  const columnIndex = (id: string) => columns.findIndex((c) => c.id === id);
+  // 선택 범위(행과 열의 첫 번호와 끝 번호). 활성 셀 하나뿐이면 없다.
+  const range = (() => {
+    if (!activeCell || !rangeEnd) return null;
+    const ra = rowIds.indexOf(activeCell.rowId);
+    const rb = rowIds.indexOf(rangeEnd.rowId);
+    const ca = columnIndex(activeCell.columnId);
+    const cb = columnIndex(rangeEnd.columnId);
+    if (ra < 0 || rb < 0 || ca < 0 || cb < 0) return null;
+    return {
+      r0: Math.min(ra, rb),
+      r1: Math.max(ra, rb),
+      c0: Math.min(ca, cb),
+      c1: Math.max(ca, cb),
+    };
+  })();
 
   // 포인터가 셀 경계 근처인지 판단한다. 표 머리글은 세로선만 끈다.
   const hitTest = (event: {
@@ -248,6 +281,7 @@ export function DataGrid<Row>({
   };
 
   const endDrag = (event: PointerEvent<HTMLTableElement>) => {
+    selecting.current = false;
     if (!drag.current) return;
     drag.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
@@ -288,6 +322,23 @@ export function DataGrid<Row>({
       return;
     }
     event.preventDefault();
+    if (event.shiftKey && onRangeEndChange) {
+      // 범위의 반대쪽 끝을 한 칸씩 옮긴다
+      const from = rangeEnd ?? activeCell;
+      const fr = rowIds.indexOf(from.rowId);
+      const fc = columnIndex(from.columnId);
+      const dr =
+        event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+      const dc =
+        event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+      const nr = Math.min(rowIds.length - 1, Math.max(0, fr + dr));
+      const nc = Math.min(columns.length - 1, Math.max(0, fc + dc));
+      extendTo({
+        rowId: rowIds[nr] as string,
+        columnId: (columns[nc] as DataGridColumn<Row>).id,
+      });
+      return;
+    }
     const r = rowIds.indexOf(activeCell.rowId);
     const c = columns.findIndex((col) => col.id === activeCell.columnId);
     const nextCol = Math.min(
@@ -550,6 +601,14 @@ export function DataGrid<Row>({
                 const active =
                   activeCell?.rowId === rowId &&
                   activeCell.columnId === column.id;
+                const columnAt = columnIndex(column.id);
+                // 병합된 칸은 덮는 행 중 하나라도 범위 안이면 범위로 본다
+                const inRange =
+                  range !== null &&
+                  columnAt >= range.c0 &&
+                  columnAt <= range.c1 &&
+                  rowIndex <= range.r1 &&
+                  rowIndex + span - 1 >= range.r0;
                 const who = presenceAt.get(`${rowId}:${column.id}`);
                 return (
                   <td
@@ -558,15 +617,30 @@ export function DataGrid<Row>({
                     data-row={rowId}
                     rowSpan={span > 1 ? span : undefined}
                     aria-current={active ? "true" : undefined}
-                    onPointerDown={() =>
-                      setActive({ rowId, columnId: column.id })
-                    }
+                    onPointerDown={(event) => {
+                      if (event.button !== 0) {
+                        // 오른쪽 클릭이 범위 안이면 범위를 그대로 두고 메뉴를 연다
+                        if (!inRange) setActive({ rowId, columnId: column.id });
+                        return;
+                      }
+                      if (event.shiftKey && activeCell) {
+                        extendTo({ rowId, columnId: column.id });
+                        return;
+                      }
+                      setActive({ rowId, columnId: column.id });
+                      selecting.current = true;
+                    }}
+                    onPointerEnter={(event) => {
+                      if (selecting.current && event.buttons === 1)
+                        extendTo({ rowId, columnId: column.id });
+                    }}
                     style={{ height: span > 1 ? undefined : heightOf(rowId) }}
                     className={cn(
                       cellBase,
                       "whitespace-pre-wrap break-words px-2 py-1.5",
                       column.mono && "font-mono text-mono text-fg-muted",
                       span > 1 && "bg-surface",
+                      inRange && "bg-selected",
                       dragColumn === column.id && "opacity-35",
                       dropColumn === column.id &&
                         "shadow-[inset_2px_0_0_var(--color-accent)]",
@@ -628,6 +702,12 @@ export function DataGrid<Row>({
         table
       )}
       {footer && <div className="sticky left-0 px-2 py-1.5">{footer}</div>}
+      {/* 범위 선택은 배경색만으로는 알 수 없으므로 화면 읽기 프로그램에 알린다 */}
+      <span role="status" className="sr-only">
+        {range
+          ? `${range.r1 - range.r0 + 1}행 ${range.c1 - range.c0 + 1}열 선택`
+          : ""}
+      </span>
     </div>
   );
 }

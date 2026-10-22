@@ -9,6 +9,14 @@ export type CellValue = string | boolean | string[] | null;
 export interface TestCase {
   id: string;
   values: Record<string, CellValue>;
+  /** 이 케이스의 기능 그룹. 캔버스의 기본 그룹화에 쓴다. 표와 XLSX에는 나오지 않는다. */
+  featureGroupId?: string | null;
+}
+
+/** 프로젝트의 기능 그룹(순서대로) */
+export interface FeatureGroupRef {
+  id: string;
+  name: string;
 }
 
 export interface TestSetAccess {
@@ -29,6 +37,7 @@ export interface TestSet {
   access: TestSetAccess;
   columns: Column[];
   cases: TestCase[];
+  featureGroups?: FeatureGroupRef[];
 }
 
 /** 공개 링크로 연 테스트 세트. 소유자는 이름만, 나는 계정이나 방문자다. */
@@ -59,15 +68,21 @@ export interface SheetState {
 }
 
 export interface ViewPreference {
-  view: "table" | "card";
+  view: "table" | "canvas";
+  /** 캔버스를 무엇으로 나눌지. column이면 groupByColumnId의 값으로 나눈다. */
+  canvasGroup: "feature" | "column" | "none";
   groupByColumnId: string | null;
+  /** 캔버스 카드에 보일 내용. 간략은 ID와 제목, 상세는 모든 열 */
+  canvasDensity: "brief" | "detail";
   columnWidths: Record<string, number>;
   rowHeights: Record<string, number>;
 }
 
 export const defaultView: ViewPreference = {
   view: "table",
+  canvasGroup: "feature",
   groupByColumnId: null,
+  canvasDensity: "brief",
   columnWidths: {},
   rowHeights: {},
 };
@@ -87,7 +102,7 @@ export const mergeable = (column: Pick<Column, "presetKey">) =>
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";
 
-/** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 Excel처럼 목록에 없는 값도 그대로 읽는다. */
+/** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 스프레드시트처럼 목록에 없는 값도 그대로 읽는다. */
 export function readCell(column: Column, value: CellValue | undefined) {
   switch (column.type) {
     case "checkbox":
@@ -119,7 +134,7 @@ export function parseCell(column: Column, text: string): CellValue | undefined {
       return ["예", "true", "y", "o", "v", "✓"].includes(t.toLowerCase())
         ? true
         : undefined;
-    // 선택과 태그는 Excel의 목록처럼 목록에 없는 값도 그대로 넣는다.
+    // 선택과 태그는 스프레드시트의 목록처럼 목록에 없는 값도 그대로 넣는다.
     case "select":
       return t || null;
     case "tags":
@@ -194,7 +209,17 @@ export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
         break;
       case "add_case": {
         if (next.some((c) => c.id === op.caseId)) break;
-        const added = { id: op.caseId, values: { ...op.values } };
+        // 기능 그룹을 주지 않으면 바로 앞 케이스를 따른다(서버와 같다)
+        const featureGroupId =
+          op.featureGroupId !== undefined
+            ? op.featureGroupId
+            : (next.find((c) => c.id === op.afterCaseId)?.featureGroupId ??
+              null);
+        const added = {
+          id: op.caseId,
+          values: { ...op.values },
+          featureGroupId,
+        };
         const at =
           op.afterCaseId === null
             ? 0
@@ -207,6 +232,11 @@ export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
         next = next.filter((c) => !ids.has(c.id));
         break;
       }
+      case "set_feature_group":
+        next = next.map((c) =>
+          c.id === op.caseId ? { ...c, featureGroupId: op.featureGroupId } : c,
+        );
+        break;
       case "move_case": {
         const moved = next.find((c) => c.id === op.caseId);
         if (!moved) break;
@@ -223,6 +253,129 @@ export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
   return columns === state.columns && next === state.cases
     ? state
     : { columns, cases: next };
+}
+
+/** 형식별 빈 값 */
+export const emptyValue = (column: Pick<Column, "type">): CellValue =>
+  column.type === "checkbox"
+    ? false
+    : column.type === "tags"
+      ? []
+      : column.type === "select"
+        ? null
+        : "";
+
+/** 되돌릴 때 그 셀이 아직 이 값이어야 한다(그 사이 다른 사람이 바꾸지 않았는지 확인한다) */
+export interface CellExpectation {
+  caseId: string;
+  columnId: string;
+  value: CellValue;
+}
+
+export interface Reversal {
+  ops: CaseOp[];
+  expect: CellExpectation[];
+  /** 되돌릴 때 그 케이스가 아직 이 기능 그룹이어야 한다 */
+  expectGroup?: { caseId: string; featureGroupId: string | null }[];
+}
+
+/**
+ * 연산을 되돌리는 연산. 셀 값과 케이스 추가·삭제·이동만 되돌리고 열 연산은 되돌리지 않는다.
+ * 지운 케이스는 같은 ID와 값(테스트 ID 포함)으로 원래 자리에 다시 넣는다.
+ */
+export function invertOps(state: SheetState, ops: CaseOp[]): Reversal {
+  let work = state;
+  const groups: CaseOp[][] = [];
+  const expect: CellExpectation[] = [];
+  const expectGroup: NonNullable<Reversal["expectGroup"]> = [];
+  for (const op of ops) {
+    const inverse: CaseOp[] = [];
+    if (op.type === "set_cell") {
+      const target = work.cases.find((c) => c.id === op.caseId);
+      const column = work.columns.find((c) => c.id === op.columnId);
+      if (target && column) {
+        inverse.push({
+          type: "set_cell",
+          caseId: op.caseId,
+          columnId: op.columnId,
+          value: target.values[op.columnId] ?? emptyValue(column),
+        });
+        expect.push({
+          caseId: op.caseId,
+          columnId: op.columnId,
+          value: op.value,
+        });
+      }
+    } else if (op.type === "add_case") {
+      inverse.push({ type: "delete_cases", caseIds: [op.caseId] });
+    } else if (op.type === "delete_cases") {
+      const ids = new Set(op.caseIds);
+      work.cases.forEach((c, index) => {
+        if (!ids.has(c.id)) return;
+        inverse.push({
+          type: "add_case",
+          caseId: c.id,
+          afterCaseId: work.cases[index - 1]?.id ?? null,
+          values: c.values,
+          featureGroupId: c.featureGroupId ?? null,
+        });
+      });
+    } else if (op.type === "set_feature_group") {
+      const target = work.cases.find((c) => c.id === op.caseId);
+      if (target) {
+        inverse.push({
+          type: "set_feature_group",
+          caseId: op.caseId,
+          featureGroupId: target.featureGroupId ?? null,
+        });
+        expectGroup.push({
+          caseId: op.caseId,
+          featureGroupId: op.featureGroupId,
+        });
+      }
+    } else if (op.type === "move_case") {
+      const index = work.cases.findIndex((c) => c.id === op.caseId);
+      if (index >= 0)
+        inverse.push({
+          type: "move_case",
+          caseId: op.caseId,
+          afterCaseId: work.cases[index - 1]?.id ?? null,
+        });
+    }
+    groups.unshift(inverse);
+    work = applyOps(work, [op]);
+  }
+  return { ops: groups.flat(), expect, expectGroup };
+}
+
+/** 기능 그룹별 묶음. 프로젝트 순서를 따르고, 그룹이 없거나 지워진 그룹의 케이스는 맨 뒤 "미분류"에 모은다. */
+export function groupByFeature(
+  featureGroups: readonly FeatureGroupRef[],
+  cases: TestCase[],
+): {
+  key: string;
+  label: string;
+  featureGroupId: string | null;
+  cases: TestCase[];
+}[] {
+  const known = new Set(featureGroups.map((g) => g.id));
+  const lanes = featureGroups.map((g) => ({
+    key: g.id,
+    label: g.name,
+    featureGroupId: g.id as string | null,
+    cases: cases.filter((c) => c.featureGroupId === g.id),
+  }));
+  const rest = cases.filter(
+    (c) => !c.featureGroupId || !known.has(c.featureGroupId),
+  );
+  if (rest.length > 0 || lanes.length === 0)
+    lanes.push({
+      key: "none",
+      label: "미분류",
+      featureGroupId: null,
+      cases: rest,
+    });
+  return lanes;
 }
 
 /** 서버가 돌려준 바뀐 케이스로 덮는다. 순서는 화면 순서를 지킨다. */

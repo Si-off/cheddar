@@ -10,7 +10,7 @@ import type { Column } from "@/entities/test-set";
 
 /**
  * 선택과 태그 열의 항목을 그 자리에서 고친다. 완료하면 바뀐 항목 목록을 한 번에 돌려준다.
- * Excel의 목록처럼 항목을 바꾸거나 지워도 이미 입력된 셀 값은 그대로 남는다.
+ * 스프레드시트의 목록처럼 항목을 바꾸거나 지워도 이미 입력된 셀 값은 그대로 남는다.
  */
 export function OptionsPanel({
   column,

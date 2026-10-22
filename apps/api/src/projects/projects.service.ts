@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   AuthorizationService,
   type IdentityDatabase,
@@ -33,7 +33,9 @@ import {
   projectTemplates,
   screenIdRules,
   screenStructureItems,
+  testSets,
 } from "../database/schema";
+import { LiveEvents } from "../live/live-events";
 import { example, matches, nextScreenId } from "./screen-id-rules";
 import { readScreens } from "./screens-import";
 import { defaultColumns, validateTemplate } from "./template";
@@ -59,6 +61,7 @@ export class ProjectsService {
     @Inject(DatabaseService) private readonly database: DatabaseService,
     @Inject(AuthorizationService)
     private readonly authorization: AuthorizationService,
+    @Inject(LiveEvents) private readonly events: LiveEvents,
   ) {}
   private async project(id: string, db: IdentityDatabase = this.database.db) {
     const [row] = await db.select().from(projects).where(eq(projects.id, id));
@@ -337,6 +340,29 @@ export class ProjectsService {
       .where(eq(featureGroups.projectId, projectId))
       .orderBy(featureGroups.position, featureGroups.id);
   }
+  private async mutateGroups<T>(
+    projectId: string,
+    work: (tx: DatabaseTransaction) => Promise<T>,
+  ): Promise<T> {
+    const { result, sets } = await this.mutate(projectId, async (tx) => {
+      // 케이스 편집과 같은 순서로 세트를 먼저 잠근 뒤 FK 삭제를 반영한다.
+      const sets = await tx
+        .update(testSets)
+        .set({
+          version: sql`${testSets.version} + 1`,
+          updatedAt: sql`greatest(clock_timestamp(), ${testSets.updatedAt} + interval '1 millisecond')`,
+        })
+        .where(eq(testSets.projectId, projectId))
+        .returning({ id: testSets.id });
+      return { result: await work(tx), sets };
+    });
+    await Promise.all(
+      sets.map(({ id }) =>
+        this.events.publish({ type: "resync", testSetId: id }),
+      ),
+    );
+    return result;
+  }
   async listGroups(projectId: string, accountId: string) {
     await this.assertView(projectId, accountId);
     return { items: await this.groups(projectId) };
@@ -346,7 +372,7 @@ export class ProjectsService {
     dto: CreateFeatureGroupDto | UpdateFeatureGroupDto,
     id?: string,
   ): Promise<FeatureGroupDto> {
-    return this.mutate(projectId, async (tx) => {
+    return this.mutateGroups(projectId, async (tx) => {
       const all = await tx
         .select()
         .from(featureGroups)
@@ -383,7 +409,7 @@ export class ProjectsService {
     });
   }
   async removeGroup(projectId: string, id: string) {
-    return this.mutate(projectId, async (tx) => {
+    return this.mutateGroups(projectId, async (tx) => {
       const rows = await tx
         .delete(featureGroups)
         .where(
@@ -394,7 +420,7 @@ export class ProjectsService {
     });
   }
   async orderGroups(projectId: string, ids: string[]) {
-    return this.mutate(projectId, async (tx) => {
+    return this.mutateGroups(projectId, async (tx) => {
       const all = await this.groups(projectId, tx);
       const normalized = ids.map((id) => id.toLowerCase());
       if (

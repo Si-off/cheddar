@@ -16,6 +16,7 @@ import type {
 } from "../contracts/test-set.dto";
 import {
   accounts,
+  featureGroups,
   projects,
   projectTemplates,
   reviewItems,
@@ -30,6 +31,8 @@ import { cellText, validateView, validationFailed } from "./values";
 
 const defaultView = (): TestSetViewDto => ({
   view: "table",
+  canvasGroup: "feature",
+  canvasDensity: "brief",
   groupByColumnId: null,
   columnWidths: {},
   rowHeights: {},
@@ -204,6 +207,11 @@ export class TestSetsService {
       access,
       columns: await this.store.columns(id, db),
       cases: await this.store.cases(id, db),
+      featureGroups: await db
+        .select({ id: featureGroups.id, name: featureGroups.name })
+        .from(featureGroups)
+        .where(eq(featureGroups.projectId, row.projectId))
+        .orderBy(featureGroups.position, featureGroups.id),
       updatedAt: row.updatedAt.toISOString(),
     };
   }
@@ -244,7 +252,9 @@ export class TestSetsService {
       );
     return pref
       ? {
-          view: pref.view as "table" | "card",
+          view: pref.view as TestSetViewDto["view"],
+          canvasGroup: pref.canvasGroup,
+          canvasDensity: pref.canvasDensity,
           groupByColumnId: pref.groupByColumnId,
           columnWidths: pref.columnWidths,
           rowHeights: pref.rowHeights,

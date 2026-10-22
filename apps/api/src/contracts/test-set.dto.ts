@@ -141,10 +141,24 @@ export class AddCaseOpDto {
   @ValidateIf((_o, v) => v !== null)
   @IsUUID()
   afterCaseId!: string | null;
+  @ApiPropertyOptional({ type: String, format: "uuid", nullable: true })
+  @ValidateIf((_o, v) => v !== undefined && v !== null)
+  @IsUUID()
+  featureGroupId?: string | null;
   @ApiPropertyOptional(valuesSchema)
   @ValidateIf(optional)
   @IsObject()
   values?: Record<string, CellValue>;
+}
+export class SetFeatureGroupOpDto {
+  @ApiProperty({ enum: ["set_feature_group"] })
+  @IsIn(["set_feature_group"])
+  type!: "set_feature_group";
+  @ApiProperty({ format: "uuid" }) @IsUUID() caseId!: string;
+  @ApiProperty({ type: String, format: "uuid", nullable: true })
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID()
+  featureGroupId!: string | null;
 }
 export class DeleteCasesOpDto {
   @ApiProperty({ enum: ["delete_cases"] })
@@ -238,6 +252,7 @@ export type CaseOp =
   | RemoveColumnOpDto
   | ReorderColumnsOpDto
   | SetCellOpDto
+  | SetFeatureGroupOpDto
   | AddCaseOpDto
   | DeleteCasesOpDto
   | MoveCaseOpDto;
@@ -249,6 +264,7 @@ export class ApplyOpsDto {
     items: {
       oneOf: [
         SetCellOpDto,
+        SetFeatureGroupOpDto,
         AddCaseOpDto,
         DeleteCasesOpDto,
         MoveCaseOpDto,
@@ -265,9 +281,15 @@ export class ApplyOpsDto {
   ops!: CaseOp[];
 }
 export class TestSetViewDto {
-  @ApiProperty({ enum: ["table", "card"] }) @IsIn(["table", "card"]) view!:
-    | "table"
-    | "card";
+  @ApiProperty({ enum: ["table", "canvas"], default: "table" })
+  @IsIn(["table", "canvas"])
+  view: "table" | "canvas" = "table";
+  @ApiProperty({ enum: ["feature", "column", "none"], default: "feature" })
+  @IsIn(["feature", "column", "none"])
+  canvasGroup: "feature" | "column" | "none" = "feature";
+  @ApiProperty({ enum: ["brief", "detail"], default: "brief" })
+  @IsIn(["brief", "detail"])
+  canvasDensity: "brief" | "detail" = "brief";
   @ApiProperty({ type: String, format: "uuid", nullable: true })
   @ValidateIf((_o, v) => v !== null)
   @IsUUID()
@@ -297,7 +319,13 @@ export class TestSetAccessDto {
 }
 export class CaseDto {
   @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty({ type: String, format: "uuid", nullable: true })
+  featureGroupId!: string | null;
   @ApiProperty(valuesSchema) values!: Record<string, CellValue>;
+}
+export class TestSetFeatureGroupDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty() name!: string;
 }
 export class TestSetSummaryDto {
   @ApiProperty({ format: "uuid" }) id!: string;
@@ -322,6 +350,8 @@ export class TestSetDto {
   @ApiProperty({ type: TestSetAccessDto }) access!: TestSetAccessDto;
   @ApiProperty({ type: [TestSetColumnDto] }) columns!: TestSetColumnDto[];
   @ApiProperty({ type: [CaseDto] }) cases!: CaseDto[];
+  @ApiProperty({ type: [TestSetFeatureGroupDto] })
+  featureGroups!: TestSetFeatureGroupDto[];
   @ApiProperty({ format: "date-time" }) updatedAt!: string;
 }
 export class OpsResultDto {

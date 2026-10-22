@@ -143,7 +143,7 @@ test("케이스를 추가한 뒤 바로 치면 새 케이스의 제목이 된다
     });
 });
 
-test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 Excel처럼 목록 밖 값도 넣고 체크박스에 맞지 않는 값만 건너뛴다", async ({
+test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 목록 밖 값도 넣어 표시하고 체크박스에 맞지 않는 값만 건너뛴다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -175,7 +175,7 @@ test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 Excel처�
       value: ["회원", "새 태그"],
     },
   ]);
-  await expect(cell(page, 2, "우선순위")).toHaveText("없는값");
+  await expect(cell(page, 2, "우선순위")).toHaveText("없는값목록에 없는 값");
   await expect(
     page.getByText("1칸은 항목 형식에 맞지 않거나 표 밖이라 넣지 않았습니다"),
   ).toBeVisible();
@@ -218,8 +218,8 @@ test("드롭다운 아래 연필로 그 자리에서 선택 항목을 고치면 
         options: ["매우 높음", "보통", "낮음", "긴급"],
       },
     ]);
-  // Excel의 목록처럼 이미 입력된 값은 바꾸지 않는다
-  await expect(cell(page, 1, "우선순위")).toHaveText("높음");
+  // 스프레드시트의 목록처럼 이미 입력된 값은 바꾸지 않고, 목록 밖이 된 값으로 표시한다
+  await expect(cell(page, 1, "우선순위")).toHaveText("높음목록에 없는 값");
 
   // 머리글 메뉴에서도 같은 편집 패널을 연다. Esc로 닫으면 보내지 않는다.
   await page.getByRole("button", { name: "우선순위 열 작업" }).click();
@@ -230,14 +230,14 @@ test("드롭다운 아래 연필로 그 자리에서 선택 항목을 고치면 
   expect(opsBodies(calls)).toHaveLength(1);
 });
 
-test("셀 메뉴의 내용 지우기로 값을 비운다", async ({ page }) => {
+test("셀 메뉴의 값 삭제로 값을 비운다", async ({ page }) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
     ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
   });
   await page.goto("/test-sets/t1");
   await cell(page, 1, "우선순위").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "내용 지우기" }).click();
+  await page.getByRole("menuitem", { name: "값 삭제" }).click();
   await expect
     .poll(() => opsBodies(calls)[0])
     .toEqual([
@@ -246,7 +246,7 @@ test("셀 메뉴의 내용 지우기로 값을 비운다", async ({ page }) => {
   await expect(cell(page, 1, "우선순위")).toHaveText("");
 });
 
-test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 값이 바뀐다", async ({
+test("캔버스는 기능 그룹별 열로 보이고, 카드를 다른 그룹으로 끌면 그 그룹으로 옮긴다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -254,29 +254,49 @@ test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 
     ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
   });
   await page.goto("/test-sets/t1");
-  await page.getByRole("tab", { name: "카드" }).click();
-  await page.getByRole("combobox", { name: "묶기 기준" }).click();
-  await page.getByRole("option", { name: "우선순위" }).click();
+  await page.getByRole("tab", { name: "캔버스" }).click();
   const lane = (name: string) =>
     page.getByRole("listitem", { name, exact: true });
-  await expect(lane("높음")).toContainText("TC-001");
-  await lane("높음")
+  await expect(lane("이메일 가입")).toContainText("TC-001");
+  await expect(lane("약관 동의")).toContainText("TC-002");
+  await lane("이메일 가입")
     .getByRole("button", { name: /TC-001/ })
-    .dragTo(lane("낮음"));
-  await expect(lane("낮음")).toContainText("TC-001");
+    .dragTo(lane("약관 동의"));
+  await expect(lane("약관 동의")).toContainText("TC-001");
   await expect
     .poll(() => opsBodies(calls)[0])
     .toEqual([
-      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
+      { type: "set_feature_group", caseId: "k1", featureGroupId: "g2" },
     ]);
-  // 보기와 묶기 기준은 사람별로 저장한다
+  // 보기는 사람별로 저장한다
   await expect
     .poll(
       () =>
         calls.filter((c) => c.key === "PUT /api/v1/test-sets/t1/view").at(-1)
           ?.body,
     )
-    .toMatchObject({ view: "card", groupByColumnId: "c-pri" });
+    .toMatchObject({ view: "canvas", canvasGroup: "feature" });
+
+  // 그룹화를 우선순위 열로 바꾸고 끌면 그 값이 바뀐다
+  const tools = page.getByRole("toolbar", { name: "테스트 세트 도구" });
+  await tools.getByRole("button", { name: "그룹화" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "우선순위" }).click();
+  await expect(lane("높음")).toContainText("TC-001");
+  await lane("높음")
+    .getByRole("button", { name: /TC-001/ })
+    .dragTo(lane("낮음"));
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
+    ]);
+  await expect
+    .poll(
+      () =>
+        calls.filter((c) => c.key === "PUT /api/v1/test-sets/t1/view").at(-1)
+          ?.body,
+    )
+    .toMatchObject({ canvasGroup: "column", groupByColumnId: "c-pri" });
 });
 
 test("머리글 +로 양식의 열을 더하고, 열 메뉴에서 사용자 열을 지운다", async ({
@@ -331,7 +351,7 @@ test("머리글 +로 양식의 열을 더하고, 열 메뉴에서 사용자 열�
   ]);
 });
 
-test("셀 메뉴에서 아래에 케이스를 넣으면 그 케이스 다음에 생긴다", async ({
+test("셀 메뉴에서 아래에 행을 삽입하면 그 케이스 다음에 생긴다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -340,7 +360,7 @@ test("셀 메뉴에서 아래에 케이스를 넣으면 그 케이스 다음에 
   });
   await page.goto("/test-sets/t1");
   await cell(page, 1, "예상 결과").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "아래에 케이스 추가" }).click();
+  await page.getByRole("menuitem", { name: "아래에 행 1개 삽입" }).click();
   await expect(cell(page, 2, "테스트 ID")).toHaveText("TC-003");
   expect(opsBodies(calls)[0]?.[0]).toMatchObject({
     type: "add_case",
@@ -485,13 +505,17 @@ test("키보드로 표에 들어오면 첫 셀을 고르고 방향키와 Enter�
   await expect(page.getByRole("textbox", { name: "제목" })).toBeFocused();
 });
 
-test("카드를 태그 없음 열로 옮기면 태그를 모두 비운다", async ({ page }) => {
+test("캔버스에서 카드를 태그 없음 열로 옮기면 태그를 모두 비운다", async ({
+  page,
+}) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
     ...testSetResponses({
       "GET /api/v1/test-sets/t1/view": {
-        view: "card",
+        view: "canvas",
+        canvasGroup: "column",
         groupByColumnId: "c-tags",
+        canvasDensity: "brief",
         columnWidths: {},
         rowHeights: {},
       },
@@ -620,4 +644,79 @@ test("글자 셀에서 방향키로 선택 항목 셀로 옮겨도 키보드 조
     .toEqual([
       { type: "set_cell", caseId: "k1", columnId: "c-pri", value: null },
     ]);
+});
+
+test("선택 셀에 목록에 없는 값을 쳐서 넣으면 그대로 저장하고 목록 밖 값으로 표시한다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "우선순위").click();
+  await page.keyboard.type("보류");
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "보류" },
+    ]);
+  await expect(cell(page, 1, "우선순위")).toHaveText("보류목록에 없는 값");
+  // 셀을 고른 채로 있으면 입력 칸이 목록 밖 상태를 함께 읽어 준다
+  await expect(
+    page.getByRole("textbox", { name: "우선순위" }),
+  ).toHaveAccessibleDescription("목록에 없는 값");
+
+  // 목록 안의 값은 그대로 칩으로 보인다
+  await cell(page, 2, "우선순위").click();
+  await page.keyboard.type("낮음");
+  await page.keyboard.press("Enter");
+  await expect(cell(page, 2, "우선순위")).toHaveText("낮음");
+});
+
+test("도구 상자의 셀 도구로 고른 셀 아래에 행을 삽입하고 행을 지운다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  const tools = page.getByRole("toolbar", { name: "테스트 세트 도구" });
+  await cell(page, 1, "예상 결과").click();
+  await tools.getByRole("button", { name: "삽입" }).click();
+  await page.getByRole("menuitem", { name: "아래에 행 1개 삽입" }).click();
+  await expect(cell(page, 2, "테스트 ID")).toHaveText("TC-003");
+  expect(opsBodies(calls)[0]?.[0]).toMatchObject({
+    type: "add_case",
+    afterCaseId: "k1",
+  });
+
+  await cell(page, 1, "예상 결과").click();
+  await tools.getByRole("button", { name: "수정" }).click();
+  await page.getByRole("menuitem", { name: "행 삭제" }).click();
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([{ type: "delete_cases", caseIds: ["k1"] }]);
+});
+
+test("고른 셀의 행이 검색으로 숨으면 셀 도구가 그 행에 작용하지 않는다", async ({
+  page,
+}) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click();
+  await page.getByRole("textbox", { name: "케이스 검색" }).fill("약관");
+  await expect(
+    page.getByRole("table", { name: "케이스" }).getByRole("row"),
+  ).toHaveCount(2);
+  await page
+    .getByRole("toolbar", { name: "테스트 세트 도구" })
+    .getByRole("button", { name: "수정" })
+    .click();
+  await expect(page.getByRole("menuitem", { name: "행 삭제" })).toBeDisabled();
 });
