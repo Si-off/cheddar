@@ -236,3 +236,17 @@ test("메뉴의 붙여넣기도 범위의 왼쪽 위부터 채운다", async ({ 
       { type: "set_cell", caseId: "k1", columnId: "c-title", value: "새 제목" },
     ]);
 });
+
+test("스프레드시트 단축키로 위에 행을 넣고 행을 지운다", async ({ page }) => {
+  const calls = await open(page);
+  await cell(page, 2, "제목").click();
+  await page.keyboard.press("ControlOrMeta+Alt+Equal");
+  await expect
+    .poll(() => opsBodies(calls)[0]?.[0])
+    .toMatchObject({ type: "add_case", afterCaseId: "k1" });
+  await cell(page, 1, "제목").click();
+  await page.keyboard.press("ControlOrMeta+Alt+Minus");
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([{ type: "delete_cases", caseIds: ["k1"] }]);
+});

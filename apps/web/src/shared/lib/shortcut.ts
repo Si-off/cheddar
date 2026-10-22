@@ -7,6 +7,8 @@ export type ShortcutName =
   | "paste"
   | "fillDown"
   | "findReplace"
+  | "insertAbove"
+  | "deleteRow"
   | "clear";
 
 const keys: Record<ShortcutName, { mac: string; other: string }> = {
@@ -18,6 +20,8 @@ const keys: Record<ShortcutName, { mac: string; other: string }> = {
   fillDown: { mac: "⌘D", other: "Ctrl+D" },
   // ⌘H는 macOS의 창 가리기라서 Sheets도 Mac에서는 Shift를 더한다
   findReplace: { mac: "⇧⌘H", other: "Ctrl+H" },
+  insertAbove: { mac: "⌘⌥=", other: "Ctrl+Alt+=" },
+  deleteRow: { mac: "⌘⌥-", other: "Ctrl+Alt+-" },
   clear: { mac: "Delete", other: "Delete" },
 };
 

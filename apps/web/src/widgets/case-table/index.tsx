@@ -553,6 +553,9 @@ export function CaseTable({
     if (key === "z") return run(event.shiftKey ? actions.redo : actions.undo);
     if (key === "y") return run(actions.redo);
     if (key === "d") return run(actions.fillDown);
+    // 행 삽입과 삭제는 ⌘⌥(Ctrl+Alt)와 =, -. Option을 누르면 key가 바뀌므로 code로 본다.
+    if (event.altKey && event.code === "Equal") return run(actions.insertAbove);
+    if (event.altKey && event.code === "Minus") return run(actions.deleteRow);
     if (key === "h" && (event.shiftKey || !isMac()))
       return run(actions.findReplace);
     return false;
