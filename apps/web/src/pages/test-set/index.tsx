@@ -11,6 +11,8 @@ import {
   Select,
   Tabs,
   TextField,
+  Toolbar,
+  ToolbarSeparator,
   useToast,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,7 +41,6 @@ import {
   type CellValue,
   cellText,
   groupable,
-  groupCases,
   type TestSet,
   testSetQuery,
 } from "@/entities/test-set";
@@ -208,6 +209,8 @@ function TestSetScreen({
   // 제외한 항목을 되돌릴 수 있도록 처리하지 않은 항목이 남아 있으면 버튼을 둔다
   const hasReview = reviewItems.some((i) => i.status !== "resolved");
   const [reviewOpen, setReviewOpen] = useState(false);
+  // 표의 셀 도구를 그려 넣을 도구 상자 안 자리
+  const [cellTools, setCellTools] = useState<HTMLElement | null>(null);
   const review = useReviewActions(testSet.id);
   // 다시 작성 중에 새로 고쳤으면 그 작업이 끝날 때를 다시 기다린다
   useRewriteWatch(
@@ -318,79 +321,58 @@ function TestSetScreen({
 
   return (
     <main className="flex w-full flex-col gap-4 px-8 pt-6 pb-8">
-      <div className="flex flex-col gap-2">
-        <div className="flex min-h-9 flex-wrap items-center gap-3">
-          <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
-          <span className="flex-1" />
-          {!readOnly && <SaveStatus state={state} />}
-          {live.people.length > 0 && (
-            <Avatars
-              people={live.people.map((p) => ({
-                id: p.connectionId,
-                name: p.connectionId === live.me?.connectionId ? "나" : p.name,
-                color: p.color,
-                guest: p.kind === "visitor",
-              }))}
+      <div className="flex min-h-9 flex-wrap items-center gap-3">
+        <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
+        {!readOnly && <SaveStatus state={state} />}
+        <span className="flex-1" />
+        {live.people.length > 0 && (
+          <Avatars
+            people={live.people.map((p) => ({
+              id: p.connectionId,
+              name: p.connectionId === live.me?.connectionId ? "나" : p.name,
+              color: p.color,
+              guest: p.kind === "visitor",
+            }))}
+          />
+        )}
+        <Button icon={Link2} onClick={() => setDialog("share")}>
+          공유
+        </Button>
+        {(testSet.access.canRename || testSet.access.canDelete) && (
+          <Menu.Root>
+            <Menu.Trigger
+              render={
+                <IconButton
+                  icon={MoreHorizontal}
+                  label="테스트 세트 작업"
+                  variant="solid"
+                />
+              }
             />
-          )}
-          <Button icon={Link2} onClick={() => setDialog("share")}>
-            공유
-          </Button>
-          {testSet.access.canExport && (
-            <Button
-              icon={Download}
-              loading={exportXlsx.isPending}
-              onClick={() => exportXlsx.mutate()}
-            >
-              XLSX 내보내기
-            </Button>
-          )}
-          {!readOnly && (
-            <Button
-              variant="ai"
-              icon={Sparkles}
-              disabled={running}
-              onClick={() => setDialog("generate")}
-            >
-              케이스 추가 생성
-            </Button>
-          )}
-          {(testSet.access.canRename || testSet.access.canDelete) && (
-            <Menu.Root>
-              <Menu.Trigger
-                render={
-                  <IconButton
-                    icon={MoreHorizontal}
-                    label="테스트 세트 작업"
-                    variant="solid"
-                  />
-                }
-              />
-              <Menu.Popup align="end">
-                {testSet.access.canRename && (
-                  <Menu.Item onClick={() => setDialog("rename")}>
-                    이름 변경
+            <Menu.Popup align="end">
+              {testSet.access.canRename && (
+                <Menu.Item onClick={() => setDialog("rename")}>
+                  이름 변경
+                </Menu.Item>
+              )}
+              {testSet.access.canDelete && (
+                <>
+                  <Menu.Separator />
+                  <Menu.Item
+                    icon={Trash2}
+                    tone="danger"
+                    onClick={() => setDialog("delete")}
+                  >
+                    삭제
                   </Menu.Item>
-                )}
-                {testSet.access.canDelete && (
-                  <>
-                    <Menu.Separator />
-                    <Menu.Item
-                      icon={Trash2}
-                      tone="danger"
-                      onClick={() => setDialog("delete")}
-                    >
-                      삭제
-                    </Menu.Item>
-                  </>
-                )}
-              </Menu.Popup>
-            </Menu.Root>
-          )}
-        </div>
+                </>
+              )}
+            </Menu.Popup>
+          </Menu.Root>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-line border-t pt-1">
+      <Toolbar aria-label="테스트 세트 도구">
         <Tabs.Root
           value={view.view}
           onValueChange={(v) => setView({ view: v as "table" | "card" })}
@@ -404,31 +386,53 @@ function TestSetScreen({
             </Tabs.Tab>
           </Tabs.List>
         </Tabs.Root>
-        <TextField
-          size="sm"
-          icon={Search}
-          placeholder="케이스 검색"
-          aria-label="케이스 검색"
-          className="w-60 max-w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Select
-          size="sm"
-          aria-label="묶기 기준"
-          className="w-40"
-          value={groupColumn?.id ?? ""}
-          items={[
-            { value: "", label: "묶지 않음" },
-            ...testSet.columns
-              .filter((c) => groupable(c.type))
-              .map((c) => ({ value: c.id, label: c.name })),
-          ]}
-          onValueChange={(id) => setView({ groupByColumnId: id || null })}
-        />
+        {view.view === "table" && testSet.cases.length > 0 && (
+          <>
+            <ToolbarSeparator />
+            <span ref={setCellTools} className="contents" />
+          </>
+        )}
+        {view.view === "card" && (
+          <Select
+            size="sm"
+            aria-label="묶기 기준"
+            className="w-40"
+            value={groupColumn?.id ?? ""}
+            items={[
+              { value: "", label: "묶지 않음" },
+              ...testSet.columns
+                .filter((c) => groupable(c.type))
+                .map((c) => ({ value: c.id, label: c.name })),
+            ]}
+            onValueChange={(id) => setView({ groupByColumnId: id || null })}
+          />
+        )}
+        {(!readOnly || testSet.access.canExport) && <ToolbarSeparator />}
+        {!readOnly && (
+          <Button
+            size="sm"
+            variant="ai"
+            icon={Sparkles}
+            disabled={running}
+            onClick={() => setDialog("generate")}
+          >
+            케이스 추가 생성
+          </Button>
+        )}
+        {testSet.access.canExport && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Download}
+            loading={exportXlsx.isPending}
+            onClick={() => exportXlsx.mutate()}
+          >
+            XLSX 내보내기
+          </Button>
+        )}
         {view.view === "table" && selectedIds.size > 0 && (
           <>
-            <span className="mx-1 h-5 w-px bg-line" />
+            <ToolbarSeparator />
             <span className="text-caption text-fg-muted">
               {selectedIds.size}개 선택
             </span>
@@ -443,6 +447,15 @@ function TestSetScreen({
           </>
         )}
         <span className="flex-1" />
+        <TextField
+          size="sm"
+          icon={Search}
+          placeholder="케이스 검색"
+          aria-label="케이스 검색"
+          className="w-60 max-w-full"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         {(hasReview || reviewOpen) && (
           <Button
             size="sm"
@@ -455,7 +468,7 @@ function TestSetScreen({
             <span className="tabular-nums">{reviewCount}</span>
           </Button>
         )}
-      </div>
+      </Toolbar>
 
       {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
       {running && generation && (
@@ -496,38 +509,13 @@ function TestSetScreen({
                 )
               }
             />
-          ) : groupColumn ? (
-            <div className="flex flex-col gap-6">
-              {groupCases(groupColumn, cases).map((group) => (
-                <section
-                  key={group.key}
-                  aria-label={group.label}
-                  className="flex flex-col gap-2"
-                >
-                  <h2 className="m-0 text-title-sm text-fg">
-                    {group.label}{" "}
-                    <span className="text-caption text-fg-muted tabular-nums">
-                      {group.cases.length}
-                    </span>
-                  </h2>
-                  <CaseTable
-                    aria-label={`${group.label} 케이스`}
-                    cases={group.cases}
-                    onAddCase={() => addCase({ [groupColumn.id]: group.value })}
-                    onInsertCase={(after) =>
-                      addCase({ [groupColumn.id]: group.value }, after)
-                    }
-                    {...tableProps}
-                  />
-                </section>
-              ))}
-            </div>
           ) : (
             <CaseTable
               aria-label="케이스"
               cases={cases}
               onAddCase={() => addCase()}
               onInsertCase={(after) => addCase({}, after)}
+              toolsTarget={cellTools}
               {...tableProps}
             />
           )}

@@ -73,4 +73,5 @@ export {
   ToastProvider,
   useToast,
 } from "./toast";
+export { Toolbar, ToolbarMenu, ToolbarSeparator } from "./toolbar";
 export { cn, motionTokens, type PresenceColor } from "./utils";

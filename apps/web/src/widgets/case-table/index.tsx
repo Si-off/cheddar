@@ -2,7 +2,6 @@ import {
   Badge,
   Button,
   ConfirmDialog,
-  ContextMenu,
   cn,
   DataGrid,
   type DataGridColumn,
@@ -13,18 +12,7 @@ import {
   Popover,
   useToast,
 } from "@cheddar/ui";
-import {
-  ArrowDownToLine,
-  ArrowUpToLine,
-  ClipboardPaste,
-  Copy,
-  Eraser,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  SquareSplitVertical,
-  Trash2,
-} from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   type ClipboardEvent,
   type KeyboardEvent,
@@ -32,6 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   type CaseOp,
   type CellValue,
@@ -42,6 +31,8 @@ import {
   readCell,
   type TestCase,
 } from "@/entities/test-set";
+import { shortcut } from "@/shared/lib/shortcut";
+import { type CellActions, CellContextItems, CellToolbar } from "./cell-tools";
 import { AddColumnDialog, RenameColumnDialog } from "./column-dialogs";
 import { OptionsPanel } from "./options-panel";
 
@@ -74,6 +65,8 @@ export interface CaseTableProps {
   presence?: GridPresence[];
   /** 내가 고른 셀이 바뀌면 알린다(다른 사람에게 보여주기 위해) */
   onActiveCellChange?: (cell: { caseId: string; columnId: string }) => void;
+  /** 셀 도구(실행취소, 수정, 삽입, 셀 병합)를 그려 넣을 곳. 페이지의 도구 상자 안에 둔다. */
+  toolsTarget?: HTMLElement | null;
 }
 
 interface Editing {
@@ -84,6 +77,10 @@ interface Editing {
   /** 셀에 미리 둔 입력 칸에 바로 쳐서 시작했다. 친 글자가 이미 칸에 있다. */
   typed?: boolean;
 }
+
+// 글자를 쳐서 값을 넣을 수 있는 형식. 선택과 태그도 스프레드시트처럼 목록 밖 값을 칠 수 있다.
+const typable = (column: Column) =>
+  column.type === "text" || column.type === "select" || column.type === "tags";
 
 const empty = (column: Column): CellValue =>
   column.type === "checkbox"
@@ -129,6 +126,7 @@ export function CaseTable({
   presetColumns,
   allCases = cases,
   onFillColumn,
+  toolsTarget,
 }: CaseTableProps) {
   const toast = useToast();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -282,6 +280,64 @@ export function CaseTable({
     setEditing(null);
     focusGrid();
   };
+  const activeRow = active ? caseOf(active.rowId) : undefined;
+  // 검색으로 고른 셀의 행이 숨으면 셀 도구가 그 행에 작용하지 않게 한다
+  const current = active && activeRow && activeColumn ? active : null;
+  const pasteFromClipboard = (at: { rowId: string; columnId: string }) =>
+    navigator.clipboard
+      .readText()
+      .then((text) => text && pasteAt(at, text))
+      .catch(() =>
+        toast.show({
+          message: `붙여넣기는 ${shortcut("paste")}로 할 수 있습니다`,
+          tone: "info",
+        }),
+      );
+  // 쓸 수 없는 작업은 null(흐리게), 이 표에 없는 작업은 undefined(메뉴에서 뺀다)
+  const when = (ok: boolean, run: () => void) => (ok ? run : null);
+  const editable = !readOnly;
+  const actions: CellActions = {
+    copy: when(Boolean(current), () => {
+      if (activeRow && activeColumn)
+        void navigator.clipboard.writeText(
+          cellText(activeColumn, activeRow.values[activeColumn.id]),
+        );
+    }),
+    paste: !editable
+      ? undefined
+      : when(Boolean(current), () => current && pasteFromClipboard(current)),
+    clear: !editable
+      ? undefined
+      : when(Boolean(current), () => {
+          if (current && activeColumn)
+            set(current.rowId, activeColumn.id, empty(activeColumn));
+        }),
+    deleteRow: !editable
+      ? undefined
+      : when(Boolean(current), () => {
+          if (current)
+            onOps([{ type: "delete_cases", caseIds: [current.rowId] }]);
+        }),
+    insertAbove:
+      !editable || !onInsertCase
+        ? undefined
+        : when(Boolean(current), () =>
+            insertCase(cases[activeIndex - 1]?.id ?? null),
+          ),
+    insertBelow:
+      !editable || !onInsertCase
+        ? undefined
+        : when(Boolean(current), () => current && insertCase(current.rowId)),
+    unmerge: when(
+      Boolean(
+        current &&
+          activeColumn &&
+          mergeable(activeColumn) &&
+          mergedCases(current.rowId, activeColumn.id).length > 1,
+      ),
+      () => current && splitCell(current.rowId, current.columnId),
+    ),
+  };
 
   const onCellKeyDown = (
     cell: { rowId: string; columnId: string },
@@ -305,14 +361,10 @@ export function CaseTable({
       set(row.id, column.id, empty(column));
     } else if (
       (event.target as HTMLElement).dataset.gridInput === "idle" &&
-      column.type === "text"
+      typable(column)
     ) {
       // 미리 둔 입력 칸이 글자를 그대로 받는다. 한글 조합도 끊기지 않는다.
-    } else if (
-      event.key.length === 1 &&
-      !event.altKey &&
-      column.type === "text"
-    ) {
+    } else if (event.key.length === 1 && !event.altKey && typable(column)) {
       event.preventDefault();
       setEditing({ caseId: row.id, columnId: column.id, initial: event.key });
     }
@@ -478,14 +530,31 @@ export function CaseTable({
         editing?.caseId === row.id && editing.columnId === column.id;
       const isActive =
         active?.rowId === row.id && active.columnId === column.id;
-      // 고른 글자 셀에는 보이지 않는 입력 칸을 미리 두고, 치기 시작하면 같은 칸이 편집 칸이 된다.
+      // 글자로 고치는 중인지. 선택과 태그는 Enter나 두 번 누르기면 목록을, 글자를 치면 입력 칸을 연다.
+      const typing =
+        isEditing &&
+        (column.type === "text" ||
+          editing.typed === true ||
+          editing.initial !== undefined);
+      // 고른 셀에는 보이지 않는 입력 칸을 미리 두고, 치기 시작하면 같은 칸이 편집 칸이 된다.
       // 한글처럼 조합하는 입력이 첫 키부터 이 칸에서 시작해야 글자가 빠지지 않는다.
-      if (column.type === "text" && !readOnly && (isEditing || isActive))
+      if (typable(column) && !readOnly && (typing || (isActive && !isEditing)))
         return (
           <>
-            {!isEditing && <CellDisplay column={column} value={value} />}
+            {!isEditing && (
+              <CellDisplay
+                column={column}
+                value={value}
+                markId={`outside-${row.id}-${column.id}`}
+              />
+            )}
             <TextEditor
               label={column.name}
+              describedBy={
+                !isEditing && isOutside(column, value)
+                  ? `outside-${row.id}-${column.id}`
+                  : undefined
+              }
               dormant={!isEditing}
               seed={
                 !isEditing || editing.typed
@@ -496,8 +565,10 @@ export function CaseTable({
                 setEditing({ caseId: row.id, columnId: column.id, typed: true })
               }
               onCommit={(next) => {
-                if (next !== cellText(column, value))
-                  set(row.id, column.id, next);
+                if (next !== cellText(column, value)) {
+                  const parsed = parseCell(column, next);
+                  if (parsed !== undefined) set(row.id, column.id, parsed);
+                }
                 finish();
               }}
               onCancel={finish}
@@ -615,93 +686,7 @@ export function CaseTable({
         // 오른쪽 클릭이 먼저 셀을 고르므로 메뉴는 늘 고른 셀 기준이다. 틀을 늘 둬야 표가 다시 만들어지지 않는다.
         cellMenu={
           active && activeColumn ? (
-            <>
-              <ContextMenu.Item
-                icon={Copy}
-                onClick={() => {
-                  const row = caseOf(active.rowId);
-                  if (row)
-                    void navigator.clipboard.writeText(
-                      cellText(activeColumn, row.values[activeColumn.id]),
-                    );
-                }}
-              >
-                복사
-              </ContextMenu.Item>
-              {!readOnly && (
-                <ContextMenu.Item
-                  icon={ClipboardPaste}
-                  onClick={() =>
-                    navigator.clipboard
-                      .readText()
-                      .then((text) => text && pasteAt(active, text))
-                      .catch(() =>
-                        toast.show({
-                          message: "붙여넣기는 Ctrl+V(⌘V)로 할 수 있습니다",
-                          tone: "info",
-                        }),
-                      )
-                  }
-                >
-                  붙여넣기
-                </ContextMenu.Item>
-              )}
-              {!readOnly && (
-                <ContextMenu.Item
-                  icon={Eraser}
-                  onClick={() =>
-                    set(active.rowId, activeColumn.id, empty(activeColumn))
-                  }
-                >
-                  내용 지우기
-                </ContextMenu.Item>
-              )}
-              {!readOnly && onInsertCase && (
-                <>
-                  <ContextMenu.Separator />
-                  <ContextMenu.Item
-                    icon={ArrowUpToLine}
-                    onClick={() =>
-                      insertCase(cases[activeIndex - 1]?.id ?? null)
-                    }
-                  >
-                    위에 케이스 추가
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    icon={ArrowDownToLine}
-                    onClick={() => insertCase(active.rowId)}
-                  >
-                    아래에 케이스 추가
-                  </ContextMenu.Item>
-                </>
-              )}
-              {mergeable(activeColumn) &&
-                mergedCases(active.rowId, activeColumn.id).length > 1 && (
-                  <>
-                    <ContextMenu.Separator />
-                    <ContextMenu.Item
-                      icon={SquareSplitVertical}
-                      onClick={() => splitCell(active.rowId, activeColumn.id)}
-                    >
-                      셀 나누기
-                    </ContextMenu.Item>
-                  </>
-                )}
-              {!readOnly && (
-                <>
-                  <ContextMenu.Separator />
-                  <ContextMenu.Item
-                    icon={Trash2}
-                    tone="danger"
-                    onClick={() =>
-                      onOps([{ type: "delete_cases", caseIds: [active.rowId] }])
-                    }
-                  >
-                    케이스 삭제
-                  </ContextMenu.Item>
-                </>
-              )}
-            </>
+            <CellContextItems actions={actions} />
           ) : (
             // 고른 셀이 없을 때. 메뉴는 고른 셀에서만 열리므로 틀만 유지한다.
             <span hidden />
@@ -722,6 +707,8 @@ export function CaseTable({
           ) : undefined
         }
       />
+      {toolsTarget &&
+        createPortal(<CellToolbar actions={actions} />, toolsTarget)}
       <AddColumnDialog
         open={adding !== null}
         onOpenChange={(open) => !open && setAdding(null)}
@@ -772,12 +759,24 @@ const isInput = (target: EventTarget) =>
   target.dataset.gridInput !== "idle" &&
   Boolean(target.closest("input, textarea, [contenteditable=true]"));
 
+// 선택과 태그 셀에 목록에 없는 값이 들었는지
+const isOutside = (column: Column, value: CellValue | undefined) => {
+  const v = readCell(column, value);
+  if (Array.isArray(v)) return v.some((tag) => !column.options.includes(tag));
+  return (
+    column.type === "select" && !!v && !column.options.includes(v as string)
+  );
+};
+
 function CellDisplay({
   column,
   value,
+  markId,
 }: {
   column: Column;
   value: CellValue | undefined;
+  /** 목록 밖 표시의 id. 셀의 입력 칸이 이 상태를 설명으로 읽게 한다. */
+  markId?: string;
 }) {
   const v = readCell(column, value);
   if (column.type === "checkbox")
@@ -787,7 +786,7 @@ function CellDisplay({
         <span className="sr-only">{v ? "예" : "아니오"}</span>
       </span>
     );
-  // 목록에 없는 값(붙여넣기, 항목 변경 뒤 남은 값)은 Excel처럼 그대로 두고 칩 없이 글자로 보여준다.
+  // 목록에 없는 값은 스프레드시트처럼 그대로 두고 칩 없이 글자로 보여주며, 셀 모서리에 빨간 표시를 단다.
   if (Array.isArray(v)) {
     const outside = v.filter((tag) => !column.options.includes(tag));
     return (
@@ -797,7 +796,12 @@ function CellDisplay({
           .map((tag) => (
             <Badge key={tag}>{tag}</Badge>
           ))}
-        {outside.length > 0 && <span>{outside.join(", ")}</span>}
+        {outside.length > 0 && (
+          <>
+            <span>{outside.join(", ")}</span>
+            <OutsideMark id={markId} />
+          </>
+        )}
       </span>
     );
   }
@@ -805,9 +809,27 @@ function CellDisplay({
     return !v ? null : column.options.includes(v as string) ? (
       <Badge>{v}</Badge>
     ) : (
-      <>{v}</>
+      <>
+        {v}
+        <OutsideMark id={markId} />
+      </>
     );
   return <>{v}</>;
+}
+
+/** 목록에 없는 값이 든 셀의 오른쪽 위 빨간 삼각형 */
+function OutsideMark({ id }: { id?: string }) {
+  return (
+    <>
+      <span
+        aria-hidden
+        className="absolute top-0 right-0 border-t-8 border-l-8 border-t-danger border-l-transparent"
+      />
+      <span id={id} className="sr-only">
+        목록에 없는 값
+      </span>
+    </>
+  );
 }
 
 /**
@@ -816,6 +838,7 @@ function CellDisplay({
  */
 function TextEditor({
   label,
+  describedBy,
   dormant,
   seed,
   onStart,
@@ -823,6 +846,8 @@ function TextEditor({
   onCancel,
 }: {
   label: string;
+  /** 셀 상태를 설명하는 요소의 id(목록 밖 값 등) */
+  describedBy?: string;
   dormant: boolean;
   /** 편집을 시작할 때 채울 값. 없으면 친 글자를 그대로 둔다. */
   seed: string | undefined;
@@ -858,6 +883,7 @@ function TextEditor({
     <textarea
       ref={ref}
       aria-label={label}
+      aria-describedby={describedBy}
       data-grid-input={dormant ? "idle" : "editing"}
       onInput={() => dormant && onStart()}
       onCompositionStart={() => dormant && onStart()}
@@ -883,7 +909,7 @@ function TextEditor({
 
 /**
  * 선택 항목에서 고른다. 태그는 여러 개를 고르고, 단일 선택은 하나를 고르면 닫힌다.
- * 비우기는 Excel처럼 Delete 키나 셀 메뉴의 내용 지우기로 한다.
+ * 비우기는 스프레드시트처럼 Delete 키나 셀 메뉴의 값 삭제로 한다.
  * onSaveOptions가 있으면 목록 아래 연필로 같은 자리에서 항목을 고친다.
  */
 function OptionEditor({

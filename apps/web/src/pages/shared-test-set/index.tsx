@@ -7,6 +7,7 @@ import {
   LoadError,
   SaveStatus,
   TextField,
+  Toolbar,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -122,6 +123,8 @@ function SharedScreen({
     caseIds: testSet.cases.map((c) => c.id),
   });
   const [search, setSearch] = useState("");
+  // 셀 도구를 그려 넣을 도구 상자 안 자리
+  const [cellTools, setCellTools] = useState<HTMLElement | null>(null);
   const query = useDeferredValue(search.trim().toLowerCase());
 
   if (live.closed === "session-expired") return null;
@@ -210,15 +213,19 @@ function SharedScreen({
         )}
       </header>
       <main className="flex flex-col gap-3 px-8 pt-5 pb-8">
-        <TextField
-          size="sm"
-          icon={Search}
-          placeholder="케이스 검색"
-          aria-label="케이스 검색"
-          className="w-60 max-w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <Toolbar aria-label="테스트 세트 도구">
+          {!readOnly && <span ref={setCellTools} className="contents" />}
+          <span className="flex-1" />
+          <TextField
+            size="sm"
+            icon={Search}
+            placeholder="케이스 검색"
+            aria-label="케이스 검색"
+            className="w-60 max-w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </Toolbar>
         <CaseTable
           aria-label="테스트 케이스"
           columns={testSet.columns}
@@ -234,6 +241,7 @@ function SharedScreen({
           rowHeights={view.rowHeights}
           onColumnWidthsChange={(columnWidths) => setView({ columnWidths })}
           onRowHeightsChange={(rowHeights) => setView({ rowHeights })}
+          toolsTarget={cellTools}
         />
       </main>
     </div>

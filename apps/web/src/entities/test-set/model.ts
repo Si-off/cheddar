@@ -87,7 +87,7 @@ export const mergeable = (column: Pick<Column, "presetKey">) =>
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";
 
-/** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 Excel처럼 목록에 없는 값도 그대로 읽는다. */
+/** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 스프레드시트처럼 목록에 없는 값도 그대로 읽는다. */
 export function readCell(column: Column, value: CellValue | undefined) {
   switch (column.type) {
     case "checkbox":
@@ -119,7 +119,7 @@ export function parseCell(column: Column, text: string): CellValue | undefined {
       return ["예", "true", "y", "o", "v", "✓"].includes(t.toLowerCase())
         ? true
         : undefined;
-    // 선택과 태그는 Excel의 목록처럼 목록에 없는 값도 그대로 넣는다.
+    // 선택과 태그는 스프레드시트의 목록처럼 목록에 없는 값도 그대로 넣는다.
     case "select":
       return t || null;
     case "tags":
