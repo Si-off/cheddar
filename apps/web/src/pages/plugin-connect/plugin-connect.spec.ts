@@ -11,7 +11,7 @@ test("로그인한 계정으로 플러그인 연결을 승인한다", async ({ p
     [`POST ${path}/approve`]: reply(204),
   });
   await page.goto(`/plugin-connect?request=${TOKEN}`);
-  await expect(page.getByText("최하늘(haneul.choi@cheddar.app)")).toBeVisible();
+  await expect(page.getByText("최하늘(haneul.choi)")).toBeVisible();
   await page.getByRole("button", { name: "연결" }).click();
   await expect(page.getByText("플러그인을 연결했습니다")).toBeVisible();
   expect(calls.some((c) => c.key === `POST ${path}/approve`)).toBe(true);

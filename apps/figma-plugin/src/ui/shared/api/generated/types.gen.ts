@@ -23,29 +23,13 @@ export type ErrorResponseDto = {
     error: ErrorDetailDto;
 };
 
-export type AffiliationDto = {
-    id: string;
-    name: string;
-};
-
-export type AssignmentDto = {
-    roleId: string;
-    scope: 'global' | 'projects';
-    projectIds: Array<string>;
-};
-
 export type AccountDto = {
     id: string;
     name: string;
     loginId: string;
-    affiliation: AffiliationDto;
-    status: 'invited' | 'active' | 'expired' | 'inactive';
-    expiresAt: string | null;
-    assignments: Array<AssignmentDto>;
-    /**
-     * 만료일 필수 역할의 기본 기간 중 최솟값
-     */
-    defaultExpiryDays: number | null;
+    role: 'admin' | 'member';
+    status: 'active' | 'inactive';
+    createdAt: string;
 };
 
 export type AccountPageDto = {
@@ -56,83 +40,33 @@ export type AccountPageDto = {
 export type CreateAccountDto = {
     name: string;
     loginId: string;
-    affiliationId: string;
-    assignments: Array<AssignmentDto>;
-    expiresAt?: string | null;
-};
-
-export type AccountInvitationDto = {
-    /**
-     * 링크에 넣을 토큰. 발급 응답에서만 제공한다.
-     */
-    token: string;
-    expiresAt: string;
-    account: AccountDto;
-};
-
-export type OwnedTestSetDto = {
-    id: string;
-    name: string;
-    projectName: string;
-};
-
-export type OwnedTestSetListDto = {
-    items: Array<OwnedTestSetDto>;
-};
-
-export type TransferTestSetOwnerDto = {
-    accountId: string;
+    role: 'admin' | 'member';
 };
 
 export type UpdateAccountDto = {
     name?: string;
-    loginId?: string;
-    affiliationId?: string;
-    assignments?: Array<AssignmentDto>;
-    expiresAt?: string | null;
+    role?: 'admin' | 'member';
 };
 
-export type IssuedTokenDto = {
-    /**
-     * 링크에 넣을 토큰. 발급 응답에서만 제공한다.
-     */
-    token: string;
-    expiresAt: string;
+export type PasswordDto = {
+    password: string;
 };
 
 export type LoginDto = {
     loginId: string;
 };
 
-export type EffectivePermissionDto = {
-    permission: 'test_set.create' | 'test_set.invite' | 'test_set.public_link' | 'test_set.export' | 'test_set.view_all' | 'project.manage' | 'project.create' | 'plugin.upload' | 'account.manage' | 'role.manage';
-    scope: 'global' | 'projects';
-    projectIds: Array<string>;
-};
-
 export type MeDto = {
     id: string;
     name: string;
     loginId: string;
-    affiliation: AffiliationDto;
-    status: 'invited' | 'active' | 'expired' | 'inactive';
-    expiresAt: string | null;
-    assignments: Array<AssignmentDto>;
-    /**
-     * 만료일 필수 역할의 기본 기간 중 최솟값
-     */
-    defaultExpiryDays: number | null;
-    permissions: Array<EffectivePermissionDto>;
+    role: 'admin' | 'member';
+    status: 'active' | 'inactive';
 };
 
-export type TokenInfoDto = {
-    name: string;
-    loginId: string;
-    expiresAt: string;
-};
-
-export type SetPasswordDto = {
-    token: string;
+export type ChangePasswordDto = {
+    currentPassword: string;
+    newPassword: string;
 };
 
 export type CreatedPluginConnectionDto = {
@@ -155,33 +89,6 @@ export type PluginConnectionTokenDto = {
 
 export type PendingPluginConnectionDto = {
     status: 'pending';
-};
-
-export type RoleDto = {
-    id: string;
-    name: string;
-    fixed: boolean;
-    requiresExpiry: boolean;
-    defaultExpiryDays: number | null;
-    permissions: Array<'test_set.create' | 'test_set.invite' | 'test_set.public_link' | 'test_set.export' | 'test_set.view_all' | 'project.manage' | 'project.create' | 'plugin.upload' | 'account.manage' | 'role.manage'>;
-};
-
-export type CreateRoleDto = {
-    name: string;
-    permissions: Array<'test_set.create' | 'test_set.invite' | 'test_set.public_link' | 'test_set.export' | 'test_set.view_all' | 'project.manage' | 'project.create' | 'plugin.upload' | 'account.manage' | 'role.manage'>;
-    requiresExpiry: boolean;
-    defaultExpiryDays: number | null;
-};
-
-export type UpdateRoleDto = {
-    name?: string;
-    permissions?: Array<'test_set.create' | 'test_set.invite' | 'test_set.public_link' | 'test_set.export' | 'test_set.view_all' | 'project.manage' | 'project.create' | 'plugin.upload' | 'account.manage' | 'role.manage'>;
-    requiresExpiry?: boolean;
-    defaultExpiryDays?: number | null;
-};
-
-export type NameDto = {
-    name: string;
 };
 
 export type ProjectSummaryDto = {
@@ -523,35 +430,15 @@ export type TestSetViewDto = {
     };
 };
 
-export type SharingPersonDto = {
-    id: string;
-    name: string;
-    loginId: string;
-    affiliation: string | null;
-};
-
-export type SharingMemberDto = {
-    person: SharingPersonDto;
-    access: 'view' | 'edit';
-};
-
 export type SharingDto = {
     visibility: 'private' | 'public';
-    linkAccess: 'view' | 'edit';
+    linkPermission: 'view' | 'edit';
     linkToken: string | null;
-    canInvite: boolean;
-    canManageLink: boolean;
-    owner: SharingPersonDto;
-    members: Array<SharingMemberDto>;
 };
 
 export type PatchSharingDto = {
     visibility?: 'private' | 'public';
-    linkAccess?: 'view' | 'edit';
-};
-
-export type MemberAccessDto = {
-    access: 'view' | 'edit';
+    linkPermission?: 'view' | 'edit';
 };
 
 export type SharedActorDto = {
@@ -676,13 +563,15 @@ export type RewriteReviewItemDto = {
     answer: string;
 };
 
-export type LoginDtoWritable = {
-    loginId: string;
+export type CreateAccountDtoWritable = {
     password: string;
+    name: string;
+    loginId: string;
+    role: 'admin' | 'member';
 };
 
-export type SetPasswordDtoWritable = {
-    token: string;
+export type LoginDtoWritable = {
+    loginId: string;
     password: string;
 };
 
@@ -788,8 +677,7 @@ export type ListAccountsData = {
     path?: never;
     query?: {
         search?: string;
-        roleId?: string;
-        affiliationId?: string;
+        role?: string;
         status?: string;
         limit?: number;
         offset?: number;
@@ -841,7 +729,7 @@ export type ListAccountsResponses = {
 export type ListAccountsResponse = ListAccountsResponses[keyof ListAccountsResponses];
 
 export type CreateAccountData = {
-    body: CreateAccountDto;
+    body: CreateAccountDtoWritable;
     path?: never;
     query?: never;
     url: '/api/v1/accounts';
@@ -885,7 +773,7 @@ export type CreateAccountErrors = {
 export type CreateAccountError = CreateAccountErrors[keyof CreateAccountErrors];
 
 export type CreateAccountResponses = {
-    201: AccountInvitationDto;
+    201: AccountDto;
 };
 
 export type CreateAccountResponse = CreateAccountResponses[keyof CreateAccountResponses];
@@ -994,114 +882,6 @@ export type UpdateAccountResponses = {
 
 export type UpdateAccountResponse = UpdateAccountResponses[keyof UpdateAccountResponses];
 
-export type ListOwnedTestSetsData = {
-    body?: never;
-    path: {
-        accountId: string;
-    };
-    query?: never;
-    url: '/api/v1/accounts/{accountId}/owned-test-sets';
-};
-
-export type ListOwnedTestSetsErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type ListOwnedTestSetsError = ListOwnedTestSetsErrors[keyof ListOwnedTestSetsErrors];
-
-export type ListOwnedTestSetsResponses = {
-    200: OwnedTestSetListDto;
-};
-
-export type ListOwnedTestSetsResponse = ListOwnedTestSetsResponses[keyof ListOwnedTestSetsResponses];
-
-export type TransferTestSetOwnerData = {
-    body: TransferTestSetOwnerDto;
-    path: {
-        accountId: string;
-        testSetId: string;
-    };
-    query?: never;
-    url: '/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner';
-};
-
-export type TransferTestSetOwnerErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type TransferTestSetOwnerError = TransferTestSetOwnerErrors[keyof TransferTestSetOwnerErrors];
-
-export type TransferTestSetOwnerResponses = {
-    /**
-     * 소유자 변경 완료
-     */
-    204: void;
-};
-
-export type TransferTestSetOwnerResponse = TransferTestSetOwnerResponses[keyof TransferTestSetOwnerResponses];
-
 export type DeactivateAccountData = {
     body?: never;
     path: {
@@ -1206,16 +986,16 @@ export type ReactivateAccountResponses = {
 
 export type ReactivateAccountResponse = ReactivateAccountResponses[keyof ReactivateAccountResponses];
 
-export type ReissueInvitationData = {
-    body?: never;
+export type ResetAccountPasswordData = {
+    body: PasswordDto;
     path: {
         accountId: string;
     };
     query?: never;
-    url: '/api/v1/accounts/{accountId}/invitation';
+    url: '/api/v1/accounts/{accountId}/password';
 };
 
-export type ReissueInvitationErrors = {
+export type ResetAccountPasswordErrors = {
     /**
      * 입력 오류
      */
@@ -1250,65 +1030,13 @@ export type ReissueInvitationErrors = {
     503: ErrorResponseDto;
 };
 
-export type ReissueInvitationError = ReissueInvitationErrors[keyof ReissueInvitationErrors];
+export type ResetAccountPasswordError = ResetAccountPasswordErrors[keyof ResetAccountPasswordErrors];
 
-export type ReissueInvitationResponses = {
-    201: IssuedTokenDto;
+export type ResetAccountPasswordResponses = {
+    204: void;
 };
 
-export type ReissueInvitationResponse = ReissueInvitationResponses[keyof ReissueInvitationResponses];
-
-export type IssuePasswordResetData = {
-    body?: never;
-    path: {
-        accountId: string;
-    };
-    query?: never;
-    url: '/api/v1/accounts/{accountId}/password-reset';
-};
-
-export type IssuePasswordResetErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type IssuePasswordResetError = IssuePasswordResetErrors[keyof IssuePasswordResetErrors];
-
-export type IssuePasswordResetResponses = {
-    201: IssuedTokenDto;
-};
-
-export type IssuePasswordResetResponse = IssuePasswordResetResponses[keyof IssuePasswordResetResponses];
+export type ResetAccountPasswordResponse = ResetAccountPasswordResponses[keyof ResetAccountPasswordResponses];
 
 export type LoginData = {
     body: LoginDtoWritable;
@@ -1460,66 +1188,14 @@ export type GetMeResponses = {
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
 
-export type InspectInvitationData = {
-    body?: never;
-    path?: never;
-    query: {
-        token: string;
-    };
-    url: '/api/v1/auth/invitations';
-};
-
-export type InspectInvitationErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type InspectInvitationError = InspectInvitationErrors[keyof InspectInvitationErrors];
-
-export type InspectInvitationResponses = {
-    200: TokenInfoDto;
-};
-
-export type InspectInvitationResponse = InspectInvitationResponses[keyof InspectInvitationResponses];
-
-export type AcceptInvitationData = {
-    body: SetPasswordDtoWritable;
+export type ChangeMyPasswordData = {
+    body: ChangePasswordDto;
     path?: never;
     query?: never;
-    url: '/api/v1/auth/invitations/accept';
+    url: '/api/v1/auth/password';
 };
 
-export type AcceptInvitationErrors = {
+export type ChangeMyPasswordErrors = {
     /**
      * 입력 오류
      */
@@ -1554,115 +1230,13 @@ export type AcceptInvitationErrors = {
     503: ErrorResponseDto;
 };
 
-export type AcceptInvitationError = AcceptInvitationErrors[keyof AcceptInvitationErrors];
+export type ChangeMyPasswordError = ChangeMyPasswordErrors[keyof ChangeMyPasswordErrors];
 
-export type AcceptInvitationResponses = {
+export type ChangeMyPasswordResponses = {
     204: void;
 };
 
-export type AcceptInvitationResponse = AcceptInvitationResponses[keyof AcceptInvitationResponses];
-
-export type InspectPasswordResetData = {
-    body?: never;
-    path?: never;
-    query: {
-        token: string;
-    };
-    url: '/api/v1/auth/password-resets';
-};
-
-export type InspectPasswordResetErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type InspectPasswordResetError = InspectPasswordResetErrors[keyof InspectPasswordResetErrors];
-
-export type InspectPasswordResetResponses = {
-    200: TokenInfoDto;
-};
-
-export type InspectPasswordResetResponse = InspectPasswordResetResponses[keyof InspectPasswordResetResponses];
-
-export type ResetPasswordData = {
-    body: SetPasswordDtoWritable;
-    path?: never;
-    query?: never;
-    url: '/api/v1/auth/password-resets';
-};
-
-export type ResetPasswordErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type ResetPasswordError = ResetPasswordErrors[keyof ResetPasswordErrors];
-
-export type ResetPasswordResponses = {
-    204: void;
-};
-
-export type ResetPasswordResponse = ResetPasswordResponses[keyof ResetPasswordResponses];
+export type ChangeMyPasswordResponse = ChangeMyPasswordResponses[keyof ChangeMyPasswordResponses];
 
 export type CreatePluginConnectionData = {
     body?: never;
@@ -1918,570 +1492,6 @@ export type RevokePluginConnectionResponses = {
 };
 
 export type RevokePluginConnectionResponse = RevokePluginConnectionResponses[keyof RevokePluginConnectionResponses];
-
-export type ListRolesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/roles';
-};
-
-export type ListRolesErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type ListRolesError = ListRolesErrors[keyof ListRolesErrors];
-
-export type ListRolesResponses = {
-    200: Array<RoleDto>;
-};
-
-export type ListRolesResponse = ListRolesResponses[keyof ListRolesResponses];
-
-export type CreateRoleData = {
-    body: CreateRoleDto;
-    path?: never;
-    query?: never;
-    url: '/api/v1/roles';
-};
-
-export type CreateRoleErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type CreateRoleError = CreateRoleErrors[keyof CreateRoleErrors];
-
-export type CreateRoleResponses = {
-    201: RoleDto;
-};
-
-export type CreateRoleResponse = CreateRoleResponses[keyof CreateRoleResponses];
-
-export type DeleteRoleData = {
-    body?: never;
-    path: {
-        roleId: string;
-    };
-    query?: never;
-    url: '/api/v1/roles/{roleId}';
-};
-
-export type DeleteRoleErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type DeleteRoleError = DeleteRoleErrors[keyof DeleteRoleErrors];
-
-export type DeleteRoleResponses = {
-    204: void;
-};
-
-export type DeleteRoleResponse = DeleteRoleResponses[keyof DeleteRoleResponses];
-
-export type GetRoleData = {
-    body?: never;
-    path: {
-        roleId: string;
-    };
-    query?: never;
-    url: '/api/v1/roles/{roleId}';
-};
-
-export type GetRoleErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type GetRoleError = GetRoleErrors[keyof GetRoleErrors];
-
-export type GetRoleResponses = {
-    200: RoleDto;
-};
-
-export type GetRoleResponse = GetRoleResponses[keyof GetRoleResponses];
-
-export type UpdateRoleData = {
-    body: UpdateRoleDto;
-    path: {
-        roleId: string;
-    };
-    query?: never;
-    url: '/api/v1/roles/{roleId}';
-};
-
-export type UpdateRoleErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type UpdateRoleError = UpdateRoleErrors[keyof UpdateRoleErrors];
-
-export type UpdateRoleResponses = {
-    200: RoleDto;
-};
-
-export type UpdateRoleResponse = UpdateRoleResponses[keyof UpdateRoleResponses];
-
-export type DuplicateRoleData = {
-    body: NameDto;
-    path: {
-        roleId: string;
-    };
-    query?: never;
-    url: '/api/v1/roles/{roleId}/duplicate';
-};
-
-export type DuplicateRoleErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type DuplicateRoleError = DuplicateRoleErrors[keyof DuplicateRoleErrors];
-
-export type DuplicateRoleResponses = {
-    201: RoleDto;
-};
-
-export type DuplicateRoleResponse = DuplicateRoleResponses[keyof DuplicateRoleResponses];
-
-export type ListAffiliationsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/affiliations';
-};
-
-export type ListAffiliationsErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type ListAffiliationsError = ListAffiliationsErrors[keyof ListAffiliationsErrors];
-
-export type ListAffiliationsResponses = {
-    200: Array<AffiliationDto>;
-};
-
-export type ListAffiliationsResponse = ListAffiliationsResponses[keyof ListAffiliationsResponses];
-
-export type CreateAffiliationData = {
-    body: NameDto;
-    path?: never;
-    query?: never;
-    url: '/api/v1/affiliations';
-};
-
-export type CreateAffiliationErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type CreateAffiliationError = CreateAffiliationErrors[keyof CreateAffiliationErrors];
-
-export type CreateAffiliationResponses = {
-    201: AffiliationDto;
-};
-
-export type CreateAffiliationResponse = CreateAffiliationResponses[keyof CreateAffiliationResponses];
-
-export type DeleteAffiliationData = {
-    body?: never;
-    path: {
-        affiliationId: string;
-    };
-    query?: never;
-    url: '/api/v1/affiliations/{affiliationId}';
-};
-
-export type DeleteAffiliationErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type DeleteAffiliationError = DeleteAffiliationErrors[keyof DeleteAffiliationErrors];
-
-export type DeleteAffiliationResponses = {
-    204: void;
-};
-
-export type DeleteAffiliationResponse = DeleteAffiliationResponses[keyof DeleteAffiliationResponses];
-
-export type GetAffiliationData = {
-    body?: never;
-    path: {
-        affiliationId: string;
-    };
-    query?: never;
-    url: '/api/v1/affiliations/{affiliationId}';
-};
-
-export type GetAffiliationErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type GetAffiliationError = GetAffiliationErrors[keyof GetAffiliationErrors];
-
-export type GetAffiliationResponses = {
-    200: AffiliationDto;
-};
-
-export type GetAffiliationResponse = GetAffiliationResponses[keyof GetAffiliationResponses];
-
-export type UpdateAffiliationData = {
-    body: NameDto;
-    path: {
-        affiliationId: string;
-    };
-    query?: never;
-    url: '/api/v1/affiliations/{affiliationId}';
-};
-
-export type UpdateAffiliationErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type UpdateAffiliationError = UpdateAffiliationErrors[keyof UpdateAffiliationErrors];
-
-export type UpdateAffiliationResponses = {
-    200: AffiliationDto;
-};
-
-export type UpdateAffiliationResponse = UpdateAffiliationResponses[keyof UpdateAffiliationResponses];
 
 export type ListProjectsData = {
     body?: never;
@@ -4363,166 +3373,6 @@ export type ReplaceTestSetLinkResponses = {
 };
 
 export type ReplaceTestSetLinkResponse = ReplaceTestSetLinkResponses[keyof ReplaceTestSetLinkResponses];
-
-export type ListSharingCandidatesData = {
-    body?: never;
-    path: {
-        testSetId: string;
-    };
-    query?: {
-        search?: string;
-    };
-    url: '/api/v1/test-sets/{testSetId}/sharing/candidates';
-};
-
-export type ListSharingCandidatesErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type ListSharingCandidatesError = ListSharingCandidatesErrors[keyof ListSharingCandidatesErrors];
-
-export type ListSharingCandidatesResponses = {
-    200: Array<SharingPersonDto>;
-};
-
-export type ListSharingCandidatesResponse = ListSharingCandidatesResponses[keyof ListSharingCandidatesResponses];
-
-export type RemoveTestSetMemberData = {
-    body?: never;
-    path: {
-        testSetId: string;
-        accountId: string;
-    };
-    query?: never;
-    url: '/api/v1/test-sets/{testSetId}/members/{accountId}';
-};
-
-export type RemoveTestSetMemberErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type RemoveTestSetMemberError = RemoveTestSetMemberErrors[keyof RemoveTestSetMemberErrors];
-
-export type RemoveTestSetMemberResponses = {
-    200: SharingDto;
-};
-
-export type RemoveTestSetMemberResponse = RemoveTestSetMemberResponses[keyof RemoveTestSetMemberResponses];
-
-export type SetTestSetMemberData = {
-    body: MemberAccessDto;
-    path: {
-        testSetId: string;
-        accountId: string;
-    };
-    query?: never;
-    url: '/api/v1/test-sets/{testSetId}/members/{accountId}';
-};
-
-export type SetTestSetMemberErrors = {
-    /**
-     * 입력 오류
-     */
-    400: ErrorResponseDto;
-    /**
-     * 인증 필요
-     */
-    401: ErrorResponseDto;
-    /**
-     * 접근 권한 또는 Origin 거부
-     */
-    403: ErrorResponseDto;
-    /**
-     * 항목 없음
-     */
-    404: ErrorResponseDto;
-    /**
-     * 업무 규칙 위반 또는 중복
-     */
-    409: ErrorResponseDto;
-    /**
-     * 사용할 수 없는 토큰
-     */
-    410: ErrorResponseDto;
-    /**
-     * 서버 오류
-     */
-    500: ErrorResponseDto;
-    /**
-     * 의존 서비스 오류
-     */
-    503: ErrorResponseDto;
-};
-
-export type SetTestSetMemberError = SetTestSetMemberErrors[keyof SetTestSetMemberErrors];
-
-export type SetTestSetMemberResponses = {
-    200: SharingDto;
-};
-
-export type SetTestSetMemberResponse = SetTestSetMemberResponses[keyof SetTestSetMemberResponses];
 
 export type GetSharedTestSetData = {
     body?: never;

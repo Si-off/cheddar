@@ -1,11 +1,4 @@
-import {
-  Badge,
-  Button,
-  ConfirmDialog,
-  IconButton,
-  LoadError,
-  Menu,
-} from "@cheddar/ui";
+import { Badge, Button, IconButton, LoadError, Menu } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, MoreHorizontal } from "lucide-react";
@@ -15,16 +8,13 @@ import {
   accountQuery,
   accountStatusInfo,
 } from "@/entities/account";
-import { rolesQuery } from "@/entities/role";
 import {
   AccountForm,
   draftFromAccount,
-  type IssuedLink,
-  IssuedLinkDialog,
+  ResetPasswordDialog,
   useAccountActions,
   validateAccountDraft,
 } from "@/features/manage-account";
-import { OwnedTestSets } from "@/features/transfer-ownership";
 
 export function AdminAccountPage({ accountId }: { accountId: string }) {
   const account = useQuery(accountQuery(accountId));
@@ -41,63 +31,34 @@ export function AdminAccountPage({ accountId }: { accountId: string }) {
   return <AccountDetail key={account.data.id} account={account.data} />;
 }
 
-/** 새로 발급하면 같은 용도의 이전 링크는 바로 쓸 수 없게 된다 */
-const reissueNotice = {
-  invite: {
-    title: "초대 링크 다시 발급",
-    description: "이전 초대 링크는 사용할 수 없게 됩니다.",
-  },
-  reset: {
-    title: "재설정 링크 발급",
-    description: "이전에 발급한 재설정 링크는 사용할 수 없게 됩니다.",
-  },
-};
-
 function AccountDetail({ account }: { account: Account }) {
   const navigate = useNavigate();
-  const roles = useQuery(rolesQuery()).data ?? [];
   const [draft, setDraft] = useState(() => draftFromAccount(account));
   const [errors, setErrors] = useState<ReturnType<typeof validateAccountDraft>>(
     {},
   );
-  const [issued, setIssued] = useState<IssuedLink | null>(null);
-  const [confirming, setConfirming] = useState<"invite" | "reset" | null>(null);
-  const actions = useAccountActions(account.id, (link) =>
-    setIssued({ ...link, name: account.name }),
-  );
+  const [resetting, setResetting] = useState(false);
+  const actions = useAccountActions(account.id);
   const status = accountStatusInfo[account.status];
-  const issuing =
-    actions.reissueInvitation.isPending || actions.issuePasswordReset.isPending;
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const found = validateAccountDraft(draft, roles, "edit");
+    const found = validateAccountDraft(draft, "edit");
     setErrors(found);
-    if (Object.keys(found).length === 0)
-      actions.update.mutate({ draft, original: account });
-  };
-
-  const issue = () => {
-    const done = { onSettled: () => setConfirming(null) };
-    if (confirming === "invite")
-      actions.reissueInvitation.mutate(undefined, done);
-    if (confirming === "reset")
-      actions.issuePasswordReset.mutate(undefined, done);
+    if (Object.keys(found).length === 0) actions.update.mutate(draft);
   };
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+    <form onSubmit={submit} noValidate className="flex max-w-xl flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="m-0 text-title text-fg">{account.name}</h2>
         <Badge tone={status.tone} dot>
           {status.label}
         </Badge>
         <span className="flex-1" />
-        {account.status === "active" && (
-          <Button icon={KeyRound} onClick={() => setConfirming("reset")}>
-            재설정 링크
-          </Button>
-        )}
+        <Button icon={KeyRound} onClick={() => setResetting(true)}>
+          비밀번호 다시 정하기
+        </Button>
         <Menu.Root>
           <Menu.Trigger
             render={
@@ -109,11 +70,6 @@ function AccountDetail({ account }: { account: Account }) {
             }
           />
           <Menu.Popup align="end">
-            {account.status === "invited" && (
-              <Menu.Item onClick={() => setConfirming("invite")}>
-                초대 링크 다시 발급
-              </Menu.Item>
-            )}
             {account.status === "inactive" ? (
               <Menu.Item onClick={() => actions.reactivate.mutate()}>
                 다시 활성화
@@ -139,11 +95,6 @@ function AccountDetail({ account }: { account: Account }) {
         />
       </section>
 
-      <OwnedTestSets
-        accountId={account.id}
-        canTransfer={account.status === "inactive"}
-      />
-
       <div className="flex justify-end gap-2">
         <Button
           variant="ghost"
@@ -160,16 +111,14 @@ function AccountDetail({ account }: { account: Account }) {
         </Button>
       </div>
 
-      <ConfirmDialog
-        open={confirming !== null}
-        onOpenChange={(open) => !open && setConfirming(null)}
-        title={confirming ? reissueNotice[confirming].title : ""}
-        description={confirming ? reissueNotice[confirming].description : ""}
-        confirmLabel="발급"
-        pending={issuing}
-        onConfirm={issue}
+      <ResetPasswordDialog
+        open={resetting}
+        onOpenChange={setResetting}
+        pending={actions.resetPassword.isPending}
+        onSubmit={(password, done) =>
+          actions.resetPassword.mutate(password, { onSuccess: done })
+        }
       />
-      <IssuedLinkDialog link={issued} onClose={() => setIssued(null)} />
     </form>
   );
 }

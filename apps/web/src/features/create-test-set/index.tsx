@@ -13,7 +13,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { type SubmitEvent, useRef, useState } from "react";
 import { tempUploadQuery } from "@/entities/generation";
-import { can, type PermissionGrant } from "@/entities/permission";
 import {
   fromTemplateDraft,
   projectsQuery,
@@ -29,11 +28,9 @@ import { ColumnModal } from "./column-modal";
 type TemplateKind = "project" | "recent" | "custom";
 
 export interface CreateTestSetFormProps {
-  /** 내 권한. 테스트 세트를 만들 수 있는 프로젝트만 고르게 한다. */
-  permissions: readonly PermissionGrant[];
   /** Figma 플러그인에서 올린 프레임 묶음 */
   uploadId?: string;
-  /** 플러그인에서 고른 프로젝트. 고를 수 없는 프로젝트면 무시한다. */
+  /** 플러그인에서 고른 프로젝트. 목록에 없는 프로젝트면 무시한다. */
   initialProjectId?: string;
   /** 직접 작성이면 테스트 세트로, 생성이면 생성 진행 화면으로 간다 */
   /** confirmStart: 생성 시작 응답을 받지 못해 시작됐는지 확인이 필요하다 */
@@ -49,16 +46,13 @@ const thumbnail = (uploadId: string, frameId: string) =>
 
 /** 이름, 프로젝트, 프레임, 메모로 테스트 세트를 만든다. 프로젝트는 만든 뒤 바꿀 수 없다. */
 export function CreateTestSetForm({
-  permissions,
   uploadId,
   initialProjectId,
   onCreated,
 }: CreateTestSetFormProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const projects = (useQuery(projectsQuery()).data ?? []).filter((p) =>
-    can(permissions, "test_set.create", p.id),
-  );
+  const projects = useQuery(projectsQuery()).data ?? [];
   const upload = useQuery({
     ...tempUploadQuery(uploadId ?? ""),
     enabled: Boolean(uploadId),

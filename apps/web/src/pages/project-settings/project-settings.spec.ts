@@ -203,7 +203,7 @@ test("프로젝트 설정 관리 권한이 없으면 설정을 볼 수만 있다
   page,
 }) => {
   await mockApi(page, {
-    "GET /api/v1/auth/me": me(["test_set.create"]),
+    "GET /api/v1/auth/me": me({ role: "member" }),
     ...projectSettings({
       "GET /api/v1/projects/p1": { ...project, canManage: false },
     }),

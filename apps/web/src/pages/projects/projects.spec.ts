@@ -50,14 +50,14 @@ test("프로젝트 만들기 권한이 있으면 프로젝트를 만들고 바�
   });
 });
 
-test("프로젝트 만들기 권한이 없으면 만들기 버튼이 없다", async ({ page }) => {
+test("구성원도 프로젝트를 만들 수 있다", async ({ page }) => {
   await mockApi(page, {
-    "GET /api/v1/auth/me": me(["test_set.create"]),
+    "GET /api/v1/auth/me": me({ role: "member" }),
     "GET /api/v1/projects": { items: [] },
   });
   await page.goto("/projects");
   await expect(page.getByText("프로젝트가 없습니다")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "프로젝트 만들기" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
 });
