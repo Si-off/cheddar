@@ -28,6 +28,7 @@ import {
   cellText,
   emptyValue,
   mergeable,
+  mergeBounds,
   parseCell,
   readCell,
   type TestCase,
@@ -232,8 +233,12 @@ export function CaseTable({
       return cases.filter((c) => c.id === caseId);
     const index = cases.findIndex((c) => c.id === caseId);
     if (index < 0) return [];
-    const upTo = mergeColumns.slice(0, mergeColumns.indexOf(column) + 1);
-    const keys = upTo.map(mergeKeyOf);
+    const keys = [
+      ...mergeColumns
+        .slice(0, mergeColumns.indexOf(column))
+        .filter(mergeBounds),
+      column,
+    ].map(mergeKeyOf);
     const same = (a: TestCase, b: TestCase) => keys.every((k) => k(a) === k(b));
     let start = index;
     while (
@@ -336,20 +341,30 @@ export function CaseTable({
           .join("\t"),
       )
       .join("\n");
-  // 범위의 값을 지운다. 셀 하나면 병합된 묶음 전체를 지운다.
+  // 범위의 값을 지운다. 범위에 걸친 병합된 칸은 화면에 보이는 대로 묶음 전체를 지운다.
   const clearRange = () => {
     if (!current || !activeColumn) return;
     if (!isRange) {
       set(current.rowId, activeColumn.id, emptyValue(activeColumn));
       return;
     }
+    const seen = new Set<string>();
     const ops: CaseOp[] = rangeRows.flatMap((row) =>
-      rangeColumns.map((column) => ({
-        type: "set_cell" as const,
-        caseId: row.id,
-        columnId: column.id,
-        value: emptyValue(column),
-      })),
+      rangeColumns.flatMap((column) =>
+        mergedCases(row.id, column.id).flatMap((c) => {
+          const key = `${c.id}:${column.id}`;
+          if (seen.has(key)) return [];
+          seen.add(key);
+          return [
+            {
+              type: "set_cell" as const,
+              caseId: c.id,
+              columnId: column.id,
+              value: emptyValue(column),
+            },
+          ];
+        }),
+      ),
     );
     onOps(ops);
   };
@@ -672,6 +687,7 @@ export function CaseTable({
     mono: column.systemKey === "test_id",
     fixed: column.systemKey === "test_id",
     mergeKey: mergeable(column) ? mergeKeyOf(column) : undefined,
+    mergeBounds: mergeBounds(column),
     headerAction: !canEditColumns ? undefined : (
       <span
         className="inline-flex"

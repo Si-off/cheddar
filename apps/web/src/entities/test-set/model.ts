@@ -98,6 +98,12 @@ const MERGE_PRESET_KEYS = new Set([
 ]);
 export const mergeable = (column: Pick<Column, "presetKey">) =>
   column.presetKey !== null && MERGE_PRESET_KEYS.has(column.presetKey);
+/**
+ * 병합이 끊기면 뒤쪽 병합 열도 함께 끊기는 열. 현업 시트처럼 제목, 화면 ID, 수행 절차는
+ * 같은 테스트 케이스 안에서 서로의 경계를 넘어 병합된다.
+ */
+export const mergeBounds = (column: Pick<Column, "presetKey">) =>
+  column.presetKey === "test_env" || column.presetKey === "test_case";
 
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";

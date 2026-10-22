@@ -1,6 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 import { me, mockApi } from "../../shared/testing/mock-api";
-import { testSetResponses } from "../../shared/testing/test-set-fixtures";
+import {
+  testSet,
+  testSetResponses,
+} from "../../shared/testing/test-set-fixtures";
 
 type Op = { type: string; [key: string]: unknown };
 
@@ -249,4 +252,87 @@ test("스프레드시트 단축키로 위에 행을 넣고 행을 지운다", as
   await expect
     .poll(() => opsBodies(calls)[1])
     .toEqual([{ type: "delete_cases", caseIds: ["k1"] }]);
+});
+
+test("제목이 달라도 같은 테스트 케이스 안의 같은 수행 절차는 한 칸으로 병합되고 고치면 묶음 전체에 반영된다", async ({
+  page,
+}) => {
+  const column = (id: string, presetKey: string, name: string) => ({
+    id,
+    presetKey,
+    systemKey: presetKey === "title" ? "title" : null,
+    name,
+    type: "text",
+    description: "",
+    options: [],
+  });
+  // 현업 시트의 조건 반복: 제목은 행마다 다르고 절차는 같다. 마지막 행은 다른 테스트 케이스다.
+  const rows = [
+    ["가", "Case 1"],
+    ["가", "Case 2"],
+    ["가", "Case 2"],
+    ["나", "Case 3"],
+  ];
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({
+      "GET /api/v1/test-sets/t1": {
+        ...testSet,
+        columns: [
+          column("c-id", "test_id", "테스트 ID"),
+          column("c-case", "test_case", "테스트 케이스"),
+          column("c-title", "title", "제목"),
+          column("c-steps", "steps", "수행 절차"),
+          column("c-exp", "expected", "예상 결과"),
+        ],
+        cases: rows.map(([testCase, title], i) => ({
+          id: `k${i + 1}`,
+          values: {
+            "c-id": `TC-00${i + 1}`,
+            "c-case": testCase,
+            "c-title": title,
+            "c-steps": "1. 진입",
+            "c-exp": `결과 ${i + 1}`,
+          },
+          featureGroupId: null,
+        })),
+      },
+      "POST /api/v1/test-sets/t1/ops": opsHandler(),
+    }),
+  });
+  await page.goto("/test-sets/t1");
+  const at = (row: string, col: string) =>
+    page.locator(`td[data-row="${row}"][data-col="${col}"]`);
+  await expect(at("k1", "c-steps")).toHaveAttribute("rowspan", "3");
+  await expect(at("k2", "c-title")).toHaveAttribute("rowspan", "2");
+  await expect(at("k4", "c-steps")).toBeVisible();
+  await at("k1", "c-steps").click();
+  await page.keyboard.press("Enter");
+  await page.getByRole("textbox", { name: "수행 절차" }).fill("1. 목록 진입");
+  await page.getByRole("textbox", { name: "수행 절차" }).press("Enter");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual(
+      ["k1", "k2", "k3"].map((caseId) => ({
+        type: "set_cell",
+        caseId,
+        columnId: "c-steps",
+        value: "1. 목록 진입",
+      })),
+    );
+  // 범위에 걸친 병합된 칸은 보이는 대로 묶음 전체를 지우고, 나머지 칸은 고른 행만 지운다
+  await at("k1", "c-steps").click();
+  await at("k1", "c-exp").click({ modifiers: ["Shift"] });
+  await page.keyboard.press("Delete");
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([
+      ...["k1", "k2", "k3"].map((caseId) => ({
+        type: "set_cell",
+        caseId,
+        columnId: "c-steps",
+        value: "",
+      })),
+      { type: "set_cell", caseId: "k1", columnId: "c-exp", value: "" },
+    ]);
 });

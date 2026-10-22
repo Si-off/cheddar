@@ -24,9 +24,11 @@ export interface DataGridColumn<Row> {
   mono?: boolean;
   /**
    * 있으면 이어진 행 중 같은 값을 돌려주는 셀을 하나로 병합해 그린다.
-   * 앞선 병합 열이 끊기는 행에서는 함께 끊긴다(상위 열의 경계를 넘지 않는다).
+   * 앞선 경계 병합 열이 끊기는 행에서는 함께 끊긴다(상위 열의 경계를 넘지 않는다).
    */
   mergeKey?: (row: Row) => string;
+  /** false면 이 열의 병합이 끊겨도 뒤쪽 병합 열은 끊지 않는다. 기본은 true. */
+  mergeBounds?: boolean;
   /** 맨 앞에 고정. 끌어서 옮길 수 없고 그 앞에 놓을 수도 없다. */
   fixed?: boolean;
   /** 머리글 오른쪽에 두는 요소(예: 작업 메뉴). 머리글에 올리면 보인다. */
@@ -381,7 +383,7 @@ export function DataGrid<Row>({
 
   const cellBase = "relative border-r border-b border-line align-top";
 
-  // 병합: 열 순서대로 보면서, 앞선 병합 열이 끊긴 행이나 값이 달라진 행에서 새 묶음을 시작한다.
+  // 병합: 열 순서대로 보면서, 앞선 경계 병합 열이 끊긴 행이나 값이 달라진 행에서 새 묶음을 시작한다.
   // spans[rowIndex][columnId] = 이 셀이 시작하는 묶음의 행 수(0이면 위 셀에 덮여 그리지 않는다)
   const spans: Record<string, number>[] = rows.map(() => ({}));
   const mergeColumns = columns.filter((c) => c.mergeKey);
@@ -397,7 +399,7 @@ export function DataGrid<Row>({
           key(rows[i] as Row) !== key(rows[i - 1] as Row);
         if (fresh) {
           starts[column.id] = i;
-          breakAt[i] = true;
+          if (column.mergeBounds !== false) breakAt[i] = true;
           (spans[i] as Record<string, number>)[column.id] = 1;
         } else {
           const start = starts[column.id] as number;
