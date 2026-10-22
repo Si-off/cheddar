@@ -96,6 +96,110 @@ test("셀을 골라 Enter로 고치고, 글자를 치면 바로 바꾸고, Delet
   await expect(page.getByRole("status").getByText("저장됨")).toBeVisible();
 });
 
+test("Enter 없이 다른 셀을 누르거나 표 밖을 눌러도 고친 값이 반영되고, Escape는 취소한다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await expect(page.getByRole("heading", { name: testSet.name })).toBeVisible();
+
+  await cell(page, 1, "예상 결과").click();
+  await page.keyboard.type("A");
+  await cell(page, 2, "제목").click();
+  await expect(cell(page, 1, "예상 결과")).toHaveText("A");
+
+  await cell(page, 2, "예상 결과").dblclick();
+  await page.keyboard.type(" 확인");
+  await page.getByRole("heading", { name: testSet.name }).click();
+  await expect(cell(page, 2, "예상 결과")).toHaveText("가입 버튼 비활성 확인");
+
+  await cell(page, 1, "제목").click();
+  await page.keyboard.type("취소할 입력");
+  await page.keyboard.press("Escape");
+  await expect(cell(page, 1, "제목")).toHaveText(cases[0].values["c-title"]);
+
+  await expect.poll(() => opsBodies(calls).length).toBe(2);
+  expect(opsBodies(calls)).toEqual([
+    [{ type: "set_cell", caseId: "k1", columnId: "c-exp", value: "A" }],
+    [
+      {
+        type: "set_cell",
+        caseId: "k2",
+        columnId: "c-exp",
+        value: "가입 버튼 비활성 확인",
+      },
+    ],
+  ]);
+});
+
+test("세로선과 가로선이 만나는 곳은 어느 쪽에서 잡아도 열 너비와 행 높이를 함께 바꾼다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses(),
+  });
+  await page.goto("/test-sets/t1");
+  await expect(page.getByRole("heading", { name: testSet.name })).toBeVisible();
+
+  const sizeOf = async () => {
+    const box = await cell(page, 1, "제목").boundingBox();
+    if (!box) throw new Error("셀이 보이지 않는다");
+    return box;
+  };
+  const box = await sizeOf();
+  // 교차점 바로 오른쪽 아래, 다음 행의 다음 열 셀 위에서 잡는다
+  await page.mouse.move(box.x + box.width + 2, box.y + box.height + 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width + 82, box.y + box.height + 42, {
+    steps: 4,
+  });
+  await page.mouse.up();
+
+  const after = await sizeOf();
+  expect(after.width).toBeGreaterThan(box.width + 60);
+  expect(after.height).toBeGreaterThan(box.height + 30);
+  // 크기를 바꾸려고 누른 셀은 고르지 않는다
+  await expect(page.locator('[aria-current="true"]')).toHaveCount(0);
+  await expect
+    .poll(() => {
+      const body = calls
+        .filter((c) => c.key === "PUT /api/v1/test-sets/t1/view")
+        .at(-1)?.body as
+        | {
+            columnWidths?: Record<string, number>;
+            rowHeights?: Record<string, number>;
+          }
+        | undefined;
+      return [body?.columnWidths?.["c-title"], body?.rowHeights?.k1];
+    })
+    .toEqual([Math.round(after.width), Math.round(after.height)]);
+});
+
+test("도구 메뉴를 하나 연 뒤 다른 도구 아이콘에 포인터를 올리면 그 메뉴로 바뀐다", async ({
+  page,
+}) => {
+  await mockApi(page, { "GET /api/v1/auth/me": me(), ...testSetResponses() });
+  await page.goto("/test-sets/t1");
+  await expect(page.getByRole("heading", { name: testSet.name })).toBeVisible();
+
+  const insert = page.getByRole("button", { name: "삽입" });
+  await insert.hover();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "수정" }).click();
+  await expect(page.getByRole("menuitem", { name: /잘라내기/ })).toBeVisible();
+  await insert.hover();
+  // 이전 메뉴는 움직임 없이 바로 닫혀 두 메뉴의 글자가 겹치지 않는다
+  expect(await page.getByText("잘라내기").count()).toBe(0);
+  await expect(
+    page.getByRole("menuitem", { name: /위에 행 1개 삽입/ }),
+  ).toBeVisible();
+});
+
 test("케이스를 추가하면 서버가 붙인 번호가 보이고, 고른 케이스를 지운다", async ({
   page,
 }) => {
