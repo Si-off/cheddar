@@ -60,16 +60,16 @@
 
 ## 완료 조건
 
-- [ ] product.md, architecture.md에 새 규칙 반영
-- [ ] API·DB 변경과 마이그레이션, 테스트(`pnpm test:api`) 통과
-- [ ] 웹·플러그인 SDK 재생성, 웹 화면 정리(관리 화면 계정 탭만, 공유 대화상자 링크만, 내 비밀번호 바꾸기), e2e 통과
-- [ ] `pnpm check`, Codex 리뷰, UX 문구 검수
+- [x] product.md, architecture.md, README, DESIGN.md, 화면 시안에 새 규칙 반영
+- [x] API·DB 변경과 마이그레이션 0012, 테스트(`pnpm test:api` 151건) 통과
+- [x] 웹·플러그인 SDK 재생성, 웹 화면 정리(관리 화면 계정만, 공유 대화상자 링크만, 내 비밀번호 바꾸기), e2e 77건과 플러그인 테스트 32건 통과
+- [ ] `pnpm check`(통과), Codex 리뷰, UX 문구 검수
 - [ ] 배포 DB 마이그레이션과 첫 관리자 재생성, 실제 로그인 확인
 
 ## 현재 상태
 
-기준: `main` 9d92a6c(아이디 전환 병합). 문서 정리 시작.
+기준: `main` 9d92a6c. 브랜치 `claude/simplify-accounts`. 문서 커밋 8b661f9 이후 API(Codex)와 웹·플러그인 구현 완료, 미커밋. 라이트·다크 렌더링 확인함. Codex 리뷰와 UX 문구 검수 진행 중.
 
 ## 다음 행동
 
-product.md 갱신 → API·DB 구현 → SDK 재생성 → 웹 정리 → 검증.
+리뷰 반영 → 커밋·PR → 사용자 병합 → 배포 DB에 `pnpm db:migrate`(0012) → 첫 관리자 확인(기존 계정이 없으면 `admin:create`) → 실제 로그인 확인 → 이 파일 삭제.
