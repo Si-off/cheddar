@@ -4,11 +4,7 @@ import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { createFirstAdministrator } from "../src/accounts/bootstrap";
-import {
-  CreateAccountDto,
-  LoginDto,
-  UpdateAccountDto,
-} from "../src/contracts/identity.dto";
+import { CreateAccountDto, LoginDto } from "../src/contracts/identity.dto";
 
 const loginIdErrors = async (
   type: new () => object,
@@ -20,8 +16,8 @@ const loginIdErrors = async (
 const account = (loginId: unknown) => ({
   name: "계정",
   loginId,
-  affiliationId: "00000000-0000-4000-8000-000000000000",
-  assignments: [],
+  role: "member",
+  password: "test-password-12345",
 });
 
 test("새 아이디는 이메일이 아니어도 되고 공백 제거·소문자화 후 형식을 검사한다", async () => {
@@ -34,11 +30,6 @@ test("새 아이디는 이메일이 아니어도 되고 공백 제거·소문자
   ]) {
     assert.deepEqual(
       await loginIdErrors(CreateAccountDto, account(loginId)),
-      [],
-      loginId,
-    );
-    assert.deepEqual(
-      await loginIdErrors(UpdateAccountDto, { loginId }),
       [],
       loginId,
     );
@@ -58,11 +49,6 @@ test("새 아이디는 이메일이 아니어도 되고 공백 제거·소문자
   ]) {
     assert.notDeepEqual(
       await loginIdErrors(CreateAccountDto, account(loginId)),
-      [],
-      String(loginId),
-    );
-    assert.notDeepEqual(
-      await loginIdErrors(UpdateAccountDto, { loginId }),
       [],
       String(loginId),
     );

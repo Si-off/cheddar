@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from "@nestjs/common";
 import {
@@ -20,22 +21,19 @@ import {
   ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
-import { RequirePermission } from "../authorization/guards";
+import { AdminOnly } from "../authorization/guards";
 import {
   AccountDto,
-  AccountInvitationDto,
   AccountPageDto,
   AccountQueryDto,
   CreateAccountDto,
-  IssuedTokenDto,
-  OwnedTestSetListDto,
-  TransferTestSetOwnerDto,
+  PasswordDto,
   UpdateAccountDto,
 } from "../contracts/identity.dto";
 import { AccountsService } from "./accounts.service";
 @ApiTags("계정")
 @ApiCookieAuth()
-@RequirePermission("account.manage")
+@AdminOnly()
 @Controller("api/v1/accounts")
 export class AccountsController {
   constructor(
@@ -51,9 +49,9 @@ export class AccountsController {
   @Post()
   @ApiOperation({
     operationId: "createAccount",
-    summary: "계정 생성과 초대 토큰 발급",
+    summary: "계정 만들기",
   })
-  @ApiCreatedResponse({ type: AccountInvitationDto })
+  @ApiCreatedResponse({ type: AccountDto })
   @ApiBody({ type: CreateAccountDto })
   create(@Body() dto: CreateAccountDto) {
     return this.service.create(dto);
@@ -64,34 +62,10 @@ export class AccountsController {
   detail(@Param("accountId", ParseUUIDPipe) id: string) {
     return this.service.detail(id);
   }
-  @Get(":accountId/owned-test-sets")
-  @ApiOperation({
-    operationId: "listOwnedTestSets",
-    summary: "계정이 소유한 테스트 세트 목록",
-  })
-  @ApiOkResponse({ type: OwnedTestSetListDto })
-  listOwnedTestSets(@Param("accountId", ParseUUIDPipe) id: string) {
-    return this.service.listOwnedTestSets(id);
-  }
-  @Post(":accountId/owned-test-sets/:testSetId/owner")
-  @HttpCode(204)
-  @ApiOperation({
-    operationId: "transferTestSetOwner",
-    summary: "테스트 세트 소유자 넘기기",
-  })
-  @ApiNoContentResponse({ description: "소유자 변경 완료" })
-  @ApiBody({ type: TransferTestSetOwnerDto })
-  transferTestSetOwner(
-    @Param("accountId", ParseUUIDPipe) id: string,
-    @Param("testSetId", ParseUUIDPipe) testSetId: string,
-    @Body() dto: TransferTestSetOwnerDto,
-  ) {
-    return this.service.transferTestSetOwner(id, testSetId, dto.accountId);
-  }
   @Patch(":accountId")
   @ApiOperation({
     operationId: "updateAccount",
-    summary: "계정 정보와 역할 할당 수정",
+    summary: "계정 이름과 등급 수정",
   })
   @ApiOkResponse({ type: AccountDto })
   @ApiBody({ type: UpdateAccountDto })
@@ -119,22 +93,18 @@ export class AccountsController {
   reactivate(@Param("accountId", ParseUUIDPipe) id: string) {
     return this.service.setActive(id, true);
   }
-  @Post(":accountId/invitation")
+  @Put(":accountId/password")
+  @HttpCode(204)
   @ApiOperation({
-    operationId: "reissueInvitation",
-    summary: "초대 링크 다시 발급",
+    operationId: "resetAccountPassword",
+    summary: "계정 비밀번호 다시 정하기",
   })
-  @ApiCreatedResponse({ type: IssuedTokenDto })
-  invite(@Param("accountId", ParseUUIDPipe) id: string) {
-    return this.service.issue(id, "invite");
-  }
-  @Post(":accountId/password-reset")
-  @ApiOperation({
-    operationId: "issuePasswordReset",
-    summary: "비밀번호 재설정 링크 발급",
-  })
-  @ApiCreatedResponse({ type: IssuedTokenDto })
-  reset(@Param("accountId", ParseUUIDPipe) id: string) {
-    return this.service.issue(id, "reset");
+  @ApiNoContentResponse()
+  @ApiBody({ type: PasswordDto })
+  reset(
+    @Param("accountId", ParseUUIDPipe) id: string,
+    @Body() dto: PasswordDto,
+  ) {
+    return this.service.resetPassword(id, dto.password);
   }
 }

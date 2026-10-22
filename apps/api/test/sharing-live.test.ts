@@ -13,22 +13,18 @@ import { AccountsService } from "../src/accounts/accounts.service";
 import { createFirstAdministrator } from "../src/accounts/bootstrap";
 import { AuthService, SESSION_COOKIE } from "../src/auth/auth.service";
 import { AuthorizationService } from "../src/authorization/authorization.service";
-import type { Permission } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
 import type {
   SharedTestSetDto,
   SharingDto,
-  SharingPersonDto,
 } from "../src/contracts/sharing.dto";
-import type { TestSetViewDto } from "../src/contracts/test-set.dto";
+import type { TestSetDto, TestSetViewDto } from "../src/contracts/test-set.dto";
 import {
   accounts as accountRows,
   generationJobs,
   reviewItems,
-  roles as roleRows,
   sessions,
   testCases,
-  testSetMembers,
   testSets,
   visitorSessions,
 } from "../src/database/schema";
@@ -36,7 +32,6 @@ import { StageRunner } from "../src/generation/stage-runner";
 import type { GenerationInput } from "../src/generation/types";
 import { LiveEvents } from "../src/live/live-events";
 import { ProjectsService } from "../src/projects/projects.service";
-import { RolesService } from "../src/roles/roles.service";
 import { VISITOR_COOKIE } from "../src/sharing/shared.service";
 import { TestSetsService } from "../src/test-sets/test-sets.service";
 import { openTestDatabase } from "./database";
@@ -164,7 +159,6 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
     const auth = app.get(AuthService),
       accounts = app.get(AccountsService),
       authorization = app.get(AuthorizationService),
-      roles = app.get(RolesService),
       sets = app.get(TestSetsService),
       projects = app.get(ProjectsService);
     const admin = await createFirstAdministrator(
@@ -175,14 +169,10 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
     );
     lease.accountIds.push(admin.account.id);
     const password = "공동편집-비밀번호-12345";
-    await auth.setPassword(admin.token, password, "invite");
+    await accounts.resetPassword(admin.account.id, password);
     const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const project = await projects.create(admin.account.id, {
       name: "공동 편집",
-      description: "",
-    });
-    const otherProject = await projects.create(admin.account.id, {
-      name: "다른 범위",
       description: "",
     });
     const set = await sets.create(admin.account.id, {
@@ -190,43 +180,18 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       name: "공유 테스트",
       memo: "",
     });
-    const actor = async (
-      permissions: Permission[] = [],
-      scopeProject = project.id,
-      active = true,
-    ) => {
-      const assignments = [];
-      let roleId: string | undefined;
-      if (permissions.length) {
-        const role = await roles.create({
-          name: randomUUID(),
-          permissions,
-          requiresExpiry: false,
-          defaultExpiryDays: null,
-        });
-        roleId = role.id;
-        lease.roleIds.push(role.id);
-        assignments.push({
-          roleId: role.id,
-          scope: "projects" as const,
-          projectIds: [scopeProject],
-        });
-      }
+    const actor = async () => {
       const result = await accounts.create({
-        name: "초대 후보",
+        name: "구성원",
         loginId: `${randomUUID()}@example.com`,
-        affiliationId: admin.account.affiliation.id,
-        assignments,
+        role: "member",
+        password,
       });
-      lease.accountIds.push(result.account.id);
-      if (active) await auth.setPassword(result.token, password, "invite");
+      lease.accountIds.push(result.id);
       return {
-        id: result.account.id,
-        loginId: result.account.loginId,
-        roleId,
-        cookie: active
-          ? `${SESSION_COOKIE}=${(await auth.login(result.account.loginId, password)).token}`
-          : "",
+        id: result.id,
+        loginId: result.loginId,
+        cookie: `${SESSION_COOKIE}=${(await auth.login(result.loginId, password)).token}`,
       };
     };
     const request = (
@@ -263,209 +228,77 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       return c;
     };
     const edit = await actor(),
-      inviteOnly = await actor(["test_set.invite"]),
-      linkOnly = await actor(["test_set.public_link"]),
-      wrongScope = await actor(
-        ["test_set.invite", "test_set.public_link"],
-        otherProject.id,
-      ),
-      inactive = await actor([], project.id, false),
+      linkOnly = await actor(),
       outsider = await actor(),
       candidate = await actor();
     let state!: SharingDto,
       token!: string,
       visitorCookie!: string,
       visitor!: SharedTestSetDto;
-    const member = async (
-      who: { id: string },
-      access: "view" | "edit" = "edit",
-    ) =>
-      json<SharingDto>(
-        await request(`${members}/${who.id}`, "PUT", { access }),
-      );
     await t.test(
-      "공유 권한은 편집 권한과 프로젝트별 초대·링크 권한을 모두 요구",
+      "모든 활성 계정은 링크를 설정하고 삭제한 사람 공유 API는 404",
       async () => {
-        for (const who of [edit, inviteOnly, linkOnly, wrongScope])
-          await member(who);
-        const flags = async (who: { cookie: string }) =>
-          json<SharingDto>(
+        for (const who of [edit, linkOnly, outsider]) {
+          state = await json<SharingDto>(
             await request(sharing, "GET", undefined, who.cookie),
           );
-        assert.equal((await flags(edit)).canInvite, false);
-        assert.equal((await flags(edit)).canManageLink, false);
-        assert.equal((await flags(inviteOnly)).canInvite, true);
-        assert.equal((await flags(inviteOnly)).canManageLink, false);
-        assert.equal((await flags(linkOnly)).canInvite, false);
-        assert.equal((await flags(linkOnly)).canManageLink, true);
-        assert.equal((await flags(wrongScope)).canInvite, false);
-        await error(
-          await request(
-            sharing,
-            "PATCH",
-            { visibility: "public" },
-            inviteOnly.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        await error(
-          await request(
-            `${members}/${candidate.id}`,
-            "PUT",
-            { access: "view" },
-            linkOnly.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        await member(inviteOnly, "view");
-        assert.equal((await flags(inviteOnly)).canInvite, false);
-        await member(inviteOnly);
-        state = await json<SharingDto>(await request(sharing));
-        assert.equal(state.owner.affiliation, "사내");
-      },
-    );
-    await t.test(
-      "소유자는 구성원으로 추가·제거할 수 없고 비활성 계정은 초대 불가",
-      async () => {
-        await error(
-          await request(`${members}/${admin.account.id}`, "PUT", {
-            access: "edit",
-          }),
-          409,
-          "OWNER_PROTECTED",
-        );
-        await error(
-          await request(`${members}/${admin.account.id}`, "DELETE"),
-          409,
-          "OWNER_PROTECTED",
-        );
-        await error(
-          await request(`${members}/${inactive.id}`, "PUT", { access: "view" }),
-          409,
-          "ACCOUNT_NOT_ACTIVE",
-        );
-        assert.ok(
-          !(await json<SharingDto>(await request(sharing))).members.some(
-            (m) => m.person.id === admin.account.id,
-          ),
-        );
-      },
-    );
-    await t.test(
-      "후보는 최대 20명이며 만료·비활성 계정과 검색 와일드카드를 제외",
-      async () => {
-        const candidates = Array.from({ length: 23 }, () => ({
-          id: randomUUID(),
-          name: "목록 사용자",
-          loginId: `${randomUUID()}@example.com`,
-          affiliationId: admin.account.affiliation.id,
-          status: "active" as const,
-          passwordHash: "사용하지 않는 후보 비밀번호",
-        }));
-        lease.accountIds.push(...candidates.map((c) => c.id));
-        await db.insert(accountRows).values(candidates);
-        assert.equal(
-          (
-            await json<SharingPersonDto[]>(
+          assert.deepEqual(state, {
+            visibility: "private",
+            linkPermission: "view",
+            linkToken: null,
+          });
+          assert.equal(
+            (
               await request(
-                `${sharing}/candidates?search=${encodeURIComponent("목록")}`,
-              ),
-            )
-          ).length,
-          20,
-        );
-        assert.equal(
-          (
-            await json<SharingPersonDto[]>(
-              await request(`${sharing}/candidates?search=%25`),
-            )
-          ).length,
-          0,
-        );
-        await accounts.setActive(candidates[0].id, false);
-        await accounts.update(candidates[1].id, {
-          expiresAt: new Date(0).toISOString(),
-        });
-        for (const who of candidates.slice(0, 2))
-          await error(
-            await request(`${members}/${who.id}`, "PUT", { access: "edit" }),
-            409,
-            "ACCOUNT_NOT_ACTIVE",
+                sharing,
+                "PATCH",
+                { linkPermission: "view" },
+                who.cookie,
+              )
+            ).status,
+            200,
           );
-        const privateLink = await json<SharingDto>(
+        }
+        for (const [path, method, body] of [
+          [`${sharing}/candidates`, "GET", undefined],
+          [`${members}/${candidate.id}`, "PUT", { access: "edit" }],
+          [`${members}/${candidate.id}`, "DELETE", undefined],
+        ] as const)
+          assert.equal((await request(path, method, body)).status, 404);
+        const rotated = await json<SharingDto>(
           await request(`${sharing}/link`, "POST"),
           201,
         );
-        assert.ok(privateLink.linkToken);
-        assert.equal(
-          (
-            await json<SharingDto>(
-              await request(sharing, "GET", undefined, edit.cookie),
-            )
-          ).linkToken,
-          null,
-        );
-      },
-    );
-    await t.test(
-      "후보 검색은 이름·이메일 부분 일치이며 소유자·기존 구성원·비활성 제외",
-      async () => {
-        const byName = await json<SharingPersonDto[]>(
-          await request(
-            `${sharing}/candidates?search=${encodeURIComponent("후보")}`,
-          ),
-        );
-        assert.ok(byName.some((p) => p.id === candidate.id));
-        for (const who of [admin.account, edit, inactive])
-          assert.ok(!byName.some((p) => p.id === who.id));
-        assert.ok(byName.length <= 20);
-        const byLoginId = await json<SharingPersonDto[]>(
-          await request(
-            `${sharing}/candidates?search=${candidate.loginId.slice(5, 18)}`,
-          ),
-        );
-        assert.deepEqual(
-          byLoginId.map((p) => p.id),
-          [candidate.id],
-        );
-        await error(
-          await request(`${sharing}/candidates`, "GET", undefined, edit.cookie),
-          403,
-          "FORBIDDEN",
-        );
-      },
-    );
-    await t.test(
-      "권한 없는 상세는 소유자 이름을 담은 NO_ACCESS, 없는 세트는 404",
-      async () => {
-        const response = await json<{
-          error: { code: string; details: { ownerName: string } };
-        }>(
+        assert.equal(rotated.visibility, "private");
+        assert.equal(rotated.linkToken, null);
+        const detail = await json<TestSetDto>(
           await request(
             `/test-sets/${set.id}`,
             "GET",
             undefined,
             outsider.cookie,
           ),
-          403,
         );
-        assert.equal(response.error.code, "NO_ACCESS");
-        assert.equal(response.error.details.ownerName, "공유 관리자");
+        assert.deepEqual(detail.access, {
+          canEdit: true,
+          canRename: true,
+          canDelete: false,
+          canExport: true,
+        });
+        assert.equal(
+          (
+            await request(
+              `/test-sets/${set.id}/view`,
+              "GET",
+              undefined,
+              outsider.cookie,
+            )
+          ).status,
+          200,
+        );
         await error(
           await request(
             `/test-sets/${randomUUID()}`,
-            "GET",
-            undefined,
-            outsider.cookie,
-          ),
-          404,
-          "NOT_FOUND",
-        );
-        await error(
-          await request(
-            `/test-sets/${set.id}/view`,
             "GET",
             undefined,
             outsider.cookie,
@@ -569,7 +402,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           403,
           "FORBIDDEN",
         );
-        await json(await request(sharing, "PATCH", { linkAccess: "edit" }));
+        await json(await request(sharing, "PATCH", { linkPermission: "edit" }));
         await json(
           await request(`/shared/${token}/ops`, "POST", input, visitorCookie),
         );
@@ -656,7 +489,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       },
     );
     await t.test(
-      "방문자는 셀 변경·행 이동·삭제도 수행하고 잘못된 연산은 원자적으로 거부",
+      "방문자는 셀 변경·케이스 추가·삭제만 하고 행 이동은 원자적으로 거부",
       async () => {
         const one = randomUUID(),
           two = randomUUID();
@@ -673,6 +506,35 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
             visitorCookie,
           ),
         );
+        const beforeMove = await json<SharedTestSetDto>(
+          await request(`/shared/${token}`, "GET", undefined, visitorCookie),
+        );
+        await error(
+          await request(
+            `/shared/${token}/ops`,
+            "POST",
+            {
+              ops: [
+                {
+                  type: "set_cell",
+                  caseId: one,
+                  columnId: set.columns[1].id,
+                  value: "거부 시 보존",
+                },
+                { type: "move_case", caseId: two, afterCaseId: null },
+              ],
+            },
+            visitorCookie,
+          ),
+          403,
+          "FORBIDDEN",
+        );
+        assert.deepEqual(
+          await json<SharedTestSetDto>(
+            await request(`/shared/${token}`, "GET", undefined, visitorCookie),
+          ),
+          beforeMove,
+        );
         await json(
           await request(
             `/shared/${token}/ops`,
@@ -685,7 +547,6 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
                   columnId: set.columns[1].id,
                   value: "방문자 수정",
                 },
-                { type: "move_case", caseId: two, afterCaseId: null },
                 { type: "delete_cases", caseIds: [one] },
               ],
             },
@@ -731,7 +592,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       },
     );
     await t.test(
-      "방문자 보기 설정은 사람별로 저장하며 내보내기는 고정 역할을 따름",
+      "방문자 보기 설정은 사람별로 저장하며 내보내기는 항상 허용",
       async () => {
         const select = set.columns.find((column) => column.type === "select");
         assert.ok(select);
@@ -774,37 +635,16 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           ).status,
           200,
         );
-        const [role] = await db
-          .select()
-          .from(roleRows)
-          .where(eq(roleRows.systemKey, "link_visitor"));
-        await roles.update(role.id, { permissions: [] });
-        await error(
-          await request(
-            `/shared/${token}/export`,
-            "GET",
-            undefined,
-            visitorCookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        await error(
-          await request(
-            `/shared/${token}/export`,
-            "GET",
-            undefined,
-            outsider.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        assert.equal((await request(`/shared/${token}/export`)).status, 200);
-        await roles.update(role.id, { permissions: ["test_set.export"] });
+        for (const cookie of [visitorCookie, outsider.cookie, adminCookie])
+          assert.equal(
+            (await request(`/shared/${token}/export`, "GET", undefined, cookie))
+              .status,
+            200,
+          );
       },
     );
     await t.test(
-      "로그인 계정은 계정 이름과 높은 쪽 편집 권한을 받으며 계정별 보기 설정을 공유",
+      "로그인 계정은 계정 이름과 편집 권한을 받으며 계정별 보기 설정을 공유",
       async () => {
         const account = await json<SharedTestSetDto>(
           await request(`/shared/${token}`, "GET", undefined, outsider.cookie),
@@ -812,8 +652,8 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         assert.equal(account.me.kind, "account");
         assert.equal(account.me.id, outsider.id);
         assert.equal(account.access.canEdit, true);
-        assert.equal(account.access.canRename, false);
-        await json(await request(sharing, "PATCH", { linkAccess: "view" }));
+        assert.equal(account.access.canRename, true);
+        await json(await request(sharing, "PATCH", { linkPermission: "view" }));
         assert.equal(
           (
             await json<SharedTestSetDto>(
@@ -833,7 +673,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
               ),
             )
           ).access.canEdit,
-          false,
+          true,
         );
         const view: TestSetViewDto = {
           view: "card",
@@ -870,7 +710,17 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           403,
         );
         assert.equal(await refused(`${wsBase}${path}`, ""), 403);
-        assert.equal(await refused(`${wsBase}${path}`, outsider.cookie), 403);
+        const member = connect(path, outsider.cookie);
+        assert.equal((await member.next("welcome")).access.canEdit, true);
+        member.ws.close();
+        await member.closed;
+        assert.equal(
+          await refused(
+            `${wsBase}/test-sets/${randomUUID()}/live`,
+            outsider.cookie,
+          ),
+          403,
+        );
         assert.equal(
           await refused(
             `${wsBase}/shared/${"x".repeat(43)}/live`,
@@ -1081,61 +931,29 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       },
     );
     await t.test(
-      "소유자 이전은 연결된 새 소유자의 권한을 즉시 재검사",
+      "관리자 등급 변경은 열린 연결의 삭제 권한에 반영한다",
       async () => {
-        const from = await actor(),
-          to = await actor();
-        const [owned] = await db
-          .insert(testSets)
-          .values({
-            name: "소유자 이전 live",
-            projectId: project.id,
-            ownerId: from.id,
-          })
-          .returning();
-        await db.insert(testSetMembers).values({
-          testSetId: owned.id,
-          accountId: to.id,
-          access: "view",
-        });
-        await accounts.setActive(from.id, false);
-        const c = connect(`/test-sets/${owned.id}/live`, to.cookie);
-        const welcome = await c.next("welcome");
-        assert.equal(welcome.access.canEdit, false);
-        assert.equal(welcome.access.canDelete, false);
-        const response = await request(
-          `/accounts/${from.id}/owned-test-sets/${owned.id}/owner`,
-          "POST",
-          { accountId: to.id },
-        );
-        assert.equal(response.status, 204, await response.clone().text());
-        const changed = await c.next("access");
-        assert.equal(changed.access.canEdit, true);
-        assert.equal(changed.access.canDelete, true);
+        const person = await actor();
+        const c = connect(`/test-sets/${set.id}/live`, person.cookie);
+        assert.equal((await c.next("welcome")).access.canDelete, false);
+        await accounts.update(person.id, { role: "admin" });
+        assert.equal((await c.next("access")).access.canDelete, true);
+        await accounts.update(person.id, { role: "member" });
+        assert.equal((await c.next("access")).access.canDelete, false);
+        assert.equal(c.ws.readyState, WebSocket.OPEN);
         c.ws.close();
         await c.closed;
       },
     );
     await t.test(
-      "편집→보기는 access를 보내고 구성원 제거는 4403으로 종료",
-      async () => {
-        const c = connect(`/test-sets/${set.id}/live`, edit.cookie);
-        await c.next("welcome");
-        await member(edit, "view");
-        assert.equal((await c.next("access")).access.canEdit, false);
-        await json(await request(`${members}/${edit.id}`, "DELETE"));
-        assert.equal((await c.closed).code, 4403);
-      },
-    );
-    await t.test(
       "링크 편집→보기는 방문자에게 access를 보내고 계정의 높은 권한은 보존",
       async () => {
-        await json(await request(sharing, "PATCH", { linkAccess: "edit" }));
+        await json(await request(sharing, "PATCH", { linkPermission: "edit" }));
         const visitor = connect(`/shared/${token}/live`, visitorCookie),
           owner = connect(`/shared/${token}/live`, adminCookie);
         await visitor.next("welcome");
         await owner.next("welcome");
-        await json(await request(sharing, "PATCH", { linkAccess: "view" }));
+        await json(await request(sharing, "PATCH", { linkPermission: "view" }));
         assert.equal((await visitor.next("access")).access.canEdit, false);
         assert.equal(visitor.ws.readyState, WebSocket.OPEN);
         assert.ok(
@@ -1248,27 +1066,51 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
       },
     );
     await t.test(
-      "역할 권한·할당 변경과 계정 비활성화를 열린 연결에 적용",
+      "비활성화와 관리자 비밀번호 변경은 열린 연결을 끊는다",
       async () => {
-        const allViewer = await actor(["test_set.view_all"]);
-        const c = connect(`/test-sets/${set.id}/live`, allViewer.cookie);
-        await c.next("welcome");
-        await roles.update(allViewer.roleId ?? "", { permissions: [] });
-        assert.equal((await c.closed).code, 4403);
-        const assigned = await actor(["test_set.view_all"]);
-        const a = connect(`/test-sets/${set.id}/live`, assigned.cookie);
-        await a.next("welcome");
-        await accounts.update(assigned.id, { assignments: [] });
-        assert.equal((await a.closed).code, 4403);
-        await member(candidate);
-        const disabled = connect(`/test-sets/${set.id}/live`, candidate.cookie);
-        await disabled.next("welcome");
-        await accounts.setActive(candidate.id, false);
-        assert.equal((await disabled.closed).code, 4403);
+        for (const change of ["deactivate", "password"]) {
+          const person = await actor();
+          const c = connect(`/test-sets/${set.id}/live`, person.cookie);
+          await c.next("welcome");
+          if (change === "deactivate")
+            await accounts.setActive(person.id, false);
+          else await accounts.resetPassword(person.id, `${password}-새로`);
+          const closed = await c.closed;
+          assert.equal(closed.code, 4403);
+          assert.equal(closed.reason, "SESSION_EXPIRED");
+        }
       },
     );
+    await t.test("내 비밀번호 변경은 다른 세션 연결만 끊는다", async () => {
+      const person = await actor();
+      const otherCookie = `${SESSION_COOKIE}=${(await auth.login(person.loginId, password)).token}`;
+      const current = connect(`/test-sets/${set.id}/live`, person.cookie),
+        other = connect(`/test-sets/${set.id}/live`, otherCookie);
+      await current.next("welcome");
+      await other.next("welcome");
+      assert.equal(
+        (
+          await request(
+            "/auth/password",
+            "POST",
+            { currentPassword: password, newPassword: `${password}-새로` },
+            person.cookie,
+          )
+        ).status,
+        204,
+      );
+      assert.equal((await other.closed).code, 4403);
+      assert.equal(current.ws.readyState, WebSocket.OPEN);
+      current.ws.send(
+        JSON.stringify({
+          type: "hello",
+          version: (await sets.detail(set.id, person.id)).version,
+        }),
+      );
+      current.ws.close();
+      await current.closed;
+    });
     await t.test("세션 만료를 재검사하고 세트 삭제는 4404로 종료", async () => {
-      await member(outsider);
       const expired = connect(`/test-sets/${set.id}/live`, outsider.cookie);
       await expired.next("welcome");
       await db

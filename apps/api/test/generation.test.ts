@@ -23,7 +23,6 @@ import {
   reviewItems,
   tempUploads,
   testCases,
-  testSetMembers,
 } from "../src/database/schema";
 import { GenerationService } from "../src/generation/generation.service";
 import { readAiConfig } from "../src/generation/model-config";
@@ -79,17 +78,16 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
     );
     lease.accountIds.push(admin.account.id);
     const password = "생성-테스트-비밀번호-12345";
-    await auth.setPassword(admin.token, password, "invite");
+    await accounts.resetPassword(admin.account.id, password);
     const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const user = await accounts.create({
       name: "보기 사용자",
       loginId: "generation-viewer@example.com",
-      affiliationId: admin.account.affiliation.id,
-      assignments: [],
+      role: "member",
+      password,
     });
-    lease.accountIds.push(user.account.id);
-    await auth.setPassword(user.token, password, "invite");
-    const otherCookie = `${SESSION_COOKIE}=${(await auth.login(user.account.loginId, password)).token}`;
+    lease.accountIds.push(user.id);
+    const otherCookie = `${SESSION_COOKIE}=${(await auth.login(user.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",
@@ -121,11 +119,6 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
       projectId: project.id,
       name: "생성 세트",
       memo: "",
-    });
-    await db.insert(testSetMembers).values({
-      testSetId: set.id,
-      accountId: user.account.id,
-      access: "view",
     });
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX9sAAAAASUVORK5CYII=",
@@ -184,9 +177,9 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
       ).items;
     let uploaded!: { id: string; frames: { id: string; imageCount: number }[] };
     await t.test(
-      "업로드는 전체 plugin.upload만 허용하고 본인 자료와 첫 이미지만 반환",
+      "모든 활성 계정의 업로드를 허용하고 본인 자료와 첫 이미지만 반환",
       async () => {
-        await error(await upload(otherCookie), 403, "FORBIDDEN");
+        assert.equal((await upload(otherCookie)).status, 201);
         uploaded = await json(await upload(), 201);
         assert.deepEqual(
           uploaded.frames.map((f) => f.imageCount),
@@ -236,8 +229,8 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
             { kind: "initial", uploadId: uploaded.id },
             otherCookie,
           ),
-          403,
-          "FORBIDDEN",
+          404,
+          "NOT_FOUND",
         );
         await error(
           await request(`/test-sets/${set.id}/generations`, "POST", {
@@ -255,24 +248,6 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
           "VALIDATION_ERROR",
         );
         assert.equal(await generation.current(set.id, admin.account.id), null);
-        await db
-          .update(testSetMembers)
-          .set({ access: "edit" })
-          .where(eq(testSetMembers.testSetId, set.id));
-        await error(
-          await request(
-            `/test-sets/${set.id}/generations`,
-            "POST",
-            { kind: "initial", uploadId: uploaded.id },
-            otherCookie,
-          ),
-          404,
-          "NOT_FOUND",
-        );
-        await db
-          .update(testSetMembers)
-          .set({ access: "view" })
-          .where(eq(testSetMembers.testSetId, set.id));
         await queue.boss.offWork(GENERATION_QUEUE);
         const { jobId } = await json<{ jobId: string }>(
           await request(`/test-sets/${set.id}/generations`, "POST", {
@@ -409,16 +384,15 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
         let item = (await reviews())[0];
         const select = set.columns.find((column) => column.type === "select");
         assert.ok(select);
-        await error(
+        const memberEdit = await json<ReviewItemDto>(
           await request(
             `/review-items/${item.id}`,
             "PATCH",
             { answer: "수정" },
             otherCookie,
           ),
-          403,
-          "FORBIDDEN",
         );
+        assert.equal(memberEdit.answer, "수정");
         await error(
           await request(`/review-items/${item.id}`, "PATCH", {
             // 목록 밖 글자는 Excel처럼 받지만 형식이 다른 값은 거절한다.
@@ -863,17 +837,14 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
       },
     );
     await t.test(
-      "SSE는 연결 후 계정이 비활성화되거나 만료되면 추가 이벤트 없이 종료",
+      "SSE는 연결 후 계정이 비활성화되면 추가 이벤트 없이 종료",
       async () => {
         const { jobId } = await generation.create(set.id, admin.account.id, {
           kind: "append",
           memo: "권한 확인",
         });
         try {
-          for (const change of [
-            { status: "inactive" as const },
-            { expiresAt: new Date(Date.now() - 1000) },
-          ]) {
+          for (const change of [{ status: "inactive" as const }]) {
             const abort = new AbortController();
             const timer = setTimeout(() => abort.abort(), 3000);
             try {
@@ -902,11 +873,44 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
               abort.abort();
               await db
                 .update(accountRows)
-                .set({ status: "active", expiresAt: null })
+                .set({ status: "active" })
                 .where(eq(accountRows.id, admin.account.id));
             }
           }
         } finally {
+          await generation.fail(jobId, "TEST_FINISHED");
+        }
+      },
+    );
+    await t.test(
+      "SSE는 연결에 쓴 세션이 폐기되면 추가 이벤트 없이 종료",
+      async () => {
+        const { jobId } = await generation.create(set.id, admin.account.id, {
+          kind: "append",
+          memo: "세션 확인",
+        });
+        const { token } = await auth.login(admin.account.loginId, password);
+        const abort = new AbortController();
+        const timer = setTimeout(() => abort.abort(), 3000);
+        try {
+          const stream = await fetch(`${base}/generations/${jobId}/events`, {
+            headers: { Cookie: `${SESSION_COOKIE}=${token}` },
+            signal: abort.signal,
+          });
+          assert.equal(stream.status, 200);
+          const reader = stream.body?.getReader();
+          assert.ok(reader);
+          assert.match(
+            new TextDecoder().decode((await reader.read()).value),
+            /event: progress/,
+          );
+          // 관리자가 비밀번호를 다시 정한 것처럼 이 세션만 지운다. 계정은 활성 그대로다.
+          await auth.logout(token);
+          const next = await reader.read();
+          assert.equal(next.done, true);
+        } finally {
+          clearTimeout(timer);
+          abort.abort();
           await generation.fail(jobId, "TEST_FINISHED");
         }
       },

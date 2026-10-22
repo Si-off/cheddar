@@ -6,9 +6,7 @@ import {
   AuthorizationService,
   type IdentityDatabase,
 } from "../authorization/authorization.service";
-import type { Permission } from "../authorization/permissions";
 import { ApiError, notFound } from "../common/errors";
-import type { EffectivePermissionDto } from "../contracts/identity.dto";
 import type {
   CaseDto,
   TestSetAccessDto,
@@ -19,13 +17,10 @@ import {
   type DatabaseTransaction,
 } from "../database/database.service";
 import {
-  accounts,
-  rolePermissions,
-  roles,
+  type accounts,
   testCases,
   testCaseValues,
   testSetColumns,
-  testSetMembers,
   testSets,
   visitorSessions,
 } from "../database/schema";
@@ -42,35 +37,18 @@ export type SetSubject = string | SharedSubject;
 export const linkNotFound = () =>
   new ApiError(404, "LINK_NOT_FOUND", "열 수 없는 링크입니다.");
 
-export const hasGrant = (
-  grants: EffectivePermissionDto[],
-  permission: Permission,
-  projectId: string,
-) =>
-  grants.some(
-    (g) =>
-      g.permission === permission &&
-      (g.scope === "global" || g.projectIds.includes(projectId.toLowerCase())),
-  );
 export const forbidden = () =>
   new ApiError(403, "FORBIDDEN", "이 작업을 할 권한이 없습니다.");
 type SetRow = typeof testSets.$inferSelect;
 export function setAccess(
   row: SetRow,
-  accountId: string,
-  member: "view" | "edit" | undefined,
-  grants: EffectivePermissionDto[],
-): TestSetAccessDto & { canView: boolean } {
-  const owner = row.ownerId === accountId.toLowerCase();
-  const canView =
-    owner || !!member || hasGrant(grants, "test_set.view_all", row.projectId);
-  const canEdit = owner || member === "edit";
+  account: typeof accounts.$inferSelect,
+): TestSetAccessDto {
   return {
-    canView,
-    canEdit,
-    canRename: canEdit,
-    canDelete: owner,
-    canExport: canView && hasGrant(grants, "test_set.export", row.projectId),
+    canEdit: true,
+    canRename: true,
+    canDelete: row.ownerId === account.id || account.role === "admin",
+    canExport: true,
   };
 }
 @Injectable()
@@ -90,27 +68,8 @@ export class TestSetsStore {
     const query = db.select().from(testSets).where(eq(testSets.id, id));
     const [row] = await (lock ? query.for("update") : query);
     if (!row) throw notFound();
-    const [member] = await db
-      .select()
-      .from(testSetMembers)
-      .where(
-        and(
-          eq(testSetMembers.testSetId, id),
-          eq(testSetMembers.accountId, accountId),
-        ),
-      );
-    const { canView, ...access } = setAccess(
-      row,
-      accountId,
-      member?.access,
-      await this.authorization.effective(accountId, db),
-    );
-    if (!canView) throw notFound();
-    const [account] = await db
-      .select({ name: accounts.name })
-      .from(accounts)
-      .where(eq(accounts.id, accountId));
-    if (!account) throw notFound();
+    const account = await this.authorization.active(accountId, db);
+    const access = setAccess(row, account);
     return {
       row,
       access,
@@ -134,54 +93,12 @@ export class TestSetsStore {
       );
     const [row] = await (lock ? query.for("update") : query);
     if (!row) throw linkNotFound();
-    const linkExport = async () =>
-      (
-        await db
-          .select({ id: roles.id })
-          .from(roles)
-          .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
-          .where(
-            and(
-              eq(roles.systemKey, "link_visitor"),
-              eq(rolePermissions.permission, "test_set.export"),
-            ),
-          )
-          .limit(1)
-      ).length > 0;
     if (subject.accountId) {
-      const [member] = await db
-        .select()
-        .from(testSetMembers)
-        .where(
-          and(
-            eq(testSetMembers.testSetId, row.id),
-            eq(testSetMembers.accountId, subject.accountId),
-          ),
-        );
-      const own = setAccess(
-        row,
-        subject.accountId,
-        member?.access,
-        await this.authorization.effective(subject.accountId, db),
-      );
-      const [account] = await db
-        .select({ name: accounts.name })
-        .from(accounts)
-        .where(eq(accounts.id, subject.accountId));
-      if (!account) throw linkNotFound();
-      const { canView: _canView, ...access } = own;
+      const account = await this.authorization.active(subject.accountId, db);
       return {
         row,
-        access: {
-          ...access,
-          canEdit: own.canEdit || row.linkAccess === "edit",
-          canExport: own.canView ? own.canExport : await linkExport(),
-        },
-        actor: {
-          kind: "account",
-          id: subject.accountId,
-          name: account.name,
-        } as Actor,
+        access: setAccess(row, account),
+        actor: { kind: "account", id: account.id, name: account.name } as Actor,
       };
     }
     if (
@@ -222,7 +139,7 @@ export class TestSetsStore {
         canEdit: row.linkAccess === "edit",
         canRename: false,
         canDelete: false,
-        canExport: await linkExport(),
+        canExport: true,
       },
     };
   }

@@ -3,8 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, desc, eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import type { IdentityDatabase } from "../authorization/authorization.service";
-import { ApiError, notFound } from "../common/errors";
-import type { EffectivePermissionDto } from "../contracts/identity.dto";
+import { notFound } from "../common/errors";
 import type { TemplateColumnDto } from "../contracts/project.dto";
 import type {
   CreateTestSetDto,
@@ -22,18 +21,11 @@ import {
   reviewItems,
   testCases,
   testSetColumns,
-  testSetMembers,
   testSets,
   viewPreferences,
 } from "../database/schema";
 import { validateSetColumns } from "../projects/template";
-import {
-  forbidden,
-  hasGrant,
-  type SetSubject,
-  setAccess,
-  TestSetsStore,
-} from "./test-sets.store";
+import { forbidden, type SetSubject, TestSetsStore } from "./test-sets.store";
 import { cellText, validateView, validationFailed } from "./values";
 
 const defaultView = (): TestSetViewDto => ({
@@ -45,52 +37,27 @@ const defaultView = (): TestSetViewDto => ({
 @Injectable()
 export class TestSetsService {
   constructor(@Inject(TestSetsStore) private readonly store: TestSetsStore) {}
-  async denyDetail(id: string): Promise<void> {
-    const [owner] = await this.store.database.db
-      .select({ ownerName: accounts.name })
-      .from(testSets)
-      .innerJoin(accounts, eq(accounts.id, testSets.ownerId))
-      .where(eq(testSets.id, id));
-    if (owner)
-      throw new ApiError(
-        403,
-        "NO_ACCESS",
-        "이 테스트 세트를 볼 권한이 없습니다.",
-        owner,
-      );
-  }
   async list(
     accountId: string,
     query: TestSetQueryDto,
   ): Promise<TestSetListDto> {
     const db = this.store.database.db;
-    const grants = await this.store.authorization.effective(accountId);
+    await this.store.authorization.active(accountId);
     const rows = await db
       .select({
         row: testSets,
         owner: { id: accounts.id, name: accounts.name },
-        member: testSetMembers.access,
         caseCount: sql<number>`(select count(*)::int from ${testCases} where ${testCases.testSetId} = ${testSets.id})`,
         reviewCount: sql<number>`(select count(*)::int from ${reviewItems} where ${reviewItems.testSetId} = ${testSets.id} and ${reviewItems.status} in ('pending','rewriting'))`,
       })
       .from(testSets)
       .innerJoin(accounts, eq(accounts.id, testSets.ownerId))
-      .leftJoin(
-        testSetMembers,
-        and(
-          eq(testSetMembers.testSetId, testSets.id),
-          eq(testSetMembers.accountId, accountId),
-        ),
-      )
       .orderBy(desc(testSets.updatedAt), testSets.id);
     return {
       items: rows
         .filter(
-          ({ row, member }) =>
-            setAccess(row, accountId, member ?? undefined, grants).canView &&
+          ({ row }) =>
             (query.filter !== "mine" || row.ownerId === accountId) &&
-            (query.filter !== "shared" ||
-              (!!member && row.ownerId !== accountId)) &&
             row.name.toLowerCase().includes(query.search.toLowerCase()),
         )
         .map(({ row, owner, caseCount, reviewCount }) => ({
@@ -106,11 +73,7 @@ export class TestSetsService {
   }
   async create(accountId: string, dto: CreateTestSetDto): Promise<TestSetDto> {
     return this.store.database.db.transaction(async (tx) => {
-      const grants = await this.store.authorization.effective(accountId, tx);
-      if (
-        !this.store.authorization.projectAccess(grants, dto.projectId).canView
-      )
-        throw notFound();
+      await this.store.authorization.active(accountId, tx);
       // 기본 양식 변경과 같은 프로젝트 잠금을 사용해 완성된 사본만 만든다.
       const [project] = await tx
         .select()
@@ -118,8 +81,6 @@ export class TestSetsService {
         .where(eq(projects.id, dto.projectId))
         .for("update");
       if (!project) throw notFound();
-      if (!hasGrant(grants, "test_set.create", dto.projectId))
-        throw forbidden();
       const [template] = await tx
         .select()
         .from(projectTemplates)
@@ -132,7 +93,6 @@ export class TestSetsService {
           await this.resolveRecentTemplate(
             dto.projectId,
             accountId,
-            grants,
             template.columns,
             tx,
             true,
@@ -165,9 +125,7 @@ export class TestSetsService {
   ): Promise<RecentTemplateDto> {
     return this.store.database.db.transaction(
       async (tx) => {
-        const grants = await this.store.authorization.effective(accountId, tx);
-        if (!this.store.authorization.projectAccess(grants, projectId).canView)
-          throw notFound();
+        await this.store.authorization.active(accountId, tx);
         const [template] = await tx
           .select({ columns: projectTemplates.columns })
           .from(projects)
@@ -180,7 +138,6 @@ export class TestSetsService {
         return this.resolveRecentTemplate(
           projectId,
           accountId,
-          grants,
           template.columns,
           tx,
         );
@@ -191,26 +148,16 @@ export class TestSetsService {
   private async resolveRecentTemplate(
     projectId: string,
     accountId: string,
-    grants: EffectivePermissionDto[],
     fallback: TemplateColumnDto[],
     db: IdentityDatabase,
     lock = false,
   ): Promise<RecentTemplateDto> {
     const candidates = await db
-      .select({ row: testSets, member: testSetMembers.access })
+      .select({ row: testSets })
       .from(testSets)
-      .leftJoin(
-        testSetMembers,
-        and(
-          eq(testSetMembers.testSetId, testSets.id),
-          eq(testSetMembers.accountId, accountId),
-        ),
-      )
       .where(eq(testSets.projectId, projectId))
       .orderBy(desc(testSets.updatedAt), testSets.id);
-    for (const { row, member } of candidates) {
-      if (!setAccess(row, accountId, member ?? undefined, grants).canView)
-        continue;
+    for (const { row } of candidates) {
       // 만들기는 열 연산과 삭제가 사본을 읽는 도중 끼어들지 않게 잠근다.
       if (lock) await this.store.visible(row.id, accountId, db, true);
       return {

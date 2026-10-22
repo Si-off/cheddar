@@ -8,10 +8,8 @@ import { AccountsService } from "../src/accounts/accounts.service";
 import { createFirstAdministrator } from "../src/accounts/bootstrap";
 import { AuthService, SESSION_COOKIE } from "../src/auth/auth.service";
 import { AuthorizationService } from "../src/authorization/authorization.service";
-import type { Permission } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
 import { ApiError } from "../src/common/errors";
-import type { CreateAccountDto, RoleDto } from "../src/contracts/identity.dto";
 import type {
   FeatureGroupDto,
   FeatureGroupListDto,
@@ -24,14 +22,12 @@ import type {
   ScreenListDto,
   TemplateDto,
 } from "../src/contracts/project.dto";
-import { DatabaseService } from "../src/database/database.service";
 import {
   projectMemos,
   projects,
   projectTemplates,
 } from "../src/database/schema";
 import { ProjectsService } from "../src/projects/projects.service";
-import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
 
@@ -48,8 +44,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     const service = app.get(ProjectsService),
       accounts = app.get(AccountsService),
       auth = app.get(AuthService),
-      authorization = app.get(AuthorizationService),
-      roles = app.get(RolesService);
+      authorization = app.get(AuthorizationService);
     const db = lease.database.db;
     const admin = await createFirstAdministrator(
       authorization,
@@ -58,7 +53,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       "프로젝트 관리자",
     );
     lease.accountIds.push(admin.account.id);
-    await auth.setPassword(admin.token, password, "invite");
+    await accounts.resetPassword(admin.account.id, password);
     const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const request = (
       path: string,
@@ -89,28 +84,17 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       );
       assert.equal(result.error.code, expected);
     };
-    const makeRole = async (permissions: Permission[]): Promise<RoleDto> => {
-      const role = await roles.create({
-        name: randomUUID(),
-        permissions,
-        requiresExpiry: false,
-        defaultExpiryDays: null,
-      });
-      lease.roleIds.push(role.id);
-      return role;
-    };
-    const actor = async (assignments: CreateAccountDto["assignments"]) => {
+    const actor = async () => {
       const account = await accounts.create({
         name: "설정 사용자",
         loginId: `${randomUUID()}@example.com`,
-        affiliationId: admin.account.affiliation.id,
-        assignments,
+        role: "member",
+        password,
       });
-      lease.accountIds.push(account.account.id);
-      await auth.setPassword(account.token, password, "invite");
+      lease.accountIds.push(account.id);
       return {
-        id: account.account.id,
-        cookie: `${SESSION_COOKIE}=${(await auth.login(account.account.loginId, password)).token}`,
+        id: account.id,
+        cookie: `${SESSION_COOKIE}=${(await auth.login(account.loginId, password)).token}`,
       };
     };
     let first!: ProjectDto, second!: ProjectDto;
@@ -213,19 +197,28 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     await t.test("하위 설정 저장 실패 시 프로젝트 생성도 롤백", async () => {
       const name = randomUUID();
       const before = await db.select({ id: projects.id }).from(projects);
-      // 기본 데이터까지 삽입한 뒤 응답 권한 계산이 실패해도 전체 트랜잭션을 되돌린다.
-      const brokenAuthorization = {
-        effective: async () => {
-          throw new Error("응답 권한 계산 실패");
-        },
-      } as unknown as AuthorizationService;
-      const broken = new ProjectsService(
-        app.get(DatabaseService),
-        brokenAuthorization,
+      const fault = `cheddar_test_${randomUUID().replaceAll("-", "")}`;
+      // 프로젝트와 양식 삽입 후 메모 저장이 실패해도 전체 생성이 롤백되어야 한다.
+      await lease.database.pool.query(
+        `CREATE FUNCTION "${fault}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'TEST_MEMO_WRITE_FAILED'; END $$`,
       );
-      await assert.rejects(
-        broken.create(admin.account.id, { name, description: "" }),
-      );
+      try {
+        await lease.database.pool.query(
+          `CREATE TRIGGER "${fault}" BEFORE INSERT ON project_memos FOR EACH ROW EXECUTE FUNCTION "${fault}"()`,
+        );
+        await assert.rejects(
+          service.create(admin.account.id, { name, description: "" }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.cause instanceof Error &&
+            error.cause.message === "TEST_MEMO_WRITE_FAILED",
+        );
+      } finally {
+        await lease.database.pool.query(
+          `DROP TRIGGER IF EXISTS "${fault}" ON project_memos`,
+        );
+        await lease.database.pool.query(`DROP FUNCTION "${fault}"()`);
+      }
       assert.equal(
         (await db.select().from(projects).where(eq(projects.name, name)))
           .length,
@@ -236,173 +229,67 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         before,
       );
     });
-    const exporter = await makeRole(["test_set.export"]),
-      managerRole = await makeRole(["project.manage"]);
-    const scoped = await actor([
-      { roleId: exporter.id, scope: "projects", projectIds: [first.id] },
-    ]);
-    const manager = await actor([
-      { roleId: managerRole.id, scope: "projects", projectIds: [first.id] },
-    ]);
-    const noGrants = await actor([]);
-    const emptyRole = await makeRole([]);
-    const empty = await actor([
-      { roleId: emptyRole.id, scope: "projects", projectIds: [first.id] },
-    ]);
-    await t.test(
-      "권한별 보기, 숨김 404와 project.manage 쓰기 범위",
-      async () => {
-        for (const suffix of [
-          "",
-          "/template",
-          "/feature-groups",
-          "/screens",
-          "/screen-id-rules",
-          "/memo",
-        ]) {
+    const scoped = await actor(),
+      manager = await actor();
+    await t.test("구성원은 모든 프로젝트와 설정을 보고 편집한다", async () => {
+      for (const who of [scoped, manager]) {
+        const list = await asJson<ProjectListDto>(
+          await request("", "GET", undefined, who.cookie),
+        );
+        assert.deepEqual(
+          list.items.map((p) => p.id),
+          [first.id, second.id],
+        );
+        assert.ok(list.items.every((p) => p.canManage));
+        for (const project of [first, second]) {
+          for (const suffix of [
+            "",
+            "/template",
+            "/feature-groups",
+            "/screens",
+            "/screen-id-rules",
+            "/memo",
+          ])
+            assert.equal(
+              (
+                await request(
+                  `/${project.id}${suffix}`,
+                  "GET",
+                  undefined,
+                  who.cookie,
+                )
+              ).status,
+              200,
+            );
           assert.equal(
             (
               await request(
-                `/${first.id}${suffix}`,
-                "GET",
-                undefined,
-                scoped.cookie,
+                `/${project.id}`,
+                "PATCH",
+                { description: "새 설명" },
+                who.cookie,
               )
             ).status,
             200,
           );
-          for (const cookie of [
-            scoped.cookie,
-            manager.cookie,
-            noGrants.cookie,
-            empty.cookie,
-          ])
-            await error(
-              await request(`/${second.id}${suffix}`, "GET", undefined, cookie),
-              404,
-              "NOT_FOUND",
-            );
-          for (const cookie of [noGrants.cookie, empty.cookie])
-            await error(
-              await request(`/${first.id}${suffix}`, "GET", undefined, cookie),
-              404,
-              "NOT_FOUND",
-            );
         }
-        const scopedList = await asJson<ProjectListDto>(
-          await request("", "GET", undefined, scoped.cookie),
-        );
-        assert.deepEqual(
-          scopedList.items.map((p) => p.id),
-          [first.id],
-        );
-        assert.equal(scopedList.items[0].canManage, false);
-        assert.deepEqual(
-          await asJson(await request("", "GET", undefined, noGrants.cookie)),
-          { items: [] },
-        );
-        assert.equal(
-          (
-            await asJson<ProjectDto>(
-              await request(`/${first.id}`, "GET", undefined, manager.cookie),
-            )
-          ).canManage,
-          true,
-        );
-        for (const permission of [
-          "account.manage",
-          "role.manage",
-          "test_set.export",
-        ] as const) {
-          const role = await makeRole([permission]);
-          const global = await actor([
-            { roleId: role.id, scope: "global", projectIds: [] },
-          ]);
-          const list = await asJson<ProjectListDto>(
-            await request("", "GET", undefined, global.cookie),
-          );
-          assert.equal(list.items.length, 2);
-          assert.ok(list.items.every((p) => !p.canManage));
-        }
-        await error(await request(`/${randomUUID()}`), 404, "NOT_FOUND");
-        await error(
-          await request("", "POST", { name: "거부" }, manager.cookie),
-          403,
-          "FORBIDDEN",
-        );
-        await error(
-          await request(
-            `/${second.id}`,
-            "PATCH",
-            { name: "거부" },
-            manager.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        const updated = await asJson<ProjectDto>(
-          await request(
-            `/${first.id}`,
-            "PATCH",
-            { description: "  새 설명  " },
-            manager.cookie,
-          ),
-        );
-        assert.equal(updated.description, "새 설명");
-        const suffixes = [
-          ["", "PATCH", { name: "거부" }],
-          ["/template", "PUT", {}],
-          ["/feature-groups", "POST", {}],
-          [`/feature-groups/${randomUUID()}`, "PATCH", {}],
-          [`/feature-groups/${randomUUID()}`, "DELETE", undefined],
-          ["/feature-groups/order", "PUT", { ids: [] }],
-          ["/screen-id-rules", "POST", {}],
-          [`/screen-id-rules/${randomUUID()}`, "PATCH", {}],
-          [`/screen-id-rules/${randomUUID()}`, "DELETE", undefined],
-          ["/screen-id-rules/order", "PUT", { ids: [] }],
-          ["/screens/import", "POST", {}],
-          ["/screens", "POST", {}],
-          [`/screens/${randomUUID()}`, "PATCH", {}],
-          [`/screens/${randomUUID()}`, "DELETE", undefined],
-          ["/memo", "PUT", { body: "거부" }],
-        ] as const;
-        for (const [suffix, method, body] of suffixes)
-          await error(
-            await request(`/${first.id}${suffix}`, method, body, scoped.cookie),
-            403,
-            "FORBIDDEN",
-          );
-      },
-    );
-    await t.test(
-      "project.create 전체 권한은 만들기와 보기만 허용하고 관리 권한을 자동 부여하지 않음",
-      async () => {
-        const role = await makeRole(["project.create"]);
-        const creator = await actor([
-          { roleId: role.id, scope: "global", projectIds: [] },
-        ]);
-        const project = await asJson<ProjectDto>(
-          await request("", "POST", { name: "만들기만" }, creator.cookie),
-          201,
-        );
-        assert.equal(project.canManage, false);
-        assert.equal(
-          (await request(`/${project.id}`, "GET", undefined, creator.cookie))
-            .status,
-          200,
-        );
-        await error(
-          await request(
-            `/${project.id}/memo`,
-            "PUT",
-            { body: "거부" },
-            creator.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-      },
-    );
+      }
+      await error(await request(`/${randomUUID()}`), 404, "NOT_FOUND");
+      const created = await asJson<ProjectDto>(
+        await request("", "POST", { name: "구성원 프로젝트" }, scoped.cookie),
+        201,
+      );
+      assert.equal(created.canManage, true);
+      const saved = await asJson<MemoDto>(
+        await request(
+          `/${created.id}/memo`,
+          "PUT",
+          { body: "작성" },
+          manager.cookie,
+        ),
+      );
+      assert.equal(saved.body, "작성");
+    });
     await t.test("양식 revision 충돌과 동시 저장은 하나만 성공", async () => {
       const template = await asJson<TemplateDto>(
         await request(`/${first.id}/template`),
@@ -798,15 +685,16 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         404,
         "NOT_FOUND",
       );
-      await error(
-        await request(
-          `${root}/screen-id-rules/${rule.id}/next?prefix=PC`,
-          "GET",
-          undefined,
-          scoped.cookie,
-        ),
-        404,
-        "NOT_FOUND",
+      assert.equal(
+        (
+          await request(
+            `${root}/screen-id-rules/${rule.id}/next?prefix=PC`,
+            "GET",
+            undefined,
+            scoped.cookie,
+          )
+        ).status,
+        200,
       );
       await asJson(
         await request(`${root}/screens/${screen.id}`, "PATCH", {

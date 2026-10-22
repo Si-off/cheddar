@@ -123,9 +123,9 @@ export class UpdateTestSetDto {
   memo?: string;
 }
 export class TestSetQueryDto {
-  @ApiPropertyOptional({ enum: ["all", "mine", "shared"], default: "all" })
-  @IsIn(["all", "mine", "shared"])
-  filter: "all" | "mine" | "shared" = "all";
+  @ApiPropertyOptional({ enum: ["all", "mine"], default: "all" })
+  @IsIn(["all", "mine"])
+  filter: "all" | "mine" = "all";
   @ApiPropertyOptional({ type: String, default: "" }) @IsString() search = "";
 }
 export class SetCellOpDto {

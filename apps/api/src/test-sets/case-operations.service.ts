@@ -80,16 +80,11 @@ export class CaseOperationsService {
     id = row.id;
     if (!access.canEdit) throw forbidden();
     const ops = validateOps(input);
-    // 링크 방문자는 셀과 케이스만 고친다. 열 추가, 삭제, 순서, 이름과 항목 변경은 계정만 한다.
+    // 링크 방문자는 셀 편집과 케이스 추가·삭제만 한다.
     if (
       actor.kind === "visitor" &&
-      ops.some((op) =>
-        [
-          "add_column",
-          "remove_column",
-          "reorder_columns",
-          "update_column",
-        ].includes(op.type),
+      ops.some(
+        (op) => !["set_cell", "add_case", "delete_cases"].includes(op.type),
       )
     )
       throw forbidden();

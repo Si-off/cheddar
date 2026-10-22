@@ -1,15 +1,12 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Inject,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
-  Put,
-  Query,
 } from "@nestjs/common";
 import {
   ApiBody,
@@ -17,17 +14,10 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
 import { CurrentAccount } from "../authorization/guards";
-import {
-  MemberAccessDto,
-  PatchSharingDto,
-  SharingCandidatesQueryDto,
-  SharingDto,
-  SharingPersonDto,
-} from "../contracts/sharing.dto";
+import { PatchSharingDto, SharingDto } from "../contracts/sharing.dto";
 import { SharingService } from "./sharing.service";
 
 @ApiTags("공유")
@@ -71,44 +61,5 @@ export class SharingController {
     @CurrentAccount() account: string,
   ) {
     return this.service.rotate(id, account);
-  }
-  @Get("sharing/candidates")
-  @ApiOperation({
-    operationId: "listSharingCandidates",
-    summary: "초대할 계정 찾기",
-  })
-  @ApiQuery({ type: SharingCandidatesQueryDto })
-  @ApiOkResponse({ type: [SharingPersonDto] })
-  candidates(
-    @Param("testSetId", ParseUUIDPipe) id: string,
-    @CurrentAccount() account: string,
-    @Query() query: SharingCandidatesQueryDto,
-  ) {
-    return this.service.candidates(id, account, query.search);
-  }
-  @Put("members/:accountId")
-  @ApiOperation({
-    operationId: "setTestSetMember",
-    summary: "사람 초대와 권한 변경",
-  })
-  @ApiBody({ type: MemberAccessDto })
-  @ApiOkResponse({ type: SharingDto })
-  member(
-    @Param("testSetId", ParseUUIDPipe) id: string,
-    @CurrentAccount() account: string,
-    @Param("accountId", ParseUUIDPipe) target: string,
-    @Body() dto: MemberAccessDto,
-  ) {
-    return this.service.member(id, account, target, dto);
-  }
-  @Delete("members/:accountId")
-  @ApiOperation({ operationId: "removeTestSetMember", summary: "구성원 제거" })
-  @ApiOkResponse({ type: SharingDto })
-  remove(
-    @Param("testSetId", ParseUUIDPipe) id: string,
-    @CurrentAccount() account: string,
-    @Param("accountId", ParseUUIDPipe) target: string,
-  ) {
-    return this.service.member(id, account, target);
   }
 }

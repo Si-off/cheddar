@@ -1,7 +1,6 @@
 import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { AccountsModule } from "./accounts/accounts.module";
-import { AffiliationsModule } from "./affiliations/affiliations.module";
 import { AuthModule } from "./auth/auth.module";
 import { AuthorizationModule } from "./authorization/authorization.module";
 import { AccessGuard } from "./authorization/guards";
@@ -16,7 +15,6 @@ import {
 import { LiveEventsModule } from "./live/live-events";
 import { PluginConnectionsModule } from "./plugin-connections/plugin-connections.module";
 import { ProjectsModule } from "./projects/projects.module";
-import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
 import { TempUploadsModule } from "./temp-uploads/temp-uploads.module";
 import { TestSetsModule } from "./test-sets/test-sets.module";
@@ -37,8 +35,6 @@ export function appModule(
       AccountsModule,
       AuthModule,
       PluginConnectionsModule,
-      RolesModule,
-      AffiliationsModule,
       ProjectsModule,
       TestSetsModule,
       QueueModule,

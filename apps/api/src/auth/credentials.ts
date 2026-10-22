@@ -17,7 +17,7 @@ export async function hashPassword(password: string) {
 }
 export async function verifyPassword(password: string, hash: string | null) {
   const parts = hash?.split("$");
-  // Still perform scrypt for unknown or invited accounts.
+  // Still perform scrypt for unknown accounts or accounts without a password.
   const valid =
     parts?.length === 6 && parts.slice(0, 4).join("$") === "scrypt$32768$8$1";
   const key = await derive(password, valid ? parts[4] : "cheddar-dummy-salt");

@@ -27,11 +27,7 @@ import {
   ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
-import {
-  AllowPluginToken,
-  CurrentAccount,
-  RequirePermission,
-} from "../authorization/guards";
+import { AllowPluginToken, CurrentAccount } from "../authorization/guards";
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
@@ -59,7 +55,6 @@ import {
 } from "../contracts/project.dto";
 import { ProjectsService } from "./projects.service";
 
-const projectSource = { source: "params", key: "projectId" } as const;
 @ApiTags("프로젝트 설정")
 @ApiCookieAuth()
 @Controller("api/v1/projects")
@@ -81,7 +76,6 @@ export class ProjectsController {
   }
 
   @Post()
-  @RequirePermission("project.create")
   @ApiOperation({
     operationId: "createProject",
     summary: "프로젝트와 기본 설정 만들기",
@@ -103,7 +97,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "updateProject", summary: "프로젝트 수정" })
   @ApiBody({ type: UpdateProjectDto })
   @ApiOkResponse({ type: ProjectDto })
@@ -129,7 +122,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/template")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "updateProjectTemplate",
     summary: "기본 양식 저장",
@@ -158,7 +150,6 @@ export class ProjectsController {
   }
 
   @Post(":projectId/feature-groups")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "createProjectFeatureGroup",
     summary: "기능 그룹 추가",
@@ -173,7 +164,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId/feature-groups/:groupId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "updateProjectFeatureGroup",
     summary: "기능 그룹 수정",
@@ -189,7 +179,6 @@ export class ProjectsController {
   }
 
   @Delete(":projectId/feature-groups/:groupId")
-  @RequirePermission("project.manage", projectSource)
   @HttpCode(204)
   @ApiOperation({
     operationId: "deleteProjectFeatureGroup",
@@ -204,7 +193,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/feature-groups/order")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "reorderProjectFeatureGroups",
     summary: "기능 그룹 순서 변경",
@@ -232,7 +220,6 @@ export class ProjectsController {
   }
 
   @Post(":projectId/screen-id-rules")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "createProjectScreenIdRule",
     summary: "화면 ID 규칙 추가",
@@ -247,7 +234,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId/screen-id-rules/:ruleId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "updateProjectScreenIdRule",
     summary: "화면 ID 규칙 수정",
@@ -263,7 +249,6 @@ export class ProjectsController {
   }
 
   @Delete(":projectId/screen-id-rules/:ruleId")
-  @RequirePermission("project.manage", projectSource)
   @HttpCode(204)
   @ApiOperation({
     operationId: "deleteProjectScreenIdRule",
@@ -278,7 +263,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/screen-id-rules/order")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "reorderProjectScreenIdRules",
     summary: "화면 ID 규칙 순서 변경",
@@ -306,7 +290,6 @@ export class ProjectsController {
   }
 
   @Post(":projectId/screens")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "createProjectScreen", summary: "화면 추가" })
   @ApiBody({ type: CreateScreenDto })
   @ApiCreatedResponse({ type: ScreenDto })
@@ -318,7 +301,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId/screens/:itemId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "updateProjectScreen", summary: "화면 수정" })
   @ApiBody({ type: UpdateScreenDto })
   @ApiOkResponse({ type: ScreenDto })
@@ -331,7 +313,6 @@ export class ProjectsController {
   }
 
   @Delete(":projectId/screens/:itemId")
-  @RequirePermission("project.manage", projectSource)
   @HttpCode(204)
   @ApiOperation({
     operationId: "deleteProjectScreen",
@@ -367,7 +348,6 @@ export class ProjectsController {
   }
 
   @Post(":projectId/screens/import")
-  @RequirePermission("project.manage", projectSource)
   @UseInterceptors(
     FileInterceptor("file", {
       limits: { fileSize: 5 * 1024 * 1024, files: 1 },
@@ -404,7 +384,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/memo")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "updateProjectMemo", summary: "메모 저장" })
   @ApiBody({ type: UpdateMemoDto })
   @ApiOkResponse({ type: MemoDto })

@@ -11,7 +11,6 @@ import { AuthorizationService } from "../src/authorization/authorization.service
 import { AccessGuard } from "../src/authorization/guards";
 import { ApiError, ApiExceptionFilter } from "../src/common/errors";
 import { validationPipe } from "../src/common/validation";
-import type { EffectivePermissionDto } from "../src/contracts/identity.dto";
 import type { TemplateColumnDto } from "../src/contracts/project.dto";
 import {
   ApplyOpsDto,
@@ -229,44 +228,22 @@ test("연산과 보기 설정은 누락, null, 잘못된 종류, 범위와 임�
     assert.throws(() => validateView({ ...view, ...patch }), failed);
 });
 
-test("세트 접근은 소유, 멤버, 프로젝트 범위 view_all과 export를 구분", () => {
+test("모든 계정이 편집·내보내기하고 만든 사람과 관리자만 삭제한다", () => {
   const owner = randomUUID(),
-    actor = randomUUID(),
-    project = randomUUID();
-  const row = {
-    ownerId: owner,
-    projectId: project,
-  } as typeof testSets.$inferSelect;
-  const grants: EffectivePermissionDto[] = [
-    {
-      permission: "test_set.view_all",
-      scope: "projects",
-      projectIds: [project],
-    },
-  ];
-  assert.equal(setAccess(row, actor, undefined, []).canView, false);
-  assert.equal(setAccess(row, owner, undefined, []).canEdit, true);
-  assert.equal(setAccess(row, owner, undefined, []).canExport, false);
-  assert.deepEqual(setAccess(row, actor, "view", []), {
-    canView: true,
-    canEdit: false,
-    canRename: false,
+    actor = randomUUID();
+  const row = { ownerId: owner } as typeof testSets.$inferSelect;
+  const member = {
+    id: actor,
+    role: "member",
+  } as typeof import("../src/database/schema").accounts.$inferSelect;
+  assert.deepEqual(setAccess(row, member), {
+    canEdit: true,
+    canRename: true,
     canDelete: false,
-    canExport: false,
+    canExport: true,
   });
-  assert.equal(setAccess(row, actor, "edit", []).canEdit, true);
-  assert.equal(setAccess(row, actor, "edit", []).canDelete, false);
-  assert.equal(setAccess(row, actor, undefined, grants).canView, true);
-  assert.equal(setAccess(row, actor, undefined, grants).canEdit, false);
-  grants[0].projectIds = [randomUUID()];
-  assert.equal(setAccess(row, actor, undefined, grants).canView, false);
-  grants.push({
-    permission: "test_set.export",
-    scope: "global",
-    projectIds: [],
-  });
-  assert.equal(setAccess(row, actor, undefined, grants).canExport, false);
-  assert.equal(setAccess(row, actor, "view", grants).canExport, true);
+  assert.equal(setAccess(row, { ...member, id: owner }).canDelete, true);
+  assert.equal(setAccess(row, { ...member, role: "admin" }).canDelete, true);
 });
 
 test("실제 HTTP는 DB 없이 테스트 세트 DTO, UUID, 연산과 보기 설정에 400 반환", async () => {

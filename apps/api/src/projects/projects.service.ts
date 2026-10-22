@@ -85,59 +85,50 @@ export class ProjectsService {
     accountId: string,
     db: IdentityDatabase = this.database.db,
   ): Promise<ProjectDto> {
-    const access = this.authorization.projectAccess(
-      await this.authorization.effective(accountId, db),
-      id,
-    );
-    if (!access.canView) throw notFound();
+    await this.authorization.active(accountId, db);
     const row = await this.project(id, db);
     return {
       id: row.id,
       name: row.name,
       description: row.description,
-      canManage: access.canManage,
+      canManage: true,
     };
   }
   private async assertView(id: string, accountId: string) {
-    if (!(await this.authorization.canViewProject(accountId, id)))
-      throw notFound();
+    await this.authorization.active(accountId);
     await this.project(id);
   }
   async list(accountId: string): Promise<ProjectListDto> {
-    const grants = await this.authorization.effective(accountId);
+    await this.authorization.active(accountId);
     const rows = await this.database.db
       .select()
       .from(projects)
       .orderBy(projects.name, projects.id);
     const items = await Promise.all(
-      rows
-        .filter(
-          (row) => this.authorization.projectAccess(grants, row.id).canView,
-        )
-        .map(async (row) => {
-          const [template] = await this.database.db
-            .select()
-            .from(projectTemplates)
-            .where(eq(projectTemplates.projectId, row.id));
-          const screens = await this.database.db
-            .select({ id: screenStructureItems.id })
-            .from(screenStructureItems)
-            .where(eq(screenStructureItems.projectId, row.id));
-          return {
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            columnCount: template?.columns.length ?? 0,
-            screenCount: screens.length,
-            canManage: this.authorization.projectAccess(grants, row.id)
-              .canManage,
-          };
-        }),
+      rows.map(async (row) => {
+        const [template] = await this.database.db
+          .select()
+          .from(projectTemplates)
+          .where(eq(projectTemplates.projectId, row.id));
+        const screens = await this.database.db
+          .select({ id: screenStructureItems.id })
+          .from(screenStructureItems)
+          .where(eq(screenStructureItems.projectId, row.id));
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          columnCount: template?.columns.length ?? 0,
+          screenCount: screens.length,
+          canManage: true,
+        };
+      }),
     );
     return { items };
   }
   async create(accountId: string, dto: CreateProjectDto): Promise<ProjectDto> {
     return this.database.db.transaction(async (tx) => {
+      await this.authorization.active(accountId, tx);
       const [row] = await tx
         .insert(projects)
         .values({
@@ -152,15 +143,11 @@ export class ProjectsService {
       await tx
         .insert(projectMemos)
         .values({ projectId: row.id, authorId: accountId, body: "" });
-      const access = this.authorization.projectAccess(
-        await this.authorization.effective(accountId, tx),
-        row.id,
-      );
       return {
         id: row.id,
         name: row.name,
         description: row.description,
-        canManage: access.canManage,
+        canManage: true,
       };
     });
   }

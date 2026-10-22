@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
 import { hashPassword } from "../auth/credentials";
 import { AuthorizationService } from "../authorization/authorization.service";
 import type { DatabaseService } from "../database/database.service";
-import { accounts, roleAssignments, roles } from "../database/schema";
-import { DEFAULT_AFFILIATION_ID, seedInitialData } from "../database/seed";
+import { accounts } from "../database/schema";
 
 // 기존 시연 볼륨의 계정과 맞추기 위해 이메일 모양 아이디를 유지한다
 export const DEMO_LOGIN_ID = "demo@example.com";
@@ -15,27 +13,16 @@ export async function ensureDemoAccount(database: DatabaseService) {
   return new AuthorizationService(database).mutate(async (tx) => {
     if ((await tx.select({ id: accounts.id }).from(accounts).limit(1)).length)
       return false;
-    await seedInitialData(tx);
-    const [role] = await tx
-      .select()
-      .from(roles)
-      .where(eq(roles.systemKey, "administrator"));
-    if (!role) throw new Error("시연 계정의 관리자 역할을 찾지 못했습니다.");
-    const [account] = await tx
+    await tx
       .insert(accounts)
       .values({
         loginId: DEMO_LOGIN_ID,
         name: "시연 관리자",
-        affiliationId: DEFAULT_AFFILIATION_ID,
+        role: "admin",
         passwordHash,
         status: "active",
       })
       .returning();
-    await tx.insert(roleAssignments).values({
-      accountId: account.id,
-      roleId: role.id,
-      scope: "global",
-    });
     return true;
   }, false);
 }

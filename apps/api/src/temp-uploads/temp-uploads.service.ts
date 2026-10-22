@@ -12,7 +12,6 @@ import {
 import { generationJobs, tempFrames, tempUploads } from "../database/schema";
 import { CLEANUP_QUEUE, QueueService } from "../generation/queue.service";
 import { LocalStorage } from "../storage/local-storage";
-import { forbidden } from "../test-sets/test-sets.store";
 import { imageMime, parseManifest } from "./manifest";
 
 @Injectable()
@@ -29,8 +28,7 @@ export class TempUploadsService {
     manifest: string,
     images: Express.Multer.File[],
   ): Promise<TempUploadDto> {
-    if (!(await this.authorization.can(accountId, "plugin.upload")))
-      throw forbidden();
+    await this.authorization.active(accountId);
     const frames = parseManifest(manifest, images);
     const id = randomUUID();
     const staged: string[] = [];

@@ -11,7 +11,6 @@ import { AuthorizationService } from "../src/authorization/authorization.service
 import { AccessGuard } from "../src/authorization/guards";
 import { ApiError, ApiExceptionFilter } from "../src/common/errors";
 import { validationPipe } from "../src/common/validation";
-import type { EffectivePermissionDto } from "../src/contracts/identity.dto";
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
@@ -23,7 +22,6 @@ import {
   UpdateScreenDto,
   UpdateTemplateDto,
 } from "../src/contracts/project.dto";
-import type { DatabaseService } from "../src/database/database.service";
 import { ProjectsController } from "../src/projects/projects.controller";
 import { ProjectsService } from "../src/projects/projects.service";
 import { defaultColumns, validateTemplate } from "../src/projects/template";
@@ -257,45 +255,6 @@ test("사용자 열은 이름 유일성과 선택 값 경계를 지키며 값을
   );
 });
 
-test("프로젝트 보기와 편집 계산은 역할 이름 대신 합산한 권한 범위를 사용", () => {
-  const authorization = new AuthorizationService({} as DatabaseService);
-  const id = randomUUID(),
-    other = randomUUID();
-  const scoped: EffectivePermissionDto[] = [
-    { permission: "test_set.export", scope: "projects", projectIds: [id] },
-  ];
-  assert.deepEqual(authorization.projectAccess([], id), {
-    canView: false,
-    canManage: false,
-  });
-  assert.deepEqual(authorization.projectAccess(scoped, id), {
-    canView: true,
-    canManage: false,
-  });
-  assert.equal(authorization.projectAccess(scoped, other).canView, false);
-  for (const permission of [
-    "account.manage",
-    "role.manage",
-    "plugin.upload",
-    "project.create",
-  ] as const) {
-    assert.deepEqual(
-      authorization.projectAccess(
-        [{ permission, scope: "global", projectIds: [] }],
-        other,
-      ),
-      { canView: true, canManage: false },
-    );
-  }
-  assert.deepEqual(
-    authorization.projectAccess(
-      [{ permission: "project.manage", scope: "projects", projectIds: [id] }],
-      id.toUpperCase(),
-    ),
-    { canView: true, canManage: true },
-  );
-});
-
 test("실제 HTTP는 DB 없이 DTO 400과 양식 VALIDATION_FAILED, 권한 가드와 UUID를 검증", async () => {
   const projectId = randomUUID();
   let calls = 0;
@@ -305,7 +264,6 @@ test("실제 HTTP는 DB 없이 DTO 400과 양식 VALIDATION_FAILED, 권한 가�
       calls++;
     },
   };
-  const requirements: (string | undefined)[] = [];
   const module = await Test.createTestingModule({
     controllers: [ProjectsController],
     providers: [
@@ -316,16 +274,7 @@ test("실제 HTTP는 DB 없이 DTO 400과 양식 VALIDATION_FAILED, 권한 가�
       },
       {
         provide: AuthorizationService,
-        useValue: {
-          can: async (
-            _accountId: string,
-            _permission: string,
-            project?: string,
-          ) => {
-            requirements.push(project);
-            return true;
-          },
-        },
+        useValue: {},
       },
       { provide: APP_GUARD, useClass: AccessGuard },
     ],
@@ -380,15 +329,6 @@ test("실제 HTTP는 DB 없이 DTO 400과 양식 VALIDATION_FAILED, 권한 가�
       assert.ok(error.message && error.requestId);
     }
     assert.equal(calls, 0);
-    assert.equal(
-      requirements[0],
-      undefined,
-      "프로젝트 만들기는 전체 범위 권한 검사",
-    );
-    assert.ok(
-      requirements.includes(projectId),
-      "설정 변경은 URL의 프로젝트 권한 검사",
-    );
   } finally {
     await app.close();
   }

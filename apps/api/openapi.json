@@ -219,21 +219,15 @@
             }
           },
           {
-            "name": "roleId",
+            "name": "role",
             "required": false,
             "in": "query",
             "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "affiliationId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "admin",
+                "member"
+              ]
             }
           },
           {
@@ -243,9 +237,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "invited",
                 "active",
-                "expired",
                 "inactive"
               ]
             }
@@ -283,19 +275,9 @@
           },
           {
             "required": false,
-            "name": "roleId",
+            "name": "role",
             "in": "query",
             "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "required": false,
-            "name": "affiliationId",
-            "in": "query",
-            "schema": {
-              "format": "uuid",
               "type": "string"
             }
           },
@@ -451,7 +433,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountInvitationDto"
+                  "$ref": "#/components/schemas/AccountDto"
                 }
               }
             }
@@ -542,7 +524,7 @@
             "cookie": []
           }
         ],
-        "summary": "계정 생성과 초대 토큰 발급",
+        "summary": "계정 만들기",
         "tags": [
           "계정"
         ]
@@ -782,250 +764,7 @@
             "cookie": []
           }
         ],
-        "summary": "계정 정보와 역할 할당 수정",
-        "tags": [
-          "계정"
-        ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/owned-test-sets": {
-      "get": {
-        "operationId": "listOwnedTestSets",
-        "parameters": [
-          {
-            "name": "accountId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OwnedTestSetListDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "계정이 소유한 테스트 세트 목록",
-        "tags": [
-          "계정"
-        ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner": {
-      "post": {
-        "operationId": "transferTestSetOwner",
-        "parameters": [
-          {
-            "name": "accountId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "testSetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TransferTestSetOwnerDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "소유자 변경 완료"
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "테스트 세트 소유자 넘기기",
+        "summary": "계정 이름과 등급 수정",
         "tags": [
           "계정"
         ]
@@ -1263,9 +1002,9 @@
         ]
       }
     },
-    "/api/v1/accounts/{accountId}/invitation": {
-      "post": {
-        "operationId": "reissueInvitation",
+    "/api/v1/accounts/{accountId}/password": {
+      "put": {
+        "operationId": "resetAccountPassword",
         "parameters": [
           {
             "name": "accountId",
@@ -1276,16 +1015,19 @@
             }
           }
         ],
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IssuedTokenDto"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordDto"
               }
             }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
           },
           "400": {
             "description": "입력 오류",
@@ -1373,123 +1115,7 @@
             "cookie": []
           }
         ],
-        "summary": "초대 링크 다시 발급",
-        "tags": [
-          "계정"
-        ]
-      }
-    },
-    "/api/v1/accounts/{accountId}/password-reset": {
-      "post": {
-        "operationId": "issuePasswordReset",
-        "parameters": [
-          {
-            "name": "accountId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IssuedTokenDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "비밀번호 재설정 링크 발급",
+        "summary": "계정 비밀번호 다시 정하기",
         "tags": [
           "계정"
         ]
@@ -1806,145 +1432,22 @@
             "bearer": []
           }
         ],
-        "summary": "내 계정과 유효 권한 조회",
+        "summary": "내 계정 조회",
         "tags": [
           "인증"
         ]
       }
     },
-    "/api/v1/auth/invitations": {
-      "get": {
-        "operationId": "inspectInvitation",
-        "parameters": [
-          {
-            "name": "token",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "minLength": 43,
-              "maxLength": 43,
-              "type": "string"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "minLength": 43,
-              "maxLength": 43,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenInfoDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "초대 링크 확인",
-        "tags": [
-          "인증"
-        ]
-      }
-    },
-    "/api/v1/auth/invitations/accept": {
+    "/api/v1/auth/password": {
       "post": {
-        "operationId": "acceptInvitation",
+        "operationId": "changeMyPassword",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPasswordDto"
+                "$ref": "#/components/schemas/ChangePasswordDto"
               }
             }
           }
@@ -2034,233 +1537,12 @@
             }
           }
         },
-        "summary": "초대 수락과 비밀번호 설정",
-        "tags": [
-          "인증"
-        ]
-      }
-    },
-    "/api/v1/auth/password-resets": {
-      "get": {
-        "operationId": "inspectPasswordReset",
-        "parameters": [
+        "security": [
           {
-            "name": "token",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "minLength": 43,
-              "maxLength": 43,
-              "type": "string"
-            }
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "minLength": 43,
-              "maxLength": 43,
-              "type": "string"
-            }
+            "cookie": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenInfoDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "비밀번호 재설정 링크 확인",
-        "tags": [
-          "인증"
-        ]
-      },
-      "post": {
-        "operationId": "resetPassword",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetPasswordDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "비밀번호 재설정",
+        "summary": "내 비밀번호 바꾸기",
         "tags": [
           "인증"
         ]
@@ -2812,1276 +2094,6 @@
         "summary": "현재 플러그인 연결 해제",
         "tags": [
           "플러그인 연결"
-        ]
-      }
-    },
-    "/api/v1/roles": {
-      "get": {
-        "operationId": "listRoles",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RoleDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "역할 목록",
-        "tags": [
-          "역할"
-        ]
-      },
-      "post": {
-        "operationId": "createRole",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRoleDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "역할 만들기",
-        "tags": [
-          "역할"
-        ]
-      }
-    },
-    "/api/v1/roles/{roleId}": {
-      "get": {
-        "operationId": "getRole",
-        "parameters": [
-          {
-            "name": "roleId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "역할 상세",
-        "tags": [
-          "역할"
-        ]
-      },
-      "patch": {
-        "operationId": "updateRole",
-        "parameters": [
-          {
-            "name": "roleId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateRoleDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "역할과 권한 수정",
-        "tags": [
-          "역할"
-        ]
-      },
-      "delete": {
-        "operationId": "deleteRole",
-        "parameters": [
-          {
-            "name": "roleId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "할당이 없는 역할 삭제",
-        "tags": [
-          "역할"
-        ]
-      }
-    },
-    "/api/v1/roles/{roleId}/duplicate": {
-      "post": {
-        "operationId": "duplicateRole",
-        "parameters": [
-          {
-            "name": "roleId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NameDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoleDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "일반 역할로 복제",
-        "tags": [
-          "역할"
-        ]
-      }
-    },
-    "/api/v1/affiliations": {
-      "get": {
-        "operationId": "listAffiliations",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AffiliationDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "소속 목록",
-        "tags": [
-          "소속"
-        ]
-      },
-      "post": {
-        "operationId": "createAffiliation",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NameDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AffiliationDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "소속 만들기",
-        "tags": [
-          "소속"
-        ]
-      }
-    },
-    "/api/v1/affiliations/{affiliationId}": {
-      "get": {
-        "operationId": "getAffiliation",
-        "parameters": [
-          {
-            "name": "affiliationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AffiliationDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "소속 상세",
-        "tags": [
-          "소속"
-        ]
-      },
-      "patch": {
-        "operationId": "updateAffiliation",
-        "parameters": [
-          {
-            "name": "affiliationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NameDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AffiliationDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "소속 이름 수정",
-        "tags": [
-          "소속"
-        ]
-      },
-      "delete": {
-        "operationId": "deleteAffiliation",
-        "parameters": [
-          {
-            "name": "affiliationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "계정이 없는 소속 삭제",
-        "tags": [
-          "소속"
         ]
       }
     },
@@ -7029,8 +5041,7 @@
               "type": "string",
               "enum": [
                 "all",
-                "mine",
-                "shared"
+                "mine"
               ]
             }
           },
@@ -8478,401 +6489,6 @@
           }
         ],
         "summary": "공유 링크 새로 만들기",
-        "tags": [
-          "공유"
-        ]
-      }
-    },
-    "/api/v1/test-sets/{testSetId}/sharing/candidates": {
-      "get": {
-        "operationId": "listSharingCandidates",
-        "parameters": [
-          {
-            "name": "testSetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 200,
-              "default": "",
-              "type": "string"
-            }
-          },
-          {
-            "required": false,
-            "name": "search",
-            "in": "query",
-            "schema": {
-              "maxLength": 200,
-              "default": "",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SharingPersonDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "초대할 계정 찾기",
-        "tags": [
-          "공유"
-        ]
-      }
-    },
-    "/api/v1/test-sets/{testSetId}/members/{accountId}": {
-      "put": {
-        "operationId": "setTestSetMember",
-        "parameters": [
-          {
-            "name": "testSetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "accountId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MemberAccessDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SharingDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "사람 초대와 권한 변경",
-        "tags": [
-          "공유"
-        ]
-      },
-      "delete": {
-        "operationId": "removeTestSetMember",
-        "parameters": [
-          {
-            "name": "testSetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "accountId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SharingDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "입력 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "인증 필요",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "접근 권한 또는 Origin 거부",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "항목 없음",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "업무 규칙 위반 또는 중복",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "사용할 수 없는 토큰",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "서버 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "의존 서비스 오류",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "구성원 제거",
         "tags": [
           "공유"
         ]
@@ -10975,7 +8591,7 @@
   },
   "info": {
     "title": "Cheddar API",
-    "description": "계정, 역할, 소속, 세션 인증, 프로젝트 설정과 테스트 세트 API. 역할 할당의 범위와 권한을 합산합니다.",
+    "description": "계정, 세션 인증, 프로젝트 설정과 테스트 세트 API. 활성 계정은 모든 프로젝트와 테스트 세트를 편집하고 관리자는 계정을 관리합니다.",
     "version": "2.0.0",
     "contact": {}
   },
@@ -11058,53 +8674,6 @@
         ],
         "additionalProperties": false
       },
-      "AffiliationDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ],
-        "additionalProperties": false
-      },
-      "AssignmentDto": {
-        "type": "object",
-        "properties": {
-          "roleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "scope": {
-            "type": "string",
-            "enum": [
-              "global",
-              "projects"
-            ]
-          },
-          "projectIds": {
-            "maxItems": 100,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        },
-        "required": [
-          "roleId",
-          "scope",
-          "projectIds"
-        ],
-        "additionalProperties": false
-      },
       "AccountDto": {
         "type": "object",
         "properties": {
@@ -11118,44 +8687,32 @@
           "loginId": {
             "type": "string"
           },
-          "affiliation": {
-            "$ref": "#/components/schemas/AffiliationDto"
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member"
+            ]
           },
           "status": {
             "type": "string",
             "enum": [
-              "invited",
               "active",
-              "expired",
               "inactive"
             ]
           },
-          "expiresAt": {
+          "createdAt": {
             "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "assignments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AssignmentDto"
-            }
-          },
-          "defaultExpiryDays": {
-            "type": "integer",
-            "nullable": true,
-            "description": "만료일 필수 역할의 기본 기간 중 최솟값"
+            "format": "date-time"
           }
         },
         "required": [
           "id",
           "name",
           "loginId",
-          "affiliation",
+          "role",
           "status",
-          "expiresAt",
-          "assignments",
-          "defaultExpiryDays"
+          "createdAt"
         ],
         "additionalProperties": false
       },
@@ -11181,6 +8738,12 @@
       "CreateAccountDto": {
         "type": "object",
         "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true
+          },
           "name": {
             "type": "string",
             "maxLength": 100
@@ -11191,99 +8754,19 @@
             "maxLength": 64,
             "pattern": "^[a-z0-9._@-]{3,64}$"
           },
-          "affiliationId": {
+          "role": {
             "type": "string",
-            "format": "uuid"
-          },
-          "assignments": {
-            "maxItems": 100,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AssignmentDto"
-            }
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "enum": [
+              "admin",
+              "member"
+            ]
           }
         },
         "required": [
+          "password",
           "name",
           "loginId",
-          "affiliationId",
-          "assignments"
-        ],
-        "additionalProperties": false
-      },
-      "AccountInvitationDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "description": "링크에 넣을 토큰. 발급 응답에서만 제공한다."
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "account": {
-            "$ref": "#/components/schemas/AccountDto"
-          }
-        },
-        "required": [
-          "token",
-          "expiresAt",
-          "account"
-        ],
-        "additionalProperties": false
-      },
-      "OwnedTestSetDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "projectName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "projectName"
-        ],
-        "additionalProperties": false
-      },
-      "OwnedTestSetListDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OwnedTestSetDto"
-            }
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "additionalProperties": false
-      },
-      "TransferTestSetOwnerDto": {
-        "type": "object",
-        "properties": {
-          "accountId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "accountId"
+          "role"
         ],
         "additionalProperties": false
       },
@@ -11294,46 +8777,28 @@
             "type": "string",
             "maxLength": 100
           },
-          "loginId": {
+          "role": {
             "type": "string",
-            "minLength": 3,
-            "maxLength": 64,
-            "pattern": "^[a-z0-9._@-]{3,64}$"
-          },
-          "affiliationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "assignments": {
-            "maxItems": 100,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AssignmentDto"
-            }
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "enum": [
+              "admin",
+              "member"
+            ]
           }
         },
         "additionalProperties": false
       },
-      "IssuedTokenDto": {
+      "PasswordDto": {
         "type": "object",
         "properties": {
-          "token": {
+          "password": {
             "type": "string",
-            "description": "링크에 넣을 토큰. 발급 응답에서만 제공한다."
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true
           }
         },
         "required": [
-          "token",
-          "expiresAt"
+          "password"
         ],
         "additionalProperties": false
       },
@@ -11358,46 +8823,6 @@
         ],
         "additionalProperties": false
       },
-      "EffectivePermissionDto": {
-        "type": "object",
-        "properties": {
-          "permission": {
-            "type": "string",
-            "enum": [
-              "test_set.create",
-              "test_set.invite",
-              "test_set.public_link",
-              "test_set.export",
-              "test_set.view_all",
-              "project.manage",
-              "project.create",
-              "plugin.upload",
-              "account.manage",
-              "role.manage"
-            ]
-          },
-          "scope": {
-            "type": "string",
-            "enum": [
-              "global",
-              "projects"
-            ]
-          },
-          "projectIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        },
-        "required": [
-          "permission",
-          "scope",
-          "projectIds"
-        ],
-        "additionalProperties": false
-      },
       "MeDto": {
         "type": "object",
         "properties": {
@@ -11411,84 +8836,40 @@
           "loginId": {
             "type": "string"
           },
-          "affiliation": {
-            "$ref": "#/components/schemas/AffiliationDto"
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member"
+            ]
           },
           "status": {
             "type": "string",
             "enum": [
-              "invited",
               "active",
-              "expired",
               "inactive"
             ]
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "assignments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AssignmentDto"
-            }
-          },
-          "defaultExpiryDays": {
-            "type": "integer",
-            "nullable": true,
-            "description": "만료일 필수 역할의 기본 기간 중 최솟값"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EffectivePermissionDto"
-            }
           }
         },
         "required": [
           "id",
           "name",
           "loginId",
-          "affiliation",
-          "status",
-          "expiresAt",
-          "assignments",
-          "defaultExpiryDays",
-          "permissions"
+          "role",
+          "status"
         ],
         "additionalProperties": false
       },
-      "TokenInfoDto": {
+      "ChangePasswordDto": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string"
-          },
-          "loginId": {
-            "type": "string"
-          },
-          "expiresAt": {
+          "currentPassword": {
             "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "name",
-          "loginId",
-          "expiresAt"
-        ],
-        "additionalProperties": false
-      },
-      "SetPasswordDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "minLength": 43,
-            "maxLength": 43
+            "minLength": 1,
+            "maxLength": 128,
+            "writeOnly": true
           },
-          "password": {
+          "newPassword": {
             "type": "string",
             "minLength": 12,
             "maxLength": 128,
@@ -11496,8 +8877,8 @@
           }
         },
         "required": [
-          "token",
-          "password"
+          "currentPassword",
+          "newPassword"
         ],
         "additionalProperties": false
       },
@@ -11578,148 +8959,6 @@
         },
         "required": [
           "status"
-        ],
-        "additionalProperties": false
-      },
-      "RoleDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "fixed": {
-            "type": "boolean"
-          },
-          "requiresExpiry": {
-            "type": "boolean"
-          },
-          "defaultExpiryDays": {
-            "type": "integer",
-            "nullable": true
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "test_set.create",
-                "test_set.invite",
-                "test_set.public_link",
-                "test_set.export",
-                "test_set.view_all",
-                "project.manage",
-                "project.create",
-                "plugin.upload",
-                "account.manage",
-                "role.manage"
-              ]
-            }
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "fixed",
-          "requiresExpiry",
-          "defaultExpiryDays",
-          "permissions"
-        ],
-        "additionalProperties": false
-      },
-      "CreateRoleDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "test_set.create",
-                "test_set.invite",
-                "test_set.public_link",
-                "test_set.export",
-                "test_set.view_all",
-                "project.manage",
-                "project.create",
-                "plugin.upload",
-                "account.manage",
-                "role.manage"
-              ]
-            }
-          },
-          "requiresExpiry": {
-            "type": "boolean"
-          },
-          "defaultExpiryDays": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 36500,
-            "nullable": true
-          }
-        },
-        "required": [
-          "name",
-          "permissions",
-          "requiresExpiry",
-          "defaultExpiryDays"
-        ],
-        "additionalProperties": false
-      },
-      "UpdateRoleDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "test_set.create",
-                "test_set.invite",
-                "test_set.public_link",
-                "test_set.export",
-                "test_set.view_all",
-                "project.manage",
-                "project.create",
-                "plugin.upload",
-                "account.manage",
-                "role.manage"
-              ]
-            }
-          },
-          "requiresExpiry": {
-            "type": "boolean"
-          },
-          "defaultExpiryDays": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 36500,
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "NameDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          }
-        },
-        "required": [
-          "name"
         ],
         "additionalProperties": false
       },
@@ -13159,52 +10398,6 @@
         ],
         "additionalProperties": false
       },
-      "SharingPersonDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "loginId": {
-            "type": "string"
-          },
-          "affiliation": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "loginId",
-          "affiliation"
-        ],
-        "additionalProperties": false
-      },
-      "SharingMemberDto": {
-        "type": "object",
-        "properties": {
-          "person": {
-            "$ref": "#/components/schemas/SharingPersonDto"
-          },
-          "access": {
-            "type": "string",
-            "enum": [
-              "view",
-              "edit"
-            ]
-          }
-        },
-        "required": [
-          "person",
-          "access"
-        ],
-        "additionalProperties": false
-      },
       "SharingDto": {
         "type": "object",
         "properties": {
@@ -13215,7 +10408,7 @@
               "public"
             ]
           },
-          "linkAccess": {
+          "linkPermission": {
             "type": "string",
             "enum": [
               "view",
@@ -13225,31 +10418,12 @@
           "linkToken": {
             "type": "string",
             "nullable": true
-          },
-          "canInvite": {
-            "type": "boolean"
-          },
-          "canManageLink": {
-            "type": "boolean"
-          },
-          "owner": {
-            "$ref": "#/components/schemas/SharingPersonDto"
-          },
-          "members": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SharingMemberDto"
-            }
           }
         },
         "required": [
           "visibility",
-          "linkAccess",
-          "linkToken",
-          "canInvite",
-          "canManageLink",
-          "owner",
-          "members"
+          "linkPermission",
+          "linkToken"
         ],
         "additionalProperties": false
       },
@@ -13263,7 +10437,7 @@
               "public"
             ]
           },
-          "linkAccess": {
+          "linkPermission": {
             "type": "string",
             "enum": [
               "view",
@@ -13271,22 +10445,6 @@
             ]
           }
         },
-        "additionalProperties": false
-      },
-      "MemberAccessDto": {
-        "type": "object",
-        "properties": {
-          "access": {
-            "type": "string",
-            "enum": [
-              "view",
-              "edit"
-            ]
-          }
-        },
-        "required": [
-          "access"
-        ],
         "additionalProperties": false
       },
       "SharedActorDto": {
