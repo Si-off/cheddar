@@ -53,16 +53,16 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
     lease.accountIds.push(admin.account.id);
     const password = "플러그인-테스트-비밀번호-12345";
     await auth.setPassword(admin.token, password, "invite");
-    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const person = await accounts.create({
       name: "플러그인 사용자",
-      email: "plugin-person@example.com",
+      loginId: "plugin-person@example.com",
       affiliationId: admin.account.affiliation.id,
       assignments: [],
     });
     lease.accountIds.push(person.account.id);
     await auth.setPassword(person.token, password, "invite");
-    let personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, password)).token}`;
+    let personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",
@@ -308,7 +308,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
         );
         assert.equal((await row(created.requestToken)).status, "pending");
         await accounts.setActive(person.account.id, true);
-        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, password)).token}`;
+        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.loginId, password)).token}`;
       },
     );
 
@@ -516,7 +516,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           await error(await me(connection.token), 401, "UNAUTHENTICATED");
           assert.ok((await row(connection.requestToken)).revokedAt);
         }
-        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, password)).token}`;
+        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.loginId, password)).token}`;
         const beforeReset = await issue(personCookie);
         const approved = await create();
         assert.equal(
@@ -532,7 +532,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           "PLUGIN_CONNECTION_EXPIRED",
         );
         assert.ok((await row(beforeReset.requestToken)).revokedAt);
-        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, `${password}-변경`)).token}`;
+        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.loginId, `${password}-변경`)).token}`;
         const beforeExpiryUpdate = await issue(personCookie);
         await accounts.update(person.account.id, {
           expiresAt: new Date(0).toISOString(),

@@ -46,17 +46,17 @@ export class AuthController {
   @Public()
   @Post("login")
   @HttpCode(200)
-  @ApiOperation({ operationId: "login", summary: "이메일과 비밀번호로 로그인" })
+  @ApiOperation({ operationId: "login", summary: "아이디와 비밀번호로 로그인" })
   @ApiOkResponse({ type: MeDto })
   @ApiBody({ type: LoginDto })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.service.login(dto.email, dto.password);
+    const result = await this.service.login(dto.loginId, dto.password);
     response.cookie(SESSION_COOKIE, result.token, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: this.config.cookieSameSite,
       secure: this.config.production === true,
       path: "/",
       maxAge: SESSION_SECONDS * 1000,
@@ -75,7 +75,7 @@ export class AuthController {
     await this.service.logout(sessionCookie(request));
     response.clearCookie(SESSION_COOKIE, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: this.config.cookieSameSite,
       secure: this.config.production === true,
       path: "/",
     });

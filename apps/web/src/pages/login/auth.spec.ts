@@ -24,7 +24,7 @@ test("로그인하지 않으면 로그인 화면으로 가고, 로그인하면 �
   await expect(page.getByRole("heading", { name: "로그인" })).toBeVisible();
 
   await page
-    .getByRole("textbox", { name: "이메일" })
+    .getByRole("textbox", { name: "아이디" })
     .fill("haneul.choi@cheddar.app");
   await page
     .locator("input[autocomplete=current-password]")
@@ -41,30 +41,35 @@ test("로그인에 실패하면 서버가 알려준 이유를 보여준다", asy
     "POST /api/v1/auth/login": reply(401, {
       error: {
         code: "INVALID_CREDENTIALS",
-        message: "이메일과 비밀번호 또는 계정 상태를 확인해주세요.",
+        message:
+          "아이디와 비밀번호를 확인해주세요. 계속 로그인할 수 없다면 관리자에게 문의해주세요.",
         requestId: "t",
       },
     }),
   });
   await page.goto("/login");
   await page
-    .getByRole("textbox", { name: "이메일" })
+    .getByRole("textbox", { name: "아이디" })
     .fill("someone@cheddar.app");
   await page.locator("input[autocomplete=current-password]").fill("wrong-pass");
   await page.getByRole("button", { name: "로그인" }).click();
   await expect(
-    page.getByText("이메일과 비밀번호 또는 계정 상태를 확인해주세요.").first(),
+    page
+      .getByText(
+        "아이디와 비밀번호를 확인해주세요. 계속 로그인할 수 없다면 관리자에게 문의해주세요.",
+      )
+      .first(),
   ).toBeVisible();
 });
 
-test("초대 링크로 비밀번호를 정하면 이메일이 채워진 로그인 화면으로 간다", async ({
+test("초대 링크로 비밀번호를 정하면 아이디가 채워진 로그인 화면으로 간다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": unauthenticated,
     "GET /api/v1/auth/invitations": {
       name: "정우진",
-      email: "woojin.jung@bsoft.kr",
+      loginId: "woojin.jung@bsoft.kr",
       expiresAt: "2026-10-25T00:00:00Z",
     },
     "POST /api/v1/auth/invitations/accept": reply(204),
@@ -89,7 +94,7 @@ test("초대 링크로 비밀번호를 정하면 이메일이 채워진 로그�
     .fill("long-password-1");
   await page.getByRole("button", { name: "시작" }).click();
   await expect(page.getByRole("heading", { name: "로그인" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "이메일" })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "아이디" })).toHaveValue(
     "woojin.jung@bsoft.kr",
   );
   expect(
@@ -129,7 +134,7 @@ test("로그인 후 돌아갈 주소가 다른 사이트면 테스트 세트 목
   });
   await page.goto("/login?redirect=%2F%2Fevil.example%2Fsteal");
   await page
-    .getByRole("textbox", { name: "이메일" })
+    .getByRole("textbox", { name: "아이디" })
     .fill("haneul.choi@cheddar.app");
   await page
     .locator("input[autocomplete=current-password]")

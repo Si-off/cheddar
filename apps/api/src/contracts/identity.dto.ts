@@ -6,11 +6,11 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
-  IsEmail,
   IsIn,
   IsInt,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -26,6 +26,11 @@ import {
 } from "../authorization/permissions";
 
 const optional = (_: unknown, v: unknown) => v !== undefined;
+/** 새로 정하는 로그인 아이디. 공백 제거·소문자화 후 영문 소문자, 숫자, `._-@` 3~64자.
+ * 이 형식 이전의 이메일 계정도 로그인할 수 있도록 로그인과 저장 컬럼은 254자 문자열로 둔다. */
+export const LOGIN_ID_PATTERN = /^[a-z0-9._@-]{3,64}$/;
+const normalizeLoginId = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim().toLowerCase() : value;
 export const ACCOUNT_STATUSES = [
   "invited",
   "active",
@@ -34,13 +39,12 @@ export const ACCOUNT_STATUSES = [
 ] as const;
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 export class LoginDto {
-  @ApiProperty({ format: "email", maxLength: 254 })
-  @Transform(({ value }) =>
-    typeof value === "string" ? value.trim().toLowerCase() : value,
-  )
-  @IsEmail()
+  @ApiProperty({ minLength: 1, maxLength: 254 })
+  @Transform(normalizeLoginId)
+  @IsString()
+  @MinLength(1)
   @MaxLength(254)
-  email!: string;
+  loginId!: string;
   @ApiProperty({ minLength: 1, maxLength: 128, writeOnly: true })
   @IsString()
   @MinLength(1)
@@ -77,13 +81,15 @@ export class CreateAccountDto {
   @MinLength(1)
   @MaxLength(100)
   name!: string;
-  @ApiProperty({ format: "email", maxLength: 254 })
-  @Transform(({ value }) =>
-    typeof value === "string" ? value.trim().toLowerCase() : value,
-  )
-  @IsEmail()
-  @MaxLength(254)
-  email!: string;
+  @ApiProperty({
+    minLength: 3,
+    maxLength: 64,
+    pattern: LOGIN_ID_PATTERN.source,
+  })
+  @Transform(normalizeLoginId)
+  @IsString()
+  @Matches(LOGIN_ID_PATTERN)
+  loginId!: string;
   @ApiProperty({ format: "uuid" }) @IsUUID() affiliationId!: string;
   @ApiProperty({ type: [AssignmentDto], maxItems: 100 })
   @IsArray()
@@ -103,14 +109,16 @@ export class UpdateAccountDto {
   @MinLength(1)
   @MaxLength(100)
   name?: string;
-  @ApiPropertyOptional({ format: "email", maxLength: 254 })
+  @ApiPropertyOptional({
+    minLength: 3,
+    maxLength: 64,
+    pattern: LOGIN_ID_PATTERN.source,
+  })
   @ValidateIf(optional)
-  @Transform(({ value }) =>
-    typeof value === "string" ? value.trim().toLowerCase() : value,
-  )
-  @IsEmail()
-  @MaxLength(254)
-  email?: string;
+  @Transform(normalizeLoginId)
+  @IsString()
+  @Matches(LOGIN_ID_PATTERN)
+  loginId?: string;
   @ApiPropertyOptional({ format: "uuid" })
   @ValidateIf(optional)
   @IsUUID()
@@ -238,7 +246,7 @@ export class RoleDto extends AffiliationDto {
 export class AccountDto {
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ format: "email" }) email!: string;
+  @ApiProperty() loginId!: string;
   @ApiProperty({ type: AffiliationDto }) affiliation!: AffiliationDto;
   @ApiProperty({ enum: ACCOUNT_STATUSES }) status!: AccountStatus;
   @ApiProperty({ type: String, format: "date-time", nullable: true })
@@ -276,7 +284,7 @@ export class AccountInvitationDto extends IssuedTokenDto {
 }
 export class TokenInfoDto {
   @ApiProperty() name!: string;
-  @ApiProperty({ format: "email" }) email!: string;
+  @ApiProperty() loginId!: string;
   @ApiProperty({ format: "date-time" }) expiresAt!: string;
 }
 export class EffectivePermissionDto {

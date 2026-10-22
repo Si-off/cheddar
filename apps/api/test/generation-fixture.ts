@@ -35,7 +35,7 @@ export async function generationFixture() {
     lease.accountIds.push(admin.account.id);
     const password = "계측-테스트-비밀번호-12345";
     await app.get(AuthService).setPassword(admin.token, password, "invite");
-    const cookie = `${SESSION_COOKIE}=${(await app.get(AuthService).login(admin.account.email, password)).token}`;
+    const cookie = `${SESSION_COOKIE}=${(await app.get(AuthService).login(admin.account.loginId, password)).token}`;
     const sets = app.get(TestSetsService);
     const makeSet = async () => {
       const project = await app

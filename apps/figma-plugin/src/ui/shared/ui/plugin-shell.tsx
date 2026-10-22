@@ -11,7 +11,7 @@ export function PluginShell({
   footer,
 }: {
   /** 로그인한 계정. 있으면 머리글에 계정 메뉴를 둔다 */
-  account?: { id: string; name: string; email: string };
+  account?: { id: string; name: string; loginId: string };
   onSignOut?: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -40,7 +40,7 @@ export function PluginShell({
               <div className="flex flex-col gap-0.5 px-2 py-2">
                 <span className="text-label text-fg">{account.name}</span>
                 <span className="text-caption text-fg-muted">
-                  {account.email}
+                  {account.loginId}
                 </span>
               </div>
               <Menu.Separator />

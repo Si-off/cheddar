@@ -59,7 +59,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     );
     lease.accountIds.push(admin.account.id);
     await auth.setPassword(admin.token, password, "invite");
-    const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",
@@ -102,7 +102,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     const actor = async (assignments: CreateAccountDto["assignments"]) => {
       const account = await accounts.create({
         name: "설정 사용자",
-        email: `${randomUUID()}@example.com`,
+        loginId: `${randomUUID()}@example.com`,
         affiliationId: admin.account.affiliation.id,
         assignments,
       });
@@ -110,7 +110,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       await auth.setPassword(account.token, password, "invite");
       return {
         id: account.account.id,
-        cookie: `${SESSION_COOKIE}=${(await auth.login(account.account.email, password)).token}`,
+        cookie: `${SESSION_COOKIE}=${(await auth.login(account.account.loginId, password)).token}`,
       };
     };
     let first!: ProjectDto, second!: ProjectDto;

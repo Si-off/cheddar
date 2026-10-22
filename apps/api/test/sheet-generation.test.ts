@@ -414,7 +414,7 @@ test("update_column은 사용자 열, 길이, 유일성, 편집 권한을 검사
       .where(eq(accounts.id, f.accountId));
     const viewer = await f.app.get(AccountsService).create({
       name: "조회자",
-      email: `${randomUUID()}@example.com`,
+      loginId: `${randomUUID()}@example.com`,
       affiliationId: admin.affiliationId,
       assignments: [],
     });

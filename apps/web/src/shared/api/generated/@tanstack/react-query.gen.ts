@@ -302,7 +302,7 @@ export const issuePasswordResetMutation = (options?: Partial<Options<IssuePasswo
 };
 
 /**
- * 이메일과 비밀번호로 로그인
+ * 아이디와 비밀번호로 로그인
  */
 export const loginMutation = (options?: Partial<Options<LoginData>>): UseMutationOptions<LoginResponse, LoginError, Options<LoginData>> => {
     const mutationOptions: UseMutationOptions<LoginResponse, LoginError, Options<LoginData>> = {

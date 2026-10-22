@@ -166,7 +166,7 @@ function TransferForm({
         <TextField
           icon={Search}
           label="새 소유자"
-          placeholder="이름 또는 이메일"
+          placeholder="이름 또는 아이디"
           value={picked ? picked.name : search}
           onChange={(e) => {
             setPicked(null);
@@ -202,7 +202,7 @@ function TransferForm({
                       {a.affiliation && <Tag>{a.affiliation.name}</Tag>}
                     </span>
                     <span className="text-caption text-fg-muted">
-                      {a.email}
+                      {a.loginId}
                     </span>
                   </button>
                 </li>

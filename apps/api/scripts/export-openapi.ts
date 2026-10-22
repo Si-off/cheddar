@@ -11,6 +11,8 @@ async function main() {
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
       storageRoot: resolve(tmpdir(), "cheddar-openapi-unused"),
       port: 3101,
+      host: "127.0.0.1",
+      cookieSameSite: "lax",
       corsOrigins: [],
     },
     resolve(process.cwd(), "migrations"),

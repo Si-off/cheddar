@@ -26,6 +26,8 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
       storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
       port: 3101,
+      host: "127.0.0.1",
+      cookieSameSite: "lax",
       corsOrigins: [],
       workersEnabled: false,
     },
@@ -203,7 +205,7 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
     const invalidLogin = await fetch(`${base}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "잘못된 이메일", password: "password" }),
+      body: JSON.stringify({ loginId: "", password: "password" }),
     });
     assert.equal(
       invalidLogin.status,
@@ -263,7 +265,12 @@ test("DTO는 알 수 없는 권한·null 덮어쓰기·짧은 비밀번호를 �
     [CreateRoleDto, { name: "역할", permissions: [], requiresExpiry: true }],
     [
       CreateAccountDto,
-      { name: "계정", email: "wrong", affiliationId: "wrong", assignments: [] },
+      {
+        name: "계정",
+        loginId: "wrong",
+        affiliationId: "wrong",
+        assignments: [],
+      },
     ],
     [SetPasswordDto, { token: "x".repeat(43), password: "short" }],
   ] as const) {

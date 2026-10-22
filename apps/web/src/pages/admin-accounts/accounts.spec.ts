@@ -14,7 +14,7 @@ test("만료일이 필요한 역할을 고르면 기본 기간으로 만료일�
   const created = account({
     id: "a9",
     name: "정우진",
-    email: "woojin.jung@bsoft.kr",
+    loginId: "woojin.jung@bsoft.kr",
     status: "invited",
     affiliation: affiliations[1],
   });
@@ -35,7 +35,7 @@ test("만료일이 필요한 역할을 고르면 기본 기간으로 만료일�
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("textbox", { name: "이름" }).fill("정우진");
   await dialog
-    .getByRole("textbox", { name: "이메일" })
+    .getByRole("textbox", { name: "아이디" })
     .fill("woojin.jung@bsoft.kr");
   await dialog.getByRole("combobox", { name: "소속" }).click();
   await page.getByRole("option", { name: "A사" }).click();
@@ -64,7 +64,7 @@ test("만료일이 필요한 역할을 고르면 기본 기간으로 만료일�
     ?.body as Record<string, unknown>;
   expect(body).toMatchObject({
     name: "정우진",
-    email: "woojin.jung@bsoft.kr",
+    loginId: "woojin.jung@bsoft.kr",
     affiliationId: "af2",
     assignments: [{ roleId: "r3", scope: "global", projectIds: [] }],
   });
@@ -85,7 +85,7 @@ test("만료일이 필요한 역할인데 만료일을 지우면 만들 수 없�
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("textbox", { name: "이름" }).fill("정우진");
   await dialog
-    .getByRole("textbox", { name: "이메일" })
+    .getByRole("textbox", { name: "아이디" })
     .fill("woojin.jung@bsoft.kr");
   await dialog.getByRole("combobox", { name: "소속" }).click();
   await page.getByRole("option", { name: "A사" }).click();
@@ -391,7 +391,7 @@ test("비활성 계정이 소유한 테스트 세트는 활성 계정을 찾아 
   const kim = account({
     id: "a2",
     name: "김지은",
-    email: "jieun.kim@cheddar.app",
+    loginId: "jieun.kim@cheddar.app",
   });
   let owned = [
     { id: "t1", name: "2.3.1 장바구니 합치기", projectName: "쇼핑몰" },

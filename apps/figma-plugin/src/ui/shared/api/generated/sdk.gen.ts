@@ -165,7 +165,7 @@ export const issuePasswordReset = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * 이메일과 비밀번호로 로그인
+ * 아이디와 비밀번호로 로그인
  */
 export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
     url: '/api/v1/auth/login',

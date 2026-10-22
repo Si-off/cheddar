@@ -22,7 +22,7 @@ export const sharingQuery = (testSetId: string) =>
       ).data,
   });
 
-/** 초대할 수 있는 계정. 이름이나 이메일 일부로 찾는다 */
+/** 초대할 수 있는 계정. 이름이나 아이디 일부로 찾는다 */
 export const sharingCandidatesQuery = (testSetId: string, search: string) =>
   queryOptions({
     queryKey: ["test-set-sharing-candidates", testSetId, search],

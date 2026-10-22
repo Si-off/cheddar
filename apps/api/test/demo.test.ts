@@ -8,7 +8,7 @@ import { hashPassword, verifyPassword } from "../src/auth/credentials";
 import { AuthorizationService } from "../src/authorization/authorization.service";
 import { accounts } from "../src/database/schema";
 import {
-  DEMO_EMAIL,
+  DEMO_LOGIN_ID,
   DEMO_PASSWORD,
   ensureDemoAccount,
 } from "../src/demo/account";
@@ -45,7 +45,7 @@ test("시연 계정은 첫 실행에 로그인 가능하고 재실행은 변경�
     const [account] = await lease.database.db
       .select()
       .from(accounts)
-      .where(eq(accounts.email, DEMO_EMAIL));
+      .where(eq(accounts.loginId, DEMO_LOGIN_ID));
     lease.accountIds.push(account.id);
     const authorization = new AuthorizationService(lease.database);
     const auth = new AuthService(
@@ -53,7 +53,7 @@ test("시연 계정은 첫 실행에 로그인 가능하고 재실행은 변경�
       new AccountsService(lease.database, authorization),
       authorization,
     );
-    assert.ok((await auth.login(DEMO_EMAIL, DEMO_PASSWORD)).token);
+    assert.ok((await auth.login(DEMO_LOGIN_ID, DEMO_PASSWORD)).token);
     const permissions = await authorization.effective(account.id);
     for (const name of ["plugin.upload", "test_set.create", "test_set.export"])
       assert.ok(permissions.some((p) => p.permission === name));

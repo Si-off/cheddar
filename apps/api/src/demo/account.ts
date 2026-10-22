@@ -5,7 +5,8 @@ import type { DatabaseService } from "../database/database.service";
 import { accounts, roleAssignments, roles } from "../database/schema";
 import { DEFAULT_AFFILIATION_ID, seedInitialData } from "../database/seed";
 
-export const DEMO_EMAIL = "demo@example.com";
+// 기존 시연 볼륨의 계정과 맞추기 위해 이메일 모양 아이디를 유지한다
+export const DEMO_LOGIN_ID = "demo@example.com";
 export const DEMO_PASSWORD = "Demo-Scenario-2026!";
 
 // 전용 시연 DB의 최초 실행에만 계정을 만든다. 재시작 시 기존 데이터와 비밀번호를 보존한다.
@@ -23,7 +24,7 @@ export async function ensureDemoAccount(database: DatabaseService) {
     const [account] = await tx
       .insert(accounts)
       .values({
-        email: DEMO_EMAIL,
+        loginId: DEMO_LOGIN_ID,
         name: "시연 관리자",
         affiliationId: DEFAULT_AFFILIATION_ID,
         passwordHash,

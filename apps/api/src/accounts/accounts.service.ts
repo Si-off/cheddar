@@ -98,7 +98,7 @@ export class AccountsService {
     return {
       id: row.id,
       name: row.name,
-      email: row.email,
+      loginId: row.loginId,
       affiliation,
       status: accountState(row),
       expiresAt: row.expiresAt?.toISOString() ?? null,
@@ -112,7 +112,7 @@ export class AccountsService {
       search
         ? or(
             ilike(accounts.name, `%${search}%`),
-            ilike(accounts.email, `%${search}%`),
+            ilike(accounts.loginId, `%${search}%`),
           )
         : undefined,
       query.affiliationId
@@ -254,7 +254,7 @@ export class AccountsService {
         .insert(accounts)
         .values({
           name: cleanName(dto.name),
-          email: dto.email.trim().toLowerCase(),
+          loginId: dto.loginId.trim().toLowerCase(),
           affiliationId: dto.affiliationId,
           expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
         })
@@ -274,9 +274,9 @@ export class AccountsService {
         .update(accounts)
         .set({
           ...(dto.name === undefined ? {} : { name: cleanName(dto.name) }),
-          ...(dto.email === undefined
+          ...(dto.loginId === undefined
             ? {}
-            : { email: dto.email.trim().toLowerCase() }),
+            : { loginId: dto.loginId.trim().toLowerCase() }),
           ...(dto.affiliationId === undefined
             ? {}
             : { affiliationId: dto.affiliationId }),

@@ -5,7 +5,7 @@ import { TestSetDto } from "./test-set.dto";
 export class SharingPersonDto {
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty() name!: string;
-  @ApiProperty() email!: string;
+  @ApiProperty() loginId!: string;
   @ApiProperty({ type: String, nullable: true }) affiliation!: string | null;
 }
 export class SharingMemberDto {

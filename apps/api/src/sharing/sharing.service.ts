@@ -28,7 +28,7 @@ import {
 const person = {
   id: accounts.id,
   name: accounts.name,
-  email: accounts.email,
+  loginId: accounts.loginId,
   affiliation: affiliations.name,
 };
 @Injectable()
@@ -164,7 +164,7 @@ export class SharingService {
             state.owner.id,
             ...state.members.map((m) => m.person.id),
           ]),
-          or(ilike(accounts.name, pattern), ilike(accounts.email, pattern)),
+          or(ilike(accounts.name, pattern), ilike(accounts.loginId, pattern)),
         ),
       )
       .orderBy(accounts.name, accounts.id)

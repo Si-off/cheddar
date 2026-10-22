@@ -6,18 +6,18 @@ import { currentAccountQuery } from "@/entities/account";
 import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
 
 export interface LoginFormProps {
-  defaultEmail?: string;
+  defaultLoginId?: string;
   onLoggedIn: () => void;
 }
 
-export function LoginForm({ defaultEmail = "", onLoggedIn }: LoginFormProps) {
+export function LoginForm({ defaultLoginId = "", onLoggedIn }: LoginFormProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [email, setEmail] = useState(defaultEmail);
+  const [loginId, setLoginId] = useState(defaultLoginId);
   const [password, setPassword] = useState("");
   const login = useMutation({
     mutationFn: () =>
-      sdk.login({ body: { email, password }, throwOnError: true }),
+      sdk.login({ body: { loginId, password }, throwOnError: true }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: currentAccountQuery().queryKey,
@@ -34,13 +34,13 @@ export function LoginForm({ defaultEmail = "", onLoggedIn }: LoginFormProps) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" aria-label="로그인">
       <TextField
-        label="이메일"
-        type="email"
+        label="아이디"
         required
         autoComplete="username"
-        placeholder="name@company.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        autoCapitalize="none"
+        spellCheck={false}
+        value={loginId}
+        onChange={(e) => setLoginId(e.target.value)}
       />
       <TextField
         label="비밀번호"
@@ -70,7 +70,7 @@ export interface PasswordSetupFormProps {
   /** 초대 수락 또는 관리자가 발급한 재설정 */
   kind: "invite" | "reset";
   token: string;
-  onDone: (email: string) => void;
+  onDone: (loginId: string) => void;
 }
 
 /** 링크의 토큰을 확인하고 비밀번호를 정한다. */
@@ -106,7 +106,7 @@ export function PasswordSetupForm({
         ? sdk.acceptInvitation(options)
         : sdk.resetPassword(options);
     },
-    onSuccess: () => onDone(info.data?.email ?? ""),
+    onSuccess: () => onDone(info.data?.loginId ?? ""),
     onError: (error) =>
       toast.show({
         message: toApiFailure(error, {
@@ -159,8 +159,8 @@ export function PasswordSetupForm({
         <span className="text-body-sm text-fg-muted">{info.data.name}</span>
       )}
       <TextField
-        label="이메일"
-        value={info.data?.email ?? ""}
+        label="아이디"
+        value={info.data?.loginId ?? ""}
         readOnly
         autoComplete="username"
       />

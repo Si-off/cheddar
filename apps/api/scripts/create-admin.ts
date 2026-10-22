@@ -8,11 +8,12 @@ import { DatabaseService } from "../src/database/database.service";
 
 async function main() {
   const { values } = parseArgs({
-    options: { email: { type: "string" }, name: { type: "string" } },
+    options: { "login-id": { type: "string" }, name: { type: "string" } },
     strict: true,
   });
-  if (!values.email || !values.name)
-    throw new Error("--email과 --name을 입력해주세요.");
+  const loginId = values["login-id"];
+  if (!loginId || !values.name)
+    throw new Error("--login-id와 --name을 입력해주세요.");
   const database = new DatabaseService(readEnv());
   try {
     const authorization = new AuthorizationService(database);
@@ -20,11 +21,11 @@ async function main() {
     const result = await createFirstAdministrator(
       authorization,
       service,
-      values.email,
+      loginId,
       values.name,
     );
     process.stdout.write(
-      `첫 관리자: ${result.account.name} <${result.account.email}>\n초대 링크용 토큰: ${result.token}\n유효기간: ${result.expiresAt}\n웹 초대 화면의 token 값으로 전달해주세요.\n`,
+      `첫 관리자: ${result.account.name} (${result.account.loginId})\n초대 링크용 토큰: ${result.token}\n유효기간: ${result.expiresAt}\n웹 초대 화면의 token 값으로 전달해주세요.\n`,
     );
   } finally {
     await database.onModuleDestroy();
@@ -33,7 +34,7 @@ async function main() {
 main().catch((error) => {
   process.stderr.write(
     error instanceof Error &&
-      (error.message.startsWith("--email") ||
+      (error.message.startsWith("--login-id") ||
         error.message === "첫 관리자 계정이 이미 만들어졌습니다.")
       ? `${error.message}\n`
       : "첫 관리자 계정을 만들지 못했습니다. DB 마이그레이션과 입력을 확인해주세요.\n",

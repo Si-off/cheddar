@@ -80,16 +80,16 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
     lease.accountIds.push(admin.account.id);
     const password = "생성-테스트-비밀번호-12345";
     await auth.setPassword(admin.token, password, "invite");
-    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const user = await accounts.create({
       name: "보기 사용자",
-      email: "generation-viewer@example.com",
+      loginId: "generation-viewer@example.com",
       affiliationId: admin.account.affiliation.id,
       assignments: [],
     });
     lease.accountIds.push(user.account.id);
     await auth.setPassword(user.token, password, "invite");
-    const otherCookie = `${SESSION_COOKIE}=${(await auth.login(user.account.email, password)).token}`;
+    const otherCookie = `${SESSION_COOKIE}=${(await auth.login(user.account.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",

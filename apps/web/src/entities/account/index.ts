@@ -31,7 +31,7 @@ export interface Assignment {
 export interface Account {
   id: string;
   name: string;
-  email: string;
+  loginId: string;
   affiliation: { id: string; name: string };
   status: AccountStatus;
   /** YYYY-MM-DD 또는 없음 */
@@ -55,7 +55,7 @@ function toAccount(dto: AccountDto): Account {
   return {
     id: dto.id,
     name: dto.name,
-    email: dto.email,
+    loginId: dto.loginId,
     affiliation: dto.affiliation,
     status: dto.status,
     expiresOn: dto.expiresAt ? toLocalDate(dto.expiresAt) : null,
