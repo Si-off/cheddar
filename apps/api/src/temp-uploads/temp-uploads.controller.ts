@@ -23,11 +23,7 @@ import {
   ApiProduces,
   ApiTags,
 } from "@nestjs/swagger";
-import {
-  AllowPluginToken,
-  CurrentAccount,
-  RequirePermission,
-} from "../authorization/guards";
+import { AllowPluginToken, CurrentAccount } from "../authorization/guards";
 import {
   TempUploadDto,
   UploadMultipartDto,
@@ -46,7 +42,6 @@ export class TempUploadsController {
   @Post()
   @AllowPluginToken()
   @ApiBearerAuth()
-  @RequirePermission("plugin.upload")
   @UseInterceptors(
     FilesInterceptor("images[]", 20000, {
       limits: {

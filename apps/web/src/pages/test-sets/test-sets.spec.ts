@@ -31,7 +31,7 @@ test("목록을 범위로 나누고 이름으로 찾는다", async ({ page }) =>
   await expect(row).toContainText("확인 필요 4");
   await expect(row).toContainText("방금");
 
-  await page.getByRole("tab", { name: "내 테스트 세트" }).click();
+  await page.getByRole("tab", { name: "내가 만든 테스트 세트" }).click();
   await expect.poll(() => queries.at(-1)).toContain("filter=mine");
   await page.getByRole("textbox", { name: "테스트 세트 검색" }).fill("회원");
   await expect
@@ -184,18 +184,16 @@ test("플러그인에서 고른 프로젝트로 새 테스트 세트를 연다",
   await expect(page.getByText("프로젝트를 고르세요")).toBeVisible();
 });
 
-test("테스트 세트를 만들 권한이 없으면 새 테스트 세트 버튼이 없다", async ({
-  page,
-}) => {
+test("구성원도 테스트 세트를 만들 수 있다", async ({ page }) => {
   await mockApi(page, {
-    "GET /api/v1/auth/me": me(["test_set.export"]),
+    "GET /api/v1/auth/me": me({ role: "member" }),
     "GET /api/v1/test-sets": { items: [] },
   });
   await page.goto("/test-sets");
   await expect(page.getByText("테스트 세트가 없습니다")).toBeVisible();
-  await expect(page.getByRole("link", { name: "새 테스트 세트" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("link", { name: "새 테스트 세트" }),
+  ).toBeVisible();
 });
 
 test("프레임 없이는 케이스 생성을 시작할 수 없고 직접 작성만 된다", async ({

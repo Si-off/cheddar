@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AuthModule } from "../auth/auth.module";
 import { ReviewItemsController } from "../review-items/review-items.controller";
 import { ReviewItemsService } from "../review-items/review-items.service";
 import { StorageModule } from "../storage/storage.module";
@@ -12,7 +13,7 @@ import { ProviderService } from "./providers/provider.service";
 import { StageRunner } from "./stage-runner";
 import { AiUsageService } from "./usage.service";
 @Module({
-  imports: [TestSetsModule, TempUploadsModule, StorageModule],
+  imports: [AuthModule, TestSetsModule, TempUploadsModule, StorageModule],
   controllers: [GenerationController, ReviewItemsController],
   providers: [
     AiUsageService,

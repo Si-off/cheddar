@@ -7,32 +7,21 @@ import {
   SetMetadata,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { isUUID } from "class-validator";
 import type { Request } from "express";
 import {
   AuthService,
   SESSION_COOKIE,
   unauthenticated,
 } from "../auth/auth.service";
-import { ApiError, invalid } from "../common/errors";
 import { AuthorizationService } from "./authorization.service";
-import type { Permission } from "./permissions";
 
 const PUBLIC = Symbol("public");
-const REQUIRED = Symbol("permission");
+const ADMIN_ONLY = Symbol("adminOnly");
 const PLUGIN_TOKEN = Symbol("pluginToken");
 export const AllowPluginToken = (required = false) =>
   SetMetadata(PLUGIN_TOKEN, { required });
-type Requirement = {
-  /** 여러 개면 그중 하나만 있어도 된다 */
-  permission: Permission | readonly Permission[];
-  project?: { source: "params" | "body"; key: string };
-};
 export const Public = () => SetMetadata(PUBLIC, true);
-export const RequirePermission = (
-  permission: Permission | readonly Permission[],
-  project?: Requirement["project"],
-) => SetMetadata(REQUIRED, { permission, project } satisfies Requirement);
+export const AdminOnly = () => SetMetadata(ADMIN_ONLY, true);
 export type AuthenticatedRequest = Request & {
   accountId: string;
   pluginConnectionId?: string;
@@ -75,39 +64,8 @@ export class AccessGuard implements CanActivate {
       if (plugin?.required) throw unauthenticated();
       request.accountId = await this.auth.authenticate(sessionCookie(request));
     }
-    const required = this.reflector.getAllAndOverride<Requirement>(
-      REQUIRED,
-      targets,
-    );
-    if (required) {
-      const projectId = required.project
-        ? request[required.project.source]?.[required.project.key]
-        : undefined;
-      if (
-        required.project &&
-        (typeof projectId !== "string" || !isUUID(projectId))
-      )
-        throw invalid();
-      const permissions: readonly Permission[] =
-        typeof required.permission === "string"
-          ? [required.permission]
-          : required.permission;
-      let allowed = false;
-      for (const permission of permissions) {
-        if (
-          await this.authorization.can(
-            request.accountId,
-            permission,
-            projectId as string | undefined,
-          )
-        ) {
-          allowed = true;
-          break;
-        }
-      }
-      if (!allowed)
-        throw new ApiError(403, "FORBIDDEN", "접근 권한이 없습니다.");
-    }
+    if (this.reflector.getAllAndOverride<boolean>(ADMIN_ONLY, targets))
+      await this.authorization.assertAdmin(request.accountId);
     return true;
   }
 }

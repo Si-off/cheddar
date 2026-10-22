@@ -18,7 +18,6 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { PERMISSIONS } from "../authorization/permissions";
 import type { ScreenIdRulePartDto } from "../contracts/project.dto";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
@@ -27,10 +26,8 @@ const created = () =>
 const updated = () =>
   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 const time = (name: string) => timestamp(name, { withTimezone: true });
-export const permissionEnum = pgEnum("permission_key", PERMISSIONS);
-export const scopeEnum = pgEnum("assignment_scope", ["global", "projects"]);
+export const accountRoleEnum = pgEnum("account_role", ["admin", "member"]);
 export const accountStatusEnum = pgEnum("account_status", [
-  "invited",
   "active",
   "inactive",
 ]);
@@ -48,24 +45,15 @@ export const jobStatusEnum = pgEnum("job_status", [
   "failed",
 ]);
 
-export const affiliations = pgTable("affiliations", {
-  id: id(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
-  createdAt: created(),
-  updatedAt: updated(),
-});
 export const accounts = pgTable(
   "accounts",
   {
     id: id(),
     name: varchar("name", { length: 100 }).notNull(),
     loginId: varchar("login_id", { length: 254 }).notNull().unique(),
-    affiliationId: uuid("affiliation_id")
-      .notNull()
-      .references(() => affiliations.id, { onDelete: "restrict" }),
+    role: accountRoleEnum("role").notNull().default("member"),
     passwordHash: text("password_hash"),
-    status: accountStatusEnum("status").notNull().default("invited"),
-    expiresAt: time("expires_at"),
+    status: accountStatusEnum("status").notNull().default("active"),
     createdAt: created(),
     updatedAt: updated(),
   },
@@ -78,25 +66,6 @@ export const accounts = pgTable(
       "accounts_active_password",
       sql`${t.status} <> 'active' OR ${t.passwordHash} IS NOT NULL`,
     ),
-    index("accounts_affiliation_idx").on(t.affiliationId),
-  ],
-);
-export const authTokens = pgTable(
-  "auth_tokens",
-  {
-    id: id(),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    purpose: varchar("purpose", { length: 10 }).notNull(),
-    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
-    expiresAt: time("expires_at").notNull(),
-    consumedAt: time("consumed_at"),
-    createdAt: created(),
-  },
-  (t) => [
-    check("auth_tokens_purpose", sql`${t.purpose} IN ('invite', 'reset')`),
-    index("auth_tokens_account_idx").on(t.accountId, t.purpose),
   ],
 );
 export const sessions = pgTable(
@@ -112,39 +81,6 @@ export const sessions = pgTable(
   },
   (t) => [index("sessions_account_idx").on(t.accountId)],
 );
-export const roles = pgTable(
-  "roles",
-  {
-    id: id(),
-    name: varchar("name", { length: 100 }).notNull().unique(),
-    systemKey: varchar("system_key", { length: 30 }).unique(),
-    fixed: boolean("fixed").notNull().default(false),
-    requiresExpiry: boolean("requires_expiry").notNull().default(false),
-    defaultExpiryDays: integer("default_expiry_days"),
-    createdAt: created(),
-    updatedAt: updated(),
-  },
-  (t) => [
-    check(
-      "roles_expiry_days",
-      sql`(${t.defaultExpiryDays} IS NULL OR ${t.defaultExpiryDays} > 0) AND (NOT ${t.requiresExpiry} OR ${t.defaultExpiryDays} IS NOT NULL)`,
-    ),
-    check(
-      "roles_fixed_visitor",
-      sql`${t.fixed} = (${t.systemKey} IS NOT DISTINCT FROM 'link_visitor')`,
-    ),
-  ],
-);
-export const rolePermissions = pgTable(
-  "role_permissions",
-  {
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "cascade" }),
-    permission: permissionEnum("permission").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.roleId, t.permission] })],
-);
 export const projects = pgTable("projects", {
   id: id(),
   name: varchar("name", { length: 100 }).notNull(),
@@ -155,36 +91,6 @@ export const projects = pgTable("projects", {
   createdAt: created(),
   updatedAt: updated(),
 });
-export const roleAssignments = pgTable(
-  "role_assignments",
-  {
-    id: id(),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "restrict" }),
-    scope: scopeEnum("scope").notNull(),
-  },
-  (t) => [
-    index("role_assignments_account_idx").on(t.accountId),
-    index("role_assignments_role_idx").on(t.roleId),
-  ],
-);
-export const roleAssignmentProjects = pgTable(
-  "role_assignment_projects",
-  {
-    assignmentId: uuid("assignment_id")
-      .notNull()
-      .references(() => roleAssignments.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-  },
-  (t) => [primaryKey({ columns: [t.assignmentId, t.projectId] })],
-);
-
 // A template is one versioned JSON document; each test set copies its columns into rows.
 export const projectTemplates = pgTable(
   "project_templates",
@@ -364,20 +270,6 @@ export const testCaseValues = pgTable(
       foreignColumns: [testSetColumns.testSetId, testSetColumns.id],
     }).onDelete("cascade"),
   ],
-);
-export const testSetMembers = pgTable(
-  "test_set_members",
-  {
-    testSetId: uuid("test_set_id")
-      .notNull()
-      .references(() => testSets.id, { onDelete: "cascade" }),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "restrict" }),
-    access: accessEnum("access").notNull(),
-    createdAt: created(),
-  },
-  (t) => [primaryKey({ columns: [t.testSetId, t.accountId] })],
 );
 export const visitorSessions = pgTable(
   "visitor_sessions",

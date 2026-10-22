@@ -1,30 +1,19 @@
 import {
-  Avatars,
   Button,
   ConfirmDialog,
   Dialog,
-  IconButton,
   LoadError,
   Select,
-  Tag,
+  Switch,
   TextField,
   useToast,
 } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Copy,
-  Globe,
-  Lock,
-  RotateCcw,
-  Search,
-  UserPlus,
-  X,
-} from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import { Copy, RotateCcw } from "lucide-react";
+import { useState } from "react";
 import {
   type ShareAccess,
   type Sharing,
-  sharingCandidatesQuery,
   sharingQuery,
   useSharingActions,
 } from "@/features/share-test-set";
@@ -34,20 +23,6 @@ const accessItems = [
   { value: "edit", label: "편집 가능" },
   { value: "view", label: "보기만 가능" },
 ];
-const scopeItems = [
-  {
-    value: "private",
-    label: "비공개",
-    description: "초대한 사람만",
-    icon: Lock,
-  },
-  {
-    value: "public",
-    label: "공개",
-    description: "링크가 있는 누구나",
-    icon: Globe,
-  },
-];
 
 export interface ShareDialogProps {
   testSetId: string;
@@ -55,6 +30,7 @@ export interface ShareDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** 계정이 없는 사람에게 공개 링크로 테스트 세트를 연다. 로그인한 계정은 모두 이미 볼 수 있다. */
 export function ShareDialog({
   testSetId,
   open,
@@ -65,7 +41,7 @@ export function ShareDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content size="md">
         <Dialog.Header title="공유" />
-        <Dialog.Body className="gap-5">
+        <Dialog.Body>
           {sharing.isError ? (
             <LoadError
               compact
@@ -74,10 +50,7 @@ export function ShareDialog({
             />
           ) : (
             sharing.data && (
-              <>
-                <LinkSection testSetId={testSetId} sharing={sharing.data} />
-                <PeopleSection testSetId={testSetId} sharing={sharing.data} />
-              </>
+              <LinkSection testSetId={testSetId} sharing={sharing.data} />
             )
           )}
         </Dialog.Body>
@@ -101,8 +74,8 @@ function LinkSection({
   const toast = useToast();
   const { update, replaceLink } = useSharingActions(testSetId);
   const [confirmReplace, setConfirmReplace] = useState(false);
-  const [confirmPrivate, setConfirmPrivate] = useState(false);
-  const locked = !sharing.canManageLink || update.isPending;
+  const [confirmOff, setConfirmOff] = useState(false);
+  const on = sharing.visibility === "public";
   const link = sharing.linkToken && appLinks.sharedTestSet(sharing.linkToken);
   const copy = async () => {
     if (!link) return;
@@ -117,36 +90,33 @@ function LinkSection({
     }
   };
   return (
-    <section className="flex flex-col gap-2.5">
-      <h3 className="m-0 text-title-sm">링크</h3>
-      <div className="flex flex-wrap gap-2">
-        <Select
-          aria-label="공개 범위"
-          className="min-w-60 flex-1"
-          items={scopeItems}
-          value={sharing.visibility}
-          disabled={locked}
-          onValueChange={(v) => {
-            if (v === "public") update.mutate({ visibility: "public" });
-            // 비공개로 바꾸면 지금 링크가 사라지므로 한 번 묻는다
-            else if (v === "private" && sharing.visibility === "public")
-              setConfirmPrivate(true);
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Switch
+          label="공개 링크"
+          className="flex-1"
+          checked={on}
+          disabled={update.isPending}
+          onCheckedChange={(checked) => {
+            if (checked) update.mutate({ visibility: "public" });
+            // 끄면 지금 링크가 사라지므로 한 번 묻는다
+            else setConfirmOff(true);
           }}
         />
-        {sharing.visibility === "public" && (
+        {on && (
           <Select
             aria-label="링크 권한"
             className="w-36"
             items={accessItems}
-            value={sharing.linkAccess}
-            disabled={locked}
+            value={sharing.linkPermission}
+            disabled={update.isPending}
             onValueChange={(v) =>
-              v && update.mutate({ linkAccess: v as ShareAccess })
+              v && update.mutate({ linkPermission: v as ShareAccess })
             }
           />
         )}
       </div>
-      {sharing.visibility === "public" && link && (
+      {on && link && (
         <>
           <div className="flex items-center gap-2">
             <TextField
@@ -160,19 +130,17 @@ function LinkSection({
               링크 복사
             </Button>
           </div>
-          {sharing.canManageLink && (
-            <div>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={RotateCcw}
-                loading={replaceLink.isPending}
-                onClick={() => setConfirmReplace(true)}
-              >
-                링크 새로 만들기
-              </Button>
-            </div>
-          )}
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={RotateCcw}
+              loading={replaceLink.isPending}
+              onClick={() => setConfirmReplace(true)}
+            >
+              링크 새로 만들기
+            </Button>
+          </div>
         </>
       )}
       <ConfirmDialog
@@ -187,168 +155,16 @@ function LinkSection({
         }}
       />
       <ConfirmDialog
-        open={confirmPrivate}
-        onOpenChange={setConfirmPrivate}
-        title="비공개로 바꾸기"
-        description="지금 링크를 사용할 수 없게 되며, 그 링크로 열린 화면이 닫힙니다. 다시 공개하면 새 링크가 생깁니다."
-        confirmLabel="비공개로 바꾸기"
+        open={confirmOff}
+        onOpenChange={setConfirmOff}
+        title="공개 링크 끄기"
+        description="지금 링크를 사용할 수 없게 되며, 그 링크로 열린 화면이 닫힙니다. 다시 켜면 새 링크가 생깁니다."
+        confirmLabel="끄기"
         onConfirm={() => {
-          setConfirmPrivate(false);
+          setConfirmOff(false);
           update.mutate({ visibility: "private" });
         }}
       />
-    </section>
-  );
-}
-
-function PeopleSection({
-  testSetId,
-  sharing,
-}: {
-  testSetId: string;
-  sharing: Sharing;
-}) {
-  const { setMember, removeMember } = useSharingActions(testSetId);
-  const [search, setSearch] = useState("");
-  const [picked, setPicked] = useState<{ id: string; name: string } | null>(
-    null,
-  );
-  const query = useDeferredValue(search.trim());
-  const candidates = useQuery({
-    ...sharingCandidatesQuery(testSetId, query),
-    enabled: sharing.canInvite && query.length > 0 && !picked,
-  });
-  const invite = () => {
-    if (!picked) return;
-    setMember.mutate(
-      { accountId: picked.id, access: "edit" },
-      {
-        onSuccess: () => {
-          setPicked(null);
-          setSearch("");
-        },
-      },
-    );
-  };
-  const people = [
-    { person: sharing.owner, access: null as ShareAccess | null },
-    ...sharing.members,
-  ];
-  return (
-    <section className="flex flex-col gap-1.5">
-      <h3 className="m-0 text-title-sm">사람</h3>
-      {sharing.canInvite && (
-        <div className="flex flex-col gap-1 pt-1">
-          <div className="flex items-center gap-2">
-            <TextField
-              icon={Search}
-              aria-label="초대할 사람"
-              placeholder="이름 또는 아이디"
-              className="min-w-0 flex-1"
-              value={picked ? picked.name : search}
-              onChange={(e) => {
-                setPicked(null);
-                setSearch(e.target.value);
-              }}
-            />
-            <Button
-              icon={UserPlus}
-              disabled={!picked}
-              loading={setMember.isPending}
-              onClick={invite}
-            >
-              초대
-            </Button>
-          </div>
-          {!picked && query && candidates.data && (
-            <ul
-              aria-label="찾은 계정"
-              className="m-0 flex list-none flex-col rounded-md border border-line p-1"
-            >
-              {candidates.data.length === 0 ? (
-                <li className="px-2 py-1.5 text-body-sm text-fg-muted">
-                  찾은 계정이 없습니다
-                </li>
-              ) : (
-                candidates.data.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      className="flex w-full flex-col items-start rounded-sm px-2 py-1.5 text-left hover:bg-subtle focus-visible:bg-subtle"
-                      onClick={() => setPicked({ id: c.id, name: c.name })}
-                    >
-                      <span className="flex items-center gap-1.5 text-body-sm">
-                        {c.name}
-                        {c.affiliation && <Tag>{c.affiliation}</Tag>}
-                      </span>
-                      <span className="text-caption text-fg-muted">
-                        {c.loginId}
-                      </span>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
-        </div>
-      )}
-      <ul className="m-0 flex list-none flex-col p-0">
-        {people.map(({ person, access }, index) => (
-          <li
-            key={person.id}
-            className="flex items-center gap-2.5 border-line py-2.5 not-first:border-t"
-          >
-            <Avatars
-              people={[
-                {
-                  id: person.id,
-                  name: person.name,
-                  color: ((index % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6,
-                },
-              ]}
-              aria-label={person.name}
-            />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="flex items-center gap-1.5 text-label">
-                {person.name}
-                {person.affiliation && <Tag>{person.affiliation}</Tag>}
-              </span>
-              <span className="truncate text-caption text-fg-muted">
-                {person.loginId}
-              </span>
-            </div>
-            {access === null ? (
-              <span className="pr-2 text-body-sm text-fg-muted">소유자</span>
-            ) : (
-              <>
-                <Select
-                  size="sm"
-                  className="w-36"
-                  aria-label={`${person.name} 권한`}
-                  items={accessItems}
-                  value={access}
-                  disabled={!sharing.canInvite}
-                  onValueChange={(v) =>
-                    v &&
-                    setMember.mutate({
-                      accountId: person.id,
-                      access: v as ShareAccess,
-                    })
-                  }
-                />
-                {sharing.canInvite && (
-                  <IconButton
-                    size="sm"
-                    icon={X}
-                    label={`${person.name} 제거`}
-                    onClick={() => removeMember.mutate(person.id)}
-                  />
-                )}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

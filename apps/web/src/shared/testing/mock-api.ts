@@ -1,10 +1,5 @@
 import type { Page, Route, WebSocketRoute } from "@playwright/test";
-import type {
-  AccountDto,
-  AffiliationDto,
-  MeDto,
-  RoleDto,
-} from "../api/generated/types.gen";
+import type { AccountDto, MeDto } from "../api/generated/types.gen";
 
 /** e2e 전용: 브라우저에서 API 응답을 합성한다. 실제 서버 없이 화면 동작을 검증한다. */
 export const API = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:3101";
@@ -12,76 +7,22 @@ export const API = process.env.PLAYWRIGHT_API_URL ?? "http://127.0.0.1:3101";
 export const WEB_ORIGIN =
   process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5176";
 
-export const affiliations: AffiliationDto[] = [
-  { id: "af1", name: "사내" },
-  { id: "af2", name: "A사" },
-];
-
-const allPermissions: RoleDto["permissions"] = [
-  "test_set.create",
-  "test_set.invite",
-  "test_set.public_link",
-  "test_set.export",
-  "project.manage",
-  "project.create",
-  "plugin.upload",
-  "account.manage",
-  "role.manage",
-];
-
-export const roles: RoleDto[] = [
-  {
-    id: "r1",
-    name: "관리자",
-    fixed: false,
-    requiresExpiry: false,
-    defaultExpiryDays: null,
-    permissions: allPermissions,
-  },
-  {
-    id: "r3",
-    name: "외부 참여자",
-    fixed: false,
-    requiresExpiry: true,
-    defaultExpiryDays: 90,
-    permissions: ["test_set.export"],
-  },
-  {
-    id: "r5",
-    name: "링크 방문자",
-    fixed: true,
-    requiresExpiry: false,
-    defaultExpiryDays: null,
-    permissions: ["test_set.export"],
-  },
-];
-
 export function account(overrides: Partial<AccountDto> = {}): AccountDto {
   return {
     id: "a1",
     name: "최하늘",
-    loginId: "haneul.choi@cheddar.app",
-    affiliation: affiliations[0],
+    loginId: "haneul.choi",
+    role: "admin",
     status: "active",
-    expiresAt: null,
-    assignments: [{ roleId: "r1", scope: "global", projectIds: [] }],
-    defaultExpiryDays: null,
+    createdAt: "2026-10-01T00:00:00Z",
     ...overrides,
   };
 }
 
-export function me(
-  permissions: RoleDto["permissions"] = allPermissions,
-  overrides: Partial<AccountDto> = {},
-): MeDto {
-  return {
-    ...account(overrides),
-    permissions: permissions.map((permission) => ({
-      permission,
-      scope: "global",
-      projectIds: [],
-    })),
-  };
+/** 로그인한 내 계정. 기본은 관리자다 */
+export function me(overrides: Partial<AccountDto> = {}): MeDto {
+  const { createdAt: _, ...rest } = account(overrides);
+  return rest;
 }
 
 type Handler = (route: Route, body: unknown) => unknown;

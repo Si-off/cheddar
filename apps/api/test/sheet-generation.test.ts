@@ -7,13 +7,11 @@ import { AccountsService } from "../src/accounts/accounts.service";
 import { ApiError } from "../src/common/errors";
 import type { TestSetColumnDto } from "../src/contracts/test-set.dto";
 import {
-  accounts,
   generationSteps,
   projectMemos,
   reviewItems,
   tempFrames,
   tempUploads,
-  testSetMembers,
 } from "../src/database/schema";
 import { readAiConfig } from "../src/generation/model-config";
 import {
@@ -408,30 +406,13 @@ test("update_column은 사용자 열, 길이, 유일성, 편집 권한을 검사
       name: "새 이름",
       description: "새 기준",
     };
-    const [admin] = await f.db
-      .select()
-      .from(accounts)
-      .where(eq(accounts.id, f.accountId));
     const viewer = await f.app.get(AccountsService).create({
-      name: "조회자",
+      name: "구성원",
       loginId: `${randomUUID()}@example.com`,
-      affiliationId: admin.affiliationId,
-      assignments: [],
+      role: "member",
+      password: "member-password-12345",
     });
-    f.lease.accountIds.push(viewer.account.id);
-    await f.db.insert(testSetMembers).values({
-      testSetId: set.id,
-      accountId: viewer.account.id,
-      access: "view",
-    });
-    await assert.rejects(
-      operations.apply(set.id, viewer.account.id, { ops: [op] }),
-      apiError("FORBIDDEN"),
-    );
-    await assert.rejects(
-      f.generation.fillColumn(set.id, columnId, viewer.account.id),
-      apiError("FORBIDDEN"),
-    );
+    f.lease.accountIds.push(viewer.id);
     await assert.rejects(
       operations.apply(set.id, f.accountId, {
         ops: [{ ...op, columnId: set.columns[0].id }],
@@ -454,11 +435,7 @@ test("update_column은 사용자 열, 길이, 유일성, 편집 권한을 검사
     });
     const version = (await f.generation.store.visible(set.id, f.accountId)).row
       .version;
-    await f.db
-      .update(testSetMembers)
-      .set({ access: "edit" })
-      .where(eq(testSetMembers.accountId, viewer.account.id));
-    const result = await operations.apply(set.id, viewer.account.id, {
+    const result = await operations.apply(set.id, viewer.id, {
       ops: [op],
     });
     assert.equal(result.version, version + 1);

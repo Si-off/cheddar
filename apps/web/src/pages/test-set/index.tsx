@@ -65,13 +65,6 @@ import { NoAccessNotice } from "@/widgets/no-access-notice";
 import { ReviewPanel } from "@/widgets/review-panel";
 import { ShareDialog } from "@/widgets/share-dialog";
 
-/** 권한 없음 응답에 담긴 소유자 이름 */
-const ownerNameOf = (error: unknown) => {
-  const details = (error as { error?: { details?: { ownerName?: unknown } } })
-    ?.error?.details;
-  return typeof details?.ownerName === "string" ? details.ownerName : undefined;
-};
-
 export function TestSetPage({
   testSetId,
   uploadId,
@@ -82,15 +75,8 @@ export function TestSetPage({
 }) {
   const testSet = useQuery({
     ...testSetQuery(testSetId),
-    meta: { quietCodes: ["NOT_FOUND", "NO_ACCESS"] },
+    meta: { quietCodes: ["NOT_FOUND"] },
   });
-  if (testSet.isError && isApiFailure(testSet.error, "NO_ACCESS"))
-    return (
-      <NoAccessNotice
-        ownerName={ownerNameOf(testSet.error)}
-        backLink={<Link to="/test-sets" />}
-      />
-    );
   if (testSet.isError)
     return (
       <main className="mx-auto w-full max-w-6xl px-6 py-8">
@@ -327,10 +313,7 @@ function TestSetScreen({
         />
       </main>
     ) : (
-      <NoAccessNotice
-        ownerName={testSet.owner.name}
-        backLink={<Link to="/test-sets" />}
-      />
+      <NoAccessNotice backLink={<Link to="/test-sets" />} />
     );
 
   return (

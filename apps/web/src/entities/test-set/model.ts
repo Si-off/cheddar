@@ -47,7 +47,7 @@ export interface TestSetSummary {
   updatedAt: string;
 }
 
-export type TestSetFilter = "all" | "mine" | "shared";
+export type TestSetFilter = "all" | "mine";
 
 /** 셀과 열 편집 연산. 공동 편집에서도 같은 모양을 쓴다. 같은 셀은 나중 값이 이긴다. */
 export type CaseOp = SharedCaseOp;

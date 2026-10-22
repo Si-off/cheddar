@@ -40,9 +40,7 @@ export async function openTestDatabase() {
     production: false,
   };
   const database = new DatabaseService(config);
-  const accountIds: string[] = [],
-    roleIds: string[] = [],
-    affiliationIds: string[] = [];
+  const accountIds: string[] = [];
   let lock: PoolClient | undefined;
   let locked = false;
   const close = async () => {
@@ -65,15 +63,6 @@ export async function openTestDatabase() {
           accountIds,
         ]);
       }
-      if (lock && locked && roleIds.length)
-        await lock.query("DELETE FROM roles WHERE id = ANY($1::uuid[])", [
-          roleIds,
-        ]);
-      if (lock && locked && affiliationIds.length)
-        await lock.query(
-          "DELETE FROM affiliations WHERE id = ANY($1::uuid[])",
-          [affiliationIds],
-        );
     } finally {
       try {
         if (lock && locked)
@@ -130,8 +119,6 @@ export async function openTestDatabase() {
       database,
       folder,
       accountIds,
-      roleIds,
-      affiliationIds,
       close,
     };
   } catch (error) {

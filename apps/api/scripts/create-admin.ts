@@ -25,7 +25,7 @@ async function main() {
       values.name,
     );
     process.stdout.write(
-      `첫 관리자: ${result.account.name} (${result.account.loginId})\n초대 링크용 토큰: ${result.token}\n유효기간: ${result.expiresAt}\n웹 초대 화면의 token 값으로 전달해주세요.\n`,
+      `첫 관리자: ${result.account.name} (${result.account.loginId})\n임시 비밀번호: ${result.password}\n로그인 후 내 비밀번호를 바꿔주세요.\n`,
     );
   } finally {
     await database.onModuleDestroy();

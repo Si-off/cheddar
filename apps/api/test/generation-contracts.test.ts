@@ -6,6 +6,7 @@ import test from "node:test";
 import { Test } from "@nestjs/testing";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
+import { AuthService } from "../src/auth/auth.service";
 import { configureApp } from "../src/common/application";
 import { createDocument } from "../src/common/openapi";
 import {
@@ -418,6 +419,7 @@ test("HTTP DTO 검증과 SSE OpenAPI는 DB 없이 확인", async () => {
     ],
     providers: [
       { provide: GenerationService, useValue: service },
+      { provide: AuthService, useValue: {} },
       { provide: ReviewItemsService, useValue: {} },
       {
         provide: TempUploadsService,

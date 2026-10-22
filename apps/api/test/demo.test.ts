@@ -54,9 +54,7 @@ test("시연 계정은 첫 실행에 로그인 가능하고 재실행은 변경�
       authorization,
     );
     assert.ok((await auth.login(DEMO_LOGIN_ID, DEMO_PASSWORD)).token);
-    const permissions = await authorization.effective(account.id);
-    for (const name of ["plugin.upload", "test_set.create", "test_set.export"])
-      assert.ok(permissions.some((p) => p.permission === name));
+    assert.equal((await authorization.active(account.id)).role, "admin");
     const changed = await hashPassword("changed-demo-password");
     await lease.database.db
       .update(accounts)

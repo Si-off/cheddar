@@ -1,5 +1,5 @@
 import { Button, EmptyState } from "@cheddar/ui";
-import { type QueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
   createRoute,
@@ -12,16 +12,11 @@ import {
 } from "@tanstack/react-router";
 import { CircleAlert, FileQuestion } from "lucide-react";
 import { Suspense } from "react";
-import { currentAccountQuery } from "@/entities/account";
-import { can, canAnywhere, type PermissionKey } from "@/entities/permission";
+import { currentAccountQuery, isAdmin } from "@/entities/account";
 import { AdminAccountPage } from "@/pages/admin-account";
 import { AdminAccountsPage } from "@/pages/admin-accounts";
-import { AdminAffiliationsPage } from "@/pages/admin-affiliations";
-import { AdminRolePage } from "@/pages/admin-role";
-import { AdminRolesPage } from "@/pages/admin-roles";
 import { LoginPage } from "@/pages/login";
 import { NoAccessPage } from "@/pages/no-access";
-import { PasswordSetupPage } from "@/pages/password-setup";
 import { PluginConnectPage } from "@/pages/plugin-connect";
 import {
   ProjectFeatureGroupsPage,
@@ -87,11 +82,6 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFound,
 });
 
-/** 링크로 받은 토큰과 로그인 후 돌아갈 곳 */
-const tokenSearch = (search: Record<string, unknown>) => ({
-  token: typeof search.token === "string" ? search.token : "",
-});
-
 /** 로그인 후 돌아갈 주소는 같은 출처의 경로만 받는다(//다른사이트 같은 값을 막는다). */
 function sameOriginPath(value: unknown) {
   if (typeof value !== "string") return undefined;
@@ -139,40 +129,6 @@ const sharedTestSetRoute = createRoute({
   },
 });
 
-const inviteRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/invite",
-  validateSearch: tokenSearch,
-  component: function InviteRoute() {
-    const { token } = inviteRoute.useSearch();
-    const navigate = useNavigate();
-    return (
-      <PasswordSetupPage
-        kind="invite"
-        token={token}
-        onDone={(loginId) => navigate({ to: "/login", search: { loginId } })}
-      />
-    );
-  },
-});
-
-const passwordResetRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/password-reset",
-  validateSearch: tokenSearch,
-  component: function PasswordResetRoute() {
-    const { token } = passwordResetRoute.useSearch();
-    const navigate = useNavigate();
-    return (
-      <PasswordSetupPage
-        kind="reset"
-        token={token}
-        onDone={(loginId) => navigate({ to: "/login", search: { loginId } })}
-      />
-    );
-  },
-});
-
 /** 로그인한 사람만 들어오는 영역. 세션이 없으면 로그인으로 보낸다. */
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -199,12 +155,9 @@ const appRoute = createRoute({
   },
 });
 
-function requirePermission(...keys: PermissionKey[]) {
-  return async ({ context }: { context: RouterContext }) => {
-    const account = await context.queryClient.query(currentAccountQuery());
-    if (!keys.some((key) => can(account.permissions, key)))
-      throw redirect({ to: "/no-access" });
-  };
+async function requireAdmin({ context }: { context: RouterContext }) {
+  const account = await context.queryClient.query(currentAccountQuery());
+  if (!isAdmin(account)) throw redirect({ to: "/no-access" });
 }
 
 const homeRoute = createRoute({
@@ -218,14 +171,7 @@ const homeRoute = createRoute({
 const testSetsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/test-sets",
-  component: function TestSetsRoute() {
-    const { data: account } = useSuspenseQuery(currentAccountQuery());
-    return (
-      <TestSetsPage
-        canCreate={canAnywhere(account.permissions, "test_set.create")}
-      />
-    );
-  },
+  component: TestSetsPage,
 });
 
 /** Figma 플러그인이 올린 프레임 묶음을 주소로 넘긴다 */
@@ -254,11 +200,6 @@ const testSetNewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/test-sets/new",
   validateSearch: newTestSetSearch,
-  beforeLoad: async ({ context }) => {
-    const account = await context.queryClient.query(currentAccountQuery());
-    if (!canAnywhere(account.permissions, "test_set.create"))
-      throw redirect({ to: "/no-access" });
-  },
   component: function TestSetNewRoute() {
     const { upload, project } = testSetNewRoute.useSearch();
     return <TestSetNewPage uploadId={upload} projectId={project} />;
@@ -378,7 +319,7 @@ const noAccessRoute = createRoute({
 const adminRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/admin",
-  beforeLoad: requirePermission("account.manage", "role.manage"),
+  beforeLoad: requireAdmin,
   component: () => (
     <AdminShell>
       <Outlet />
@@ -389,61 +330,28 @@ const adminRoute = createRoute({
 const adminIndexRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/",
-  beforeLoad: async ({ context }) => {
-    const account = await context.queryClient.query(currentAccountQuery());
-    throw redirect({
-      to: can(account.permissions, "account.manage")
-        ? "/admin/accounts"
-        : "/admin/roles",
-    });
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/accounts" });
   },
 });
 
 const adminAccountsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/accounts",
-  beforeLoad: requirePermission("account.manage"),
   component: AdminAccountsPage,
 });
 
 const adminAccountRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/accounts/$accountId",
-  beforeLoad: requirePermission("account.manage"),
   component: function AdminAccountRoute() {
     const { accountId } = adminAccountRoute.useParams();
     return <AdminAccountPage accountId={accountId} />;
   },
 });
 
-const adminRolesRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "/roles",
-  beforeLoad: requirePermission("role.manage"),
-  component: AdminRolesPage,
-});
-
-const adminRoleRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "/roles/$roleId",
-  beforeLoad: requirePermission("role.manage"),
-  component: function AdminRoleRoute() {
-    const { roleId } = adminRoleRoute.useParams();
-    return <AdminRolePage roleId={roleId} />;
-  },
-});
-
-const adminAffiliationsRoute = createRoute({
-  getParentRoute: () => adminRoute,
-  path: "/affiliations",
-  beforeLoad: requirePermission("role.manage"),
-  component: AdminAffiliationsPage,
-});
-
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  inviteRoute,
-  passwordResetRoute,
   sharedTestSetRoute,
   appRoute.addChildren([
     homeRoute,
@@ -465,9 +373,6 @@ const routeTree = rootRoute.addChildren([
       adminIndexRoute,
       adminAccountsRoute,
       adminAccountRoute,
-      adminRolesRoute,
-      adminRoleRoute,
-      adminAffiliationsRoute,
     ]),
   ]),
 ]);

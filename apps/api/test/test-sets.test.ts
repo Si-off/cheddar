@@ -8,9 +8,7 @@ import { AccountsService } from "../src/accounts/accounts.service";
 import { createFirstAdministrator } from "../src/accounts/bootstrap";
 import { AuthService, SESSION_COOKIE } from "../src/auth/auth.service";
 import { AuthorizationService } from "../src/authorization/authorization.service";
-import type { Permission } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
-import type { CreateAccountDto } from "../src/contracts/identity.dto";
 import type {
   OpsResultDto,
   RecentTemplateDto,
@@ -23,12 +21,10 @@ import {
   projectTemplates,
   testCases,
   testCaseValues,
-  testSetMembers,
   testSets,
 } from "../src/database/schema";
 import { ProjectsService } from "../src/projects/projects.service";
 import { defaultColumns } from "../src/projects/template";
-import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { CaseOperationsService } from "../src/test-sets/case-operations.service";
 import { TestSetsService } from "../src/test-sets/test-sets.service";
@@ -46,7 +42,6 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
     const auth = app.get(AuthService),
       accounts = app.get(AccountsService),
       authorization = app.get(AuthorizationService),
-      roles = app.get(RolesService),
       projects = app.get(ProjectsService),
       sets = app.get(TestSetsService),
       operations = app.get(CaseOperationsService);
@@ -57,7 +52,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       "세트 관리자",
     );
     lease.accountIds.push(admin.account.id);
-    await auth.setPassword(admin.token, password, "invite");
+    await accounts.resetPassword(admin.account.id, password);
     const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const request = (
       path: string,
@@ -83,36 +78,17 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         code,
       );
     };
-    const actor = async (
-      permissions: Permission[] = [],
-      projectIds?: string[],
-    ) => {
-      const assignments: CreateAccountDto["assignments"] = [];
-      if (permissions.length) {
-        const role = await roles.create({
-          name: randomUUID(),
-          permissions,
-          requiresExpiry: false,
-          defaultExpiryDays: null,
-        });
-        lease.roleIds.push(role.id);
-        assignments.push({
-          roleId: role.id,
-          scope: projectIds ? "projects" : "global",
-          projectIds: projectIds ?? [],
-        });
-      }
-      const result = await accounts.create({
+    const actor = async () => {
+      const account = await accounts.create({
         name: "세트 사용자",
         loginId: `${randomUUID()}@example.com`,
-        affiliationId: admin.account.affiliation.id,
-        assignments,
+        role: "member",
+        password,
       });
-      lease.accountIds.push(result.account.id);
-      await auth.setPassword(result.token, password, "invite");
+      lease.accountIds.push(account.id);
       return {
-        id: result.account.id,
-        cookie: `${SESSION_COOKIE}=${(await auth.login(result.account.loginId, password)).token}`,
+        id: account.id,
+        cookie: `${SESSION_COOKIE}=${(await auth.login(account.loginId, password)).token}`,
       };
     };
     const p = await projects.create(admin.account.id, {
@@ -123,9 +99,9 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       name: "다른 프로젝트",
       description: "",
     });
-    const viewer = await actor(["test_set.export"], [p.id]),
-      editor = await actor(["test_set.create"], [p.id]),
-      allViewer = await actor(["test_set.view_all"], [p.id]),
+    const viewer = await actor(),
+      editor = await actor(),
+      allViewer = await actor(),
       outsider = await actor();
     let first!: TestSetDto, other!: TestSetDto, ownedByEditor!: TestSetDto;
     await t.test(
@@ -192,105 +168,71 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           "테스트 케이스",
         );
         await error(
-          await request(
-            "",
-            "POST",
-            { name: "불가", projectId: p.id },
-            viewer.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        await error(
-          await request(
-            "",
-            "POST",
-            { name: "숨김", projectId: p.id },
-            outsider.cookie,
-          ),
-          404,
-          "NOT_FOUND",
-        );
-        await error(
           await request("", "POST", { name: "없음", projectId: randomUUID() }),
           404,
           "NOT_FOUND",
         );
-        await db.insert(testSetMembers).values([
-          { testSetId: first.id, accountId: viewer.id, access: "view" },
-          { testSetId: first.id, accountId: editor.id, access: "edit" },
-          { testSetId: first.id, accountId: admin.account.id, access: "view" },
-        ]);
       },
     );
     await t.test(
-      "세트 상세는 NO_ACCESS를 주고 하위 경로는 숨기며 보이는 쓰기는 권한별 403",
+      "구성원은 타인 세트를 보고 편집·내보내며 삭제는 거부된다",
       async () => {
-        const validView = {
-          view: "table",
-          groupByColumnId: null,
-          columnWidths: {},
-          rowHeights: {},
-        };
-        for (const [suffix, method, body] of [
-          ["", "GET", undefined],
-          ["", "PATCH", { memo: "메모" }],
-          ["", "DELETE", undefined],
-          ["/ops", "POST", { ops: [{ type: "delete_cases", caseIds: [] }] }],
-          ["/view", "GET", undefined],
-          ["/view", "PUT", validView],
-          ["/export", "GET", undefined],
-        ] as const) {
-          await error(
-            await request(
-              `/${first.id}${suffix}`,
-              method,
-              body,
-              outsider.cookie,
-            ),
-            suffix === "" && method === "GET" ? 403 : 404,
-            suffix === "" && method === "GET" ? "NO_ACCESS" : "NOT_FOUND",
-          );
-          await error(
-            await request(`/${randomUUID()}${suffix}`, method, body),
-            404,
-            "NOT_FOUND",
-          );
-        }
-        for (const who of [viewer, allViewer]) {
+        for (const who of [viewer, editor, allViewer, outsider]) {
           const detail = await json<TestSetDto>(
             await request(`/${first.id}`, "GET", undefined, who.cookie),
           );
-          assert.equal(detail.access.canEdit, false);
-          assert.equal(detail.access.canRename, false);
-          assert.equal(detail.access.canDelete, false);
-          for (const [suffix, method, body] of [
-            ["", "PATCH", { name: "변경" }],
-            ["", "DELETE", undefined],
-            ["/ops", "POST", { ops: [{ type: "delete_cases", caseIds: [] }] }],
-          ] as const)
-            await error(
-              await request(`/${first.id}${suffix}`, method, body, who.cookie),
-              403,
-              "FORBIDDEN",
-            );
+          assert.deepEqual(detail.access, {
+            canEdit: true,
+            canRename: true,
+            canDelete: false,
+            canExport: true,
+          });
+          await error(
+            await request(`/${first.id}`, "DELETE", undefined, who.cookie),
+            403,
+            "FORBIDDEN",
+          );
+          await error(
+            await request(`/${randomUUID()}`, "GET", undefined, who.cookie),
+            404,
+            "NOT_FOUND",
+          );
+          assert.equal(
+            (await request(`/${other.id}`, "GET", undefined, who.cookie))
+              .status,
+            200,
+          );
+          const exported = await request(
+            `/${first.id}/export`,
+            "GET",
+            undefined,
+            who.cookie,
+          );
+          assert.equal(exported.status, 200);
+          assert.match(
+            exported.headers.get("content-type") ?? "",
+            /spreadsheetml\.sheet/,
+          );
+          assert.ok(
+            (exported.headers.get("content-disposition") ?? "").includes(
+              encodeURIComponent(`${first.name}.xlsx`),
+            ),
+          );
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(await exported.arrayBuffer());
+          assert.deepEqual(
+            (workbook.worksheets[0].getRow(2).values as unknown[])
+              .slice(1)
+              .map(String),
+            first.columns.map((c) => c.name),
+          );
         }
-        const access = (
-          await json<TestSetDto>(
-            await request(`/${first.id}`, "GET", undefined, editor.cookie),
-          )
-        ).access;
-        assert.deepEqual(access, {
-          canEdit: true,
-          canRename: true,
-          canDelete: false,
-          canExport: false,
-        });
-        await error(
-          await request(`/${first.id}`, "DELETE", undefined, editor.cookie),
-          403,
-          "FORBIDDEN",
+        const before = await sets.detail(first.id, admin.account.id);
+        const emptyPatch = await json<TestSetDto>(
+          await request(`/${first.id}`, "PATCH", {}),
         );
+        assert.equal(emptyPatch.name, before.name);
+        assert.equal(emptyPatch.memo, before.memo);
         await json(
           await request(
             `/${first.id}`,
@@ -303,96 +245,35 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           (await sets.detail(first.id, admin.account.id)).memo,
           "편집자 메모",
         );
-        const beforeEmptyPatch = await sets.detail(first.id, admin.account.id);
-        const afterEmptyPatch = await json<TestSetDto>(
-          await request(`/${first.id}`, "PATCH", {}),
-        );
-        assert.equal(afterEmptyPatch.name, beforeEmptyPatch.name);
-        assert.equal(afterEmptyPatch.memo, beforeEmptyPatch.memo);
-        await error(
-          await request(`/${other.id}`, "GET", undefined, allViewer.cookie),
-          403,
-          "NO_ACCESS",
-        );
-        await error(
-          await request(`/${first.id}/export`, "GET", undefined, editor.cookie),
-          403,
-          "FORBIDDEN",
-        );
-        await error(
-          await request(
-            `/${first.id}/export`,
-            "GET",
-            undefined,
-            allViewer.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        const exported = await request(
-          `/${first.id}/export`,
-          "GET",
-          undefined,
-          viewer.cookie,
-        );
-        assert.equal(exported.status, 200);
-        assert.match(
-          exported.headers.get("content-type") ?? "",
-          /spreadsheetml\.sheet/,
-        );
-        assert.ok(
-          (exported.headers.get("content-disposition") ?? "").includes(
-            encodeURIComponent(`${first.name}.xlsx`),
-          ),
-        );
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(await exported.arrayBuffer());
-        const sheet = workbook.worksheets[0];
-        assert.ok(sheet);
-        const header = (sheet.getRow(2).values as unknown[])
-          .slice(1)
-          .map(String);
-        assert.deepEqual(
-          header,
-          first.columns.map((c) => c.name),
-        );
       },
     );
     await t.test(
-      "목록은 소유, 초대, 범위 보기와 대소문자 무시 부분 검색, 최근 수정순",
+      "목록은 전체와 내가 만든 필터, 부분 검색과 최근 수정순을 따른다",
       async () => {
-        const list = async (query: string, who: typeof editor) =>
+        const list = async (query: string, who = editor) =>
           (
             await json<TestSetListDto>(
               await request(query, "GET", undefined, who.cookie),
             )
           ).items;
         assert.deepEqual(
-          (await list("?filter=mine", editor)).map((s) => s.id),
+          (await list("?filter=mine")).map((s) => s.id),
           [ownedByEditor.id],
         );
-        assert.deepEqual(
-          (await list("?filter=shared", editor)).map((s) => s.id),
-          [first.id],
-        );
-        assert.deepEqual(
-          (await list("?filter=shared", { id: admin.account.id, cookie })).map(
-            (s) => s.id,
-          ),
-          [],
-        );
-        assert.equal((await list("?filter=all", allViewer)).length, 2);
-        assert.deepEqual(await list("?filter=all", outsider), []);
+        for (const who of [viewer, editor, allViewer, outsider])
+          assert.equal((await list("?filter=all", who)).length, 3);
+        for (const filter of ["shared", "owned"])
+          assert.equal((await request(`?filter=${filter}`)).status, 400);
         assert.deepEqual(
           (await list("?search=aLpH", viewer)).map((s) => s.id),
           [first.id],
         );
-        assert.deepEqual(await list("?search=없는이름", viewer), []);
-        const items = await list("", editor);
+        assert.deepEqual(await list("?search=없는이름"), []);
+        const items = await list("");
         assert.equal(items[0].id, first.id);
         assert.equal(items[0].owner.id, admin.account.id);
-        assert.equal(items[0].reviewCount, 0);
         assert.equal(items[0].caseCount, 0);
+        assert.equal(items[0].reviewCount, 0);
       },
     );
     const caseA = randomUUID(),
@@ -1008,14 +889,14 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       },
     );
     await t.test(
-      "최근 양식 미리보기는 생성과 같은 열람 범위·정렬·대체 양식을 쓴다",
+      "최근 양식 미리보기는 모든 계정에 같은 정렬과 대체 양식을 쓴다",
       async () => {
         const project = await projects.create(admin.account.id, {
           name: "미리보기 프로젝트",
           description: "",
         });
-        const creator = await actor(["test_set.create"], [project.id]);
-        const reader = await actor(["test_set.export"], [project.id]);
+        const creator = await actor();
+        const reader = await actor();
         const preview = (who = creator.cookie, projectId = project.id) =>
           fetch(
             `${base}/api/v1/projects/${projectId}/recent-test-set-template`,
@@ -1071,9 +952,13 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         const selected = [first, second].sort((a, b) =>
           a.id.localeCompare(b.id),
         )[0];
+        assert.deepEqual(
+          (await json<RecentTemplateDto>(await preview())).testSet,
+          { id: selected.id, name: selected.name },
+        );
         const hidden = await json<TestSetDto>(
           await request("", "POST", {
-            name: "볼 수 없는 최신 세트",
+            name: "다른 사람이 만든 최신 세트",
             projectId: project.id,
           }),
           201,
@@ -1082,16 +967,11 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           .update(testSets)
           .set({ updatedAt: new Date(tied.getTime() + 10000) })
           .where(eq(testSets.id, hidden.id));
-        // 다른 프로젝트에서 공유받은 최신 세트도 제외한다.
+        // 다른 프로젝트의 최신 세트는 제외한다.
         const elsewhere = await sets.create(admin.account.id, {
           name: "다른 프로젝트 최신",
           projectId: otherProject.id,
           memo: "",
-        });
-        await db.insert(testSetMembers).values({
-          testSetId: elsewhere.id,
-          accountId: creator.id,
-          access: "view",
         });
         await db
           .update(testSets)
@@ -1099,39 +979,25 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           .where(eq(testSets.id, elsewhere.id));
         const result = await json<RecentTemplateDto>(await preview());
         assert.deepEqual(result.testSet, {
-          id: selected.id,
-          name: selected.name,
+          id: hidden.id,
+          name: hidden.name,
         });
-        assert.deepEqual(result.columns, selected.columns);
+        assert.deepEqual(result.columns, hidden.columns);
         assert.deepEqual(
           shape((await create("미리보기와 같은 양식")).columns),
           shape(result.columns),
         );
-        // 프로젝트만 볼 수 있는 사용자는 볼 수 있는 세트가 없으면 기본 양식을 받는다.
-        assert.deepEqual(
-          await json<RecentTemplateDto>(await preview(reader.cookie)),
-          empty,
-        );
-        await db.insert(testSetMembers).values({
-          testSetId: second.id,
-          accountId: reader.id,
-          access: "view",
-        });
-        assert.deepEqual(
-          (await json<RecentTemplateDto>(await preview(reader.cookie))).testSet,
-          { id: second.id, name: second.name },
-        );
-        assert.deepEqual(
-          (await json<RecentTemplateDto>(await preview(cookie))).testSet,
-          { id: hidden.id, name: hidden.name },
-        );
-        await error(await preview(outsider.cookie), 404, "NOT_FOUND");
+        for (const who of [reader, outsider])
+          assert.deepEqual(
+            (await json<RecentTemplateDto>(await preview(who.cookie))).testSet,
+            { id: hidden.id, name: hidden.name },
+          );
         await error(await preview(cookie, randomUUID()), 404, "NOT_FOUND");
         assert.equal((await preview("")).status, 401);
       },
     );
     await t.test(
-      "양식 선택은 custom 검증, recent 열람 필터와 기본 양식 대체를 적용",
+      "양식 선택은 custom 검증, 최신 세트 사본과 기본 양식 대체를 적용",
       async () => {
         const create = async (template: unknown, who = editor.cookie) =>
           json<TestSetDto>(
@@ -1164,11 +1030,11 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         const recent = await create({ kind: "recent" });
         assert.deepEqual(
           recent.columns.map((c) => c.presetKey),
-          ["test_id", "title"],
+          hidden.columns.map((c) => c.presetKey),
         );
         assert.ok(
           recent.columns.every(
-            (c) => !custom.columns.some((source) => source.id === c.id),
+            (c) => !hidden.columns.some((source) => source.id === c.id),
           ),
         );
         const fresh = await projects.create(admin.account.id, {

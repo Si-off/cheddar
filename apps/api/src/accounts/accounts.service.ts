@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, eq, gt, ilike, isNull, lte, or, sql } from "drizzle-orm";
-import { hashToken, newToken } from "../auth/credentials";
+import { and, count, eq, ilike, or } from "drizzle-orm";
+import { hashPassword } from "../auth/credentials";
 import { revokeAccountPluginTokens } from "../auth/plugin-tokens";
 import {
   AuthorizationService,
@@ -10,37 +10,12 @@ import { ApiError, invalid, notFound } from "../common/errors";
 import type {
   AccountDto,
   AccountQueryDto,
-  AssignmentDto,
   CreateAccountDto,
-  OwnedTestSetListDto,
   UpdateAccountDto,
 } from "../contracts/identity.dto";
-import {
-  DatabaseService,
-  type DatabaseTransaction,
-} from "../database/database.service";
-import {
-  accounts,
-  affiliations,
-  authTokens,
-  projects,
-  roleAssignmentProjects,
-  roleAssignments,
-  roles,
-  sessions,
-  testSetMembers,
-  testSets,
-} from "../database/schema";
+import { DatabaseService } from "../database/database.service";
+import { accounts, sessions } from "../database/schema";
 
-export const accountState = (row: {
-  status: "invited" | "active" | "inactive";
-  expiresAt: Date | null;
-}): AccountDto["status"] =>
-  row.status === "active" &&
-  row.expiresAt &&
-  row.expiresAt.getTime() <= Date.now()
-    ? "expired"
-    : row.status;
 const cleanName = (value: string) => {
   const name = value.trim();
   if (!name) throw invalid();
@@ -63,47 +38,13 @@ export class AccountsService {
     db: IdentityDatabase = this.database.db,
   ): Promise<AccountDto> {
     const row = await this.row(id, db);
-    const [affiliation] = await db
-      .select({ id: affiliations.id, name: affiliations.name })
-      .from(affiliations)
-      .where(eq(affiliations.id, row.affiliationId));
-    const assignments = await db
-      .select({
-        id: roleAssignments.id,
-        roleId: roles.id,
-        scope: roleAssignments.scope,
-        requiresExpiry: roles.requiresExpiry,
-        defaultExpiryDays: roles.defaultExpiryDays,
-      })
-      .from(roleAssignments)
-      .innerJoin(roles, eq(roles.id, roleAssignments.roleId))
-      .where(eq(roleAssignments.accountId, id))
-      .orderBy(roleAssignments.id);
-    const result: AssignmentDto[] = [];
-    for (const assignment of assignments) {
-      const linked = await db
-        .select({ id: roleAssignmentProjects.projectId })
-        .from(roleAssignmentProjects)
-        .where(eq(roleAssignmentProjects.assignmentId, assignment.id))
-        .orderBy(roleAssignmentProjects.projectId);
-      result.push({
-        roleId: assignment.roleId,
-        scope: assignment.scope,
-        projectIds: linked.map((p) => p.id),
-      });
-    }
-    const periods = assignments
-      .filter((a) => a.requiresExpiry && a.defaultExpiryDays !== null)
-      .map((a) => a.defaultExpiryDays as number);
     return {
       id: row.id,
       name: row.name,
       loginId: row.loginId,
-      affiliation,
-      status: accountState(row),
-      expiresAt: row.expiresAt?.toISOString() ?? null,
-      assignments: result,
-      defaultExpiryDays: periods.length ? Math.min(...periods) : null,
+      role: row.role,
+      status: row.status,
+      createdAt: row.createdAt.toISOString(),
     };
   }
   async list(query: AccountQueryDto) {
@@ -115,28 +56,8 @@ export class AccountsService {
             ilike(accounts.loginId, `%${search}%`),
           )
         : undefined,
-      query.affiliationId
-        ? eq(accounts.affiliationId, query.affiliationId)
-        : undefined,
-      query.roleId
-        ? sql`EXISTS (SELECT 1 FROM ${roleAssignments} WHERE ${roleAssignments.accountId} = ${accounts.id} AND ${roleAssignments.roleId} = ${query.roleId})`
-        : undefined,
-      query.status === "expired"
-        ? and(
-            eq(accounts.status, "active"),
-            lte(accounts.expiresAt, sql`now()`),
-          )
-        : query.status === "active"
-          ? and(
-              eq(accounts.status, "active"),
-              or(
-                isNull(accounts.expiresAt),
-                gt(accounts.expiresAt, sql`now()`),
-              ),
-            )
-          : query.status
-            ? eq(accounts.status, query.status)
-            : undefined,
+      query.role ? eq(accounts.role, query.role) : undefined,
+      query.status ? eq(accounts.status, query.status) : undefined,
     );
     return this.database.db.transaction(
       async (tx) => {
@@ -159,225 +80,66 @@ export class AccountsService {
       { isolationLevel: "repeatable read", accessMode: "read only" },
     );
   }
-  private async affiliation(id: string, tx: DatabaseTransaction) {
-    if (
-      !(
-        await tx
-          .select({ id: affiliations.id })
-          .from(affiliations)
-          .where(eq(affiliations.id, id))
-      ).length
-    )
-      throw invalid([{ field: "affiliationId", code: "notFound" }]);
-  }
-  async assign(
-    accountId: string,
-    assignments: AssignmentDto[],
-    tx: DatabaseTransaction,
-  ) {
-    for (const assignment of assignments) {
-      const [role] = await tx
-        .select()
-        .from(roles)
-        .where(eq(roles.id, assignment.roleId));
-      if (!role || role.fixed)
-        throw invalid([{ field: "assignments", code: "unassignableRole" }]);
-      if (
-        (assignment.scope === "global" && assignment.projectIds.length !== 0) ||
-        (assignment.scope === "projects" && assignment.projectIds.length === 0)
-      )
-        throw invalid([{ field: "assignments", code: "invalidScope" }]);
-      for (const projectId of assignment.projectIds) {
-        if (
-          !(
-            await tx
-              .select({ id: projects.id })
-              .from(projects)
-              .where(eq(projects.id, projectId))
-          ).length
-        )
-          throw invalid([{ field: "projectIds", code: "notFound" }]);
-      }
-    }
-    await tx
-      .delete(roleAssignments)
-      .where(eq(roleAssignments.accountId, accountId));
-    for (const assignment of assignments) {
-      const [saved] = await tx
-        .insert(roleAssignments)
-        .values({
-          accountId,
-          roleId: assignment.roleId,
-          scope: assignment.scope,
-        })
-        .returning();
-      if (assignment.projectIds.length)
-        await tx.insert(roleAssignmentProjects).values(
-          assignment.projectIds.map((projectId) => ({
-            assignmentId: saved.id,
-            projectId,
-          })),
-        );
-    }
-  }
-  async issueToken(
-    accountId: string,
-    purpose: "invite" | "reset",
-    tx: DatabaseTransaction,
-  ) {
-    const token = newToken();
-    const [record] = await tx
-      .insert(authTokens)
-      .values({
-        accountId,
-        purpose,
-        tokenHash: hashToken(token),
-        expiresAt: sql`now() + interval '7 days'`,
-      })
-      .returning();
-    // Reissuing a link immediately invalidates every older link for the same purpose.
-    await tx
-      .delete(authTokens)
-      .where(
-        and(
-          eq(authTokens.accountId, accountId),
-          eq(authTokens.purpose, purpose),
-          sql`${authTokens.id} <> ${record.id}`,
-        ),
-      );
-    return { token, expiresAt: record.expiresAt.toISOString() };
-  }
   async create(dto: CreateAccountDto) {
+    const passwordHash = await hashPassword(dto.password);
     return this.authorization.mutate(async (tx) => {
-      await this.affiliation(dto.affiliationId, tx);
       const [account] = await tx
         .insert(accounts)
         .values({
           name: cleanName(dto.name),
           loginId: dto.loginId.trim().toLowerCase(),
-          affiliationId: dto.affiliationId,
-          expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+          role: dto.role,
+          passwordHash,
+          status: "active",
         })
         .returning();
-      await this.assign(account.id, dto.assignments, tx);
-      await this.authorization.validateExpiry(tx, account.id);
-      const token = await this.issueToken(account.id, "invite", tx);
-      return { ...token, account: await this.detail(account.id, tx) };
+      return this.detail(account.id, tx);
     });
   }
   async update(id: string, dto: UpdateAccountDto) {
     return this.authorization.mutate(async (tx) => {
       await this.row(id, tx);
-      if (dto.affiliationId !== undefined)
-        await this.affiliation(dto.affiliationId, tx);
       await tx
         .update(accounts)
         .set({
           ...(dto.name === undefined ? {} : { name: cleanName(dto.name) }),
-          ...(dto.loginId === undefined
-            ? {}
-            : { loginId: dto.loginId.trim().toLowerCase() }),
-          ...(dto.affiliationId === undefined
-            ? {}
-            : { affiliationId: dto.affiliationId }),
-          ...(dto.expiresAt === undefined
-            ? {}
-            : { expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null }),
+          ...(dto.role === undefined ? {} : { role: dto.role }),
           updatedAt: new Date(),
         })
         .where(eq(accounts.id, id));
-      if (dto.assignments !== undefined)
-        await this.assign(id, dto.assignments, tx);
-      await this.authorization.validateExpiry(tx, id);
-      const current = await this.row(id, tx);
-      if (accountState(current) !== "active") {
-        await tx.delete(sessions).where(eq(sessions.accountId, id));
-        await revokeAccountPluginTokens(tx, id);
-      }
       return this.detail(id, tx);
     });
   }
   async setActive(id: string, active: boolean) {
     return this.authorization.mutate(async (tx) => {
       const account = await this.row(id, tx);
+      if (active && !account.passwordHash)
+        throw new ApiError(
+          409,
+          "PASSWORD_REQUIRED",
+          "먼저 비밀번호를 정해주세요.",
+        );
       await tx
         .update(accounts)
-        .set({
-          status: active
-            ? account.passwordHash
-              ? "active"
-              : "invited"
-            : "inactive",
-          updatedAt: new Date(),
-        })
+        .set({ status: active ? "active" : "inactive", updatedAt: new Date() })
         .where(eq(accounts.id, id));
       if (!active) {
         await tx.delete(sessions).where(eq(sessions.accountId, id));
         await revokeAccountPluginTokens(tx, id);
-        await tx.delete(authTokens).where(eq(authTokens.accountId, id));
       }
-      await this.authorization.validateExpiry(tx, id);
       return this.detail(id, tx);
     });
   }
-  async issue(id: string, purpose: "invite" | "reset") {
-    return this.authorization.mutate(async (tx) => {
-      const account = await this.row(id, tx);
-      if (
-        (purpose === "invite" && account.status !== "invited") ||
-        (purpose === "reset" && accountState(account) !== "active")
-      )
-        throw new ApiError(409, "ACCOUNT_STATE", "계정 상태를 확인해주세요.");
-      return this.issueToken(id, purpose, tx);
-    });
-  }
-  async listOwnedTestSets(accountId: string): Promise<OwnedTestSetListDto> {
-    await this.row(accountId);
-    const items = await this.database.db
-      .select({
-        id: testSets.id,
-        name: testSets.name,
-        projectName: projects.name,
-      })
-      .from(testSets)
-      .innerJoin(projects, eq(projects.id, testSets.projectId))
-      .where(eq(testSets.ownerId, accountId))
-      .orderBy(testSets.name, testSets.id);
-    return { items };
-  }
-  async transferTestSetOwner(fromId: string, testSetId: string, toId: string) {
-    return this.authorization.mutate(async (tx) => {
-      const [owned] = await tx
-        .select({ id: testSets.id })
-        .from(testSets)
-        .where(and(eq(testSets.id, testSetId), eq(testSets.ownerId, fromId)))
-        .for("update");
-      if (!owned) throw notFound();
-      // 고칠 대상이 다르므로 원래 소유자와 새 소유자의 문제를 나눠 알린다
-      if ((await this.row(fromId, tx)).status !== "inactive")
-        throw new ApiError(
-          409,
-          "OWNERSHIP_ACCOUNT_STATE",
-          "현재 소유자가 비활성 계정일 때만 넘길 수 있습니다.",
-        );
-      if (accountState(await this.row(toId, tx)) !== "active")
-        throw new ApiError(
-          409,
-          "OWNERSHIP_ACCOUNT_STATE",
-          "새 소유자가 활성 계정이 아닙니다. 다른 계정을 고르세요.",
-        );
+  async resetPassword(id: string, password: string) {
+    const passwordHash = await hashPassword(password);
+    await this.authorization.mutate(async (tx) => {
+      await this.row(id, tx);
       await tx
-        .delete(testSetMembers)
-        .where(
-          and(
-            eq(testSetMembers.testSetId, testSetId),
-            eq(testSetMembers.accountId, toId),
-          ),
-        );
-      await tx
-        .update(testSets)
-        .set({ ownerId: toId, updatedAt: new Date() })
-        .where(eq(testSets.id, testSetId));
+        .update(accounts)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(eq(accounts.id, id));
+      await tx.delete(sessions).where(eq(sessions.accountId, id));
+      await revokeAccountPluginTokens(tx, id);
     });
   }
 }

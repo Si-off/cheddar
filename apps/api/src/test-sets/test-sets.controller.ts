@@ -28,7 +28,6 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { CurrentAccount } from "../authorization/guards";
-import { ApiError } from "../common/errors";
 import {
   AddCaseOpDto,
   AddColumnOpDto,
@@ -104,13 +103,7 @@ export class TestSetsController {
     @Param("testSetId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
   ) {
-    try {
-      return await this.service.detail(id, accountId);
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "NOT_FOUND")
-        await this.service.denyDetail(id);
-      throw error;
-    }
+    return this.service.detail(id, accountId);
   }
 
   @Patch(":testSetId")

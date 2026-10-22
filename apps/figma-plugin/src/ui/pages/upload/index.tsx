@@ -79,26 +79,12 @@ const failureHint = (code: string | null) =>
       ? "프레임 내용이 5MB를 넘습니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
       : "다시 시도하세요.";
 
-type Grants = MeDto["permissions"];
-// 플러그인 업로드는 전체 범위 권한만 인정한다
-const canUpload = (grants: Grants) =>
-  grants.some((g) => g.permission === "plugin.upload" && g.scope === "global");
-// 웹의 새 테스트 세트와 같은 규칙으로 고를 수 있는 프로젝트를 거른다
-const canCreateIn = (grants: Grants, projectId: string) =>
-  grants.some(
-    (g) =>
-      g.permission === "test_set.create" &&
-      (g.scope === "global" || g.projectIds.includes(projectId)),
-  );
-
-/** 테스트 세트를 만들 수 있는 프로젝트와 고른 값. 지난번 고른 프로젝트를 기본값으로 쓴다. */
-function useProjectChoice(grants: Grants) {
+/** 고를 수 있는 프로젝트와 고른 값. 지난번 고른 프로젝트를 기본값으로 쓴다. */
+function useProjectChoice() {
   const projects = useQuery({
     queryKey: ["projects"],
     queryFn: async () =>
-      (await sdk.listProjects({ throwOnError: true })).data.items.filter(
-        (project) => canCreateIn(grants, project.id),
-      ),
+      (await sdk.listProjects({ throwOnError: true })).data.items,
   });
   const remembered = useQuery({
     queryKey: ["last-project"],
@@ -139,8 +125,7 @@ export function UploadPage({
   onSignedOut: () => void;
 }) {
   const toast = useToast();
-  const choice = useProjectChoice(account.permissions);
-  const uploadAllowed = canUpload(account.permissions);
+  const choice = useProjectChoice();
   const selection = useFigmaConnection((s) => s.selection);
   const [phase, setPhase] = useState<Phase>({ name: "select" });
   const [, rerender] = useState(0);
@@ -402,9 +387,7 @@ export function UploadPage({
           variant="primary"
           block
           icon={Upload}
-          disabled={
-            !frames.length || invalid || !uploadAllowed || !choice.projectId
-          }
+          disabled={!frames.length || invalid || !choice.projectId}
           onClick={() => void start()}
         >
           {frames.length ? `프레임 ${frames.length}개 업로드` : "프레임 업로드"}
@@ -412,11 +395,7 @@ export function UploadPage({
       }
     >
       <div className="flex flex-1 flex-col gap-3.5">
-        {!uploadAllowed ? (
-          <Banner tone="warning" title="업로드 권한이 없습니다">
-            관리자에게 플러그인 업로드 권한을 요청하세요.
-          </Banner>
-        ) : choice.projects.isError ? (
+        {choice.projects.isError ? (
           <Banner
             tone="danger"
             title="프로젝트를 불러오지 못했습니다"
@@ -427,9 +406,7 @@ export function UploadPage({
             }
           />
         ) : choice.ready && !choice.items.length ? (
-          <Banner tone="warning" title="고를 수 있는 프로젝트가 없습니다">
-            관리자에게 테스트 세트 만들기 권한을 요청하세요.
-          </Banner>
+          <Banner tone="warning" title="고를 수 있는 프로젝트가 없습니다" />
         ) : (
           <Select
             label="프로젝트"
