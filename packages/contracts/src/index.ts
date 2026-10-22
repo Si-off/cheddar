@@ -25,10 +25,12 @@ export type CaseOp =
     }
   | { type: "reorder_columns"; columnIds: string[] }
   | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
+  | { type: "set_feature_group"; caseId: string; featureGroupId: string | null }
   | {
       type: "add_case";
       caseId: string;
       afterCaseId: string | null;
+      featureGroupId?: string | null;
       values?: Record<string, CellValue>;
     }
   | { type: "delete_cases"; caseIds: string[] }
@@ -114,9 +116,18 @@ export function isCaseOp(v: unknown): v is CaseOp {
       v.column.options.every((x) => typeof x === "string")
     );
   if (!uuid(v.caseId)) return false;
+  if (v.type === "set_feature_group")
+    return v.featureGroupId === null || uuid(v.featureGroupId);
   if (v.type === "set_cell") return uuid(v.columnId) && value(v.value);
   if (v.type !== "add_case" && v.type !== "move_case") return false;
   if (v.afterCaseId !== null && !uuid(v.afterCaseId)) return false;
+  if (
+    v.type === "add_case" &&
+    v.featureGroupId !== undefined &&
+    v.featureGroupId !== null &&
+    !uuid(v.featureGroupId)
+  )
+    return false;
   return (
     v.type !== "add_case" ||
     v.values === undefined ||

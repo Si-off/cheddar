@@ -1,4 +1,4 @@
-﻿import "reflect-metadata";
+import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -18,7 +18,11 @@ import type {
   SharedTestSetDto,
   SharingDto,
 } from "../src/contracts/sharing.dto";
-import type { TestSetDto, TestSetViewDto } from "../src/contracts/test-set.dto";
+import type {
+  OpsResultDto,
+  TestSetDto,
+  TestSetViewDto,
+} from "../src/contracts/test-set.dto";
 import {
   accounts as accountRows,
   generationJobs,
@@ -597,7 +601,9 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         const select = set.columns.find((column) => column.type === "select");
         assert.ok(select);
         const view: TestSetViewDto = {
-          view: "card",
+          view: "canvas",
+          canvasGroup: "column",
+          canvasDensity: "brief",
           groupByColumnId: select.id,
           columnWidths: { [set.columns[1].id]: 150 },
           rowHeights: {},
@@ -676,7 +682,9 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           true,
         );
         const view: TestSetViewDto = {
-          view: "card",
+          view: "canvas",
+          canvasGroup: "feature",
+          canvasDensity: "brief",
           groupByColumnId: null,
           columnWidths: {},
           rowHeights: {},
@@ -733,6 +741,27 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
     await t.test(
       "연산은 커밋 뒤 connectionId·서버 번호와 함께 모든 연결에 전파하고 hello로 복구",
       async () => {
+        const readOnlyCase = (await sets.detail(set.id, admin.account.id))
+          .cases[0];
+        await error(
+          await request(
+            `/shared/${token}/ops`,
+            "POST",
+            {
+              ops: [
+                {
+                  type: "set_feature_group",
+                  caseId: readOnlyCase.id,
+                  featureGroupId: null,
+                },
+              ],
+            },
+            visitorCookie,
+          ),
+          403,
+          "FORBIDDEN",
+        );
+        await json(await request(sharing, "PATCH", { linkPermission: "edit" }));
         const first = connect(`/test-sets/${set.id}/live`),
           second = connect(`/shared/${token}/live`, visitorCookie);
         const welcome = await first.next("welcome"),
@@ -774,6 +803,64 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
           JSON.stringify({ type: "hello", version: before.version }),
         );
         assert.equal((await second.next("ops")).version, response.version);
+        const group = await projects.saveGroup(project.id, {
+          name: "실시간 그룹",
+          description: "",
+        });
+        const groupResync = await first.next("resync");
+        assert.equal(groupResync.version, response.version + 1);
+        assert.deepEqual(groupResync, await second.next("resync"));
+        const groupOp = {
+          type: "set_feature_group",
+          caseId,
+          featureGroupId: group.id,
+        };
+        const grouped = await json<OpsResultDto>(
+          await request(
+            `/shared/${token}/ops`,
+            "POST",
+            { ops: [groupOp] },
+            visitorCookie,
+          ),
+        );
+        assert.equal(grouped.version, groupResync.version + 1);
+        assert.equal(grouped.cases[0].featureGroupId, group.id);
+        const groupEvent = await first.next("ops");
+        assert.deepEqual(groupEvent, await second.next("ops"));
+        assert.deepEqual(groupEvent.ops, [groupOp]);
+        assert.equal(groupEvent.actor.kind, "visitor");
+        second.ws.send(
+          JSON.stringify({ type: "hello", version: groupResync.version }),
+        );
+        assert.deepEqual((await second.next("ops")).ops, [groupOp]);
+        const childId = randomUUID();
+        await json(
+          await request(
+            `/shared/${token}/ops`,
+            "POST",
+            {
+              ops: [{ type: "add_case", caseId: childId, afterCaseId: caseId }],
+            },
+            visitorCookie,
+          ),
+        );
+        const inherited = (await first.next("ops")).ops[0];
+        assert.equal(inherited.type, "add_case");
+        if (inherited.type === "add_case")
+          assert.equal(inherited.featureGroupId, group.id);
+        await second.next("ops");
+        const sharedGroups = await json<SharedTestSetDto>(
+          await request(`/shared/${token}`, "GET", undefined, visitorCookie),
+        );
+        assert.ok(
+          sharedGroups.featureGroups.some(
+            (g) => g.id === group.id && g.name === group.name,
+          ),
+        );
+        assert.equal(
+          sharedGroups.cases.find((c) => c.id === childId)?.featureGroupId,
+          group.id,
+        );
         second.ws.send(
           JSON.stringify({
             type: "select",
@@ -789,6 +876,12 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         );
         const resync = await first.next("resync");
         assert.ok(resync.version > response.version);
+        assert.equal(
+          (await sets.detail(set.id, admin.account.id)).cases.find(
+            (c) => c.id === caseId,
+          )?.featureGroupId,
+          group.id,
+        );
         second.ws.send(JSON.stringify({ type: "hello", version: 0 }));
         assert.equal(
           (await second.next("resync", (m) => m.version === resync.version))

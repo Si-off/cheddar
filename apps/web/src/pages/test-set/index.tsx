@@ -3,21 +3,23 @@ import {
   Banner,
   Button,
   buttonVariants,
+  cn,
   EmptyState,
   IconButton,
   LoadError,
   Menu,
   SaveStatus,
-  Select,
   Tabs,
   TextField,
   Toolbar,
+  ToolbarMenu,
   ToolbarSeparator,
   useToast,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  AlignLeft,
   CircleHelp,
   Columns3,
   Download,
@@ -59,7 +61,7 @@ import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { sharingQuery } from "@/features/share-test-set";
 import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
-import { CaseBoard } from "@/widgets/case-board";
+import { CaseCanvas } from "@/widgets/case-canvas";
 import { CaseDialog } from "@/widgets/case-dialog";
 import { CaseTable, CellToolbar } from "@/widgets/case-table";
 import { NoAccessNotice } from "@/widgets/no-access-notice";
@@ -231,10 +233,16 @@ function TestSetScreen({
     meta: { quietCodes: ["NOT_FOUND", "FORBIDDEN"] },
   }).data?.columns;
 
+  const canvas = view.view === "canvas";
   const groupColumn =
     testSet.columns.find(
       (c) => c.id === view.groupByColumnId && groupable(c.type),
     ) ?? null;
+  // 캔버스를 나눌 기준. 열을 골랐는데 그 열이 없어졌으면 기능 그룹으로 나눈다.
+  const canvasGroup =
+    view.canvasGroup === "column" && !groupColumn
+      ? "feature"
+      : view.canvasGroup;
   const cases = query
     ? testSet.cases.filter((c) =>
         testSet.columns.some((col) =>
@@ -322,7 +330,12 @@ function TestSetScreen({
     );
 
   return (
-    <main className="flex w-full flex-col gap-4 px-8 pt-6 pb-8">
+    <main
+      className={cn(
+        "flex w-full flex-col gap-4 px-8 pt-6 pb-8",
+        canvas && "min-h-0 flex-1",
+      )}
+    >
       <div className="flex min-h-9 flex-wrap items-center gap-3">
         <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
         {!readOnly && <SaveStatus state={state} />}
@@ -377,14 +390,14 @@ function TestSetScreen({
       <Toolbar aria-label="테스트 세트 도구">
         <Tabs.Root
           value={view.view}
-          onValueChange={(v) => setView({ view: v as "table" | "card" })}
+          onValueChange={(v) => setView({ view: v as "table" | "canvas" })}
         >
           <Tabs.List variant="pill" aria-label="보기">
             <Tabs.Tab value="table" icon={Table2}>
               표
             </Tabs.Tab>
-            <Tabs.Tab value="card" icon={Columns3}>
-              카드
+            <Tabs.Tab value="canvas" icon={Columns3}>
+              캔버스
             </Tabs.Tab>
           </Tabs.List>
         </Tabs.Root>
@@ -406,20 +419,69 @@ function TestSetScreen({
             />
           </>
         )}
-        {view.view === "card" && (
-          <Select
-            size="sm"
-            aria-label="묶기 기준"
-            className="w-40"
-            value={groupColumn?.id ?? ""}
-            items={[
-              { value: "", label: "묶지 않음" },
-              ...testSet.columns
-                .filter((c) => groupable(c.type))
-                .map((c) => ({ value: c.id, label: c.name })),
-            ]}
-            onValueChange={(id) => setView({ groupByColumnId: id || null })}
-          />
+        {canvas && (
+          <>
+            <ToolbarSeparator />
+            {!readOnly && (
+              <CellToolbar
+                actions={{
+                  undo: history.canUndo ? history.undo : null,
+                  redo: history.canRedo ? history.redo : null,
+                }}
+              />
+            )}
+            <ToolbarMenu icon={Columns3} label="그룹화">
+              {[
+                { key: "feature", label: "기능 그룹" },
+                ...testSet.columns
+                  .filter((c) => groupable(c.type))
+                  .map((c) => ({ key: c.id, label: c.name })),
+                { key: "none", label: "없음" },
+              ].map((option) => {
+                const checked =
+                  option.key === "feature" || option.key === "none"
+                    ? canvasGroup === option.key
+                    : canvasGroup === "column" &&
+                      groupColumn?.id === option.key;
+                return (
+                  <Menu.CheckboxItem
+                    key={option.key}
+                    closeOnClick
+                    checked={checked}
+                    onCheckedChange={() =>
+                      setView(
+                        option.key === "feature" || option.key === "none"
+                          ? { canvasGroup: option.key }
+                          : {
+                              canvasGroup: "column",
+                              groupByColumnId: option.key,
+                            },
+                      )
+                    }
+                  >
+                    {option.label}
+                  </Menu.CheckboxItem>
+                );
+              })}
+            </ToolbarMenu>
+            <ToolbarMenu icon={AlignLeft} label="표시">
+              {(
+                [
+                  { key: "brief", label: "간략" },
+                  { key: "detail", label: "상세" },
+                ] as const
+              ).map((option) => (
+                <Menu.CheckboxItem
+                  key={option.key}
+                  closeOnClick
+                  checked={view.canvasDensity === option.key}
+                  onCheckedChange={() => setView({ canvasDensity: option.key })}
+                >
+                  {option.label}
+                </Menu.CheckboxItem>
+              ))}
+            </ToolbarMenu>
+          </>
         )}
         {(!readOnly || testSet.access.canExport) && <ToolbarSeparator />}
         {!readOnly && (
@@ -501,17 +563,25 @@ function TestSetScreen({
         />
       )}
 
-      <div className="flex flex-col items-start gap-4 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          {view.view === "card" ? (
-            <CaseBoard
+      <div
+        className={cn(
+          "flex flex-col gap-4 lg:flex-row",
+          canvas ? "min-h-0 flex-1" : "items-start",
+        )}
+      >
+        <div className={cn("min-w-0 flex-1", canvas && "flex flex-col")}>
+          {canvas ? (
+            <CaseCanvas
               columns={testSet.columns}
               cases={cases}
+              allCases={testSet.cases}
+              featureGroups={testSet.featureGroups ?? []}
+              group={canvasGroup}
               groupColumnId={groupColumn?.id ?? null}
+              density={view.canvasDensity}
               readOnly={readOnly}
               onOps={onOps}
               onOpenCase={setOpenCaseId}
-              onAddCase={(values) => setOpenCaseId(addCase(values))}
             />
           ) : testSet.cases.length === 0 ? (
             <EmptyState

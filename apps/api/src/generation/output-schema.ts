@@ -70,6 +70,13 @@ export function caseSchema(input: GenerationInput): JsonSchema {
     mergedCount: { type: "integer", minimum: 0 },
   });
 }
+export function finishSchema(input: GenerationInput): JsonSchema {
+  return object({
+    ...caseSchema(input).properties,
+    caseGroupKeys: array({ type: ["string", "null"], maxLength: 100 }),
+    reviewGroupKeys: array({ type: ["string", "null"], maxLength: 100 }),
+  });
+}
 // 제공자의 구조화 출력과 별개로 같은 제한을 서버에서 다시 검사한다.
 export function validateSchema(
   schema: JsonSchema,

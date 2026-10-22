@@ -29,6 +29,9 @@ export type GenerationInput = {
 };
 export type CaseOutput = {
   cases: Draft[];
+  /** 최종 점검의 결과 순서와 대응한다. 이전 작업의 저장된 출력에는 없을 수 있다. */
+  caseGroupKeys?: (string | null)[];
+  reviewGroupKeys?: (string | null)[];
   reviews: {
     reason: string;
     question: string | null;

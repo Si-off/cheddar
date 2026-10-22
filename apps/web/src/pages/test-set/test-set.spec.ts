@@ -246,7 +246,7 @@ test("셀 메뉴의 값 삭제로 값을 비운다", async ({ page }) => {
   await expect(cell(page, 1, "우선순위")).toHaveText("");
 });
 
-test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 값이 바뀐다", async ({
+test("캔버스는 기능 그룹별 열로 보이고, 카드를 다른 그룹으로 끌면 그 그룹으로 옮긴다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -254,29 +254,49 @@ test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 
     ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
   });
   await page.goto("/test-sets/t1");
-  await page.getByRole("tab", { name: "카드" }).click();
-  await page.getByRole("combobox", { name: "묶기 기준" }).click();
-  await page.getByRole("option", { name: "우선순위" }).click();
+  await page.getByRole("tab", { name: "캔버스" }).click();
   const lane = (name: string) =>
     page.getByRole("listitem", { name, exact: true });
-  await expect(lane("높음")).toContainText("TC-001");
-  await lane("높음")
+  await expect(lane("이메일 가입")).toContainText("TC-001");
+  await expect(lane("약관 동의")).toContainText("TC-002");
+  await lane("이메일 가입")
     .getByRole("button", { name: /TC-001/ })
-    .dragTo(lane("낮음"));
-  await expect(lane("낮음")).toContainText("TC-001");
+    .dragTo(lane("약관 동의"));
+  await expect(lane("약관 동의")).toContainText("TC-001");
   await expect
     .poll(() => opsBodies(calls)[0])
     .toEqual([
-      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
+      { type: "set_feature_group", caseId: "k1", featureGroupId: "g2" },
     ]);
-  // 보기와 묶기 기준은 사람별로 저장한다
+  // 보기는 사람별로 저장한다
   await expect
     .poll(
       () =>
         calls.filter((c) => c.key === "PUT /api/v1/test-sets/t1/view").at(-1)
           ?.body,
     )
-    .toMatchObject({ view: "card", groupByColumnId: "c-pri" });
+    .toMatchObject({ view: "canvas", canvasGroup: "feature" });
+
+  // 그룹화를 우선순위 열로 바꾸고 끌면 그 값이 바뀐다
+  const tools = page.getByRole("toolbar", { name: "테스트 세트 도구" });
+  await tools.getByRole("button", { name: "그룹화" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "우선순위" }).click();
+  await expect(lane("높음")).toContainText("TC-001");
+  await lane("높음")
+    .getByRole("button", { name: /TC-001/ })
+    .dragTo(lane("낮음"));
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
+    ]);
+  await expect
+    .poll(
+      () =>
+        calls.filter((c) => c.key === "PUT /api/v1/test-sets/t1/view").at(-1)
+          ?.body,
+    )
+    .toMatchObject({ canvasGroup: "column", groupByColumnId: "c-pri" });
 });
 
 test("머리글 +로 양식의 열을 더하고, 열 메뉴에서 사용자 열을 지운다", async ({
@@ -485,13 +505,17 @@ test("키보드로 표에 들어오면 첫 셀을 고르고 방향키와 Enter�
   await expect(page.getByRole("textbox", { name: "제목" })).toBeFocused();
 });
 
-test("카드를 태그 없음 열로 옮기면 태그를 모두 비운다", async ({ page }) => {
+test("캔버스에서 카드를 태그 없음 열로 옮기면 태그를 모두 비운다", async ({
+  page,
+}) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
     ...testSetResponses({
       "GET /api/v1/test-sets/t1/view": {
-        view: "card",
+        view: "canvas",
+        canvasGroup: "column",
         groupByColumnId: "c-tags",
+        canvasDensity: "brief",
         columnWidths: {},
         rowHeights: {},
       },

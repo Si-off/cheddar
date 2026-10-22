@@ -713,6 +713,8 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
       async () => {
         const empty = {
           view: "table",
+          canvasGroup: "feature",
+          canvasDensity: "brief",
           groupByColumnId: null,
           columnWidths: {},
           rowHeights: {},
@@ -724,7 +726,9 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           empty,
         );
         const view = {
-          view: "card",
+          view: "canvas",
+          canvasGroup: "column",
+          canvasDensity: "brief",
           groupByColumnId: tags.id,
           columnWidths: { [tags.id]: 2000 },
           rowHeights: { [caseA]: 2000 },
@@ -769,6 +773,7 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
           await request(`/${first.id}/view`, "GET", undefined, viewer.cookie),
         );
         assert.equal(cleaned.groupByColumnId, null);
+        assert.equal(cleaned.canvasGroup, "feature");
         assert.deepEqual(cleaned.columnWidths, {});
         await operations.apply(first.id, admin.account.id, {
           ops: [{ type: "delete_cases", caseIds: [caseA] }],

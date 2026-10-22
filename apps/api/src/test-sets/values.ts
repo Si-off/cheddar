@@ -13,6 +13,7 @@ import {
   RemoveColumnOpDto,
   ReorderColumnsOpDto,
   SetCellOpDto,
+  SetFeatureGroupOpDto,
   TestSetViewDto,
   UpdateColumnOpDto,
 } from "../contracts/test-set.dto";
@@ -103,6 +104,7 @@ export function validateOps(input: unknown): CaseOp[] {
       ["remove_column", RemoveColumnOpDto],
       ["reorder_columns", ReorderColumnsOpDto],
       ["set_cell", SetCellOpDto],
+      ["set_feature_group", SetFeatureGroupOpDto],
       ["add_case", AddCaseOpDto],
       ["delete_cases", DeleteCasesOpDto],
       ["move_case", MoveCaseOpDto],
@@ -128,7 +130,12 @@ export function validateOps(input: unknown): CaseOp[] {
     else {
       op.caseId = op.caseId.toLowerCase();
       if (op.type === "set_cell") op.columnId = op.columnId.toLowerCase();
-      else op.afterCaseId = op.afterCaseId?.toLowerCase() ?? null;
+      else if (op.type !== "set_feature_group")
+        op.afterCaseId = op.afterCaseId?.toLowerCase() ?? null;
+      if (op.type === "set_feature_group" || op.type === "add_case") {
+        if (op.featureGroupId !== undefined)
+          op.featureGroupId = op.featureGroupId?.toLowerCase() ?? null;
+      }
       if (op.type === "add_case" && op.values !== undefined)
         op.values = normalizeValues(op.values);
     }
@@ -159,6 +166,8 @@ export function validateView(input: unknown): TestSetViewDto {
     );
   }
   dto.groupByColumnId = dto.groupByColumnId?.toLowerCase() ?? null;
+  if (dto.canvasGroup === "column" && dto.groupByColumnId === null)
+    return validationFailed("보기 설정을 확인해주세요.");
   return dto;
 }
 export function testIdNumber(value: CellValue | undefined): bigint {

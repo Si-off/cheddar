@@ -4,6 +4,7 @@ import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { and, eq, sql } from "drizzle-orm";
 import type { CellValue } from "../contracts/test-set.dto";
 import {
+  featureGroups,
   generationJobs,
   generationSteps,
   reviewItems,
@@ -254,6 +255,12 @@ export class StageRunner implements OnModuleDestroy {
       } else validateDraft(input.columns, value);
     } else {
       const output = value as CaseOutput;
+      if (
+        stage === "finish" &&
+        (output.caseGroupKeys?.length !== output.cases.length ||
+          output.reviewGroupKeys?.length !== output.reviews.length)
+      )
+        throw new Error("케이스와 확인 필요 항목의 기능 그룹 키를 확인하세요.");
       for (const draft of [
         ...output.cases,
         ...output.reviews.map((r) => r.draft),
@@ -370,8 +377,22 @@ export class StageRunner implements OnModuleDestroy {
         );
         next = "finish";
       } else if (stage === "finish") {
+        const grouped = await this.db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "cases"),
+              eq(generationSteps.status, "completed"),
+            ),
+          )
+          .orderBy(generationSteps.workKey);
         const output = (await this.step(jobId, stage, "all", input, {
-          outputs: await outputs<CaseOutput>("cases"),
+          outputs: grouped.map((s) => ({
+            ...(s.output as CaseOutput),
+            groupKey: s.workKey,
+          })),
           screens: await outputs<ScreenOutput>("screens"),
           flows: await outputs<FlowOutput>("flows"),
           memo: input.memo,
@@ -543,7 +564,7 @@ export class StageRunner implements OnModuleDestroy {
   ) {
     await this.db.transaction(async (tx) => {
       await this.generation.assertActor(job.testSetId, job.requestedBy, tx);
-      const { access } = await this.generation.store.visible(
+      const { access, row } = await this.generation.store.visible(
         job.testSetId,
         job.requestedBy,
         tx,
@@ -556,20 +577,31 @@ export class StageRunner implements OnModuleDestroy {
         .where(eq(generationJobs.id, job.id))
         .for("update");
       if (!fresh || fresh.status === "completed") return;
+      // 스냅샷 이후 삭제된 그룹과 제안용 키는 연결하지 않는다.
+      const groups = await tx
+        .select({ id: featureGroups.id })
+        .from(featureGroups)
+        .where(eq(featureGroups.projectId, row.projectId))
+        .for("key share");
+      const groupIds = new Set(groups.map((g) => g.id));
+      const groupId = (key: string | null | undefined) =>
+        key && groupIds.has(key) ? key : null;
       const existing = await this.generation.store.cases(job.testSetId, tx);
       const seen = new Set(existing.map((c) => fingerprint(input, c.values)));
       let merged = 0;
-      const cases = output.cases.filter((draft) => {
+      const cases = output.cases.flatMap((draft, index) => {
         const key = fingerprint(input, draft);
         if (seen.has(key)) {
           merged++;
-          return false;
+          return [];
         }
         seen.add(key);
-        return true;
+        return [
+          { draft, featureGroupId: groupId(output.caseGroupKeys?.[index]) },
+        ];
       });
       let afterCaseId = existing.at(-1)?.id ?? null;
-      const ops = cases.map((draft) => {
+      const ops = cases.map(({ draft, featureGroupId }) => {
         const values = {
           ...draft,
           ...Object.fromEntries(
@@ -577,7 +609,13 @@ export class StageRunner implements OnModuleDestroy {
           ),
         };
         const caseId = randomUUID();
-        const op = { type: "add_case" as const, caseId, afterCaseId, values };
+        const op = {
+          type: "add_case" as const,
+          caseId,
+          afterCaseId,
+          values,
+          featureGroupId,
+        };
         afterCaseId = caseId;
         return op;
       });
@@ -600,6 +638,7 @@ export class StageRunner implements OnModuleDestroy {
               ? [{ question: r.question, answer: null }]
               : [],
             draft: r.draft,
+            featureGroupId: groupId(output.reviewGroupKeys?.[position]),
             createdAt: new Date(Date.now() + position),
           })),
         );

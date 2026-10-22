@@ -112,6 +112,47 @@ test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 �
       true,
     );
     assert.equal(ops({ ops: [{ type: "add_case", caseId }] }), false);
+    for (const featureGroupId of [null, columnId]) {
+      assert.equal(
+        ops({ ops: [{ type: "set_feature_group", caseId, featureGroupId }] }),
+        true,
+      );
+      assert.equal(
+        ops({
+          ops: [
+            { type: "add_case", caseId, afterCaseId: null, featureGroupId },
+          ],
+        }),
+        true,
+      );
+    }
+    assert.equal(ops({ ops: [{ type: "set_feature_group", caseId }] }), false);
+    assert.equal(
+      ops({
+        ops: [{ type: "set_feature_group", caseId, featureGroupId: "wrong" }],
+      }),
+      false,
+    );
+    const caseDto = ajv.getSchema("#/components/schemas/CaseDto");
+    assert.ok(caseDto);
+    assert.equal(
+      caseDto({ id: caseId, featureGroupId: null, values: {} }),
+      true,
+    );
+    assert.equal(
+      caseDto({ id: caseId, featureGroupId: columnId, values: {} }),
+      true,
+    );
+    assert.equal(caseDto({ id: caseId, values: {} }), false);
+    assert.equal(
+      caseDto({ id: caseId, featureGroupId: "wrong", values: {} }),
+      false,
+    );
+    for (const name of ["TestSetDto", "SharedTestSetDto"]) {
+      const schema = components[name];
+      assert.ok(schema && !("$ref" in schema));
+      assert.ok(schema.required?.includes("featureGroups"));
+    }
     assert.equal(
       ops({ ops: [{ type: "set_cell", caseId, columnId, value: 123 }] }),
       false,

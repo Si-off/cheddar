@@ -126,6 +126,7 @@ export class ReviewItemsService {
               caseId: randomUUID(),
               afterCaseId: existing.at(-1)?.id ?? null,
               values: draft,
+              featureGroupId: row.featureGroupId,
             },
           ],
         },

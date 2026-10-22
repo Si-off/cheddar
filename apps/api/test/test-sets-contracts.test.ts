@@ -62,6 +62,8 @@ test("테스트 세트 DTO는 이름 100자, 메모 5000자, UUID, 필터와 알
       TestSetViewDto,
       {
         view: "table",
+        canvasGroup: "feature",
+        canvasDensity: "brief",
         groupByColumnId: null,
         columnWidths: null,
         rowHeights: {},
@@ -206,7 +208,9 @@ test("연산과 보기 설정은 누락, null, 잘못된 종류, 범위와 임�
     [columnId]: "값",
   });
   const view = {
-    view: "card",
+    view: "canvas",
+    canvasGroup: "column",
+    canvasDensity: "brief",
     groupByColumnId: columnId,
     columnWidths: { [columnId]: 40 },
     rowHeights: { [caseId]: 24 },
@@ -295,7 +299,9 @@ test("실제 HTTP는 DB 없이 테스트 세트 DTO, UUID, 연산과 보기 설�
         `/${id}/view`,
         "PUT",
         {
-          view: "card",
+          view: "canvas",
+          canvasGroup: "feature",
+          canvasDensity: "brief",
           groupByColumnId: null,
           columnWidths: { [id]: 39 },
           rowHeights: {},

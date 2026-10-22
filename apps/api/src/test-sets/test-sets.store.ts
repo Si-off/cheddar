@@ -205,6 +205,7 @@ export class TestSetsStore {
       byCase.get(value.caseId)?.push([value.columnId, value.value]);
     return rows.map((row) => ({
       id: row.id,
+      featureGroupId: row.featureGroupId,
       values: Object.fromEntries(byCase.get(row.id) ?? []),
     }));
   }

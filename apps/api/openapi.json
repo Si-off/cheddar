@@ -9684,6 +9684,32 @@
         ],
         "additionalProperties": false
       },
+      "SetFeatureGroupOpDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "set_feature_group"
+            ]
+          },
+          "caseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "featureGroupId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "caseId",
+          "featureGroupId"
+        ],
+        "additionalProperties": false
+      },
       "AddCaseOpDto": {
         "type": "object",
         "properties": {
@@ -9698,6 +9724,11 @@
             "format": "uuid"
           },
           "afterCaseId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "featureGroupId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -10185,6 +10216,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "featureGroupId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "values": {
             "type": "object",
             "additionalProperties": {
@@ -10210,7 +10246,25 @@
         },
         "required": [
           "id",
+          "featureGroupId",
           "values"
+        ],
+        "additionalProperties": false
+      },
+      "TestSetFeatureGroupDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "additionalProperties": false
       },
@@ -10254,6 +10308,12 @@
               "$ref": "#/components/schemas/CaseDto"
             }
           },
+          "featureGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestSetFeatureGroupDto"
+            }
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -10270,6 +10330,7 @@
           "access",
           "columns",
           "cases",
+          "featureGroups",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -10300,6 +10361,9 @@
               "oneOf": [
                 {
                   "$ref": "#/components/schemas/SetCellOpDto"
+                },
+                {
+                  "$ref": "#/components/schemas/SetFeatureGroupOpDto"
                 },
                 {
                   "$ref": "#/components/schemas/AddCaseOpDto"
@@ -10365,8 +10429,26 @@
             "type": "string",
             "enum": [
               "table",
-              "card"
-            ]
+              "canvas"
+            ],
+            "default": "table"
+          },
+          "canvasGroup": {
+            "type": "string",
+            "enum": [
+              "feature",
+              "column",
+              "none"
+            ],
+            "default": "feature"
+          },
+          "canvasDensity": {
+            "type": "string",
+            "enum": [
+              "brief",
+              "detail"
+            ],
+            "default": "brief"
           },
           "groupByColumnId": {
             "type": "string",
@@ -10392,6 +10474,8 @@
         },
         "required": [
           "view",
+          "canvasGroup",
+          "canvasDensity",
           "groupByColumnId",
           "columnWidths",
           "rowHeights"
@@ -10521,6 +10605,12 @@
               "$ref": "#/components/schemas/CaseDto"
             }
           },
+          "featureGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestSetFeatureGroupDto"
+            }
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -10542,6 +10632,7 @@
           "access",
           "columns",
           "cases",
+          "featureGroups",
           "updatedAt",
           "me",
           "owner"

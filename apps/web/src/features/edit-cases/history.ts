@@ -126,6 +126,19 @@ function guard(state: SheetState, entry: Reversal) {
       if (ids.length === 0) continue;
       ops.push({ type: "delete_cases", caseIds: ids });
       for (const id of ids) exists.delete(id);
+    } else if (op.type === "set_feature_group") {
+      const target = state.cases.find((c) => c.id === op.caseId);
+      const expected = entry.expectGroup?.find((e) => e.caseId === op.caseId);
+      // 그사이 다른 사람이 다른 그룹으로 옮겼으면 되돌리지 않는다
+      if (
+        !target ||
+        (expected &&
+          (target.featureGroupId ?? null) !== expected.featureGroupId)
+      ) {
+        skipped = true;
+        continue;
+      }
+      ops.push(op);
     } else if (op.type === "move_case") {
       if (!exists.has(op.caseId)) continue;
       ops.push({

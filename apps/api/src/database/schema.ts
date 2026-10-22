@@ -242,6 +242,12 @@ export const testCases = pgTable(
       .notNull()
       .references(() => testSets.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
+    featureGroupId: uuid("feature_group_id").references(
+      () => featureGroups.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     createdBy: uuid("created_by").references(() => accounts.id, {
       onDelete: "restrict",
     }),
@@ -300,6 +306,14 @@ export const viewPreferences = pgTable(
     }),
     visitorSessionId: uuid("visitor_session_id"),
     view: varchar("view", { length: 10 }).notNull().default("table"),
+    canvasGroup: varchar("canvas_group", { length: 10 })
+      .$type<"feature" | "column" | "none">()
+      .notNull()
+      .default("feature"),
+    canvasDensity: varchar("canvas_density", { length: 10 })
+      .$type<"brief" | "detail">()
+      .notNull()
+      .default("brief"),
     groupByColumnId: uuid("group_by_column_id"),
     columnWidths: jsonb("column_widths")
       .$type<Record<string, number>>()
@@ -316,7 +330,15 @@ export const viewPreferences = pgTable(
       "view_preferences_actor",
       sql`num_nonnulls(${t.accountId}, ${t.visitorSessionId}) = 1`,
     ),
-    check("view_preferences_view", sql`${t.view} IN ('table', 'card')`),
+    check("view_preferences_view", sql`${t.view} IN ('table', 'canvas')`),
+    check(
+      "view_preferences_canvas_group",
+      sql`${t.canvasGroup} IN ('feature', 'column', 'none')`,
+    ),
+    check(
+      "view_preferences_canvas_density",
+      sql`${t.canvasDensity} IN ('brief', 'detail')`,
+    ),
     unique("view_preferences_account").on(t.testSetId, t.accountId),
     unique("view_preferences_visitor").on(t.testSetId, t.visitorSessionId),
     foreignKey({
@@ -439,6 +461,12 @@ export const reviewItems = pgTable(
       .$type<{ question: string; answer: string | null }[]>()
       .notNull(),
     draft: jsonb("draft").notNull(),
+    featureGroupId: uuid("feature_group_id").references(
+      () => featureGroups.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     status: varchar("status", { length: 12 }).notNull().default("pending"),
     createdAt: created(),
     updatedAt: updated(),

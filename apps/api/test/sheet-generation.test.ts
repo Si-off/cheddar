@@ -15,7 +15,7 @@ import {
 } from "../src/database/schema";
 import { readAiConfig } from "../src/generation/model-config";
 import {
-  caseSchema,
+  finishSchema,
   formSchema,
   validateSchema,
 } from "../src/generation/output-schema";
@@ -110,7 +110,7 @@ test("fake coverage는 관점 ID를 검증하고 관리자 관점은 구조나 �
   const request = {
     definition: DEFINITIONS.finish,
     context: input,
-    schema: caseSchema(input),
+    schema: finishSchema(input),
     model: readAiConfig({}).models.finish,
     sourceData: {},
     images: [],
@@ -128,7 +128,7 @@ test("fake coverage는 관점 ID를 검증하고 관리자 관점은 구조나 �
     validate({ ...output, coverage: [...output.coverage, output.coverage[0]] }),
   );
   assert.throws(() =>
-    validateSchema(caseSchema(input), {
+    validateSchema(finishSchema(input), {
       ...output,
       coverage: [
         { viewpointId: "admin_listing", status: "covered", explanation: "" },
@@ -136,7 +136,7 @@ test("fake coverage는 관점 ID를 검증하고 관리자 관점은 구조나 �
     }),
   );
   input.viewpoints = applicableViewpoints([{ name: "관리자" }], []);
-  const adminRequest = { ...request, schema: caseSchema(input) };
+  const adminRequest = { ...request, schema: finishSchema(input) };
   const admin = (
     await validatedOutput(new FakeProvider(), adminRequest, validate)
   ).value as CaseOutput;

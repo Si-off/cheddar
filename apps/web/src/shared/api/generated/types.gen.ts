@@ -265,10 +265,17 @@ export type SetCellOpDto = {
     value: string | null | boolean | Array<string>;
 };
 
+export type SetFeatureGroupOpDto = {
+    type: 'set_feature_group';
+    caseId: string;
+    featureGroupId: string | null;
+};
+
 export type AddCaseOpDto = {
     type: 'add_case';
     caseId: string;
     afterCaseId: string | null;
+    featureGroupId?: string | null;
     values?: {
         [key: string]: string | null | boolean | Array<string>;
     };
@@ -385,9 +392,15 @@ export type TestSetColumnDto = {
 
 export type CaseDto = {
     id: string;
+    featureGroupId: string | null;
     values: {
         [key: string]: string | null | boolean | Array<string>;
     };
+};
+
+export type TestSetFeatureGroupDto = {
+    id: string;
+    name: string;
 };
 
 export type TestSetDto = {
@@ -401,6 +414,7 @@ export type TestSetDto = {
     access: TestSetAccessDto;
     columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
+    featureGroups: Array<TestSetFeatureGroupDto>;
     updatedAt: string;
 };
 
@@ -410,7 +424,7 @@ export type UpdateTestSetDto = {
 };
 
 export type ApplyOpsDto = {
-    ops: Array<SetCellOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto | UpdateColumnOpDto | AddColumnOpDto | RemoveColumnOpDto | ReorderColumnsOpDto>;
+    ops: Array<SetCellOpDto | SetFeatureGroupOpDto | AddCaseOpDto | DeleteCasesOpDto | MoveCaseOpDto | UpdateColumnOpDto | AddColumnOpDto | RemoveColumnOpDto | ReorderColumnsOpDto>;
 };
 
 export type OpsResultDto = {
@@ -420,7 +434,9 @@ export type OpsResultDto = {
 };
 
 export type TestSetViewDto = {
-    view: 'table' | 'card';
+    view: 'table' | 'canvas';
+    canvasGroup: 'feature' | 'column' | 'none';
+    canvasDensity: 'brief' | 'detail';
     groupByColumnId: string | null;
     columnWidths: {
         [key: string]: number;
@@ -461,6 +477,7 @@ export type SharedTestSetDto = {
     access: TestSetAccessDto;
     columns: Array<TestSetColumnDto>;
     cases: Array<CaseDto>;
+    featureGroups: Array<TestSetFeatureGroupDto>;
     updatedAt: string;
     me: SharedActorDto;
     owner: SharedOwnerDto;
