@@ -8,6 +8,7 @@ import { WsAdapter } from "@nestjs/platform-ws";
 import type { NextFunction, Request, Response } from "express";
 import { appModule } from "../app.module";
 import type { ApiEnv } from "../config/env";
+import { MAX_SOURCE_TOTAL_BYTES } from "../projects/screen-sources";
 import { MAX_UPLOAD_BYTES } from "../temp-uploads/manifest";
 import { ApiExceptionFilter } from "./errors";
 import { createDocument } from "./openapi";
@@ -65,6 +66,27 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
       });
       // 인증을 기다리는 동안 흐름을 시작하지 않는다. multer의 pipe가 준비되면 재개된다.
       req.pause();
+    }
+    // 화면 구조 초안 자료는 multer가 메모리에 다 올리기 전에 합계로 막는다.
+    if (
+      req.method === "POST" &&
+      /^\/api\/v1\/projects\/[^/]+\/(screens|screen-id-rules)\/drafts\/?$/i.test(
+        req.path,
+      ) &&
+      Number(req.headers["content-length"]) >
+        MAX_SOURCE_TOTAL_BYTES + 1024 * 1024
+    ) {
+      // 보내던 본문을 버리며 읽어야 클라이언트가 응답을 받는다
+      req.resume();
+      res.setHeader("Connection", "close");
+      res.status(413).json({
+        error: {
+          code: "FILE_TOO_LARGE",
+          message: "파일은 한 번에 30MB까지 넣을 수 있습니다.",
+          requestId,
+        },
+      });
+      return;
     }
     const origin = req.headers.origin;
     if (

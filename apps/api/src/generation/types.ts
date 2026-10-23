@@ -3,7 +3,7 @@ import type {
   CellValue,
   TestSetColumnDto,
 } from "../contracts/test-set.dto";
-import type { Stage } from "./model-config";
+import type { AiTask, Stage } from "./model-config";
 export type Draft = Record<string, CellValue>;
 export type GenerationInput = {
   columns: TestSetColumnDto[];
@@ -93,7 +93,7 @@ export type JsonSchema = {
   description?: string;
 };
 export type StepDefinition = {
-  key: Stage;
+  key: AiTask;
   displayStage: Exclude<Stage, "rewrite"> | null;
   version: string;
   prompt: string;
@@ -101,4 +101,6 @@ export type StepDefinition = {
   timeoutMs: number;
   retries: number;
   schema: (input: GenerationInput) => JsonSchema;
+  /** 단계 실행기 밖에서 쓰는 단계의 합성 출력. AI_PROVIDER=fake에서만 쓴다. */
+  fake?: (sourceData: unknown) => unknown;
 };

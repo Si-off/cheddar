@@ -388,7 +388,78 @@ export class ScreenIdRuleListDto {
 export class NextScreenIdDto {
   @ApiProperty({ type: String, nullable: true }) screenId!: string | null;
 }
-export class ImportScreensResultDto {
+export class CreateScreensResultDto {
   @ApiProperty({ type: "integer" }) created!: number;
   @ApiProperty({ type: "integer" }) skipped!: number;
+}
+export class ScreenSourcesMultipartDto {
+  @ApiPropertyOptional({ maxLength: 60000 })
+  @ValidateIf(optional)
+  @IsString()
+  @MaxLength(60000)
+  text?: string;
+}
+export class ScreenIdRuleDraftDto {
+  @ApiProperty() name!: string;
+  @ApiProperty() separator!: string;
+  @ApiProperty({ type: [ScreenIdRulePartDto] }) parts!: ScreenIdRulePartDto[];
+  @ApiProperty() example!: string;
+}
+export class ScreenIdRuleDraftListDto {
+  @ApiProperty({ type: [ScreenIdRuleDraftDto] }) items!: ScreenIdRuleDraftDto[];
+  @ApiProperty({ type: [String] }) unreadFiles!: string[];
+}
+export class ScreenDraftDto {
+  @ApiProperty() key!: string;
+  @ApiProperty() screenId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ enum: SCREEN_TYPES }) type!: (typeof SCREEN_TYPES)[number];
+  @ApiProperty({ type: String, nullable: true }) parentKey!: string | null;
+  @ApiProperty() description!: string;
+  @ApiProperty() group!: string;
+  @ApiProperty() exists!: boolean;
+  @ApiProperty() ruleMismatch!: boolean;
+}
+export class ScreenDraftListDto {
+  @ApiProperty({ type: [ScreenDraftDto] }) items!: ScreenDraftDto[];
+  @ApiProperty({ type: "integer" }) skipped!: number;
+  @ApiProperty({ type: [String] }) unreadFiles!: string[];
+}
+export class CreateScreensItemDto {
+  @ApiPropertyOptional({ enum: SCREEN_TYPES, default: "page" })
+  @ValidateIf(optional)
+  @IsIn(SCREEN_TYPES)
+  type?: (typeof SCREEN_TYPES)[number];
+  @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  screenId!: string;
+  @ApiProperty({ minLength: 1, maxLength: 200 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name!: string;
+  @ApiProperty({ maxLength: 2000 })
+  @Transform(trim)
+  @IsString()
+  @MaxLength(2000)
+  description!: string;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100 })
+  @ValidateIf((_o, value) => value !== undefined && value !== null)
+  @IsString()
+  @MaxLength(100)
+  parentScreenId?: string | null;
+}
+export class CreateScreensDto {
+  /** 초안 한도(MAX_DRAFTS)와 같다 */
+  @ApiProperty({ type: [CreateScreensItemDto], minItems: 1, maxItems: 5000 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
+  @ValidateNested({ each: true })
+  @Type(() => CreateScreensItemDto)
+  items!: CreateScreensItemDto[];
 }

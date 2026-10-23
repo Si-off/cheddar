@@ -4653,9 +4653,9 @@
         ]
       }
     },
-    "/api/v1/projects/{projectId}/screens/import": {
+    "/api/v1/projects/{projectId}/screens/batch": {
       "post": {
-        "operationId": "importProjectScreens",
+        "operationId": "createProjectScreens",
         "parameters": [
           {
             "name": "projectId",
@@ -4669,18 +4669,9 @@
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "file"
-                ],
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
+                "$ref": "#/components/schemas/CreateScreensDto"
               }
             }
           }
@@ -4691,7 +4682,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportScreensResultDto"
+                  "$ref": "#/components/schemas/CreateScreensResultDto"
                 }
               }
             }
@@ -4782,7 +4773,283 @@
             "cookie": []
           }
         ],
-        "summary": "IA 화면 구조 가져오기",
+        "summary": "화면 여러 개 추가",
+        "tags": [
+          "프로젝트 설정"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/screens/drafts": {
+      "post": {
+        "operationId": "draftProjectScreens",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "files[]": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenDraftListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "자료에서 화면 초안 만들기",
+        "tags": [
+          "프로젝트 설정"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/screen-id-rules/drafts": {
+      "post": {
+        "operationId": "draftProjectScreenIdRules",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "files[]": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenIdRuleDraftListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "자료에서 화면 ID 규칙 초안 만들기",
         "tags": [
           "프로젝트 설정"
         ]
@@ -9508,6 +9775,16 @@
         ],
         "additionalProperties": false
       },
+      "ScreenSourcesMultipartDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 60000
+          }
+        },
+        "additionalProperties": false
+      },
       "ProjectSummaryDto": {
         "type": "object",
         "properties": {
@@ -10213,7 +10490,64 @@
         ],
         "additionalProperties": false
       },
-      "ImportScreensResultDto": {
+      "CreateScreensItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "popup",
+              "bottom_sheet",
+              "tab"
+            ],
+            "default": "page"
+          },
+          "screenId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "parentScreenId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "screenId",
+          "name",
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "CreateScreensDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 5000,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateScreensItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "CreateScreensResultDto": {
         "type": "object",
         "properties": {
           "created": {
@@ -10226,6 +10560,132 @@
         "required": [
           "created",
           "skipped"
+        ],
+        "additionalProperties": false
+      },
+      "ScreenDraftDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "screenId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "page",
+              "popup",
+              "bottom_sheet",
+              "tab"
+            ]
+          },
+          "parentKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "ruleMismatch": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "screenId",
+          "name",
+          "type",
+          "parentKey",
+          "description",
+          "group",
+          "exists",
+          "ruleMismatch"
+        ],
+        "additionalProperties": false
+      },
+      "ScreenDraftListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenDraftDto"
+            }
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "unreadFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "skipped",
+          "unreadFiles"
+        ],
+        "additionalProperties": false
+      },
+      "ScreenIdRuleDraftDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "separator": {
+            "type": "string"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenIdRulePartDto"
+            }
+          },
+          "example": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "separator",
+          "parts",
+          "example"
+        ],
+        "additionalProperties": false
+      },
+      "ScreenIdRuleDraftListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScreenIdRuleDraftDto"
+            }
+          },
+          "unreadFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "unreadFiles"
         ],
         "additionalProperties": false
       },

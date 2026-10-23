@@ -39,6 +39,7 @@ import {
   screenTypeLabel,
 } from "@/entities/project";
 import { sdk, toApiFailure } from "@/shared/api";
+import { ImportScreensDialog } from "./import-dialog";
 
 interface TreeRow extends Screen {
   depth: number;
@@ -125,21 +126,7 @@ function useScreenActions(projectId: string) {
     onSuccess,
     onError,
   });
-  const importFile = useMutation({
-    mutationFn: (file: File) =>
-      sdk.importProjectScreens({ path, body: { file }, throwOnError: true }),
-    onSuccess: ({ data }) => {
-      toast.show({
-        message: `화면 ${data.created}개를 가져왔습니다`,
-        description:
-          data.skipped > 0 ? `${data.skipped}개는 건너뛰었습니다` : undefined,
-        tone: "success",
-      });
-      return onSuccess();
-    },
-    onError,
-  });
-  return { create, update, remove, importFile };
+  return { create, update, remove };
 }
 
 interface ScreenInput {
@@ -158,7 +145,7 @@ export interface ScreensEditorProps {
   readOnly?: boolean;
 }
 
-/** 화면 ID와 이름으로 찾고, 행 메뉴에서 고치거나 지운다. IA 파일에서 한꺼번에 가져올 수 있다. */
+/** 화면 ID와 이름으로 찾고, 행 메뉴에서 고치거나 지운다. 자료에서 한꺼번에 가져올 수 있다. */
 export function ScreensEditor({
   projectId,
   screens,
@@ -170,7 +157,7 @@ export function ScreensEditor({
   const query = useDeferredValue(search.trim().toLowerCase());
   const [editing, setEditing] = useState<TreeRow | "new" | null>(null);
   const [deleting, setDeleting] = useState<TreeRow | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   const tree = toTree(screens);
   const rows = query
@@ -284,25 +271,8 @@ export function ScreensEditor({
         <span className="flex-1" />
         {!readOnly && (
           <>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx"
-              aria-label="IA 파일"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) actions.importFile.mutate(file);
-                e.target.value = "";
-              }}
-            />
-            <Button
-              size="sm"
-              icon={Upload}
-              loading={actions.importFile.isPending}
-              onClick={() => fileRef.current?.click()}
-            >
-              IA 가져오기
+            <Button size="sm" icon={Upload} onClick={() => setImporting(true)}>
+              가져오기
             </Button>
             <Button
               variant="primary"
@@ -360,6 +330,11 @@ export function ScreensEditor({
           )}
         </Dialog.Content>
       </Dialog.Root>
+      <ImportScreensDialog
+        projectId={projectId}
+        open={importing}
+        onOpenChange={setImporting}
+      />
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}

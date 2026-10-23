@@ -56,7 +56,13 @@ export async function mockApi(
     };
     if (request.method() === "OPTIONS")
       return route.fulfill({ status: 204, headers });
-    const body = request.postDataJSON?.() ?? null;
+    // 파일을 올리는 multipart 본문은 JSON으로 읽을 수 없어 글 그대로 둔다
+    let body: unknown = null;
+    try {
+      body = request.postDataJSON?.() ?? null;
+    } catch {
+      body = request.postData();
+    }
     calls.push({ key, body });
     const handler = handlers[key];
     if (handler === undefined) {

@@ -269,7 +269,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 ### API
 
-- `projects` 모듈: 양식 PUT은 사전 정의 열의 켜짐·순서와 사용자 열 목록만 받고, 사전 정의 열의 이름·형식·작성 기준 변경은 `400`으로 거절한다. 필수 케이스 엔드포인트를 제거한다. 화면 구조에 유형과 IA 가져오기(XLSX 업로드, module·Depth·Type·Screen ID 열 해석, ID 없는 행 건너뛰기, 같은 ID는 첫 행만)를 더한다. 화면 ID 규칙 CRUD와 "다음 ID" 계산, 규칙 불일치 판정을 더한다.
+- `projects` 모듈: 양식 PUT은 사전 정의 열의 켜짐·순서와 사용자 열 목록만 받고, 사전 정의 열의 이름·형식·작성 기준 변경은 `400`으로 거절한다. 필수 케이스 엔드포인트를 제거한다. 화면 구조에 유형을 더한다. IA 가져오기는 아래 "파일에서 화면 구조 초안" 절의 AI 초안과 일괄 추가로 바꿨다. 화면 ID 규칙 CRUD와 "다음 ID" 계산, 규칙 불일치 판정을 더한다.
 - `test-sets` 모듈: 만들기가 양식 선택(프로젝트 기본, 최근 세트 복사, 직접 고른 열 목록)을 받는다. 양식 전체 교체 대신 열 추가(사전 정의 열 되돌리기 또는 사용자 열 정의), 열 삭제(값 함께 삭제), 열 순서 변경 연산을 둔다. 열 연산은 세트 version을 올리고 공동 편집으로 전파한다. `POST /test-sets`는 선택적인 `template`(`project`·`recent`·`custom`)을 받으며 생략 시 `project`다. `recent`는 같은 프로젝트의 열람 가능한 세트 중 최근 수정순(동률은 ID순)으로 열 사본을 만들고 없으면 프로젝트 양식을 쓴다. 사본의 열 UUID는 새로 만들며 `presetKey`는 보존한다. `POST /test-sets/:id/ops`의 `add_column`·`remove_column`·`reorder_columns`는 기존 케이스 연산과 같은 잠금·권한·트랜잭션을 쓰며 요청당 version을 한 번 올린다. 삭제는 값, 모든 상태의 확인 필요 초안 키, 개인 보기 참조도 정리한다. `PUT /test-sets/:id/columns`는 없다. `update_column`은 사용자 열의 이름·작성 기준과 선택적인 `options`(선택·태그 항목, 양식과 같은 검사)를 바꾸며 사전 정의 열은 400이다. 항목을 바꿔도 셀 값은 손대지 않는다. 링크 방문자의 열 연산(`add_column`·`remove_column`·`reorder_columns`·`update_column`)은 편집 링크여도 403이다. `set_cell` 등 사람이 넣는 선택·태그 값은 스프레드시트 목록처럼 목록 밖 글자도 받고(형식과 태그 중복만 검사), AI 결과는 출력 스키마의 enum으로 목록 안에 묶는다. XLSX는 선택 열에 숨긴 `목록` 시트를 참조하는 데이터 유효성을 붙인다. 공유 계약은 `packages/contracts`에 있다.
 - `generation` 모듈: 열 하나만 채우는 작업 `fill_column`(`POST /test-sets/:id/test-set-columns/:columnId/fill`, 열 추가 시 "기존 케이스 AI로 채우기")은 `rewrite`와 같은 단계 실행기를 쓰고 외부 `stage`는 null이다. 세트당 하나의 작업 제한과 서버 동시 한도를 공유하며, 값이 있는 셀은 덮지 않고 확인 필요 항목을 만들지 않는다. `POST /generations`의 `frameIds`로 올린 프레임 중 일부만 입력에 넣는다(비우면 전부).
 - `exports`: QA 결과·담당자 또는 개발 진행 상태·담당자가 이웃하면 2단 머리글의 해당 묶음을 병합한다(순서가 뒤집혀도 이웃하면 묶음). 어느 묶음도 성립하지 않으면 1단이다. `test_env`·`test_case`·`title`·`screen_id`·`steps`는 현재 열 순서에 따라 표 화면과 같이 글자가 같은 연속 값을 세로 병합하며 앞선 `test_env`·`test_case`의 경계를 넘지 않는다. `title`·`screen_id`·`steps`는 서로의 경계가 되지 않는다. 빈 값, 테스트 ID와 예상 결과는 병합하지 않는다.
@@ -286,10 +286,22 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 - pages: `test-set-new`가 양식 선택(프로젝트 양식, 최근 테스트 세트와 같게, 직접 고르기)과 프레임 토글을 가진다. `project-settings` 탭은 양식, 기능 그룹, 화면 구조(규칙 목록 + 화면 목록), 메모다. 브레드크럼은 없고 저장 상태는 오른쪽이다.
 - entities: `project`에 `presetKey`·`enabled`·화면 유형·규칙 타입과 `ColumnForm`(열 이름·형식·작성 기준 폼, 양식 탭과 열 추가가 함께 씀). `test-set`의 `CaseOp`는 `@cheddar/contracts`를 그대로 쓰고 `applyOps`가 열 연산을 낙관 반영한다. `mergeable`이 병합 표시 대상 열을, `mergeBounds`가 뒤쪽 병합 열의 경계가 되는 열(테스트 환경, 테스트 케이스)을 정한다.
-- features: `manage-template-columns`(`edit-template` 대체), `manage-screen-id-rules`(목록 + `rule-dialog.tsx`), `manage-screens`(유형, 규칙 불일치, 다음 ID 채운 추가, IA 가져오기), `create-test-set`(양식 3택 + `column-modal.tsx`). `manage-required-cases`, `edit-test-set-columns`는 없다.
+- features: `manage-template-columns`(`edit-template` 대체), `manage-screen-id-rules`(목록 + `rule-dialog.tsx`의 편집기 `RuleParts` + `new-rule-dialog.tsx`의 자료 넣기와 AI 초안), `manage-screens`(유형, 규칙 불일치, 다음 ID 채운 추가, `import-dialog.tsx`의 자료 넣기와 결과 확인), `create-test-set`(양식 3택 + `column-modal.tsx`). `manage-required-cases`, `edit-test-set-columns`는 없다.
 - widgets: `column-picker`(프로젝트 양식 탭의 열 목록), `case-table`(병합 표시와 셀 나누기, 머리글 끌기와 되돌리기 토스트, 머리글 ⋯ 메뉴, 머리글 `+`, 셀 우클릭 메뉴, `column-dialogs.tsx`의 열 추가·이름 변경, `options-panel.tsx`의 선택 항목 편집. 고르기는 `Menu.Popup`의 `footer`에 연필을 두고, 편집은 같은 셀이나 머리글에 붙는 `Popover`로 연다). `columns-editor`는 없다. 열 연산은 모두 `onOps`로 보내며 별도 feature를 두지 않는다.
 - `packages/ui`: `Tabs`의 미끄러지는 선택 표시줄, `ContextMenu`, `DataGrid`의 `mergeKey`·`mergeBounds`(false면 뒤쪽 병합 열을 끊지 않음)·`fixed`·`headerAction`·`onColumnReorder`·`headerEnd`·`cellMenu`, 토스트 `action`.
 - 공통 조작 규칙: 목록 추가는 머리글 오른쪽 버튼이 기본이고 목록 끝 `+` 행은 보조다. 행 편집·삭제는 행 메뉴, 셀 단위 삭제는 호버 ×, 이름 변경은 두 번 클릭 제자리 편집, 순서는 끌기와 `Alt+방향키`다. 설정 탭은 선택 표시줄이 미끄러지는 탭(`packages/ui`의 Tabs)을 쓴다. 설명 문장과 help 텍스트는 두지 않는다.
+
+## 파일에서 화면 구조 초안 (2026-10-23)
+
+제품 계약은 [제품 정의](product.md)의 화면 구조와 화면 ID 규칙 항목이다. 시안은 [Cheddar 화면 시안](https://claude.ai/artifact/LBfqbThAA8AGkkAYd8BNdA) 프로젝트 설정 페이지의 "파일로 만들기" 줄에 있다.
+
+- API: `POST /projects/:id/screen-id-rules/drafts`, `POST /projects/:id/screens/drafts`는 multipart(`text`, `files[]` 최대 10개, 파일당 10MB, 합계 30MB. 합계는 `Content-Length`로 본문을 읽기 전에 막는다)를 받아 저장하지 않은 초안을 돌려준다. 저장은 기존 규칙 추가와 새 `POST /projects/:id/screens/batch`(이미 있는 ID 건너뜀, `parentScreenId`로 같은 요청이나 기존 화면에 잇기)로 한다. 기존 `screens/import`는 없앴다.
+- 자료 읽기(`projects/screen-sources.ts`): XLSX는 보이는 시트를 셀 글자로(서식 글자, 링크, 수식 결과 포함), CSV와 TSV는 표로, TXT와 MD는 글로, PNG와 JPG는 이미지로 나눈다. 읽지 못한 파일은 이름만 `unreadFiles`로 돌려주고 나머지로 진행한다. 이미지는 8장까지 읽고 넘는 이미지도 `unreadFiles`로 알린다.
+- AI 호출은 생성 작업 큐를 쓰지 않는 단발 동기 호출이다. 단계 정의는 `projects/screen-drafts.ts`에 있고 모델은 `AI_MODEL_STRUCTURE`, `AI_EFFORT_STRUCTURE`(기본 terra, medium)로 정한다. 일시적 실패는 한 번 조용히 다시 시도하고, 그래도 실패하면 503 `AI_UNAVAILABLE`이다. 화면 ID를 하나도 찾지 못하면 422 `SCREEN_IDS_NOT_FOUND`, ID는 찾았지만 저장할 수 있는 규칙이 없으면 422 `RULES_NOT_FOUND`, 읽을 수 있는 자료가 없으면 422 `SOURCE_UNREADABLE`이다.
+- 화면 초안: 엑셀은 시트마다 앞쪽 행과 열별 대표 값만 보내 AI가 쓸 시트와 ID, 경로, 유형, 설명 열, 유형 값 대응을 고른다(`screen-columns`). 모든 행은 서버가 그 계획으로 펼친다(`parseSheet`). 1,000행 시트도 AI 출력이 작아 몇 초 안에 끝난다. 글과 이미지는 AI가 화면 목록을 직접 뽑는다(`screen-list`). 글만 넣었으면 글에 실제로 있는 ID만 남긴다. 초안의 상위 관계에 순환이 있으면 끊고, 초안이 5,000개(일괄 추가 한도)를 넘으면 422 `TOO_MANY_SCREENS`다. 일괄 추가도 기존 화면을 포함한 상위 관계가 순환이 되는 연결은 하지 않는다.
+- 규칙 초안: 자료의 ID처럼 보이는 값과 그 행의 다른 글자, ID 모양별 개수(`shapes`), 60행 이하 시트 전체(규칙 설명 시트)를 보낸다(`screen-rules`). 서버는 저장 계약에 맞지 않는 부분을 가진 규칙을 버리고, 한 자리만 맞지 않는 ID의 값을 코드 목록에 더해 넓히며(번호 자리 제외), 자료 ID의 3%(최소 2개)보다 적게 맞는 규칙은 버린다. 이름은 기존 규칙과 겹치지 않게 뒤에 번호를 붙인다.
+- 사용량: `ai_call_usage`는 생성 작업 밖 호출을 위해 `project_id`와 `purpose`(단계 버전)를 갖고, `job_id`·`step_id`와 둘 중 한 쪽만 채운다(마이그레이션 `0015_project_ai_usage`, 배타 제약은 `0016_exclusive_ai_usage_owner`). 프로젝트를 지우면 함께 지운다.
+- 웹: 공통 컴포넌트 `SourceInput`(글 붙여 넣기와 파일 첨부·끌어 놓기·클립보드 이미지)과 `CheckTable`(묶음별로 접고 고르는 표)을 `packages/ui`에 둔다.
 
 ## 미정
 
