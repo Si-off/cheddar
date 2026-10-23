@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { TestSetColumnDto } from "../../contracts/test-set.dto";
 import { sheetV1 } from "./sheet-v1";
+import { sheetV2 } from "./sheet-v2";
 import type { Guide } from "./types";
 
 export type { DecompositionRule, Guide, Viewpoint } from "./types";
@@ -8,12 +9,16 @@ export type { DecompositionRule, Guide, Viewpoint } from "./types";
 /** 비교 실험을 위해 이전 지침도 남긴다. 작업 입력에 기록된 지침은 지우지 않는다. */
 export const GUIDES: Readonly<Record<string, Guide>> = {
   [sheetV1.id]: sheetV1,
+  [sheetV2.id]: sheetV2,
 };
-export const DEFAULT_GUIDE = sheetV1.id;
+/** 새 작업의 기본 지침. */
+export const DEFAULT_GUIDE = sheetV2.id;
+/** 지침을 기록하기 전에 만든 작업은 그때의 지침으로 이어서 실행한다. 바꾸지 않는다. */
+export const LEGACY_GUIDE = sheetV1.id;
 
-/** 작업을 만들 때 기록한 지침. 기록이 없는 이전 작업은 기본 지침을 쓴다. */
+/** 작업을 만들 때 기록한 지침. 끝난 단계와 남은 단계가 같은 지침을 쓰게 한다. */
 export function guideOf(input: { guide?: string }): Guide {
-  const id = input.guide ?? DEFAULT_GUIDE;
+  const id = input.guide ?? LEGACY_GUIDE;
   if (!Object.hasOwn(GUIDES, id))
     throw new Error(`알 수 없는 작성 지침입니다: ${id}`);
   return GUIDES[id];

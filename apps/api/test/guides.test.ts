@@ -4,6 +4,7 @@ import {
   DEFAULT_GUIDE,
   GUIDES,
   guideOf,
+  LEGACY_GUIDE,
   promptVersion,
 } from "../src/generation/guides";
 import { readAiConfig } from "../src/generation/model-config";
@@ -55,8 +56,10 @@ test("새 작업의 지침은 AI_GUIDE로 고르고 없는 지침은 시작할 �
   assert.throws(() => readAiConfig({ AI_GUIDE: "toString" }), /AI_GUIDE/);
 });
 
-test("지침을 기록하지 않은 이전 작업은 기본 지침으로 이어서 실행한다", () => {
-  assert.equal(guideOf(input()).id, DEFAULT_GUIDE);
+test("지침을 기록하지 않은 이전 작업은 기본값이 바뀌어도 그때의 지침으로 이어서 실행한다", () => {
+  // 끝난 단계와 남은 단계가 다른 지침으로 섞이지 않게 한다.
+  assert.equal(guideOf(input()).id, LEGACY_GUIDE);
+  assert.equal(guideOf(input(DEFAULT_GUIDE)).id, DEFAULT_GUIDE);
   assert.throws(() => guideOf(input("없는-지침")));
   assert.throws(() => guideOf(input("toString")));
 });
@@ -66,13 +69,13 @@ test("분해 기준은 케이스를 나누는 단계에만 보낸다", () => {
     definition: DEFINITIONS[key],
     model: readAiConfig({}).models[key],
     schema: {},
-    context: input(),
+    context: input(DEFAULT_GUIDE),
     sourceData: {},
     images: [],
   });
   const sent = (key: keyof typeof DEFINITIONS) =>
     JSON.parse(stableInstructions(request(key))).decomposition;
-  const rules = guideOf(input()).decomposition;
+  const rules = guideOf(input(DEFAULT_GUIDE)).decomposition;
   assert.deepEqual(sent("cases"), rules);
   assert.deepEqual(sent("finish"), rules);
   for (const key of ["screens", "flows", "rewrite"] as const)

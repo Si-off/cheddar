@@ -48,6 +48,7 @@ const guide = GUIDES[DEFAULT_GUIDE];
 const columns = (): TestSetColumnDto[] =>
   defaultColumns().map(({ enabled: _, ...c }) => c);
 const context = (): GenerationInput => ({
+  guide: DEFAULT_GUIDE,
   columns: columns(),
   memo: "",
   frames: [],
@@ -160,7 +161,7 @@ test("fake coverage는 관점 ID를 검증하고 관리자 관점은 구조나 �
   const admin = (
     await validatedOutput(new FakeProvider(), adminRequest, validate)
   ).value as CaseOutput;
-  assert.equal(admin.coverage.length, 12);
+  assert.equal(admin.coverage.length, guide.viewpoints.length);
 });
 
 async function addColumn(
@@ -406,7 +407,12 @@ test("frameIds는 업로드 소속을 검증하고 선택 프레임만 저장하
         .where(eq(generationSteps.jobId, jobId));
       const input = snapshot.input as GenerationInput;
       assert.equal(input.frames.length, mode === "subset" ? 1 : 2);
-      assert.equal(input.viewpoints.length, mode === "subset" ? 9 : 12);
+      // 관리자 화면이 있는 프레임을 고르면 관리자 관점도 대상이다.
+      assert.equal(
+        input.viewpoints.length,
+        guide.viewpoints.filter((v) => mode !== "subset" || !v.admin).length,
+      );
+      assert.equal(input.guide, DEFAULT_GUIDE);
       await f.generation.fail(jobId, "TEST_FINISHED");
     }
   } finally {
