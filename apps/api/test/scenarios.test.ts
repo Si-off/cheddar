@@ -101,6 +101,32 @@ test("저장된 행을 시나리오로 묶었다가 펼치면 같은 행이 된�
   assert.deepEqual(flattenScenarios(columns, output(scenarios)).cases, rows);
 });
 
+test("스타일 예시로 묶을 때 이미지 셀은 시나리오 이름과 제목에 글자로 섞이지 않는다", () => {
+  const image = { image: "6f1c2b9e-3d4a-4f5b-8c6d-7e8f9a0b1c2d" };
+  const rows = [
+    { [testCase]: image, [title]: image, [steps]: "1. 진입" },
+    { [testCase]: "가", [title]: "a", [steps]: "2. 선택" },
+  ];
+  const scenarios = groupScenarios(columns, rows);
+  assert.deepEqual(
+    scenarios.map((s) => [s.name, s.tasks.map((t) => t.title)]),
+    [
+      ["", [""]],
+      ["가", ["a"]],
+    ],
+  );
+  assert.deepEqual(
+    scenarioBlock(
+      columns,
+      [image, image, "나"].map((name, i) => ({
+        id: String(i),
+        values: { [testCase]: name },
+      })),
+    ).map((r) => r.id),
+    ["0", "1", "2"],
+  );
+});
+
 test("케이스 출력은 행 없는 하위 시나리오와 이전 평평한 형식을 거부한다", () => {
   const schema = caseSchema({
     columns,

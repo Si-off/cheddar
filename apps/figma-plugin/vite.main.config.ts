@@ -30,12 +30,13 @@ function remoteUiShell(url: string): Plugin {
   };
 }
 
-export default defineConfig(({ mode, command }) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
+  // main은 개발 중에도 감시 빌드라 serve가 아니다. 배포 빌드에는 로컬 주소를 넣지 않는다
   const webBaseUrl = httpBaseUrl(
     "VITE_WEB_BASE_URL",
     env.VITE_WEB_BASE_URL ||
-      (command === "serve" ? "http://127.0.0.1:5173" : ""),
+      (mode === "development" ? "http://127.0.0.1:5173" : ""),
   );
   // 값이 있으면 UI를 번들에 넣지 않고 이 주소의 페이지로 띄운다
   const pluginUiUrl = httpBaseUrl(

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
+import { optionColors } from "../contracts/option-colors";
 import {
   type TemplateColumnDto,
   UpdateTemplateDto,
@@ -67,6 +68,12 @@ function validateColumns(input: unknown, project: boolean): UpdateTemplateDto {
           "선택과 태그의 값은 1~50개이며 각 1~100자로 서로 달라야 합니다.",
         );
     } else column.options = [];
+    column.colors = optionColors(
+      column.options,
+      column.presetKey
+        ? findPresetColumn(column.presetKey)?.colors
+        : column.colors,
+    );
   }
   if (systems.size !== 2) return fail("테스트 ID와 제목이 필요합니다.");
   if (project && presets.size !== PRESET_COLUMNS.length)
@@ -165,6 +172,14 @@ export const PRESET_COLUMNS: readonly Readonly<
         type: "select",
         description: "생성 시 비웁니다.",
         options: ["Pass", "Fail", "Deferred", "N/A", "-", "추가 요청"],
+        colors: {
+          Pass: "green",
+          Fail: "red",
+          Deferred: "yellow",
+          "N/A": "gray",
+          "-": "gray",
+          "추가 요청": "yellow",
+        },
       },
       {
         presetKey: "qa_owner",
@@ -192,6 +207,14 @@ export const PRESET_COLUMNS: readonly Readonly<
         type: "select",
         description: "생성 시 비웁니다.",
         options: ["완료", "수정중", "수정 완료", "보류", "기타", "-"],
+        colors: {
+          완료: "green",
+          수정중: "blue",
+          "수정 완료": "green",
+          보류: "yellow",
+          기타: "gray",
+          "-": "gray",
+        },
       },
       {
         presetKey: "dev_owner",
@@ -213,7 +236,16 @@ export const PRESET_COLUMNS: readonly Readonly<
       },
     ] satisfies Omit<TemplateColumnDto, "id">[]
   ).map((column) =>
-    Object.freeze({ ...column, options: Object.freeze(column.options) }),
+    Object.freeze({
+      ...column,
+      colors: Object.freeze({
+        ...Object.fromEntries(
+          column.options.map((option) => [option, "gray" as const]),
+        ),
+        ...("colors" in column ? column.colors : {}),
+      }),
+      options: Object.freeze(column.options),
+    }),
   ),
 );
 export function findPresetColumn(presetKey: string) {
@@ -223,6 +255,7 @@ export function defaultColumns(): TemplateColumnDto[] {
   return PRESET_COLUMNS.map((column) => ({
     ...column,
     options: [...column.options],
+    colors: { ...column.colors },
     id: randomUUID(),
   }));
 }

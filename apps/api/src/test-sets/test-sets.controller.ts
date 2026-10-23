@@ -12,10 +12,14 @@ import {
   Post,
   Put,
   Query,
+  Res,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiBody,
+  ApiConsumes,
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -27,7 +31,9 @@ import {
   ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
+import type { Response } from "express";
 import { CurrentAccount } from "../authorization/guards";
+import { CellImageDto, IMAGE_UPLOAD_SCHEMA } from "../contracts/cell-image.dto";
 import {
   AddCaseOpDto,
   AddColumnOpDto,
@@ -51,6 +57,8 @@ import {
   UpdateTestSetDto,
 } from "../contracts/test-set.dto";
 import { CaseOperationsService } from "./case-operations.service";
+import { CellImageUploadInterceptor } from "./cell-image-upload.interceptor";
+import { CellImagesService } from "./cell-images.service";
 import { TestSetsService } from "./test-sets.service";
 
 @ApiTags("테스트 세트")
@@ -72,6 +80,7 @@ import { TestSetsService } from "./test-sets.service";
 @Controller("api/v1/test-sets")
 export class TestSetsController {
   constructor(
+    @Inject(CellImagesService) private readonly images: CellImagesService,
     @Inject(TestSetsService) private readonly service: TestSetsService,
     @Inject(CaseOperationsService)
     private readonly operations: CaseOperationsService,
@@ -178,6 +187,35 @@ export class TestSetsController {
     @Body() dto: TestSetViewDto,
   ) {
     return this.service.saveView(id, accountId, dto);
+  }
+
+  @Post(":testSetId/images")
+  @UseInterceptors(CellImageUploadInterceptor)
+  @ApiOperation({
+    operationId: "uploadTestSetImage",
+    summary: "셀 이미지 업로드",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({ schema: IMAGE_UPLOAD_SCHEMA })
+  @ApiCreatedResponse({ type: CellImageDto })
+  uploadImage(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.images.upload(id, accountId, file);
+  }
+  @Get(":testSetId/images/:imageId")
+  @ApiOperation({ operationId: "getTestSetImage", summary: "셀 이미지 조회" })
+  @ApiProduces("image/png", "image/jpeg", "image/gif", "image/webp")
+  @ApiOkResponse({ schema: { type: "string", format: "binary" } })
+  image(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @CurrentAccount() accountId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.images.download(id, accountId, imageId, response);
   }
 
   @Get(":testSetId/export")

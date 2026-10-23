@@ -14,7 +14,10 @@ import { CaseDto, CELL_SCHEMA, type CellValue } from "./test-set.dto";
 const optional = (_: unknown, value: unknown) => value !== undefined;
 const draftSchema = {
   type: "object",
-  additionalProperties: CELL_SCHEMA,
+  additionalProperties: {
+    ...CELL_SCHEMA,
+    oneOf: CELL_SCHEMA.oneOf.filter((schema) => schema.type !== "object"),
+  },
 } as const;
 export class CreateGenerationDto {
   @ApiPropertyOptional({

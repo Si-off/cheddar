@@ -25,7 +25,7 @@ Cheddar는 사람이 수행하는 QA 테스트 케이스를 AI로 생성·편집
 
 판단이 필요할 때만 읽는다. 매 세션 전부 읽지 않는다.
 
-- 제품 범위·업무 모델·미정 사항, 기능 명칭(프로젝트, 테스트 세트, 테스트 케이스, 확인 필요, 기능 그룹, 필수 케이스, 표와 카드 보기 등) → [docs/product.md](docs/product.md)
+- 제품 범위·업무 모델·미정 사항, 기능 명칭(프로젝트, 테스트 세트, 테스트 케이스, 확인 필요, 기능 그룹, 필수 케이스, 표와 캔버스 보기 등) → [docs/product.md](docs/product.md)
 - 구성요소 경계·기술 선택·소스 경로 → [docs/architecture.md](docs/architecture.md)
 - UI 작업 전 → [DESIGN.md](DESIGN.md), [`packages/design-tokens/src/theme.css`](packages/design-tokens/src/theme.css)
 - 사용자 노출 문구 → [docs/ux-writing.md](docs/ux-writing.md)

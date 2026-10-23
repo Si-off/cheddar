@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm run --parallel \"/^watch:/\"",
     "watch:ui": "vite build --configLoader runner --watch",
-    "watch:main": "vite build --configLoader runner --config vite.main.config.ts --watch",
+    "watch:main": "vite build --configLoader runner --config vite.main.config.ts --mode development --watch",
     "dev:ui": "vite --configLoader runner",
     "dev:remote": "VITE_PLUGIN_UI_URL=http://localhost:5174 VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm run --parallel \"/^(watch:main|dev:ui)$/\"",
     "build": "pnpm build:ui && vite build --configLoader runner --config vite.main.config.ts",

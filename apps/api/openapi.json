@@ -6013,6 +6013,284 @@
         ]
       }
     },
+    "/api/v1/test-sets/{testSetId}/images": {
+      "post": {
+        "operationId": "uploadTestSetImage",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CellImageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "셀 이미지 업로드",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
+    "/api/v1/test-sets/{testSetId}/images/{imageId}": {
+      "get": {
+        "operationId": "getTestSetImage",
+        "parameters": [
+          {
+            "name": "testSetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "imageId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "셀 이미지 조회",
+        "tags": [
+          "테스트 세트"
+        ]
+      }
+    },
     "/api/v1/test-sets/{testSetId}/export": {
       "get": {
         "operationId": "exportTestSet",
@@ -6960,6 +7238,274 @@
           }
         },
         "summary": "공개 링크의 내 보기 설정 저장",
+        "tags": [
+          "공개 링크"
+        ]
+      }
+    },
+    "/api/v1/shared/{linkToken}/images": {
+      "post": {
+        "operationId": "uploadSharedTestSetImage",
+        "parameters": [
+          {
+            "name": "linkToken",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CellImageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "공개 링크의 셀 이미지 업로드",
+        "tags": [
+          "공개 링크"
+        ]
+      }
+    },
+    "/api/v1/shared/{linkToken}/images/{imageId}": {
+      "get": {
+        "operationId": "getSharedTestSetImage",
+        "parameters": [
+          {
+            "name": "linkToken",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "imageId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "입력 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "인증 필요",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "접근 권한 또는 Origin 거부",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "항목 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "업무 규칙 위반 또는 중복",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "사용할 수 없는 토큰",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "의존 서비스 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "공개 링크의 셀 이미지 조회",
         "tags": [
           "공개 링크"
         ]
@@ -9071,9 +9617,124 @@
         },
         "additionalProperties": false
       },
+      "TemplateResponseColumnDto": {
+        "type": "object",
+        "properties": {
+          "colors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "gray",
+                "red",
+                "yellow",
+                "green",
+                "teal",
+                "blue",
+                "purple"
+              ]
+            },
+            "default": {}
+          },
+          "presetKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "systemKey": {
+            "type": "string",
+            "enum": [
+              "test_id",
+              "title",
+              null
+            ],
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "select",
+              "checkbox",
+              "tags"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "options": {
+            "description": "선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "colors",
+          "presetKey",
+          "enabled",
+          "id",
+          "systemKey",
+          "name",
+          "type",
+          "description",
+          "options"
+        ],
+        "additionalProperties": false
+      },
+      "TemplateDto": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateResponseColumnDto"
+            }
+          }
+        },
+        "required": [
+          "revision",
+          "columns"
+        ],
+        "additionalProperties": false
+      },
       "TemplateColumnDto": {
         "type": "object",
         "properties": {
+          "colors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "gray",
+                "red",
+                "yellow",
+                "green",
+                "teal",
+                "blue",
+                "purple"
+              ]
+            },
+            "default": {}
+          },
           "presetKey": {
             "type": "string",
             "nullable": true,
@@ -9130,26 +9791,6 @@
           "type",
           "description",
           "options"
-        ],
-        "additionalProperties": false
-      },
-      "TemplateDto": {
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TemplateColumnDto"
-            }
-          }
-        },
-        "required": [
-          "revision",
-          "columns"
         ],
         "additionalProperties": false
       },
@@ -9659,6 +10300,19 @@
           "value": {
             "oneOf": [
               {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "image"
+                ],
+                "additionalProperties": false
+              },
+              {
                 "type": "string",
                 "maxLength": 20000,
                 "nullable": true
@@ -9738,6 +10392,19 @@
             "additionalProperties": {
               "oneOf": [
                 {
+                  "type": "object",
+                  "properties": {
+                    "image": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "image"
+                  ],
+                  "additionalProperties": false
+                },
+                {
                   "type": "string",
                   "maxLength": 20000,
                   "nullable": true
@@ -9815,6 +10482,22 @@
       "AddColumnDefinitionDto": {
         "type": "object",
         "properties": {
+          "colors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "gray",
+                "red",
+                "yellow",
+                "green",
+                "teal",
+                "blue",
+                "purple"
+              ]
+            },
+            "default": {}
+          },
           "presetKey": {
             "type": "string",
             "nullable": true,
@@ -9931,6 +10614,27 @@
       "UpdateColumnOpDto": {
         "type": "object",
         "properties": {
+          "colors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "gray",
+                "red",
+                "yellow",
+                "green",
+                "teal",
+                "blue",
+                "purple"
+              ]
+            }
+          },
+          "columnType": {
+            "type": "string",
+            "enum": [
+              "select"
+            ]
+          },
           "type": {
             "type": "string",
             "enum": [
@@ -10154,6 +10858,22 @@
       "TestSetColumnDto": {
         "type": "object",
         "properties": {
+          "colors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "gray",
+                "red",
+                "yellow",
+                "green",
+                "teal",
+                "blue",
+                "purple"
+              ]
+            },
+            "default": {}
+          },
           "presetKey": {
             "type": "string",
             "nullable": true,
@@ -10199,6 +10919,7 @@
           }
         },
         "required": [
+          "colors",
           "presetKey",
           "id",
           "systemKey",
@@ -10225,6 +10946,19 @@
             "type": "object",
             "additionalProperties": {
               "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "image": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "image"
+                  ],
+                  "additionalProperties": false
+                },
                 {
                   "type": "string",
                   "maxLength": 20000,
@@ -10479,6 +11213,29 @@
           "groupByColumnId",
           "columnWidths",
           "rowHeights"
+        ],
+        "additionalProperties": false
+      },
+      "CellImageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "width",
+          "height"
         ],
         "additionalProperties": false
       },

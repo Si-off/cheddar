@@ -1,11 +1,13 @@
-import type { Actor, CaseOp } from "@cheddar/contracts";
+import { type Actor, type CaseOp, isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable } from "@nestjs/common";
 import { isUUID } from "class-validator";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { ApiError, notFound } from "../common/errors";
+import { optionColors } from "../contracts/option-colors";
 import type { CellValue, OpsResultDto } from "../contracts/test-set.dto";
 import type { DatabaseTransaction } from "../database/database.service";
 import {
+  cellImages,
   featureGroups,
   reviewItems,
   testCases,
@@ -128,12 +130,20 @@ export class CaseOperationsService {
         .for("key share");
       if (!group) throw notFound();
     };
+    const imageIds = new Set(
+      (
+        await tx
+          .select({ id: cellImages.id })
+          .from(cellImages)
+          .where(eq(cellImages.testSetId, id))
+      ).map((image) => image.id),
+    );
     const checkedValues = (values: Record<string, CellValue>) =>
       Object.fromEntries(
         Object.entries(normalizeValues(values)).map(([columnId, value]) => {
           const column = columnMap.get(columnId);
           if (!column) throw notFound();
-          return [columnId, validateCell(column, value)];
+          return [columnId, validateCell(column, value, imageIds)];
         }),
       );
     const place = (caseId: string, after: string | null) => {
@@ -167,7 +177,9 @@ export class CaseOperationsService {
       const n = testIdNumber(values[testId.id]);
       if (n > counter) counter = n;
     };
+    const appliedOps: CaseOp[] = [];
     for (const op of ops) {
+      appliedOps.push(op);
       if (op.type === "add_case") {
         if (op.afterCaseId === op.caseId)
           return validationFailed("이동할 위치를 확인해주세요.");
@@ -286,11 +298,21 @@ export class CaseOperationsService {
           type: column.type,
           description: column.description,
           options: column.options,
+          colors: column.colors ?? {},
           presetKey: column.presetKey,
         };
       } else if (op.type === "update_column") {
         const column = columnMap.get(op.columnId);
         if (!column) throw notFound();
+        if (
+          op.columnType !== undefined &&
+          (column.presetKey !== null || column.type !== "text")
+        )
+          return validationFailed(
+            "드롭다운은 사용자 텍스트 열에만 만들 수 있습니다.",
+          );
+        if (op.columnType !== undefined && op.options === undefined)
+          return validationFailed("드롭다운의 선택 항목을 지정해주세요.");
         if (column.presetKey !== null)
           throw new ApiError(
             400,
@@ -308,24 +330,52 @@ export class CaseOperationsService {
                 columns: columns.map((c) => ({
                   ...c,
                   enabled: true,
-                  ...(c.id === column.id ? { options: op.options } : {}),
+                  ...(c.id === column.id
+                    ? { options: op.options, type: op.columnType ?? c.type }
+                    : {}),
                 })),
               }).columns[columns.indexOf(column)].options;
         if (op.options !== undefined) op.options = options;
+        const colors = optionColors(options, op.colors ?? column.colors);
+        if (op.colors !== undefined || op.options !== undefined)
+          op.colors = colors;
+        const type = op.columnType ?? column.type;
         Object.assign(column, {
+          type,
+          colors,
           name: op.name,
           description: op.description,
           options,
         });
         await tx
           .update(testSetColumns)
-          .set({ name: op.name, description: op.description, options })
+          .set({
+            name: op.name,
+            description: op.description,
+            options,
+            colors,
+            type,
+          })
           .where(
             and(
               eq(testSetColumns.testSetId, id),
               eq(testSetColumns.id, column.id),
             ),
           );
+        if (op.columnType !== undefined) {
+          for (const c of byId.values()) {
+            if (!isCellImage(c.values[column.id])) continue;
+            c.values[column.id] = null;
+            await saveValues(c.id, { [column.id]: null });
+            changed.add(c.id);
+            appliedOps.push({
+              type: "set_cell",
+              caseId: c.id,
+              columnId: column.id,
+              value: null,
+            });
+          }
+        }
       } else if (op.type === "remove_column") {
         const column = columnMap.get(op.columnId);
         if (!column) throw notFound();
@@ -447,7 +497,7 @@ export class CaseOperationsService {
           .where(eq(viewPreferences.id, pref.id));
     }
     const version = await this.store.bump(id, tx, String(counter));
-    onApplied?.(ops);
+    onApplied?.(appliedOps);
     return {
       version,
       cases: order.filter((caseId) => changed.has(caseId)).map(requireCase),

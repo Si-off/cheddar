@@ -1,10 +1,23 @@
-import type { CaseOp as SharedCaseOp } from "@cheddar/contracts";
+import {
+  type CellImage,
+  isCellImage,
+  type OptionColor,
+  type CaseOp as SharedCaseOp,
+  type CellValue as SharedCellValue,
+} from "@cheddar/contracts";
 import type { ColumnType, TemplateColumn } from "@/entities/project";
 
-/** 테스트 세트의 항목. 프로젝트 기본 양식에서 복사한 뒤 따로 바뀐다. */
-export type Column = Omit<TemplateColumn, "enabled">;
+export type { CellImage, OptionColor };
+export { isCellImage };
 
-export type CellValue = string | boolean | string[] | null;
+/** 테스트 세트의 항목. 프로젝트 기본 양식에서 복사한 뒤 따로 바뀐다. */
+export type Column = Omit<TemplateColumn, "enabled"> & {
+  /** 항목 이름별 칩 색. 없는 항목은 회색이다. */
+  colors?: Record<string, OptionColor>;
+};
+
+/** 텍스트 열의 셀에는 글자 대신 이미지 한 장을 넣을 수 있다. */
+export type CellValue = SharedCellValue;
 
 export interface TestCase {
   id: string;
@@ -108,6 +121,16 @@ export const mergeBounds = (column: Pick<Column, "presetKey">) =>
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";
 
+/** 항목의 칩 색 */
+export const optionColor = (
+  column: Pick<Column, "colors">,
+  option: string,
+): OptionColor => column.colors?.[option] ?? "gray";
+
+/** 셀에 든 이미지. 텍스트 열에서만 읽는다. */
+export const cellImage = (column: Pick<Column, "type">, value: unknown) =>
+  column.type === "text" && isCellImage(value) ? value : null;
+
 /** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 스프레드시트처럼 목록에 없는 값도 그대로 읽는다. */
 export function readCell(column: Column, value: CellValue | undefined) {
   switch (column.type) {
@@ -128,6 +151,22 @@ export function cellText(column: Column, value: CellValue | undefined) {
   if (column.type === "checkbox") return v ? "예" : "";
   if (Array.isArray(v)) return v.join(", ");
   return typeof v === "string" ? v : "";
+}
+
+/** 셀에 값이 있는지. 이미지만 든 셀도 값이 있다. */
+export const hasValue = (column: Column, value: CellValue | undefined) =>
+  cellImage(column, value) !== null || cellText(column, value) !== "";
+
+/** 두 값이 사람이 보기에 같은지. 이미지는 글자로 비교하면 모두 빈칸이라 이미지 id로 비교한다. */
+export function sameValue(
+  column: Column,
+  a: CellValue | undefined,
+  b: CellValue | undefined,
+) {
+  const ia = cellImage(column, a);
+  const ib = cellImage(column, b);
+  if (ia || ib) return ia?.image === ib?.image;
+  return cellText(column, a) === cellText(column, b);
 }
 
 /** 붙여넣은 글자를 형식에 맞는 값으로 바꾼다. 맞지 않으면 undefined. */
@@ -193,10 +232,19 @@ export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
                 ...c,
                 name: op.name,
                 description: op.description,
+                type: op.columnType ?? c.type,
                 options: op.options ?? c.options,
+                colors: op.colors ?? c.colors,
               }
             : c,
         );
+        // 드롭다운으로 바꾼 열의 이미지는 선택 값이 될 수 없어 비운다
+        if (op.columnType)
+          next = next.map((c) =>
+            isCellImage(c.values[op.columnId])
+              ? { ...c, values: { ...c.values, [op.columnId]: null } }
+              : c,
+          );
         break;
       case "reorder_columns": {
         const byId = new Map(columns.map((c) => [c.id, c]));

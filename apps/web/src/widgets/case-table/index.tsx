@@ -1,21 +1,29 @@
 import {
-  Badge,
   Button,
   ConfirmDialog,
   cn,
   DataGrid,
   type DataGridColumn,
+  Dialog,
   DrawnCheck,
   type GridPresence,
+  Icon,
   IconButton,
   Menu,
   Popover,
   useToast,
 } from "@cheddar/ui";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   type ClipboardEvent,
   type KeyboardEvent,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -23,15 +31,22 @@ import {
 import { createPortal } from "react-dom";
 import {
   type CaseOp,
+  CellImageThumb,
   type CellValue,
   type Column,
+  cellImage,
   cellText,
   emptyValue,
+  hasValue,
   mergeable,
   mergeBounds,
+  OptionChip,
+  type OptionColor,
   parseCell,
   readCell,
   type TestCase,
+  UploadRejected,
+  useCellImages,
 } from "@/entities/test-set";
 import { isMac, shortcut } from "@/shared/lib/shortcut";
 import { type CellActions, CellContextItems, CellToolbar } from "./cell-tools";
@@ -43,7 +58,7 @@ import {
   findMatches,
   replaceOps,
 } from "./find-replace";
-import { OptionsPanel } from "./options-panel";
+import { type OptionsChange, OptionsPanel } from "./options-panel";
 
 export { CellToolbar } from "./cell-tools";
 
@@ -94,9 +109,15 @@ interface Editing {
   initial?: string;
   /** 셀에 미리 둔 입력 칸에 바로 쳐서 시작했다. 친 글자가 이미 칸에 있다. */
   typed?: boolean;
+  /** 선택 열을 막 만들어 항목 편집부터 연다 */
+  options?: boolean;
 }
 
 // 글자를 쳐서 값을 넣을 수 있는 형식. 선택과 태그도 스프레드시트처럼 목록 밖 값을 칠 수 있다.
+/** 서버가 받는 셀 이미지 형식과 크기 */
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
 const typable = (column: Column) =>
   column.type === "text" || column.type === "select" || column.type === "tags";
 
@@ -155,6 +176,22 @@ export function CaseTable({
     columnId: string;
   } | null>(null);
   const [finding, setFinding] = useState(false);
+  // 막 드롭다운으로 바꾼 셀. 열이 선택 형식으로 반영된 뒤에 항목 편집을 연다.
+  // 글자 열인 채로 편집을 열면 글자 입력 칸이 열렸다가 닫히며 편집이 끝난다.
+  // 이미지가 든 열을 드롭다운으로 바꾸기 전에 묻는다(이미지는 선택 값이 될 수 없어 지워진다)
+  const [confirmDropdown, setConfirmDropdown] = useState<Column | null>(null);
+  const [dropdownAt, setDropdownAt] = useState<{
+    caseId: string;
+    columnId: string;
+  } | null>(null);
+  // 크게 보는 셀 이미지
+  const [preview, setPreview] = useState<{
+    imageId: string;
+    label: string;
+  } | null>(null);
+  const images = useCellImages();
+  const imageInput = useRef<HTMLInputElement>(null);
+  const imageTarget = useRef<{ caseId: string; columnId: string } | null>(null);
   // 값이 다른 셀을 병합하기 전에 묻는다(스프레드시트와 같다)
   const [confirmMerge, setConfirmMerge] = useState(false);
   // 병합을 풀어 따로 보이는 셀("rowId:columnId"). 보기 상태라 저장하지 않는다.
@@ -171,14 +208,21 @@ export function CaseTable({
     canEditColumns &&
     column.presetKey === null &&
     (column.type === "select" || column.type === "tags");
-  const saveOptions = (column: Column, options: string[]) =>
+  const saveOptions = (
+    column: Column,
+    {
+      options,
+      colors,
+    }: { options?: string[]; colors?: Record<string, OptionColor> },
+  ) =>
     onOps([
       {
         type: "update_column",
         columnId: column.id,
         name: column.name,
         description: column.description,
-        options,
+        ...(options && { options }),
+        ...(colors && { colors }),
       },
     ]);
   // 셀을 눌러 생긴 포커스인지 구분한다
@@ -294,7 +338,14 @@ export function CaseTable({
   const removeColumn = (column: Column) =>
     onOps([{ type: "remove_column", columnId: column.id }]);
   const filledCount = (column: Column) =>
-    allCases.filter((c) => cellText(column, c.values[column.id]) !== "").length;
+    allCases.filter((c) => hasValue(column, c.values[column.id])).length;
+  useEffect(() => {
+    if (!dropdownAt) return;
+    const column = columns.find((c) => c.id === dropdownAt.columnId);
+    if (column?.type !== "select") return;
+    setDropdownAt(null);
+    setEditing({ ...dropdownAt, options: true });
+  }, [columns, dropdownAt]);
   const insertCase = (afterCaseId: string | null) => {
     added.current = onInsertCase?.(afterCaseId) ?? null;
   };
@@ -459,6 +510,64 @@ export function CaseTable({
           tone: "info",
         }),
       );
+  // 스프레드시트의 삽입 > 드롭다운처럼 열에 있던 값으로 항목을 채우고 바로 항목 편집을 연다.
+  // 항목 규칙(100자, 50개)을 넘는 값은 목록에 넣지 않고 목록 밖 값으로 남긴다.
+  const imageCount = (column: Column) =>
+    allCases.filter((c) => cellImage(column, c.values[column.id])).length;
+  const makeDropdown = (column: Column) => {
+    const found = [
+      ...new Set(
+        allCases
+          .map((c) => c.values[column.id])
+          .filter((v): v is string => typeof v === "string")
+          .map((v) => v.trim())
+          .filter((v) => v && v.length <= 100),
+      ),
+    ].slice(0, 50);
+    onOps([
+      {
+        type: "update_column",
+        columnId: column.id,
+        name: column.name,
+        description: column.description,
+        columnType: "select",
+        options: found.length > 0 ? found : ["항목 1"],
+        colors: {},
+      },
+    ]);
+    if (current) setDropdownAt({ caseId: current.rowId, columnId: column.id });
+  };
+  const putImage = (file: File) => {
+    const target = imageTarget.current;
+    imageTarget.current = null;
+    if (!target || !images?.upload) return;
+    if (!IMAGE_TYPES.includes(file.type)) {
+      toast.show({
+        message: "PNG, JPG, GIF, WebP 이미지만 넣을 수 있습니다",
+        tone: "danger",
+      });
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      toast.show({
+        message: "10MB 이하 이미지만 넣을 수 있습니다",
+        tone: "danger",
+      });
+      return;
+    }
+    images
+      .upload(file)
+      .then((id) => set(target.caseId, target.columnId, { image: id }))
+      .catch((error: unknown) =>
+        toast.show({
+          message:
+            error instanceof UploadRejected
+              ? error.message
+              : "이미지를 넣지 못했습니다. 잠시 후 다시 선택해주세요",
+          tone: "danger",
+        }),
+      );
+  };
   // 쓸 수 없는 작업은 null(흐리게), 이 표에 없는 작업은 undefined(메뉴에서 뺀다)
   const when = (ok: boolean, run: () => void) => (ok ? run : null);
   const editable = !readOnly;
@@ -545,6 +654,33 @@ export function CaseTable({
             else mergeVertical();
           },
         ),
+    insertDropdown:
+      !editable || !canEditColumns
+        ? undefined
+        : when(
+            Boolean(
+              current &&
+                activeColumn?.type === "text" &&
+                activeColumn.presetKey === null,
+            ),
+            () => {
+              if (!activeColumn) return;
+              if (imageCount(activeColumn) > 0)
+                setConfirmDropdown(activeColumn);
+              else makeDropdown(activeColumn);
+            },
+          ),
+    insertImage:
+      !editable || !images?.upload
+        ? undefined
+        : when(Boolean(current && activeColumn?.type === "text"), () => {
+            if (!current) return;
+            imageTarget.current = {
+              caseId: current.rowId,
+              columnId: current.columnId,
+            };
+            imageInput.current?.click();
+          }),
     unmerge: when(
       Boolean(
         current &&
@@ -585,6 +721,12 @@ export function CaseTable({
     if (!column || !row) return;
     if (onShortcut(event)) return;
     const mod = event.ctrlKey || event.metaKey;
+    const image = cellImage(column, row.values[column.id]);
+    if (image && event.key === "Enter" && !mod) {
+      event.preventDefault();
+      setPreview({ imageId: image.image, label: column.name });
+      return;
+    }
     if (readOnly || mod) return;
     if (event.key === "Enter" || event.key === "F2") {
       event.preventDefault();
@@ -766,8 +908,8 @@ export function CaseTable({
             >
               <OptionsPanel
                 column={column}
-                onDone={(options) => {
-                  if (options) saveOptions(column, options);
+                onDone={(change) => {
+                  if (change) saveOptions(column, change);
                   setOptionsColumnId(null);
                 }}
               />
@@ -798,6 +940,9 @@ export function CaseTable({
                 column={column}
                 value={value}
                 markId={`outside-${row.id}-${column.id}`}
+                onOpen={() =>
+                  setEditing({ caseId: row.id, columnId: column.id })
+                }
               />
             )}
             <TextEditor
@@ -832,10 +977,11 @@ export function CaseTable({
           <OptionEditor
             column={column}
             value={value}
+            startWithOptions={editing.options}
             onChange={(next) => set(row.id, column.id, next)}
             onSaveOptions={
               editsOptions(column)
-                ? (options) => saveOptions(column, options)
+                ? (change) => saveOptions(column, change)
                 : undefined
             }
             onClose={finish}
@@ -855,7 +1001,21 @@ export function CaseTable({
             <CellDisplay column={column} value={value} />
           </button>
         );
-      return <CellDisplay column={column} value={value} />;
+      // 고른 셀(위의 입력 칸이 붙은 모양)과 같은 틀로 그려야 누르는 사이 칩이 다시 만들어지지 않아 click이 이어진다
+      return (
+        // biome-ignore lint/complexity/noUselessFragments: 고른 셀과 같은 React 트리 모양을 유지한다
+        <>
+          <CellDisplay
+            column={column}
+            value={value}
+            onOpen={
+              readOnly
+                ? undefined
+                : () => setEditing({ caseId: row.id, columnId: column.id })
+            }
+          />
+        </>
+      );
     },
   }));
 
@@ -916,7 +1076,11 @@ export function CaseTable({
         onCellKeyDown={onCellKeyDown}
         onCellDoubleClick={(cell) => {
           const column = columnOf(cell.columnId);
-          if (!readOnly && column && column.type !== "checkbox")
+          const image =
+            column && cellImage(column, caseOf(cell.rowId)?.values[column.id]);
+          if (image && column)
+            setPreview({ imageId: image.image, label: column.name });
+          else if (!readOnly && column && column.type !== "checkbox")
             setEditing({ caseId: cell.rowId, columnId: cell.columnId });
         }}
         selectedRowIds={selectedIds}
@@ -964,6 +1128,36 @@ export function CaseTable({
       />
       {toolsTarget &&
         createPortal(<CellToolbar actions={actions} />, toolsTarget)}
+      {images?.upload && (
+        <input
+          ref={imageInput}
+          type="file"
+          accept={IMAGE_TYPES.join(",")}
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) putImage(file);
+          }}
+        />
+      )}
+      <Dialog.Root
+        open={preview !== null}
+        onOpenChange={(open) => !open && setPreview(null)}
+      >
+        <Dialog.Content size="lg">
+          <Dialog.Header title={preview?.label ?? ""} />
+          <Dialog.Body className="grid place-items-center">
+            {preview && images && (
+              <img
+                src={images.url(preview.imageId)}
+                alt={`${preview.label} 이미지`}
+                className="max-h-160 max-w-full rounded-md object-contain"
+              />
+            )}
+          </Dialog.Body>
+        </Dialog.Content>
+      </Dialog.Root>
       <FindReplaceDialog
         open={finding}
         onOpenChange={(open) => {
@@ -1023,6 +1217,22 @@ export function CaseTable({
               },
             ]);
           setRenaming(null);
+        }}
+      />
+      <ConfirmDialog
+        open={confirmDropdown !== null}
+        onOpenChange={(open) => !open && setConfirmDropdown(null)}
+        title="드롭다운"
+        description={
+          confirmDropdown
+            ? `이 열의 이미지 ${imageCount(confirmDropdown)}개가 지워집니다. 실행취소로 되돌릴 수 없습니다.`
+            : ""
+        }
+        confirmLabel="드롭다운으로 바꾸기"
+        tone="danger"
+        onConfirm={() => {
+          if (confirmDropdown) makeDropdown(confirmDropdown);
+          setConfirmDropdown(null);
         }}
       />
       <ConfirmDialog
@@ -1107,12 +1317,17 @@ function CellDisplay({
   column,
   value,
   markId,
+  onOpen,
 }: {
   column: Column;
   value: CellValue | undefined;
   /** 목록 밖 표시의 id. 셀의 입력 칸이 이 상태를 설명으로 읽게 한다. */
   markId?: string;
+  /** 있으면 선택과 태그 칩을 한 번 눌러 목록을 연다(스프레드시트의 드롭다운 칩과 같다) */
+  onOpen?: () => void;
 }) {
+  const image = cellImage(column, value);
+  if (image) return <CellImageThumb imageId={image.image} />;
   const v = readCell(column, value);
   if (column.type === "checkbox")
     return (
@@ -1120,6 +1335,27 @@ function CellDisplay({
         <DrawnCheck drawn={v === true} size="sm" />
         <span className="sr-only">{v ? "예" : "아니오"}</span>
       </span>
+    );
+  // 칩을 누르면 셀을 고르는 동작에 이어 바로 목록을 연다. 키보드는 Enter로 같은 목록을 연다.
+  const shown = cellText(column, value);
+  const opener = (children: React.ReactNode, className?: string) =>
+    onOpen ? (
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={`${column.name} 고르기${shown ? `: ${shown}` : ""}`}
+        onClick={(event) => {
+          if (!event.shiftKey) onOpen();
+        }}
+        className={cn(
+          "inline-flex max-w-full cursor-pointer items-center border-0 bg-transparent p-0 text-left",
+          className,
+        )}
+      >
+        {children}
+      </button>
+    ) : (
+      children
     );
   // 목록에 없는 값은 스프레드시트처럼 그대로 두고 칩 없이 글자로 보여주며, 셀 모서리에 빨간 표시를 단다.
   if (Array.isArray(v)) {
@@ -1129,7 +1365,9 @@ function CellDisplay({
         {v
           .filter((tag) => column.options.includes(tag))
           .map((tag) => (
-            <Badge key={tag}>{tag}</Badge>
+            <span key={tag} className="contents">
+              {opener(<OptionChip column={column} option={tag} />)}
+            </span>
           ))}
         {outside.length > 0 && (
           <>
@@ -1140,15 +1378,28 @@ function CellDisplay({
       </span>
     );
   }
-  if (column.type === "select")
-    return !v ? null : column.options.includes(v as string) ? (
-      <Badge>{v}</Badge>
+  if (column.type === "select") {
+    if (!v)
+      // 빈 드롭다운 셀도 ▾를 눌러 바로 고른다
+      return opener(
+        <Icon icon={ChevronDown} size="sm" className="text-fg-faint" />,
+        "float-right",
+      );
+    return column.options.includes(v as string) ? (
+      opener(
+        <OptionChip
+          column={column}
+          option={v as string}
+          caret={Boolean(onOpen)}
+        />,
+      )
     ) : (
       <>
         {v}
         <OutsideMark id={markId} />
       </>
     );
+  }
   return <>{v}</>;
 }
 
@@ -1259,6 +1510,7 @@ function TextEditor({
 function OptionEditor({
   column,
   value,
+  startWithOptions,
   onChange,
   onSaveOptions,
   onClose,
@@ -1266,12 +1518,16 @@ function OptionEditor({
 }: {
   column: Column;
   value: CellValue | undefined;
+  /** 항목 편집부터 연다(드롭다운을 막 만들었을 때) */
+  startWithOptions?: boolean;
   onChange: (value: CellValue) => void;
-  onSaveOptions?: (options: string[]) => void;
+  onSaveOptions?: (change: OptionsChange) => void;
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  const [editingOptions, setEditingOptions] = useState(false);
+  const [editingOptions, setEditingOptions] = useState(
+    Boolean(startWithOptions && onSaveOptions),
+  );
   // 연필로 편집 상태로 바꿀 때 메뉴가 닫혀도 셀 편집은 끝내지 않는다
   const switching = useRef(false);
   const current = readCell(column, value);
@@ -1284,8 +1540,8 @@ function OptionEditor({
         <Popover.Popup align="center" aria-label={`${column.name} 항목 편집`}>
           <OptionsPanel
             column={column}
-            onDone={(options) => {
-              if (options) onSaveOptions?.(options);
+            onDone={(change) => {
+              if (change) onSaveOptions?.(change);
               onClose();
             }}
           />
@@ -1339,7 +1595,7 @@ function OptionEditor({
                   )
                 }
               >
-                {option}
+                <OptionChip column={column} option={option} />
               </Menu.CheckboxItem>
             ))
           : column.options.map((option) => (
@@ -1349,7 +1605,7 @@ function OptionEditor({
                 checked={current === option}
                 onCheckedChange={() => onChange(option)}
               >
-                {option}
+                <OptionChip column={column} option={option} />
               </Menu.CheckboxItem>
             ))}
       </Menu.Popup>

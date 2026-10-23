@@ -1,4 +1,5 @@
 import type { CellValue, TestSetColumnDto } from "../contracts/test-set.dto";
+import { cellText } from "../test-sets/values";
 import { isAiColumn } from "./steps/column-rules";
 import type { CaseOutput, Draft, ScenarioOutput } from "./types";
 
@@ -54,8 +55,9 @@ export function groupScenarios(
   rows: Draft[],
 ): ScenarioOutput["scenarios"] {
   const { testCase, title, steps } = scenarioColumns(columns);
+  // 이미지 셀은 빈 글자로 본다.
   const text = (row: Draft, column?: TestSetColumnDto) =>
-    column ? String(row[column.id] ?? "") : "";
+    column ? cellText(row[column.id]) : "";
   const scenarios: ScenarioOutput["scenarios"] = [];
   let previous: Draft | undefined;
   for (const values of rows) {
@@ -89,7 +91,7 @@ export function scenarioBlock<T extends { values: Draft }>(
 ): T[] {
   const { testCase } = scenarioColumns(columns);
   const name = (row: T) =>
-    testCase ? String(row.values[testCase.id] ?? "").trim() : "";
+    testCase ? cellText(row.values[testCase.id]).trim() : "";
   for (let start = 0; start < rows.length; ) {
     let end = start + 1;
     while (

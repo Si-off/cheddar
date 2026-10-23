@@ -6,13 +6,15 @@ import { SharedController } from "../sharing/shared.controller";
 import { SharedService } from "../sharing/shared.service";
 import { SharingController } from "../sharing/sharing.controller";
 import { SharingService } from "../sharing/sharing.service";
+import { StorageModule } from "../storage/storage.module";
 import { CaseOperationsService } from "./case-operations.service";
+import { CellImagesService } from "./cell-images.service";
 import { RecentTemplateController } from "./recent-template.controller";
 import { TestSetsController } from "./test-sets.controller";
 import { TestSetsService } from "./test-sets.service";
 import { TestSetsStore } from "./test-sets.store";
 @Module({
-  imports: [AuthorizationModule, AuthModule],
+  imports: [AuthorizationModule, AuthModule, StorageModule],
   controllers: [
     TestSetsController,
     SharingController,
@@ -21,6 +23,7 @@ import { TestSetsStore } from "./test-sets.store";
   ],
   providers: [
     TestSetsStore,
+    CellImagesService,
     TestSetsService,
     CaseOperationsService,
     SharingService,

@@ -71,10 +71,10 @@ pnpm dev:web
 웹은 `http://127.0.0.1:5173/`에서 연다. 개발 모드에서는 [공통 컴포넌트 미리보기](http://127.0.0.1:5173/design-system.html)도 열 수 있다.
 
 ```sh
-VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm dev:plugin
+pnpm dev:plugin
 ```
 
-플러그인 UI와 main을 감시 빌드해 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. Figma 데스크톱에서 개발용 manifest(`apps/figma-plugin/manifest.json`, 플러그인 ID `1692417282897261384`)를 불러온다. 플러그인의 API 주소는 기본 `http://localhost:3101`(`VITE_API_BASE_URL`), 웹 주소는 main 빌드 때의 `VITE_WEB_BASE_URL`이다. 플러그인에서 로그인하면 브라우저의 `/plugin-connect`에서 연결을 승인하고, 업로드가 끝나면 웹의 새 테스트 세트가 열린다. API에는 `ALLOW_FIGMA_NULL_ORIGIN=true`가 필요하다.
+플러그인 UI와 main을 감시 빌드해 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. Figma 데스크톱에서 개발용 manifest(`apps/figma-plugin/manifest.json`, 플러그인 ID `1692417282897261384`)를 불러온다. 플러그인의 API 주소는 기본 `http://localhost:3101`(`VITE_API_BASE_URL`), 웹 주소는 main 빌드 때의 `VITE_WEB_BASE_URL`이고, 개발 감시 빌드에서 값이 없으면 `http://127.0.0.1:5173`을 쓴다. 플러그인에서 로그인하면 브라우저의 `/plugin-connect`에서 연결을 승인하고, 업로드가 끝나면 웹의 새 테스트 세트가 열린다. API에는 `ALLOW_FIGMA_NULL_ORIGIN=true`가 필요하다.
 
 ```sh
 pnpm dev:plugin:remote

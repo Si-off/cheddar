@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import { isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { and, eq, sql } from "drizzle-orm";
 import type { CellValue } from "../contracts/test-set.dto";
@@ -13,6 +14,7 @@ import { LocalStorage } from "../storage/local-storage";
 import { imageMime } from "../temp-uploads/manifest";
 import { CaseOperationsService } from "../test-sets/case-operations.service";
 import { forbidden } from "../test-sets/test-sets.store";
+import { withoutCellImages } from "../test-sets/values";
 import { GenerationService, jobFinished } from "./generation.service";
 import type { Stage } from "./model-config";
 import { validateDraft } from "./output-schema";
@@ -71,7 +73,7 @@ export async function boundedMap<T, R>(
 export function fingerprint(input: GenerationInput, draft: Draft) {
   return JSON.stringify(
     input.columns.filter(isAiColumn).map((c) => {
-      const value = draft[c.id];
+      const value = isCellImage(draft[c.id]) ? "" : draft[c.id];
       return Array.isArray(value) ? [...value].sort() : (value ?? null);
     }),
   );
@@ -100,6 +102,8 @@ export class StageRunner implements OnModuleDestroy {
     context: GenerationInput,
     sourceData: unknown,
   ) {
+    context = withoutCellImages(context);
+    sourceData = withoutCellImages(sourceData);
     const definition =
       stage === "rewrite" && context.fillColumn
         ? fillColumn

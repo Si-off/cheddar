@@ -1,3 +1,4 @@
+import type { OptionColor } from "@cheddar/contracts";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
@@ -18,6 +19,8 @@ import {
   ValidateIf,
   ValidateNested,
 } from "class-validator";
+
+import { COLORS_SCHEMA, IsOptionColors } from "./option-colors";
 
 const optional = (_: unknown, value: unknown) => value !== undefined;
 const trim = ({ value }: { value: unknown }) =>
@@ -163,6 +166,10 @@ export class FeatureGroupOrderDto {
 }
 export const COLUMN_TYPES = ["text", "select", "checkbox", "tags"] as const;
 export class TemplateColumnDto {
+  @ApiPropertyOptional({ ...COLORS_SCHEMA, default: {} })
+  @IsOptionColors()
+  colors?: Record<string, OptionColor> = {};
+
   @ApiProperty({ type: String, nullable: true, maxLength: 40 })
   @ValidateIf((_o, value) => value !== null)
   @IsString()
@@ -219,9 +226,14 @@ export class UpdateTemplateDto {
   @Type(() => TemplateColumnDto)
   columns!: TemplateColumnDto[];
 }
+export class TemplateResponseColumnDto extends TemplateColumnDto {
+  @ApiProperty({ ...COLORS_SCHEMA, default: {}, selfRequired: true })
+  colors?: Record<string, OptionColor> = {};
+}
 export class TemplateDto {
   @ApiProperty({ type: "integer", minimum: 1 }) revision!: number;
-  @ApiProperty({ type: [TemplateColumnDto] }) columns!: TemplateColumnDto[];
+  @ApiProperty({ type: [TemplateResponseColumnDto] })
+  columns!: TemplateResponseColumnDto[];
 }
 export class ProjectDto {
   @ApiProperty({ format: "uuid" }) id!: string;

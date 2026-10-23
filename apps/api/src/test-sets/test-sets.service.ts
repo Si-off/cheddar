@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, desc, eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
+import sharp from "sharp";
 import type { IdentityDatabase } from "../authorization/authorization.service";
 import { notFound } from "../common/errors";
 import type { TemplateColumnDto } from "../contracts/project.dto";
@@ -26,6 +28,7 @@ import {
   viewPreferences,
 } from "../database/schema";
 import { validateSetColumns } from "../projects/template";
+import { CellImagesService } from "./cell-images.service";
 import { forbidden, type SetSubject, TestSetsStore } from "./test-sets.store";
 import { cellText, validateView, validationFailed } from "./values";
 
@@ -39,7 +42,10 @@ const defaultView = (): TestSetViewDto => ({
 });
 @Injectable()
 export class TestSetsService {
-  constructor(@Inject(TestSetsStore) private readonly store: TestSetsStore) {}
+  constructor(
+    @Inject(TestSetsStore) private readonly store: TestSetsStore,
+    @Inject(CellImagesService) private readonly images: CellImagesService,
+  ) {}
   async list(
     accountId: string,
     query: TestSetQueryDto,
@@ -409,6 +415,93 @@ export class TestSetsService {
             formulae: [range],
           };
       }
+    }
+    const palette = {
+      red: ["FFF0F1", "B33745"],
+      yellow: ["FFF6DF", "8A5800"],
+      green: ["EDF7F0", "216E4E"],
+      teal: ["EAF4F2", "265F5B"],
+      blue: ["EDF4FF", "255EAB"],
+      purple: ["EDEDF8", "454682"],
+    } as const;
+    let priority = 1;
+    if (set.cases.length)
+      for (const { column, index } of selects) {
+        const letter = sheet.getColumn(index + 1).letter;
+        for (const [option, color] of Object.entries(column.colors ?? {})) {
+          if (color === "gray" || !column.options.includes(option)) continue;
+          const [background, foreground] = palette[color];
+          sheet.addConditionalFormatting({
+            ref: `${letter}${headerRows + 1}:${letter}${headerRows + set.cases.length}`,
+            rules: [
+              {
+                type: "cellIs",
+                operator: "equal",
+                priority: priority++,
+                formulae: [`"${option.replace(/"/g, '""')}"`],
+                style: {
+                  fill: {
+                    type: "pattern",
+                    pattern: "solid",
+                    fgColor: { argb: `FF${background}` },
+                  },
+                  font: { color: { argb: `FF${foreground}` } },
+                },
+              },
+            ],
+          });
+        }
+      }
+    const imageCache = new Map<
+      string,
+      { id: number; width: number; height: number }
+    >();
+    for (const [caseIndex, c] of set.cases.entries()) {
+      const row = caseIndex + headerRows + 1;
+      const placements: {
+        index: number;
+        id: number;
+        width: number;
+        height: number;
+      }[] = [];
+      for (const [index, col] of set.columns.entries()) {
+        const value = c.values[col.id];
+        if (!isCellImage(value)) continue;
+        let image = imageCache.get(value.image);
+        if (!image) {
+          const stored = await this.images.read(set.id, accountId, value.image);
+          // Excel은 WebP를 지원하지 않아 내보낼 때 첫 프레임을 PNG로 바꾼다.
+          // 휴대폰 사진의 EXIF 방향은 PNG에 남지 않으므로 픽셀을 먼저 돌리고, 돌린 크기로 배치한다.
+          const { data: bytes, info } = await sharp(stored.bytes)
+            .rotate()
+            .png()
+            .toBuffer({ resolveWithObject: true });
+          const imageId = workbook.addImage({
+            base64: bytes.toString("base64"),
+            extension: "png",
+          });
+          image = { id: imageId, width: info.width, height: info.height };
+          imageCache.set(value.image, image);
+        }
+        const scale = Math.min(1, 160 / image.width, 96 / image.height);
+        placements.push({
+          index,
+          id: image.id,
+          width: image.width * scale,
+          height: image.height * scale,
+        });
+      }
+      if (!placements.length) continue;
+      sheet.getRow(row).height = Math.max(
+        20,
+        ...placements.map((p) => (p.height + 8) * 0.75),
+      );
+      for (const p of placements)
+        sheet.addImage(p.id, {
+          tl: { col: p.index + 0.02, row: row - 1 + 0.02 },
+          ext: { width: p.width, height: p.height },
+          editAs: "oneCell",
+        });
     }
     const data = new Uint8Array(await workbook.xlsx.writeBuffer());
     return { fileName: `${set.name}.xlsx`, data };

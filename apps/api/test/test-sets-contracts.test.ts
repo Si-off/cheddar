@@ -1,3 +1,4 @@
+import { CellImagesService } from "../src/test-sets/cell-images.service";
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -255,6 +256,7 @@ test("실제 HTTP는 DB 없이 테스트 세트 DTO, UUID, 연산과 보기 설�
   const module = await Test.createTestingModule({
     controllers: [TestSetsController],
     providers: [
+      { provide: CellImagesService, useValue: {} },
       {
         provide: TestSetsService,
         useValue: {

@@ -13,7 +13,8 @@ const toneClass = {
   danger: "bg-danger-soft text-danger",
   info: "bg-info-soft text-info",
 };
-const dotClass = {
+/** 톤의 진한 색 점. 색 고르기와 배지 점이 함께 쓴다. */
+export const dotClass = {
   neutral: "bg-fg-muted",
   accent: "bg-accent",
   figma: "bg-secondary",

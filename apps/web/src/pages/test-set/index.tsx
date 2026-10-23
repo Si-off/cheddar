@@ -30,7 +30,7 @@ import {
   Table2,
   Trash2,
 } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   currentGenerationQuery,
   reviewItemsQuery,
@@ -39,10 +39,12 @@ import {
 import { templateQuery } from "@/entities/project";
 import {
   type CaseOp,
+  CellImageContext,
   type CellValue,
   cellText,
   groupable,
   type TestSet,
+  testSetImages,
   testSetQuery,
 } from "@/entities/test-set";
 import {
@@ -196,6 +198,10 @@ function TestSetScreen({
     "rename" | "delete" | "generate" | "share" | null
   >(null);
   const readOnly = !testSet.access.canEdit;
+  const images = useMemo(
+    () => testSetImages(testSet.id, !readOnly),
+    [testSet.id, readOnly],
+  );
   const generation = useQuery(currentGenerationQuery(testSet.id)).data;
   const active =
     generation?.status === "queued" || generation?.status === "running";
@@ -330,341 +336,347 @@ function TestSetScreen({
 
   return (
     // 표와 캔버스는 화면 높이를 채우고 안에서 스크롤한다
-    <main className="flex min-h-0 w-full flex-1 flex-col gap-4 px-8 pt-6 pb-8">
-      <div className="flex min-h-9 flex-wrap items-center gap-3">
-        <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
-        {!readOnly && <SaveStatus state={state} />}
-        <span className="flex-1" />
-        {live.people.length > 0 && (
-          <Avatars
-            people={live.people.map((p) => ({
-              id: p.connectionId,
-              name: p.connectionId === live.me?.connectionId ? "나" : p.name,
-              color: p.color,
-              guest: p.kind === "visitor",
-            }))}
-          />
-        )}
-        <Button icon={Link2} onClick={() => setDialog("share")}>
-          공유
-        </Button>
-        {(testSet.access.canRename || testSet.access.canDelete) && (
-          <Menu.Root>
-            <Menu.Trigger
-              render={
-                <IconButton
-                  icon={MoreHorizontal}
-                  label="테스트 세트 작업"
-                  variant="solid"
-                />
-              }
+    <CellImageContext value={images}>
+      <main className="flex min-h-0 w-full flex-1 flex-col gap-4 px-8 pt-6 pb-8">
+        <div className="flex min-h-9 flex-wrap items-center gap-3">
+          <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
+          {!readOnly && <SaveStatus state={state} />}
+          <span className="flex-1" />
+          {live.people.length > 0 && (
+            <Avatars
+              people={live.people.map((p) => ({
+                id: p.connectionId,
+                name: p.connectionId === live.me?.connectionId ? "나" : p.name,
+                color: p.color,
+                guest: p.kind === "visitor",
+              }))}
             />
-            <Menu.Popup align="end">
-              {testSet.access.canRename && (
-                <Menu.Item onClick={() => setDialog("rename")}>
-                  이름 변경
-                </Menu.Item>
-              )}
-              {testSet.access.canDelete && (
-                <>
-                  <Menu.Separator />
-                  <Menu.Item
-                    icon={Trash2}
-                    tone="danger"
-                    onClick={() => setDialog("delete")}
-                  >
-                    삭제
+          )}
+          <Button icon={Link2} onClick={() => setDialog("share")}>
+            공유
+          </Button>
+          {(testSet.access.canRename || testSet.access.canDelete) && (
+            <Menu.Root>
+              <Menu.Trigger
+                render={
+                  <IconButton
+                    icon={MoreHorizontal}
+                    label="테스트 세트 작업"
+                    variant="solid"
+                  />
+                }
+              />
+              <Menu.Popup align="end">
+                {testSet.access.canRename && (
+                  <Menu.Item onClick={() => setDialog("rename")}>
+                    이름 변경
                   </Menu.Item>
-                </>
-              )}
-            </Menu.Popup>
-          </Menu.Root>
-        )}
-      </div>
+                )}
+                {testSet.access.canDelete && (
+                  <>
+                    <Menu.Separator />
+                    <Menu.Item
+                      icon={Trash2}
+                      tone="danger"
+                      onClick={() => setDialog("delete")}
+                    >
+                      삭제
+                    </Menu.Item>
+                  </>
+                )}
+              </Menu.Popup>
+            </Menu.Root>
+          )}
+        </div>
 
-      <Toolbar aria-label="테스트 세트 도구">
-        <Tabs.Root
-          value={view.view}
-          onValueChange={(v) => setView({ view: v as "table" | "canvas" })}
-        >
-          <Tabs.List variant="pill" aria-label="보기">
-            <Tabs.Tab value="table" icon={Table2}>
-              표
-            </Tabs.Tab>
-            <Tabs.Tab value="canvas" icon={Columns3}>
-              캔버스
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs.Root>
-        {view.view === "table" && testSet.cases.length > 0 && (
-          <>
-            <ToolbarSeparator />
-            <span ref={setCellTools} className="contents" />
-          </>
-        )}
-        {view.view === "table" && testSet.cases.length === 0 && !readOnly && (
-          // 마지막 행을 지운 뒤에도 바로 되살릴 수 있게 실행취소는 남긴다
-          <>
-            <ToolbarSeparator />
-            <CellToolbar
-              actions={{
-                undo: history.canUndo ? history.undo : null,
-                redo: history.canRedo ? history.redo : null,
-              }}
-            />
-          </>
-        )}
-        {canvas && (
-          <>
-            <ToolbarSeparator />
-            {!readOnly && (
+        <Toolbar aria-label="테스트 세트 도구">
+          <Tabs.Root
+            value={view.view}
+            onValueChange={(v) => setView({ view: v as "table" | "canvas" })}
+          >
+            <Tabs.List variant="pill" aria-label="보기">
+              <Tabs.Tab value="table" icon={Table2}>
+                표
+              </Tabs.Tab>
+              <Tabs.Tab value="canvas" icon={Columns3}>
+                캔버스
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.Root>
+          {view.view === "table" && testSet.cases.length > 0 && (
+            <>
+              <ToolbarSeparator />
+              <span ref={setCellTools} className="contents" />
+            </>
+          )}
+          {view.view === "table" && testSet.cases.length === 0 && !readOnly && (
+            // 마지막 행을 지운 뒤에도 바로 되살릴 수 있게 실행취소는 남긴다
+            <>
+              <ToolbarSeparator />
               <CellToolbar
                 actions={{
                   undo: history.canUndo ? history.undo : null,
                   redo: history.canRedo ? history.redo : null,
                 }}
               />
-            )}
-            <ToolbarMenu icon={Columns3} label="그룹화">
-              {[
-                { key: "feature", label: "기능 그룹" },
-                ...testSet.columns
-                  .filter((c) => groupable(c.type))
-                  .map((c) => ({ key: c.id, label: c.name })),
-                { key: "none", label: "없음" },
-              ].map((option) => {
-                const checked =
-                  option.key === "feature" || option.key === "none"
-                    ? canvasGroup === option.key
-                    : canvasGroup === "column" &&
-                      groupColumn?.id === option.key;
-                return (
+            </>
+          )}
+          {canvas && (
+            <>
+              <ToolbarSeparator />
+              {!readOnly && (
+                <CellToolbar
+                  actions={{
+                    undo: history.canUndo ? history.undo : null,
+                    redo: history.canRedo ? history.redo : null,
+                  }}
+                />
+              )}
+              <ToolbarMenu icon={Columns3} label="그룹화">
+                {[
+                  { key: "feature", label: "기능 그룹" },
+                  ...testSet.columns
+                    .filter((c) => groupable(c.type))
+                    .map((c) => ({ key: c.id, label: c.name })),
+                  { key: "none", label: "없음" },
+                ].map((option) => {
+                  const checked =
+                    option.key === "feature" || option.key === "none"
+                      ? canvasGroup === option.key
+                      : canvasGroup === "column" &&
+                        groupColumn?.id === option.key;
+                  return (
+                    <Menu.CheckboxItem
+                      key={option.key}
+                      closeOnClick
+                      checked={checked}
+                      onCheckedChange={() =>
+                        setView(
+                          option.key === "feature" || option.key === "none"
+                            ? { canvasGroup: option.key }
+                            : {
+                                canvasGroup: "column",
+                                groupByColumnId: option.key,
+                              },
+                        )
+                      }
+                    >
+                      {option.label}
+                    </Menu.CheckboxItem>
+                  );
+                })}
+              </ToolbarMenu>
+              <ToolbarMenu icon={AlignLeft} label="표시">
+                {(
+                  [
+                    { key: "brief", label: "간략" },
+                    { key: "detail", label: "상세" },
+                  ] as const
+                ).map((option) => (
                   <Menu.CheckboxItem
                     key={option.key}
                     closeOnClick
-                    checked={checked}
+                    checked={view.canvasDensity === option.key}
                     onCheckedChange={() =>
-                      setView(
-                        option.key === "feature" || option.key === "none"
-                          ? { canvasGroup: option.key }
-                          : {
-                              canvasGroup: "column",
-                              groupByColumnId: option.key,
-                            },
-                      )
+                      setView({ canvasDensity: option.key })
                     }
                   >
                     {option.label}
                   </Menu.CheckboxItem>
-                );
-              })}
-            </ToolbarMenu>
-            <ToolbarMenu icon={AlignLeft} label="표시">
-              {(
-                [
-                  { key: "brief", label: "간략" },
-                  { key: "detail", label: "상세" },
-                ] as const
-              ).map((option) => (
-                <Menu.CheckboxItem
-                  key={option.key}
-                  closeOnClick
-                  checked={view.canvasDensity === option.key}
-                  onCheckedChange={() => setView({ canvasDensity: option.key })}
-                >
-                  {option.label}
-                </Menu.CheckboxItem>
-              ))}
-            </ToolbarMenu>
-          </>
-        )}
-        {(!readOnly || testSet.access.canExport) && <ToolbarSeparator />}
-        {!readOnly && (
-          <Button
-            size="sm"
-            variant="ai"
-            icon={Sparkles}
-            disabled={running}
-            onClick={() => setDialog("generate")}
-          >
-            케이스 추가 생성
-          </Button>
-        )}
-        {testSet.access.canExport && (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={Download}
-            loading={exportXlsx.isPending}
-            onClick={() => exportXlsx.mutate()}
-          >
-            XLSX 내보내기
-          </Button>
-        )}
-        {view.view === "table" && selectedIds.size > 0 && (
-          <>
-            <ToolbarSeparator />
-            <span className="text-caption text-fg-muted">
-              {selectedIds.size}개 선택
-            </span>
+                ))}
+              </ToolbarMenu>
+            </>
+          )}
+          {(!readOnly || testSet.access.canExport) && <ToolbarSeparator />}
+          {!readOnly && (
+            <Button
+              size="sm"
+              variant="ai"
+              icon={Sparkles}
+              disabled={running}
+              onClick={() => setDialog("generate")}
+            >
+              케이스 추가 생성
+            </Button>
+          )}
+          {testSet.access.canExport && (
             <Button
               size="sm"
               variant="ghost"
-              icon={Trash2}
-              onClick={removeSelected}
+              icon={Download}
+              loading={exportXlsx.isPending}
+              onClick={() => exportXlsx.mutate()}
             >
-              삭제
+              XLSX 내보내기
             </Button>
-          </>
-        )}
-        <span className="flex-1" />
-        <TextField
-          size="sm"
-          icon={Search}
-          placeholder="케이스 검색"
-          aria-label="케이스 검색"
-          className="w-60 max-w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {(hasReview || reviewOpen) && (
-          <Button
-            size="sm"
-            icon={CircleHelp}
-            aria-pressed={reviewOpen}
-            onClick={() => setReviewOpen(!reviewOpen)}
-            className="border-warning text-warning"
-          >
-            확인 필요
-            <span className="tabular-nums">{reviewCount}</span>
-          </Button>
-        )}
-      </Toolbar>
-
-      {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
-      {running && generation && (
-        <Banner
-          tone="info"
-          title="케이스를 만들고 있습니다"
-          actions={
-            <Link
-              to="/test-sets/$testSetId/generating"
-              params={{ testSetId: testSet.id }}
-              className={buttonVariants({ size: "sm" })}
-            >
-              진행 보기
-            </Link>
-          }
-        />
-      )}
-
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col">
-          {canvas ? (
-            <CaseCanvas
-              columns={testSet.columns}
-              cases={cases}
-              allCases={testSet.cases}
-              featureGroups={testSet.featureGroups ?? []}
-              group={canvasGroup}
-              groupColumnId={groupColumn?.id ?? null}
-              density={view.canvasDensity}
-              readOnly={readOnly}
-              onOps={onOps}
-              onOpenCase={setOpenCaseId}
-            />
-          ) : testSet.cases.length === 0 ? (
-            <EmptyState
-              icon={Table2}
-              title="케이스가 없습니다"
-              actions={
-                !readOnly && (
-                  <Button onClick={() => addCase()}>케이스 추가</Button>
-                )
-              }
-            />
-          ) : (
-            <div className="relative min-h-96 flex-1">
-              <div className="absolute inset-0 flex flex-col">
-                <CaseTable
-                  aria-label="케이스"
-                  cases={cases}
-                  onAddCase={() => addCase()}
-                  onInsertCase={(after) => addCase({}, after)}
-                  toolsTarget={cellTools}
-                  onUndo={history.undo}
-                  onRedo={history.redo}
-                  canUndo={history.canUndo}
-                  canRedo={history.canRedo}
-                  {...tableProps}
-                />
-              </div>
-            </div>
           )}
+          {view.view === "table" && selectedIds.size > 0 && (
+            <>
+              <ToolbarSeparator />
+              <span className="text-caption text-fg-muted">
+                {selectedIds.size}개 선택
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Trash2}
+                onClick={removeSelected}
+              >
+                삭제
+              </Button>
+            </>
+          )}
+          <span className="flex-1" />
+          <TextField
+            size="sm"
+            icon={Search}
+            placeholder="케이스 검색"
+            aria-label="케이스 검색"
+            className="w-60 max-w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {(hasReview || reviewOpen) && (
+            <Button
+              size="sm"
+              icon={CircleHelp}
+              aria-pressed={reviewOpen}
+              onClick={() => setReviewOpen(!reviewOpen)}
+              className="border-warning text-warning"
+            >
+              확인 필요
+              <span className="tabular-nums">{reviewCount}</span>
+            </Button>
+          )}
+        </Toolbar>
+
+        {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
+        {running && generation && (
+          <Banner
+            tone="info"
+            title="케이스를 만들고 있습니다"
+            actions={
+              <Link
+                to="/test-sets/$testSetId/generating"
+                params={{ testSetId: testSet.id }}
+                className={buttonVariants({ size: "sm" })}
+              >
+                진행 보기
+              </Link>
+            }
+          />
+        )}
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+          <div className="flex min-w-0 flex-1 flex-col">
+            {canvas ? (
+              <CaseCanvas
+                columns={testSet.columns}
+                cases={cases}
+                allCases={testSet.cases}
+                featureGroups={testSet.featureGroups ?? []}
+                group={canvasGroup}
+                groupColumnId={groupColumn?.id ?? null}
+                density={view.canvasDensity}
+                readOnly={readOnly}
+                onOps={onOps}
+                onOpenCase={setOpenCaseId}
+              />
+            ) : testSet.cases.length === 0 ? (
+              <EmptyState
+                icon={Table2}
+                title="케이스가 없습니다"
+                actions={
+                  !readOnly && (
+                    <Button onClick={() => addCase()}>케이스 추가</Button>
+                  )
+                }
+              />
+            ) : (
+              <div className="relative min-h-96 flex-1">
+                <div className="absolute inset-0 flex flex-col">
+                  <CaseTable
+                    aria-label="케이스"
+                    cases={cases}
+                    onAddCase={() => addCase()}
+                    onInsertCase={(after) => addCase({}, after)}
+                    toolsTarget={cellTools}
+                    onUndo={history.undo}
+                    onRedo={history.redo}
+                    canUndo={history.canUndo}
+                    canRedo={history.canRedo}
+                    {...tableProps}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <ReviewPanel
+            columns={testSet.columns}
+            items={reviewItems}
+            readOnly={readOnly}
+            onAnswer={(item, answer) => review.update.mutate({ item, answer })}
+            onDraft={(item, columnId, value) =>
+              review.update.mutate({
+                item,
+                draft: { ...item.draft, [columnId]: value },
+              })
+            }
+            onExclude={(item) =>
+              review.update.mutate({ item, status: "excluded" })
+            }
+            onRestore={(item) =>
+              review.update.mutate({ item, status: "pending" })
+            }
+            onAccept={(item) => review.accept.mutate(item)}
+            onRewrite={(item, answer) =>
+              review.rewrite.mutate({ item, answer })
+            }
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+          />
         </div>
-        <ReviewPanel
-          columns={testSet.columns}
-          items={reviewItems}
-          readOnly={readOnly}
-          onAnswer={(item, answer) => review.update.mutate({ item, answer })}
-          onDraft={(item, columnId, value) =>
-            review.update.mutate({
-              item,
-              draft: { ...item.draft, [columnId]: value },
+
+        <GenerateSheet
+          testSetId={testSet.id}
+          upload={
+            upload && upload.frames.length > 0
+              ? { id: upload.id, frameCount: upload.frames.length }
+              : null
+          }
+          open={dialog === "generate"}
+          onOpenChange={(open) => setDialog(open ? "generate" : null)}
+          onStarted={() =>
+            navigate({
+              to: "/test-sets/$testSetId/generating",
+              params: { testSetId: testSet.id },
             })
           }
-          onExclude={(item) =>
-            review.update.mutate({ item, status: "excluded" })
-          }
-          onRestore={(item) =>
-            review.update.mutate({ item, status: "pending" })
-          }
-          onAccept={(item) => review.accept.mutate(item)}
-          onRewrite={(item, answer) => review.rewrite.mutate({ item, answer })}
-          open={reviewOpen}
-          onOpenChange={setReviewOpen}
         />
-      </div>
-
-      <GenerateSheet
-        testSetId={testSet.id}
-        upload={
-          upload && upload.frames.length > 0
-            ? { id: upload.id, frameCount: upload.frames.length }
-            : null
-        }
-        open={dialog === "generate"}
-        onOpenChange={(open) => setDialog(open ? "generate" : null)}
-        onStarted={() =>
-          navigate({
-            to: "/test-sets/$testSetId/generating",
-            params: { testSetId: testSet.id },
-          })
-        }
-      />
-      <CaseDialog
-        columns={testSet.columns}
-        testCase={testSet.cases.find((c) => c.id === openCaseId) ?? null}
-        readOnly={readOnly}
-        onOps={onOps}
-        onClose={() => setOpenCaseId(null)}
-      />
-      <RenameTestSetDialog
-        testSet={testSet}
-        open={dialog === "rename"}
-        onOpenChange={(open) => setDialog(open ? "rename" : null)}
-      />
-      <ShareDialog
-        testSetId={testSet.id}
-        open={dialog === "share"}
-        onOpenChange={(open) => setDialog(open ? "share" : null)}
-      />
-      <DeleteTestSetDialog
-        testSet={testSet}
-        open={dialog === "delete"}
-        onOpenChange={(open) => setDialog(open ? "delete" : null)}
-        onDeleted={() => navigate({ to: "/test-sets" })}
-      />
-    </main>
+        <CaseDialog
+          columns={testSet.columns}
+          testCase={testSet.cases.find((c) => c.id === openCaseId) ?? null}
+          readOnly={readOnly}
+          onOps={onOps}
+          onClose={() => setOpenCaseId(null)}
+        />
+        <RenameTestSetDialog
+          testSet={testSet}
+          open={dialog === "rename"}
+          onOpenChange={(open) => setDialog(open ? "rename" : null)}
+        />
+        <ShareDialog
+          testSetId={testSet.id}
+          open={dialog === "share"}
+          onOpenChange={(open) => setDialog(open ? "share" : null)}
+        />
+        <DeleteTestSetDialog
+          testSet={testSet}
+          open={dialog === "delete"}
+          onOpenChange={(open) => setDialog(open ? "delete" : null)}
+          onDeleted={() => navigate({ to: "/test-sets" })}
+        />
+      </main>
+    </CellImageContext>
   );
 }
