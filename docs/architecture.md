@@ -142,7 +142,7 @@
 - 열 편집은 프로젝트의 `validateTemplate`을 그대로 재사용한다. 삭제한 열의 값은 함께 지우고 형식과 선택 항목이 바뀌면 유효한 값만 남긴다. 태그는 남은 선택 값만 유지하고 텍스트 변환은 태그를 `, `로 연결하고 체크박스를 `예`/빈 문자열로 바꾼다. 모든 사람의 보기 설정에서 삭제된 열 너비와 사용할 수 없는 묶기 기준을 정리한다. 케이스 삭제는 해당 행 높이도 정리한다.
 - 보기 설정은 계정과 링크 방문자별로 따로 upsert하며 기본값은 표 보기(`table`), 캔버스 그룹화 기능 그룹(`canvasGroup: feature`), 간략 표시(`canvasDensity: brief`), 빈 크기 맵이다. `view`는 `table|canvas`이고(이전 `card`는 마이그레이션으로 `canvas`가 됐다), `canvasGroup`은 `feature|column|none`이다. `column`이면 `groupByColumnId`가 필수이며 같은 세트의 선택, 태그, 체크박스 열만 허용한다. 그룹화하던 열을 지우면 `groupByColumnId`를 비우고 `column`이었으면 `feature`로 돌린다. 크기 맵은 같은 세트의 열과 케이스만 참조하고 너비 40~2000, 높이 24~2000 정수만 저장한다. 세트 삭제는 묶기 열의 RESTRICT FK에 걸리지 않도록 보기 설정부터 삭제한다.
 - 케이스의 기능 그룹: `test_cases.feature_group_id`는 같은 프로젝트의 기능 그룹만 가리키며 서버가 연산 적용 때 프로젝트 일치를 검사한다. `add_case`는 `featureGroupId`를 생략하면 바로 앞 케이스의 그룹을 따르고(맨 앞이면 null), null을 주면 상속하지 않는다. 서버가 정한 값을 넣어 전파한다. `set_feature_group`(링크 편집 방문자도 가능)은 기존 버전, 트랜잭션, 실시간 ops 경계를 공유한다. `TestSetDto`와 `SharedTestSetDto`는 프로젝트의 `featureGroups`(position, id 순)를 함께 돌려준다. 기능 그룹 추가, 이름 변경, 삭제, 정렬은 그 프로젝트의 모든 테스트 세트 버전을 같은 트랜잭션에서 올리고 커밋 뒤 세트마다 resync를 발행한다.
-- 생성 결과의 기능 그룹: 기능 그룹별 케이스 작성 단계의 키를 최종 점검(`caseGroupKeys`, `reviewGroupKeys`)까지 보존하고, 저장 때 실제 존재하는 프로젝트 그룹만 연결한다(없거나 삭제된 그룹, 제안용 키는 null). 확인 필요 항목도 `review_items.feature_group_id`로 원래 그룹을 보존해 수락 때 케이스에 반영한다.
+- 생성 결과의 기능 그룹: 기능 그룹별 케이스 작성 단계의 키를 최종 점검의 시나리오와 확인 필요 항목별 `groupKey`까지 보존하고, 저장 때 실제 존재하는 프로젝트 그룹만 연결한다(없거나 삭제된 그룹, 제안용 키는 null). 확인 필요 항목도 `review_items.feature_group_id`로 원래 그룹을 보존해 수락 때 케이스에 반영한다.
 - XLSX는 `exceljs@4.4.0`으로 만든다. 시트 하나에 현재 열 이름을 머리글로, 저장된 케이스를 화면 순서로 넣는다. 태그는 ", "로 잇고 체크박스는 "예"/빈칸이다. 파일 이름은 테스트 세트 이름이며 `Content-Disposition`에 UTF-8로 인코딩한다.
 - DB 없는 DTO, 값 검증과 변환, 접근 계산, HTTP 400 테스트와 PostgreSQL 계약 테스트를 분리했다. PostgreSQL 테스트는 기존 전용 `TEST_DATABASE_URL`과 안전 검사를 그대로 쓰며 권한, 목록, 양식 복사와 값 정리, 연산의 원자성과 세트 경계, 번호, 작성자, 개인 보기를 검증한다. XLSX는 머리글과 응답 헤더를 검증한다. 실제 DB 실행 여부는 검증 결과에서 별도로 보고한다.
 
@@ -159,7 +159,7 @@
 - 열 항목 색은 `test_set_columns.colors`와 양식 열의 `colors`(항목 이름 → gray/red/yellow/green/teal/blue/purple)에 둔다. `update_column`의 `colors`는 목록에 없는 이름을 버리고 저장하며, `columnType: "select"`는 사용자 텍스트 열에만 받아 형식을 바꾸고 그 열의 이미지 값을 비운다. XLSX의 색은 웹 라이트 테마의 soft 배경과 글자 토큰 값을 쓴다.
 - pg-boss는 `DATABASE_URL`의 PostgreSQL과 기본 `pgboss` 스키마를 쓴다. 서버 초기화 때 큐 스키마와 워커, 매분 정리 예약을 준비하고 미완료 작업을 큐에 다시 넣는다. 명세를 위한 앱 생성 자체는 연결하지 않는다. DB 없는 HTTP 검사에서만 주입 설정 `workersEnabled: false`를 사용하며 실제 서버 기본값은 워커 시작이다. 테스트는 `AI_PROVIDER=fake`와 0.5초 큐 폴링을 사용한다.
 - 화면, 흐름, 케이스, 마무리는 각각 pg-boss 작업으로 실행한다. 보드별 화면 분석과 기능 그룹별 케이스 작성의 동시 실행 상한은 3이다. 작업별 PostgreSQL advisory lock이 여러 워커의 중복 실행을 막고, `generation_steps`의 작업+단계+분할 키로 완료 결과를 재사용한다. DB 작업 행이 큐 전송의 영속 기준이며 전송 중 종료된 작업은 시작 시와 매분 스캔으로 다시 넣는다. 종료 신호는 제공자 호출과 백오프를 중단하며 미완료 작업과 입력은 재개용으로 보존한다.
-- 요청 당시 양식, 세트 메모, 화면 문서와 이미지 키, 프로젝트 기능 그룹, 켜진 필수 케이스, 화면 구조, 요청자가 볼 수 있는 최근 세트의 스타일 예시를 `context` 단계에 잠시 저장한다. 스타일 예시는 최근 5개 세트에서 세트별 최대 3개, 총 6개이며 현재 열의 이름과 형식으로 매핑한다. append는 기존 케이스도 입력에 포함한다. 프로젝트 메모는 조회하거나 입력에 넣지 않는다. Figma 글자와 메모, 답변은 신뢰하지 않는 자료로 감싸 시스템 지시와 분리한다.
+- 요청 당시 양식, 세트 메모, 화면 문서와 이미지 키, 프로젝트 기능 그룹, 켜진 필수 케이스, 화면 구조, 요청자가 볼 수 있는 최근 세트의 스타일 예시를 `context` 단계에 잠시 저장한다. 스타일 예시는 최근 5개 세트에서 테스트 케이스 값이 이어지는 첫 묶음(세트별 최대 8행, 없으면 앞의 3행)을 골라 총 16행까지 넣고, 현재 열의 이름과 형식으로 매핑한 뒤 시나리오 묶음으로 바꿔 보낸다. append는 기존 케이스도 입력에 포함한다. 프로젝트 메모는 조회하거나 입력에 넣지 않는다. Figma 글자와 메모, 답변은 신뢰하지 않는 자료로 감싸 시스템 지시와 분리한다.
 - 단계 정의 파일마다 프롬프트와 버전, 화면 단계, 출력 스키마, 출력 한도, 요청 시간 제한, 재시도 2회를 둔다. 단계별 모델과 effort는 `generation/model-config.ts`의 기본값 표에 두고 `AI_MODEL_<단계>`, `AI_EFFORT_<단계>`로 바꾼다. 모델은 짧은 이름(`haiku`, `sonnet`, `opus`, `luna`, `terra`)도 받는다. effort는 Claude에는 `output_config.effort`, GPT에는 `reasoning.effort`로 보낸다. Anthropic과 OpenAI는 공식 SDK를 `AiProvider` 인터페이스로 감싸고 SDK 자동 재시도는 끈다. 연결과 속도 제한, 서버 오류, 출력 길이 초과는 단계에서 지수 백오프로 재시도한다. 거절과 요청 설정 오류는 바로 실패한다. 제공자 키는 환경에서만 읽으며 실제 AI를 호출하는 테스트는 두지 않는다.
 - 출력 JSON 스키마는 세트 열 UUID에서 만들고 테스트 ID는 서버가 붙인다. 선택과 태그는 enum, 객체는 필수 키와 추가 키 금지를 사용한다. 서버에서 파싱, 스키마, 셀 값, 화면과 기능 그룹 참조, 최종 필수 케이스 집계를 다시 검증하고 잘못된 출력에는 검증 오류를 붙여 1회만 수정 요청한다. 마무리는 필수 케이스 보충과 의미상 중복 합치기를 요청하고 서버도 번호를 제외한 셀 값이 같은 케이스를 제거한다.
 - 마무리에서 세트 행을 잠그고 요청 계정의 현재 활성 상태와 편집 권한을 다시 검사한다. `CaseOperationsService.applyInTransaction`으로 세트 끝에 케이스를 추가하며 작성 계정과 자동 번호를 기존 연산과 동일하게 처리한다. 케이스, 확인 필요, 완료 상태와 개수, 단계 입력과 출력 제거는 하나의 트랜잭션이다. 실패하면 추가된 케이스가 없다. 완료 후 파일과 임시 업로드 행을 지우며, 파일 정리 중 종료돼도 다음 예약 실행이 이어서 정리한다. 사용하지 않은 업로드는 1시간 뒤 정리하고 생성 중인 업로드는 보존한다.
@@ -263,7 +263,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 ### 데이터 모델
 
 - `project_templates`의 열 정의에 `presetKey`(사전 정의 열의 고정 키, 사용자 열은 null)와 `enabled`를 더한다. 사전 정의 열의 이름, 형식, 선택 값, 작성 기준은 코드 상수(`projects/template.ts`)가 기준이며 DB에는 켜짐 여부와 순서만 의미가 있다. 사용자 열은 지금처럼 전체를 JSONB에 둔다.
-- `required_cases` 테이블과 API를 없앤다. 점검 관점은 `generation/steps` 안의 코드 상수이며 프로젝트별 상태가 없다. 마이그레이션은 테이블을 지우고 기존 행을 보존하지 않는다(운영 데이터 없음).
+- `required_cases` 테이블과 API를 없앤다. 점검 관점은 `generation/guides`의 작성 지침 안 코드 상수이며 프로젝트별 상태가 없다. 마이그레이션은 테이블을 지우고 기존 행을 보존하지 않는다(운영 데이터 없음).
 - `screen_structure_items`에 `type`(page, popup, bottom_sheet, tab)을 더한다.
 - `screen_id_rules`를 새로 둔다: 프로젝트, 이름, 구분 기호, 부분 배열 JSONB(이름, 종류 `list`·`fixed`·`number`, 코드 목록은 코드와 뜻의 쌍, 번호는 자릿수), 순서. 화면 ID 검증과 다음 번호 계산은 서버가 한다. 규칙 삭제는 화면 ID를 바꾸지 않는다.
 - `test_set_columns`는 세트 전체의 열 순서를 저장한다. 열 너비와 행 높이만 사람별 `view_preferences`에 남는다.
@@ -274,22 +274,24 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 - `projects` 모듈: 양식 PUT은 사전 정의 열의 켜짐·순서와 사용자 열 목록만 받고, 사전 정의 열의 이름·형식·작성 기준 변경은 `400`으로 거절한다. 필수 케이스 엔드포인트를 제거한다. 화면 구조에 유형을 더한다. IA 가져오기는 아래 "파일에서 화면 구조 초안" 절의 AI 초안과 일괄 추가로 바꿨다. 화면 ID 규칙 CRUD와 "다음 ID" 계산, 규칙 불일치 판정을 더한다.
 - `test-sets` 모듈: 만들기가 양식 선택(프로젝트 기본, 최근 세트 복사, 직접 고른 열 목록)을 받는다. 양식 전체 교체 대신 열 추가(사전 정의 열 되돌리기 또는 사용자 열 정의), 열 삭제(값 함께 삭제), 열 순서 변경 연산을 둔다. 열 연산은 세트 version을 올리고 공동 편집으로 전파한다. `POST /test-sets`는 선택적인 `template`(`project`·`recent`·`custom`)을 받으며 생략 시 `project`다. `recent`는 같은 프로젝트의 열람 가능한 세트 중 최근 수정순(동률은 ID순)으로 열 사본을 만들고 없으면 프로젝트 양식을 쓴다. 사본의 열 UUID는 새로 만들며 `presetKey`는 보존한다. `POST /test-sets/:id/ops`의 `add_column`·`remove_column`·`reorder_columns`는 기존 케이스 연산과 같은 잠금·권한·트랜잭션을 쓰며 요청당 version을 한 번 올린다. 삭제는 값, 모든 상태의 확인 필요 초안 키, 개인 보기 참조도 정리한다. `PUT /test-sets/:id/columns`는 없다. `update_column`은 사용자 열의 이름·작성 기준과 선택적인 `options`(선택·태그 항목, 양식과 같은 검사)를 바꾸며 사전 정의 열은 400이다. 항목을 바꿔도 셀 값은 손대지 않는다. 링크 방문자의 열 연산(`add_column`·`remove_column`·`reorder_columns`·`update_column`)은 편집 링크여도 403이다. `set_cell` 등 사람이 넣는 선택·태그 값은 스프레드시트 목록처럼 목록 밖 글자도 받고(형식과 태그 중복만 검사), AI 결과는 출력 스키마의 enum으로 목록 안에 묶는다. XLSX는 선택 열에 숨긴 `목록` 시트를 참조하는 데이터 유효성을 붙인다. 공유 계약은 `packages/contracts`에 있다.
 - `generation` 모듈: 열 하나만 채우는 작업 `fill_column`(`POST /test-sets/:id/test-set-columns/:columnId/fill`, 열 추가 시 "기존 케이스 AI로 채우기")은 `rewrite`와 같은 단계 실행기를 쓰고 외부 `stage`는 null이다. 세트당 하나의 작업 제한과 서버 동시 한도를 공유하며, 값이 있는 셀은 덮지 않고 확인 필요 항목을 만들지 않는다. `POST /generations`의 `frameIds`로 올린 프레임 중 일부만 입력에 넣는다(비우면 전부).
-- `exports`: QA 결과·담당자 또는 개발 진행 상태·담당자가 이웃하면 2단 머리글의 해당 묶음을 병합한다(순서가 뒤집혀도 이웃하면 묶음). 어느 묶음도 성립하지 않으면 1단이다. `test_env`·`test_case`·`title`·`screen_id`·`steps`는 현재 열 순서에 따라 공백 제거 후 같은 연속 값을 세로 병합하며 앞선 대상 열의 경계를 넘지 않는다. 빈 값, 테스트 ID와 예상 결과는 병합하지 않는다.
+- `exports`: QA 결과·담당자 또는 개발 진행 상태·담당자가 이웃하면 2단 머리글의 해당 묶음을 병합한다(순서가 뒤집혀도 이웃하면 묶음). 어느 묶음도 성립하지 않으면 1단이다. `test_env`·`test_case`·`title`·`screen_id`·`steps`는 현재 열 순서에 따라 표 화면과 같이 글자가 같은 연속 값을 세로 병합하며 앞선 `test_env`·`test_case`의 경계를 넘지 않는다. `title`·`screen_id`·`steps`는 서로의 경계가 되지 않는다. 빈 값, 테스트 ID와 예상 결과는 병합하지 않는다.
 
 ### AI 생성
 
-- 출력 스키마는 세트의 열로 만들되 QA 기록 열(QA 결과·담당자, 결과 코멘트, 개발 진행 상태·담당자)은 빼고 빈 값으로 저장한다. 사전 정의 열은 `generation/steps/column-rules.ts`의 작성 규칙과 예시를 프롬프트에 넣고, 사용자 열은 이름·형식·작성 기준을 넣는다. 사용자 열은 자료에 근거가 없으면 비우게 지시한다.
-- `cases` 프롬프트에 행 나누기 기준(행동·입력값·조건이 다르면 새 행, 같은 행동 뒤 여러 확인은 한 셀에 불릿, 같은 절차에서 결과만 갈리면 절차 셀을 같은 값으로)과 테스트 환경별 반복 규칙(환경에 따라 동작이 다른 케이스만 환경별 행, 나머지는 "공통")을 넣는다.
-- 점검 관점은 `generation/steps/viewpoints.ts`의 코드 상수다. `coverage` 검증은 관점 ID 기준이고, 관리자 관점은 관리자 화면이 있을 때만 대상이다.
+- 출력 스키마는 세트의 열로 만들되 QA 기록 열(QA 결과·담당자, 결과 코멘트, 개발 진행 상태·담당자)은 빼고 빈 값으로 저장한다. 사전 정의 열은 작성 지침의 열 작성 기준과 예시를 프롬프트에 넣고, 사용자 열은 이름·형식·작성 기준을 넣는다. 사용자 열은 자료에 근거가 없으면 비우게 지시한다.
+- `cases`와 `finish`는 케이스를 `scenarios[].tasks[].rows[]`(시나리오 > 하위 시나리오 > 행)로 출력한다. `scenarios.ts`의 `flattenScenarios`가 행마다 테스트 케이스 열에 시나리오 이름, 제목 열에 하위 시나리오 이름을 채우고, 수행 절차가 null인 행은 같은 시나리오의 바로 윗행 절차로 채워 평평한 케이스 목록을 만든다. 위쪽 값을 한 번만 쓰게 해 펼친 행끼리 글자가 같고 붙어 있으므로 표와 XLSX의 병합 표시가 그대로 묶는다. 테스트 케이스나 제목 열이 꺼져 있으면 이름은 묶음에만 쓰고 저장하지 않는다. 이전 작업이 저장한 평평한 출력(`cases`)은 그대로 읽는다.
+- 작성 지침(`generation/guides`)은 현업 시트에서 뽑은 QA 판단을 묶는다: 사전 정의 열 작성 기준, 점검 관점, 분해 기준(케이스를 시나리오·하위 시나리오·행·셀로 나누는 ID 붙은 규칙 목록). 출력 형식, 테스트 ID, groupKey 같은 실행 규약은 단계 정의(`generation/steps`)에 남긴다. 지침은 `sheet-v1`처럼 ID별 파일이며 비교를 위해 이전 지침도 남긴다.
+- 새 작업은 `AI_GUIDE`(비우면 `DEFAULT_GUIDE`)로 고른 지침 ID를 작업 입력(`guide`)에 기록하고, 재시도와 이어하기도 그 지침을 쓴다. 기록이 없는 이전 작업은 기본값이 바뀌어도 `LEGACY_GUIDE`(`sheet-v1`)로 이어서 끝난 단계와 남은 단계가 섞이지 않게 한다. 기본 지침은 `sheet-v2`다. 단계 기록의 프롬프트 버전은 `<단계 버전>+<지침 ID>@<단계 프롬프트와 지침 내용의 해시>`다.
+- 분해 기준은 열 작성 기준·점검 관점과 함께 캐시되는 고정 지시(`stableInstructions`)의 `decomposition`으로 `cases`와 `finish`에만 보낸다. `coverage` 검증은 관점 ID 기준이고, 관리자 관점(`admin`)은 관리자 화면이 있을 때만 대상이다.
 - 화면 ID는 화면 구조의 ID만 쓰고 없으면 "추후 채번"이다. 규칙으로 ID를 생성하지 않는다.
 
 ### 웹
 
 - pages: `test-set-new`가 양식 선택(프로젝트 양식, 최근 테스트 세트와 같게, 직접 고르기)과 프레임 토글을 가진다. `project-settings` 탭은 양식, 기능 그룹, 화면 구조(규칙 목록 + 화면 목록), 메모다. 브레드크럼은 없고 저장 상태는 오른쪽이다.
-- entities: `project`에 `presetKey`·`enabled`·화면 유형·규칙 타입과 `ColumnForm`(열 이름·형식·작성 기준 폼, 양식 탭과 열 추가가 함께 씀). `test-set`의 `CaseOp`는 `@cheddar/contracts`를 그대로 쓰고 `applyOps`가 열 연산을 낙관 반영한다. `mergeable`이 병합 표시 대상 열을 정한다.
+- entities: `project`에 `presetKey`·`enabled`·화면 유형·규칙 타입과 `ColumnForm`(열 이름·형식·작성 기준 폼, 양식 탭과 열 추가가 함께 씀). `test-set`의 `CaseOp`는 `@cheddar/contracts`를 그대로 쓰고 `applyOps`가 열 연산을 낙관 반영한다. `mergeable`이 병합 표시 대상 열을, `mergeBounds`가 뒤쪽 병합 열의 경계가 되는 열(테스트 환경, 테스트 케이스)을 정한다.
 - features: `manage-template-columns`(`edit-template` 대체), `manage-screen-id-rules`(목록 + `rule-dialog.tsx`의 편집기 `RuleParts` + `new-rule-dialog.tsx`의 자료 넣기와 AI 초안), `manage-screens`(유형, 규칙 불일치, 다음 ID 채운 추가, `import-dialog.tsx`의 자료 넣기와 결과 확인), `create-test-set`(양식 3택 + `column-modal.tsx`). `manage-required-cases`, `edit-test-set-columns`는 없다.
 - widgets: `column-picker`(프로젝트 양식 탭의 열 목록), `case-table`(병합 표시와 셀 나누기, 머리글 끌기와 되돌리기 토스트, 머리글 ⋯ 메뉴, 머리글 `+`, 셀 우클릭 메뉴, `column-dialogs.tsx`의 열 추가·이름 변경, `options-panel.tsx`의 선택 항목 편집. 고르기는 `Menu.Popup`의 `footer`에 연필을 두고, 편집은 같은 셀이나 머리글에 붙는 `Popover`로 연다). `columns-editor`는 없다. 열 연산은 모두 `onOps`로 보내며 별도 feature를 두지 않는다.
-- `packages/ui`: `Tabs`의 미끄러지는 선택 표시줄, `ContextMenu`, `DataGrid`의 `mergeKey`·`fixed`·`headerAction`·`onColumnReorder`·`headerEnd`·`cellMenu`, 토스트 `action`.
+- `packages/ui`: `Tabs`의 미끄러지는 선택 표시줄, `ContextMenu`, `DataGrid`의 `mergeKey`·`mergeBounds`(false면 뒤쪽 병합 열을 끊지 않음)·`fixed`·`headerAction`·`onColumnReorder`·`headerEnd`·`cellMenu`, 토스트 `action`.
 - 공통 조작 규칙: 목록 추가는 머리글 오른쪽 버튼이 기본이고 목록 끝 `+` 행은 보조다. 행 편집·삭제는 행 메뉴, 셀 단위 삭제는 호버 ×, 이름 변경은 두 번 클릭 제자리 편집, 순서는 끌기와 `Alt+방향키`다. 설정 탭은 선택 표시줄이 미끄러지는 탭(`packages/ui`의 Tabs)을 쓴다. 설명 문장과 help 텍스트는 두지 않는다.
 
 ## 파일에서 화면 구조 초안 (2026-10-23)

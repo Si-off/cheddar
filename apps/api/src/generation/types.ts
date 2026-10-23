@@ -6,6 +6,8 @@ import type {
 import type { AiTask, Stage } from "./model-config";
 export type Draft = Record<string, CellValue>;
 export type GenerationInput = {
+  /** 작업을 만들 때 고른 작성 지침 ID. 재시도와 이어하기도 같은 지침을 쓴다. */
+  guide?: string;
   columns: TestSetColumnDto[];
   memo: string;
   frames: {
@@ -44,6 +46,19 @@ export type CaseOutput = {
     explanation: string;
   }[];
   mergedCount: number;
+};
+/** 케이스 생성과 최종 점검의 AI 출력. 서버가 행으로 펼쳐 CaseOutput을 만든다. */
+export type ScenarioOutput = Omit<
+  CaseOutput,
+  "cases" | "caseGroupKeys" | "reviewGroupKeys" | "reviews"
+> & {
+  scenarios: {
+    name: string;
+    /** 최종 점검에만 있다. */
+    groupKey?: string | null;
+    tasks: { title: string; rows: Draft[] }[];
+  }[];
+  reviews: (CaseOutput["reviews"][number] & { groupKey?: string | null })[];
 };
 export type ScreenOutput = {
   screens: {

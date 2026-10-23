@@ -4,7 +4,9 @@ import {
   validateCell,
   validationFailed,
 } from "../test-sets/values";
-import { columnRule, isAiColumn } from "./steps/column-rules";
+import { columnRule, type Guide, guideOf } from "./guides";
+import { scenarioColumns } from "./scenarios";
+import { isAiColumn } from "./steps/column-rules";
 import type { Draft, GenerationInput, JsonSchema } from "./types";
 
 export const text = (maxLength = 20000): JsonSchema => ({
@@ -22,7 +24,10 @@ export const object = (properties: Record<string, JsonSchema>): JsonSchema => ({
   required: Object.keys(properties),
   additionalProperties: false,
 });
-export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
+export function formSchema(
+  columns: TestSetColumnDto[],
+  guide: Guide,
+): JsonSchema {
   return object(
     Object.fromEntries(
       columns.filter(isAiColumn).map((c) => [
@@ -39,24 +44,69 @@ export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
                     items: { type: "string", enum: c.options },
                     uniqueItems: true,
                   }),
-          description: `${c.name} (${c.type}): ${columnRule(c)}`,
+          description: `${c.name} (${c.type}): ${columnRule(c, guide)}`,
         },
       ]),
     ),
   );
 }
+const groupKey: JsonSchema = { type: ["string", "null"], maxLength: 100 };
+// 시나리오 > 하위 시나리오 > 행. 위쪽 값을 한 번만 쓰게 해 펼친 행끼리 글자가 같고 붙어 있게 한다.
+function scenariosSchema(input: GenerationInput, grouped: boolean) {
+  const guide = guideOf(input);
+  const { testCase, title, steps } = scenarioColumns(input.columns);
+  const row = formSchema(
+    input.columns.filter((c) => c !== testCase && c !== title),
+    guide,
+  );
+  const step = steps && row.properties?.[steps.id];
+  if (step)
+    row.properties = {
+      ...row.properties,
+      [steps.id]: {
+        ...step,
+        type: ["string", "null"],
+        description: `${step.description} 같은 시나리오의 바로 윗행과 절차가 같으면 null.`,
+      },
+    };
+  const label = (column: TestSetColumnDto | undefined, fallback: string) => ({
+    ...text(),
+    minLength: 1,
+    description: column
+      ? `${column.name} (${column.type}): ${columnRule(column, guide)}`
+      : fallback,
+  });
+  return array(
+    object({
+      ...(grouped ? { groupKey } : {}),
+      name: label(testCase, "시나리오 이름. 표에는 쓰지 않는다."),
+      tasks: {
+        ...array(
+          object({
+            title: label(title, "하위 시나리오 이름. 표에는 쓰지 않는다."),
+            rows: { ...array(row), minItems: 1 },
+          }),
+        ),
+        minItems: 1,
+      },
+    }),
+  );
+}
+function reviewsSchema(input: GenerationInput, grouped: boolean) {
+  return array(
+    object({
+      reason: { ...text(2000), minLength: 1 },
+      question: { type: ["string", "null"], maxLength: 2000 },
+      screenDescription: text(),
+      draft: formSchema(input.columns, guideOf(input)),
+      ...(grouped ? { groupKey } : {}),
+    }),
+  );
+}
 export function caseSchema(input: GenerationInput): JsonSchema {
-  const draft = formSchema(input.columns);
   return object({
-    cases: array(draft),
-    reviews: array(
-      object({
-        reason: { ...text(2000), minLength: 1 },
-        question: { type: ["string", "null"], maxLength: 2000 },
-        screenDescription: text(),
-        draft,
-      }),
-    ),
+    scenarios: scenariosSchema(input, false),
+    reviews: reviewsSchema(input, false),
     coverage: array(
       object({
         viewpointId: {
@@ -73,8 +123,8 @@ export function caseSchema(input: GenerationInput): JsonSchema {
 export function finishSchema(input: GenerationInput): JsonSchema {
   return object({
     ...caseSchema(input).properties,
-    caseGroupKeys: array({ type: ["string", "null"], maxLength: 100 }),
-    reviewGroupKeys: array({ type: ["string", "null"], maxLength: 100 }),
+    scenarios: scenariosSchema(input, true),
+    reviews: reviewsSchema(input, true),
   });
 }
 // 제공자의 구조화 출력과 별개로 같은 제한을 서버에서 다시 검사한다.

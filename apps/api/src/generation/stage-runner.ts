@@ -16,10 +16,16 @@ import { CaseOperationsService } from "../test-sets/case-operations.service";
 import { forbidden } from "../test-sets/test-sets.store";
 import { withoutCellImages } from "../test-sets/values";
 import { GenerationService, jobFinished } from "./generation.service";
+import { guideOf, promptVersion } from "./guides";
 import type { Stage } from "./model-config";
 import { validateDraft } from "./output-schema";
 import { AiFailure, type AiRequest } from "./providers/ai-provider";
 import { ProviderService } from "./providers/provider.service";
+import {
+  asScenarioOutput,
+  flattenScenarios,
+  groupScenarios,
+} from "./scenarios";
 import { DEFINITIONS } from "./steps";
 import {
   emptyCell,
@@ -33,6 +39,7 @@ import type {
   Draft,
   FlowOutput,
   GenerationInput,
+  ScenarioOutput,
   ScreenOutput,
 } from "./types";
 import { AiUsageService } from "./usage.service";
@@ -111,7 +118,7 @@ export class StageRunner implements OnModuleDestroy {
         stage,
         workKey,
         input: sourceData,
-        promptVersion: definition.version,
+        promptVersion: promptVersion(definition, guideOf(context)),
         model: this.providers.config.fake
           ? "fake"
           : `${model.provider}:${model.model}`,
@@ -185,7 +192,10 @@ export class StageRunner implements OnModuleDestroy {
           },
           !repairUsed,
         );
-        const result = response.value as CaseOutput;
+        const result = flattenScenarios(
+          context.columns,
+          response.value as ScenarioOutput,
+        );
         await this.db
           .update(generationSteps)
           .set({
@@ -258,13 +268,18 @@ export class StageRunner implements OnModuleDestroy {
           validateDraft([input.fillColumn], { [input.fillColumn.id]: cell });
       } else validateDraft(input.columns, value);
     } else {
-      const output = value as CaseOutput;
+      const tree = value as ScenarioOutput;
       if (
         stage === "finish" &&
-        (output.caseGroupKeys?.length !== output.cases.length ||
-          output.reviewGroupKeys?.length !== output.reviews.length)
+        (!Array.isArray(tree.scenarios) ||
+          [...tree.scenarios, ...tree.reviews].some(
+            (item) => !Object.hasOwn(item, "groupKey"),
+          ))
       )
-        throw new Error("케이스와 확인 필요 항목의 기능 그룹 키를 확인하세요.");
+        throw new Error(
+          "시나리오와 확인 필요 항목의 기능 그룹 키를 확인하세요.",
+        );
+      const output = flattenScenarios(input.columns, tree);
       for (const draft of [
         ...output.cases,
         ...output.reviews.map((r) => r.draft),
@@ -376,7 +391,10 @@ export class StageRunner implements OnModuleDestroy {
             screens,
             memo: input.memo,
             existingCases: input.existingCases,
-            styleExamples: input.styleExamples,
+            styleExamples: groupScenarios(
+              input.columns,
+              input.styleExamples.map((c) => c.values),
+            ),
           }),
         );
         next = "finish";
@@ -394,15 +412,18 @@ export class StageRunner implements OnModuleDestroy {
           .orderBy(generationSteps.workKey);
         const output = (await this.step(jobId, stage, "all", input, {
           outputs: grouped.map((s) => ({
-            ...(s.output as CaseOutput),
+            ...asScenarioOutput(
+              input.columns,
+              s.output as ScenarioOutput | CaseOutput,
+            ),
             groupKey: s.workKey,
           })),
           screens: await outputs<ScreenOutput>("screens"),
           flows: await outputs<FlowOutput>("flows"),
           memo: input.memo,
           existingCases: input.existingCases,
-        })) as CaseOutput;
-        await this.finish(job, input, output);
+        })) as ScenarioOutput;
+        await this.finish(job, input, flattenScenarios(input.columns, output));
       } else if (job.kind === "fill_column") {
         const output = (await this.step(jobId, stage, "all", input, {
           cases: input.existingCases,
@@ -623,12 +644,13 @@ export class StageRunner implements OnModuleDestroy {
         afterCaseId = caseId;
         return op;
       });
-      if (ops.length)
+      // 시나리오로 받은 행은 전체 개수 상한이 없어 연산 한도로 나눠 저장한다.
+      for (let offset = 0; offset < ops.length; offset += 500)
         await this.operations.applyInTransaction(
           tx,
           job.testSetId,
           job.requestedBy,
-          { ops },
+          { ops: ops.slice(offset, offset + 500) },
         );
       const columns = await this.generation.store.columns(job.testSetId, tx);
       for (const review of output.reviews) validateDraft(columns, review.draft);

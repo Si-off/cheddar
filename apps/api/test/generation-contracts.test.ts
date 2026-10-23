@@ -17,6 +17,7 @@ import {
 } from "../src/contracts/generation.dto";
 import { GenerationController } from "../src/generation/generation.controller";
 import { GenerationService } from "../src/generation/generation.service";
+import { guideOf } from "../src/generation/guides";
 import { readAiConfig, STAGES } from "../src/generation/model-config";
 import {
   caseSchema,
@@ -32,10 +33,11 @@ import {
   emptyUsage,
 } from "../src/generation/providers/ai-provider";
 import { FakeProvider } from "../src/generation/providers/fake";
+import { flattenScenarios } from "../src/generation/scenarios";
 import { heartbeat, jobEvent } from "../src/generation/sse";
 import { boundedMap } from "../src/generation/stage-runner";
 import { DEFINITIONS } from "../src/generation/steps";
-import type { GenerationInput } from "../src/generation/types";
+import type { GenerationInput, ScenarioOutput } from "../src/generation/types";
 import { validatedOutput } from "../src/generation/validated-output";
 import { defaultColumns } from "../src/projects/template";
 import { ReviewItemsController } from "../src/review-items/review-items.controller";
@@ -147,12 +149,12 @@ test("생성과 확인 필요 DTO는 종류, UUID, 길이, null과 알 수 없�
 test("양식 스키마는 UUID 키, 선택 enum, 태그 중복과 필수 항목을 검사", async () => {
   const context = input(),
     r = request(context);
-  const schema = formSchema(context.columns);
+  const schema = formSchema(context.columns, guideOf(context));
   assert.equal(schema.additionalProperties, false);
   assert.ok(!schema.required?.includes(context.columns[0].id));
   const output = JSON.parse((await new FakeProvider().generate(r)).text);
   validateSchema(r.schema, output);
-  const draft = output.cases[0];
+  const draft = flattenScenarios(context.columns, output).cases[0];
   validateDraft(context.columns, draft);
   const select = context.columns.find((column) => column.type === "select");
   const tags = context.columns.find((column) => column.type === "tags");
@@ -300,7 +302,10 @@ test("fake는 모든 단계에서 결정적인 양식 결과와 확인 필요를
     validateSchema(r.schema, JSON.parse(first.text));
     outputs[stage] = JSON.parse(first.text);
   }
-  const cases = outputs.cases as { cases: unknown[]; reviews: unknown[] };
+  const cases = flattenScenarios(
+    context.columns,
+    outputs.cases as ScenarioOutput,
+  );
   assert.equal(cases.cases.length, 2);
   assert.equal(cases.reviews.length, 1);
 });

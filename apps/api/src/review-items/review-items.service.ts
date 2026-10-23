@@ -183,6 +183,7 @@ export class ReviewItemsService {
           );
         const previous = reviewDto(row);
         const input: GenerationInput = {
+          guide: this.generation.guide,
           columns: await this.store.columns(row.testSetId, tx),
           memo: "",
           frames: [],
