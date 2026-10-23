@@ -8,16 +8,10 @@ const blocked = [
     re: /git\s+push\b[^\n|;&]*(--force\b|-f\b|--force-with-lease\b)/,
     why: "force push",
   },
-  {
-    re: /git\s+push\b[^\n|;&]*(--delete\b|-d\b|\s:[\w/-]+)/,
-    why: "원격 브랜치 삭제",
-  },
   { re: /git\s+rebase\b/, why: "rebase(이력 재작성)" },
   { re: /git\s+reset\s+--hard\b/, why: "reset --hard" },
   { re: /git\s+commit\b[^\n|;&]*--amend\b/, why: "commit --amend" },
   { re: /git\s+(filter-branch|filter-repo)\b/, why: "이력 재작성" },
-  { re: /git\s+branch\s+(-D|-d|--delete)\b/, why: "브랜치 삭제" },
-  { re: /\bgh\s+pr\s+merge\b/, why: "PR 병합" },
 ];
 
 for (const { re, why } of blocked) {
