@@ -1,3 +1,5 @@
+import { DEFAULT_GUIDE, GUIDES } from "./guides";
+
 export const STAGES = [
   "screens",
   "flows",
@@ -21,7 +23,12 @@ export type ModelConfig = {
   model: string;
   effort: Effort;
 };
-export type AiConfig = { fake: boolean; models: Record<Stage, ModelConfig> };
+export type AiConfig = {
+  fake: boolean;
+  models: Record<Stage, ModelConfig>;
+  /** 새 작업에 쓸 작성 지침 ID. 환경변수 AI_GUIDE로 바꾼다. */
+  guide: string;
+};
 
 /** 짧은 이름으로 모델을 고를 수 있게 한다. 전체 이름(`anthropic:<모델>`, `openai:<모델>`)도 받는다. */
 export const MODEL_ALIASES: Record<string, string> = {
@@ -64,5 +71,8 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
       ];
     }),
   ) as Record<Stage, ModelConfig>;
-  return { fake: env.AI_PROVIDER === "fake", models };
+  const guide = env.AI_GUIDE || DEFAULT_GUIDE;
+  if (!Object.hasOwn(GUIDES, guide))
+    throw new Error("AI_GUIDE 설정을 확인하세요.");
+  return { fake: env.AI_PROVIDER === "fake", models, guide };
 }

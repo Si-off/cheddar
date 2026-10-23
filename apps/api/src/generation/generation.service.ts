@@ -25,10 +25,10 @@ import {
 } from "../database/schema";
 import { TempUploadsService } from "../temp-uploads/temp-uploads.service";
 import { TestSetsStore } from "../test-sets/test-sets.store";
+import { applicableViewpoints, DEFAULT_GUIDE, guideOf } from "./guides";
 import { QueueService } from "./queue.service";
 import { STYLE_BLOCK_ROWS, scenarioBlock } from "./scenarios";
 import { isAiColumn } from "./steps/column-rules";
-import { applicableViewpoints } from "./steps/viewpoints";
 import type { GenerationInput } from "./types";
 import { AiUsageService } from "./usage.service";
 
@@ -81,6 +81,10 @@ export class GenerationService {
     @Inject(API_ENV) private readonly env: ApiEnv,
     @Inject(AiUsageService) readonly usage: AiUsageService,
   ) {}
+  /** 새 작업에 기록할 작성 지침. */
+  get guide() {
+    return this.env.ai?.guide ?? DEFAULT_GUIDE;
+  }
   async admission(tx: DatabaseTransaction) {
     await tx.execute(sql`select pg_advisory_xact_lock(31015433)`);
     const [active] = await tx
@@ -233,6 +237,7 @@ export class GenerationService {
           if (styleExamples.length >= STYLE_BLOCK_ROWS) break;
         }
         const input: GenerationInput = {
+          guide: this.guide,
           columns: await this.store.columns(testSetId, tx),
           memo: dto.memo ?? row.memo,
           frames,
@@ -252,6 +257,7 @@ export class GenerationService {
             dto.kind === "append" ? await this.store.cases(testSetId, tx) : [],
         };
         input.viewpoints = applicableViewpoints(
+          guideOf(input),
           input.frames,
           input.screenStructure,
         );
@@ -294,6 +300,7 @@ export class GenerationService {
           .from(projectMemos)
           .where(eq(projectMemos.projectId, row.projectId));
         const input: GenerationInput = {
+          guide: this.guide,
           columns,
           fillColumn: column,
           memo: memo?.body ?? "",

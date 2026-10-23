@@ -4,8 +4,9 @@ import {
   validateCell,
   validationFailed,
 } from "../test-sets/values";
+import { columnRule, type Guide, guideOf } from "./guides";
 import { scenarioColumns } from "./scenarios";
-import { columnRule, isAiColumn } from "./steps/column-rules";
+import { isAiColumn } from "./steps/column-rules";
 import type { Draft, GenerationInput, JsonSchema } from "./types";
 
 export const text = (maxLength = 20000): JsonSchema => ({
@@ -23,7 +24,10 @@ export const object = (properties: Record<string, JsonSchema>): JsonSchema => ({
   required: Object.keys(properties),
   additionalProperties: false,
 });
-export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
+export function formSchema(
+  columns: TestSetColumnDto[],
+  guide: Guide,
+): JsonSchema {
   return object(
     Object.fromEntries(
       columns.filter(isAiColumn).map((c) => [
@@ -40,7 +44,7 @@ export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
                     items: { type: "string", enum: c.options },
                     uniqueItems: true,
                   }),
-          description: `${c.name} (${c.type}): ${columnRule(c)}`,
+          description: `${c.name} (${c.type}): ${columnRule(c, guide)}`,
         },
       ]),
     ),
@@ -49,9 +53,11 @@ export function formSchema(columns: TestSetColumnDto[]): JsonSchema {
 const groupKey: JsonSchema = { type: ["string", "null"], maxLength: 100 };
 // 시나리오 > 하위 시나리오 > 행. 위쪽 값을 한 번만 쓰게 해 펼친 행끼리 글자가 같고 붙어 있게 한다.
 function scenariosSchema(input: GenerationInput, grouped: boolean) {
+  const guide = guideOf(input);
   const { testCase, title, steps } = scenarioColumns(input.columns);
   const row = formSchema(
     input.columns.filter((c) => c !== testCase && c !== title),
+    guide,
   );
   const step = steps && row.properties?.[steps.id];
   if (step)
@@ -67,7 +73,7 @@ function scenariosSchema(input: GenerationInput, grouped: boolean) {
     ...text(),
     minLength: 1,
     description: column
-      ? `${column.name} (${column.type}): ${columnRule(column)}`
+      ? `${column.name} (${column.type}): ${columnRule(column, guide)}`
       : fallback,
   });
   return array(
@@ -92,7 +98,7 @@ function reviewsSchema(input: GenerationInput, grouped: boolean) {
       reason: { ...text(2000), minLength: 1 },
       question: { type: ["string", "null"], maxLength: 2000 },
       screenDescription: text(),
-      draft: formSchema(input.columns),
+      draft: formSchema(input.columns, guideOf(input)),
       ...(grouped ? { groupKey } : {}),
     }),
   );
