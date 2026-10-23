@@ -1,3 +1,7 @@
+import type { CellValue, OptionColor } from "@cheddar/contracts";
+
+export type { CellValue } from "@cheddar/contracts";
+
 import {
   ApiProperty,
   ApiPropertyOptional,
@@ -13,7 +17,6 @@ import {
   IsArray,
   IsIn,
   IsObject,
-  IsOptional,
   IsString,
   IsUUID,
   MaxLength,
@@ -21,11 +24,15 @@ import {
   ValidateIf,
   ValidateNested,
 } from "class-validator";
+import { COLORS_SCHEMA, IsOptionColors } from "./option-colors";
 import { TemplateColumnDto } from "./project.dto";
 
 export class TestSetColumnDto extends OmitType(TemplateColumnDto, [
   "enabled",
-] as const) {}
+] as const) {
+  @ApiProperty({ ...COLORS_SCHEMA, default: {}, selfRequired: true })
+  colors?: Record<string, OptionColor> = {};
+}
 
 export class RecentTemplateTestSetDto {
   @ApiProperty({ format: "uuid" }) id!: string;
@@ -38,9 +45,14 @@ export class RecentTemplateDto {
   columns!: TestSetColumnDto[];
 }
 
-export type CellValue = string | boolean | string[] | null;
 export const CELL_SCHEMA = {
   oneOf: [
+    {
+      type: "object",
+      properties: { image: { type: "string", format: "uuid" } },
+      required: ["image"],
+      additionalProperties: false,
+    },
     { type: "string", maxLength: 20000, nullable: true },
     { type: "boolean" },
     { type: "array", items: { type: "string" }, uniqueItems: true },
@@ -183,7 +195,13 @@ export class AddColumnDefinitionDto extends PickType(TemplateColumnDto, [
   "description",
   "options",
   "presetKey",
-] as const) {}
+  "colors",
+] as const) {
+  @ApiPropertyOptional(COLORS_SCHEMA)
+  @ValidateIf(optional)
+  @IsOptionColors()
+  colors?: Record<string, OptionColor> = {};
+}
 export class AddColumnOpDto {
   @ApiProperty({ enum: ["add_column"] })
   @IsIn(["add_column"])
@@ -200,6 +218,15 @@ export class AddColumnOpDto {
   afterColumnId!: string | null;
 }
 export class UpdateColumnOpDto {
+  @ApiPropertyOptional(COLORS_SCHEMA)
+  @ValidateIf(optional)
+  @IsOptionColors()
+  colors?: Record<string, OptionColor>;
+  @ApiPropertyOptional({ enum: ["select"] })
+  @ValidateIf(optional)
+  @IsIn(["select"])
+  columnType?: "select";
+
   @ApiProperty({ enum: ["update_column"] })
   @IsIn(["update_column"])
   type!: "update_column";
@@ -220,7 +247,7 @@ export class UpdateColumnOpDto {
     description:
       "선택과 태그 열의 항목. 없으면 바꾸지 않는다. 규칙은 양식의 options와 같다. 기존 셀 값은 바꾸지 않는다",
   })
-  @IsOptional()
+  @ValidateIf(optional)
   @Transform(({ value }) =>
     Array.isArray(value)
       ? value.map((v) => (typeof v === "string" ? v.trim() : v))

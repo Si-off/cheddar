@@ -1,3 +1,4 @@
+import type { CellValue, OptionColor } from "@cheddar/contracts";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -109,6 +110,7 @@ export const projectTemplates = pgTable(
           systemKey: "test_id" | "title" | null;
           description: string;
           options: string[];
+          colors?: Record<string, OptionColor>;
         }[]
       >()
       .notNull(),
@@ -223,6 +225,10 @@ export const testSetColumns = pgTable(
     presetKey: varchar("preset_key", { length: 40 }),
     description: text("description").notNull().default(""),
     options: jsonb("options").$type<string[]>().notNull().default([]),
+    colors: jsonb("colors")
+      .$type<Record<string, OptionColor>>()
+      .notNull()
+      .default({}),
     position: integer("position").notNull(),
   },
   (t) => [
@@ -263,7 +269,7 @@ export const testCaseValues = pgTable(
     testSetId: uuid("test_set_id").notNull(),
     caseId: uuid("case_id").notNull(),
     columnId: uuid("column_id").notNull(),
-    value: jsonb("value").$type<string | boolean | string[] | null>(),
+    value: jsonb("value").$type<CellValue>(),
   },
   (t) => [
     primaryKey({ columns: [t.caseId, t.columnId] }),
@@ -609,4 +615,40 @@ export const screenIdRules = pgTable(
     updatedAt: updated(),
   },
   (t) => [unique("screen_id_rules_name").on(t.projectId, t.name)],
+);
+
+export const cellImages = pgTable(
+  "cell_images",
+  {
+    id: id(),
+    testSetId: uuid("test_set_id")
+      .notNull()
+      .references(() => testSets.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull().unique(),
+    contentType: varchar("content_type", { length: 20 }).notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    createdAt: created(),
+    accountId: uuid("account_id").references(() => accounts.id, {
+      onDelete: "restrict",
+    }),
+    // 링크 교체로 세션이 지워져도 업로더 식별자와 이미지는 보존한다.
+    visitorSessionId: uuid("visitor_session_id"),
+  },
+  (t) => [
+    index("cell_images_set_idx").on(t.testSetId),
+    check(
+      "cell_images_actor",
+      sql`num_nonnulls(${t.accountId}, ${t.visitorSessionId}) = 1`,
+    ),
+    check(
+      "cell_images_dimensions",
+      sql`${t.width} > 0 AND ${t.height} > 0 AND ${t.byteSize} > 0 AND ${t.byteSize} <= 10485760`,
+    ),
+    check(
+      "cell_images_content_type",
+      sql`${t.contentType} IN ('image/png', 'image/jpeg', 'image/gif', 'image/webp')`,
+    ),
+  ],
 );

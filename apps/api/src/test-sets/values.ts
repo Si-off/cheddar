@@ -1,3 +1,4 @@
+import { isCellImage } from "@cheddar/contracts";
 import { plainToInstance } from "class-transformer";
 import { isUUID, validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
@@ -26,7 +27,15 @@ export const validationFailed = (
 export function validateCell(
   column: TestSetColumnDto,
   value: unknown,
+  imageIds: ReadonlySet<string> = new Set(),
 ): CellValue {
+  if (isCellImage(value)) {
+    if (column.type !== "text")
+      return validationFailed("이미지는 텍스트 열에만 넣을 수 있습니다.");
+    if (!imageIds.has(value.image.toLowerCase()))
+      return validationFailed("이미지를 찾을 수 없습니다. 다시 선택해주세요.");
+    return { image: value.image.toLowerCase() };
+  }
   if (
     column.type === "text" &&
     typeof value === "string" &&
@@ -55,7 +64,7 @@ export function validateCell(
 export function cellText(value: CellValue | undefined): string {
   return value === true
     ? "예"
-    : value === false || value == null
+    : value === false || value == null || isCellImage(value)
       ? ""
       : Array.isArray(value)
         ? value.join(", ")
@@ -66,6 +75,7 @@ export function reconcileValue(
   value: CellValue,
 ): CellValue | undefined {
   if (column.type === "text") {
+    if (isCellImage(value)) return value;
     const text = cellText(value);
     return text.length <= 20000 ? text : undefined;
   }
@@ -174,4 +184,18 @@ export function testIdNumber(value: CellValue | undefined): bigint {
   return typeof value === "string" && /^TC-\d+$/.test(value)
     ? BigInt(value.slice(3))
     : 0n;
+}
+
+// 모델에 보내는 문맥에서 셀 이미지 ID와 객체를 글자로 해석하지 않는다.
+export function withoutCellImages<T>(value: T): T {
+  if (isCellImage(value)) return "" as T;
+  if (Array.isArray(value)) return value.map(withoutCellImages) as T;
+  if (value !== null && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([key, cell]) => [
+        key,
+        withoutCellImages(cell),
+      ]),
+    ) as T;
+  return value;
 }

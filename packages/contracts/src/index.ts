@@ -1,10 +1,25 @@
 // HTTP와 실시간 클라이언트가 공유하는 전송 계약. 런타임 의존성은 없다.
-export type CellValue = string | boolean | string[] | null;
+/** 셀 안에 넣은 이미지. 텍스트 열의 셀에만 넣고, 셀 하나에 한 장이다. */
+export type CellImage = { image: string };
+export type CellValue = string | boolean | string[] | CellImage | null;
+/** 선택과 태그 항목의 칩 색. 없는 항목은 gray로 본다. */
+export const OPTION_COLORS = [
+  "gray",
+  "red",
+  "yellow",
+  "green",
+  "teal",
+  "blue",
+  "purple",
+] as const;
+export type OptionColor = (typeof OPTION_COLORS)[number];
 export type ColumnDefinition = {
   name: string;
   type: "text" | "select" | "checkbox" | "tags";
   description: string;
   options: string[];
+  /** 항목 이름별 칩 색 */
+  colors?: Record<string, OptionColor>;
   presetKey: string | null;
 };
 export type CaseOp =
@@ -22,6 +37,10 @@ export type CaseOp =
       description: string;
       /** 선택과 태그 열의 항목. 없으면 바꾸지 않는다. 기존 셀 값은 그대로 둔다. */
       options?: string[];
+      /** 항목 이름별 칩 색. 없으면 바꾸지 않는다. 목록에 없는 항목의 색은 버린다. */
+      colors?: Record<string, OptionColor>;
+      /** 텍스트 열을 선택 열로 바꾼다(삽입 > 드롭다운). 기존 글자 값은 그대로 둔다. */
+      columnType?: "select";
     }
   | { type: "reorder_columns"; columnIds: string[] }
   | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
@@ -80,11 +99,17 @@ const version = (v: unknown): v is number =>
   typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
 const cell = (v: unknown): v is Cell =>
   v === null || (object(v) && uuid(v.caseId) && uuid(v.columnId));
+export const isCellImage = (v: unknown): v is CellImage =>
+  object(v) && Object.keys(v).length === 1 && uuid(v.image);
 const value = (v: unknown): v is CellValue =>
   v === null ||
   typeof v === "string" ||
   typeof v === "boolean" ||
-  (Array.isArray(v) && v.every((x) => typeof x === "string"));
+  (Array.isArray(v) && v.every((x) => typeof x === "string")) ||
+  isCellImage(v);
+const colors = (v: unknown): v is Record<string, OptionColor> =>
+  object(v) &&
+  Object.values(v).every((c) => OPTION_COLORS.includes(c as OptionColor));
 export function isCaseOp(v: unknown): v is CaseOp {
   if (!object(v)) return false;
   if (v.type === "delete_cases")
@@ -97,7 +122,9 @@ export function isCaseOp(v: unknown): v is CaseOp {
       typeof v.description === "string" &&
       (v.options === undefined ||
         (Array.isArray(v.options) &&
-          v.options.every((x) => typeof x === "string")))
+          v.options.every((x) => typeof x === "string"))) &&
+      (v.colors === undefined || colors(v.colors)) &&
+      (v.columnType === undefined || v.columnType === "select")
     );
   if (v.type === "reorder_columns")
     return Array.isArray(v.columnIds) && v.columnIds.every(uuid);
@@ -113,7 +140,8 @@ export function isCaseOp(v: unknown): v is CaseOp {
       ) &&
       (v.column.presetKey === null || typeof v.column.presetKey === "string") &&
       Array.isArray(v.column.options) &&
-      v.column.options.every((x) => typeof x === "string")
+      v.column.options.every((x) => typeof x === "string") &&
+      (v.column.colors === undefined || colors(v.column.colors))
     );
   if (!uuid(v.caseId)) return false;
   if (v.type === "set_feature_group")

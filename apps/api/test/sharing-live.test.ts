@@ -922,6 +922,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
               type: "text",
               description: "",
               options: [],
+              colors: {},
               presetKey: null,
             },
             afterColumnId: columns[0].id,

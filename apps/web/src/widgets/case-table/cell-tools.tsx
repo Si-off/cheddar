@@ -11,9 +11,11 @@ import {
   ArrowDownToLine,
   ArrowUp,
   ArrowUpToLine,
+  CircleChevronDown,
   ClipboardPaste,
   Copy,
   Eraser,
+  ImagePlus,
   type LucideIcon,
   Redo2,
   Replace,
@@ -44,6 +46,8 @@ export type CellActions = Partial<
     | "findReplace"
     | "insertAbove"
     | "insertBelow"
+    | "insertDropdown"
+    | "insertImage"
     | "mergeVertical"
     | "unmerge",
     (() => void) | null
@@ -90,6 +94,8 @@ const item = {
     shortcut: "insertAbove",
   },
   insertBelow: { label: "아래에 행 1개 삽입", icon: ArrowDownToLine },
+  insertDropdown: { label: "드롭다운", icon: CircleChevronDown },
+  insertImage: { label: "셀 안에 이미지", icon: ImagePlus },
   mergeVertical: { label: "세로로 병합", icon: TableCellsMerge },
   unmerge: { label: "병합 취소", icon: TableCellsSplit },
 } satisfies Record<string, Omit<Item, "key">>;
@@ -102,7 +108,10 @@ const editGroups: Item[][] = [
   [of("clear"), of("deleteRow")],
   [of("findReplace")],
 ];
-const insertGroups: Item[][] = [[of("insertAbove"), of("insertBelow")]];
+const insertGroups: Item[][] = [
+  [of("insertAbove"), of("insertBelow")],
+  [of("insertDropdown"), of("insertImage")],
+];
 const mergeGroups: Item[][] = [[of("mergeVertical"), of("unmerge")]];
 // 오른쪽 클릭 메뉴는 Sheets처럼 자주 쓰는 것만 둔다
 const contextGroups: Item[][] = [

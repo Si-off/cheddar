@@ -35,6 +35,11 @@ export class LocalStorage implements FileStorage {
     await this.directory(this.config.storageRoot);
     this.root = await realpath(this.config.storageRoot);
     await mkdir(join(this.root, ".incoming"), { recursive: true, mode: 0o700 });
+    await mkdir(join(this.root, ".cell-images"), {
+      recursive: true,
+      mode: 0o700,
+    });
+    await this.directory(join(this.root, ".cell-images"));
     await this.check();
     const pendingCount = (await readdir(join(this.root, ".incoming"))).length;
     if (pendingCount)
@@ -121,13 +126,16 @@ export class LocalStorage implements FileStorage {
   }
   async open(storageKey: string) {
     const parts = storageKey.split("/");
-    if (parts.length !== 2) throw new Error("Invalid storage key.");
-    const [uploadId, fileId] = parts;
+    const image = parts.length === 3 && parts[0] === ".cell-images";
+    if (parts.length !== 2 && !image) throw new Error("Invalid storage key.");
+    const [uploadId, fileId] = image ? parts.slice(1) : parts;
     this.uuid(uploadId);
     this.uuid(fileId);
     await this.check();
-    await this.directory(join(this.root, uploadId));
-    const path = join(this.root, uploadId, fileId);
+    const root = image ? join(this.root, ".cell-images") : this.root;
+    await this.directory(root);
+    await this.directory(join(root, uploadId));
+    const path = join(root, uploadId, fileId);
     // O_NOFOLLOW is not enforced on Windows; inspect the directory entry too.
     const entry = await lstat(path);
     if (!entry.isFile() || entry.isSymbolicLink())
@@ -141,6 +149,42 @@ export class LocalStorage implements FileStorage {
       await handle.close();
       throw error;
     }
+  }
+  async saveImage(testSetId: string, imageId: string, bytes: Buffer) {
+    this.uuid(testSetId);
+    this.uuid(imageId);
+    await this.check();
+    const root = join(this.root, ".cell-images");
+    await this.directory(root);
+    const parent = join(root, testSetId);
+    await mkdir(parent, { recursive: true, mode: 0o700 });
+    await this.directory(parent);
+    const handle = await open(
+      join(parent, imageId),
+      constants.O_CREAT |
+        constants.O_EXCL |
+        constants.O_WRONLY |
+        constants.O_NOFOLLOW,
+      0o600,
+    );
+    try {
+      await handle.writeFile(bytes);
+      await handle.sync();
+    } catch (error) {
+      await unlink(join(parent, imageId));
+      throw error;
+    } finally {
+      await handle.close();
+    }
+    return `.cell-images/${testSetId}/${imageId}`;
+  }
+  async removeImage(testSetId: string, imageId: string) {
+    this.uuid(testSetId);
+    this.uuid(imageId);
+    const root = join(this.root, ".cell-images");
+    await this.directory(root);
+    await this.directory(join(root, testSetId));
+    await unlink(join(root, testSetId, imageId));
   }
   async removeUpload(uploadId: string) {
     this.uuid(uploadId);
