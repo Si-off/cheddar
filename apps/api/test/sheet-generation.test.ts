@@ -14,6 +14,12 @@ import {
   tempFrames,
   tempUploads,
 } from "../src/database/schema";
+import {
+  applicableViewpoints,
+  DEFAULT_GUIDE,
+  GUIDES,
+  guideOf,
+} from "../src/generation/guides";
 import { readAiConfig } from "../src/generation/model-config";
 import {
   finishSchema,
@@ -25,11 +31,7 @@ import { FakeProvider } from "../src/generation/providers/fake";
 import { flattenScenarios } from "../src/generation/scenarios";
 import { StageRunner } from "../src/generation/stage-runner";
 import { DEFINITIONS } from "../src/generation/steps";
-import { COLUMN_RULES, isQaRecord } from "../src/generation/steps/column-rules";
-import {
-  applicableViewpoints,
-  VIEWPOINTS,
-} from "../src/generation/steps/viewpoints";
+import { isQaRecord } from "../src/generation/steps/column-rules";
 import type {
   CaseOutput,
   GenerationInput,
@@ -42,14 +44,16 @@ import { LocalStorage } from "../src/storage/local-storage";
 import { CaseOperationsService } from "../src/test-sets/case-operations.service";
 import { generationFixture } from "./generation-fixture";
 
+const guide = GUIDES[DEFAULT_GUIDE];
 const columns = (): TestSetColumnDto[] =>
   defaultColumns().map(({ enabled: _, ...c }) => c);
 const context = (): GenerationInput => ({
+  guide: DEFAULT_GUIDE,
   columns: columns(),
   memo: "",
   frames: [],
   featureGroups: [],
-  viewpoints: applicableViewpoints([], []),
+  viewpoints: applicableViewpoints(guide, [], []),
   screenStructure: [],
   styleExamples: [],
   existingCases: [],
@@ -68,7 +72,7 @@ test("AI 스키마는 세트의 모든 작성 열과 규칙을 포함하고 QA �
     systemKey: null,
     options: [],
   });
-  const schema = formSchema(input.columns);
+  const schema = formSchema(input.columns, guideOf(input));
   for (const c of input.columns) {
     if (isQaRecord(c) || c.systemKey === "test_id")
       assert.equal(schema.properties?.[c.id], undefined);
@@ -76,7 +80,7 @@ test("AI 스키마는 세트의 모든 작성 열과 규칙을 포함하고 QA �
       assert.ok(schema.required?.includes(c.id));
       assert.ok(
         schema.properties?.[c.id].description?.includes(
-          c.presetKey ? COLUMN_RULES[c.presetKey] : "근거가 없으면 빈 값",
+          c.presetKey ? guide.columns[c.presetKey] : "근거가 없으면 빈 값",
         ),
       );
     }
@@ -95,16 +99,27 @@ test("AI 스키마는 세트의 모든 작성 열과 규칙을 포함하고 QA �
 });
 
 test("fake coverage는 관점 ID를 검증하고 관리자 관점은 구조나 프레임 이름에 따라 포함한다", async () => {
-  assert.equal(VIEWPOINTS.length, 12);
-  assert.equal(applicableViewpoints([{ name: "Admin_Header" }], []).length, 12);
-  const input = context();
-  assert.equal(input.viewpoints.length, 9);
-  assert.equal(applicableViewpoints([{ name: "관리자 주문" }], []).length, 12);
+  const all = guide.viewpoints.length;
+  const user = guide.viewpoints.filter((v) => !v.admin).length;
+  assert.ok(user < all);
   assert.equal(
-    applicableViewpoints([], [{ name: "Admin", screenId: "A1" }]).length,
-    12,
+    applicableViewpoints(guide, [{ name: "Admin_Header" }], []).length,
+    all,
   );
-  assert.equal(applicableViewpoints([{ name: "주문 화면" }], []).length, 9);
+  const input = context();
+  assert.equal(input.viewpoints.length, user);
+  assert.equal(
+    applicableViewpoints(guide, [{ name: "관리자 주문" }], []).length,
+    all,
+  );
+  assert.equal(
+    applicableViewpoints(guide, [], [{ name: "Admin", screenId: "A1" }]).length,
+    all,
+  );
+  assert.equal(
+    applicableViewpoints(guide, [{ name: "주문 화면" }], []).length,
+    user,
+  );
   // DB에 의존하지 않는 출력 검증만 호출한다.
   const validate = (value: unknown) =>
     StageRunner.prototype.validate.call(
@@ -141,12 +156,12 @@ test("fake coverage는 관점 ID를 검증하고 관리자 관점은 구조나 �
       ],
     }),
   );
-  input.viewpoints = applicableViewpoints([{ name: "관리자" }], []);
+  input.viewpoints = applicableViewpoints(guide, [{ name: "관리자" }], []);
   const adminRequest = { ...request, schema: finishSchema(input) };
   const admin = (
     await validatedOutput(new FakeProvider(), adminRequest, validate)
   ).value as CaseOutput;
-  assert.equal(admin.coverage.length, 12);
+  assert.equal(admin.coverage.length, guide.viewpoints.length);
 });
 
 async function addColumn(
@@ -392,7 +407,12 @@ test("frameIds는 업로드 소속을 검증하고 선택 프레임만 저장하
         .where(eq(generationSteps.jobId, jobId));
       const input = snapshot.input as GenerationInput;
       assert.equal(input.frames.length, mode === "subset" ? 1 : 2);
-      assert.equal(input.viewpoints.length, mode === "subset" ? 9 : 12);
+      // 관리자 화면이 있는 프레임을 고르면 관리자 관점도 대상이다.
+      assert.equal(
+        input.viewpoints.length,
+        guide.viewpoints.filter((v) => mode !== "subset" || !v.admin).length,
+      );
+      assert.equal(input.guide, DEFAULT_GUIDE);
       await f.generation.fail(jobId, "TEST_FINISHED");
     }
   } finally {

@@ -17,6 +17,7 @@ import {
 } from "../src/contracts/generation.dto";
 import { GenerationController } from "../src/generation/generation.controller";
 import { GenerationService } from "../src/generation/generation.service";
+import { guideOf } from "../src/generation/guides";
 import { readAiConfig, STAGES } from "../src/generation/model-config";
 import {
   caseSchema,
@@ -147,7 +148,7 @@ test("생성과 확인 필요 DTO는 종류, UUID, 길이, null과 알 수 없�
 test("양식 스키마는 UUID 키, 선택 enum, 태그 중복과 필수 항목을 검사", async () => {
   const context = input(),
     r = request(context);
-  const schema = formSchema(context.columns);
+  const schema = formSchema(context.columns, guideOf(context));
   assert.equal(schema.additionalProperties, false);
   assert.ok(!schema.required?.includes(context.columns[0].id));
   const output = JSON.parse((await new FakeProvider().generate(r)).text);

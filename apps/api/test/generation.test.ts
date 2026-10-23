@@ -25,6 +25,7 @@ import {
   testCases,
 } from "../src/database/schema";
 import { GenerationService } from "../src/generation/generation.service";
+import { DEFAULT_GUIDE } from "../src/generation/guides";
 import { readAiConfig } from "../src/generation/model-config";
 import {
   AiFailure,
@@ -324,7 +325,8 @@ test("실제 PostgreSQL과 pg-boss에서 업로드, 생성, 재개와 확인 필
             .filter((s) => s.stage !== "context")
             .every(
               (s) =>
-                s.promptVersion &&
+                // 어떤 작성 지침으로 만든 결과인지 남긴다.
+                s.promptVersion?.includes(`+${DEFAULT_GUIDE}@`) &&
                 s.model === "fake" &&
                 s.cost === "0.0000000000",
             ),

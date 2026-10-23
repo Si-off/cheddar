@@ -16,6 +16,7 @@ import { CaseOperationsService } from "../test-sets/case-operations.service";
 import { forbidden } from "../test-sets/test-sets.store";
 import { withoutCellImages } from "../test-sets/values";
 import { GenerationService, jobFinished } from "./generation.service";
+import { guideOf, promptVersion } from "./guides";
 import type { Stage } from "./model-config";
 import { validateDraft } from "./output-schema";
 import { AiFailure, type AiRequest } from "./providers/ai-provider";
@@ -117,7 +118,7 @@ export class StageRunner implements OnModuleDestroy {
         stage,
         workKey,
         input: sourceData,
-        promptVersion: definition.version,
+        promptVersion: promptVersion(definition, guideOf(context)),
         model: this.providers.config.fake
           ? "fake"
           : `${model.provider}:${model.model}`,

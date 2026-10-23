@@ -6,6 +6,8 @@ import type {
 import type { AiTask, Stage } from "./model-config";
 export type Draft = Record<string, CellValue>;
 export type GenerationInput = {
+  /** 작업을 만들 때 고른 작성 지침 ID. 재시도와 이어하기도 같은 지침을 쓴다. */
+  guide?: string;
   columns: TestSetColumnDto[];
   memo: string;
   frames: {

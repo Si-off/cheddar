@@ -1,5 +1,6 @@
+import { columnRule, guideOf } from "../guides";
 import type { ModelConfig } from "../model-config";
-import { columnRule, isAiColumn } from "../steps/column-rules";
+import { isAiColumn } from "../steps/column-rules";
 import type { GenerationInput, JsonSchema, StepDefinition } from "../types";
 import type { CallObservation } from "../usage";
 export type ProviderObservation = Omit<
@@ -60,12 +61,18 @@ export function requestData(r: AiRequest) {
       : {}),
   });
 }
+// 케이스를 나누는 단계에만 분해 기준을 넣는다.
+const DECOMPOSING: readonly string[] = ["cases", "finish"];
 export function stableInstructions(r: AiRequest) {
+  const guide = guideOf(r.context);
   return JSON.stringify({
     form: r.context.columns
       .filter(isAiColumn)
-      .map((c) => ({ ...c, key: c.id, description: columnRule(c) })),
+      .map((c) => ({ ...c, key: c.id, description: columnRule(c, guide) })),
     viewpoints: r.context.viewpoints,
+    ...(DECOMPOSING.includes(r.definition.key)
+      ? { decomposition: guide.decomposition }
+      : {}),
     featureGroups: r.context.featureGroups,
     screenStructure: r.context.screenStructure,
   });
