@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type ServerSentEventsResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInvitationData, AcceptInvitationErrors, AcceptInvitationResponses, AcceptReviewItemData, AcceptReviewItemErrors, AcceptReviewItemResponses, ApplySharedTestSetOpsData, ApplySharedTestSetOpsErrors, ApplySharedTestSetOpsResponses, ApplyTestSetOpsData, ApplyTestSetOpsErrors, ApplyTestSetOpsResponses, ApprovePluginConnectionData, ApprovePluginConnectionErrors, ApprovePluginConnectionResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateAffiliationData, CreateAffiliationErrors, CreateAffiliationResponses, CreateGenerationData, CreateGenerationErrors, CreateGenerationResponses, CreatePluginConnectionData, CreatePluginConnectionErrors, CreatePluginConnectionResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectRequiredCaseData, CreateProjectRequiredCaseErrors, CreateProjectRequiredCaseResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateTempUploadData, CreateTempUploadErrors, CreateTempUploadResponses, CreateTestSetData, CreateTestSetErrors, CreateTestSetResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteAffiliationData, DeleteAffiliationErrors, DeleteAffiliationResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseErrors, DeleteProjectRequiredCaseResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteTestSetData, DeleteTestSetErrors, DeleteTestSetResponses, DuplicateRoleData, DuplicateRoleErrors, DuplicateRoleResponses, ExchangePluginConnectionData, ExchangePluginConnectionErrors, ExchangePluginConnectionResponses, ExportSharedTestSetData, ExportSharedTestSetErrors, ExportSharedTestSetResponses, ExportTestSetData, ExportTestSetErrors, ExportTestSetResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetAffiliationData, GetAffiliationErrors, GetAffiliationResponses, GetCurrentGenerationData, GetCurrentGenerationErrors, GetCurrentGenerationResponses, GetGenerationEventsData, GetGenerationEventsErrors, GetGenerationEventsResponse, GetGenerationEventsResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetPluginConnectionRequestData, GetPluginConnectionRequestErrors, GetPluginConnectionRequestResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRoleData, GetRoleErrors, GetRoleResponses, GetSharedTestSetData, GetSharedTestSetErrors, GetSharedTestSetResponses, GetSharedTestSetViewData, GetSharedTestSetViewErrors, GetSharedTestSetViewResponses, GetTempFrameThumbnailData, GetTempFrameThumbnailErrors, GetTempFrameThumbnailResponses, GetTempUploadData, GetTempUploadErrors, GetTempUploadResponses, GetTestSetData, GetTestSetErrors, GetTestSetResponses, GetTestSetSharingData, GetTestSetSharingErrors, GetTestSetSharingResponses, GetTestSetViewData, GetTestSetViewErrors, GetTestSetViewResponses, InspectInvitationData, InspectInvitationErrors, InspectInvitationResponses, InspectPasswordResetData, InspectPasswordResetErrors, InspectPasswordResetResponses, IssuePasswordResetData, IssuePasswordResetErrors, IssuePasswordResetResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListAffiliationsData, ListAffiliationsErrors, ListAffiliationsResponses, ListOwnedTestSetsData, ListOwnedTestSetsErrors, ListOwnedTestSetsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectRequiredCasesData, ListProjectRequiredCasesErrors, ListProjectRequiredCasesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReviewItemsData, ListReviewItemsErrors, ListReviewItemsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListSharingCandidatesData, ListSharingCandidatesErrors, ListSharingCandidatesResponses, ListTestSetsData, ListTestSetsErrors, ListTestSetsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReissueInvitationData, ReissueInvitationErrors, ReissueInvitationResponses, RemoveTestSetMemberData, RemoveTestSetMemberErrors, RemoveTestSetMemberResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ReplaceTestSetLinkData, ReplaceTestSetLinkErrors, ReplaceTestSetLinkResponses, ResetPasswordData, ResetPasswordErrors, ResetPasswordResponses, RevokePluginConnectionData, RevokePluginConnectionErrors, RevokePluginConnectionResponses, RewriteReviewItemData, RewriteReviewItemErrors, RewriteReviewItemResponses, SetTestSetMemberData, SetTestSetMemberErrors, SetTestSetMemberResponses, TransferTestSetOwnerData, TransferTestSetOwnerErrors, TransferTestSetOwnerResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateAffiliationData, UpdateAffiliationErrors, UpdateAffiliationResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseErrors, UpdateProjectRequiredCaseResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateReviewItemData, UpdateReviewItemErrors, UpdateReviewItemResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateSharedTestSetViewData, UpdateSharedTestSetViewErrors, UpdateSharedTestSetViewResponses, UpdateTestSetColumnsData, UpdateTestSetColumnsErrors, UpdateTestSetColumnsResponses, UpdateTestSetData, UpdateTestSetErrors, UpdateTestSetResponses, UpdateTestSetSharingData, UpdateTestSetSharingErrors, UpdateTestSetSharingResponses, UpdateTestSetViewData, UpdateTestSetViewErrors, UpdateTestSetViewResponses } from './types.gen';
+import type { AcceptReviewItemData, AcceptReviewItemErrors, AcceptReviewItemResponses, ApplySharedTestSetOpsData, ApplySharedTestSetOpsErrors, ApplySharedTestSetOpsResponses, ApplyTestSetOpsData, ApplyTestSetOpsErrors, ApplyTestSetOpsResponses, ApprovePluginConnectionData, ApprovePluginConnectionErrors, ApprovePluginConnectionResponses, ChangeMyPasswordData, ChangeMyPasswordErrors, ChangeMyPasswordResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateGenerationData, CreateGenerationErrors, CreateGenerationResponses, CreatePluginConnectionData, CreatePluginConnectionErrors, CreatePluginConnectionResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenIdRuleData, CreateProjectScreenIdRuleErrors, CreateProjectScreenIdRuleResponses, CreateProjectScreenResponses, CreateProjectScreensData, CreateProjectScreensErrors, CreateProjectScreensResponses, CreateTempUploadData, CreateTempUploadErrors, CreateTempUploadResponses, CreateTestSetData, CreateTestSetErrors, CreateTestSetResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenIdRuleData, DeleteProjectScreenIdRuleErrors, DeleteProjectScreenIdRuleResponses, DeleteProjectScreenResponses, DeleteTestSetData, DeleteTestSetErrors, DeleteTestSetResponses, DraftProjectScreenIdRulesData, DraftProjectScreenIdRulesErrors, DraftProjectScreenIdRulesResponses, DraftProjectScreensData, DraftProjectScreensErrors, DraftProjectScreensResponses, ExchangePluginConnectionData, ExchangePluginConnectionErrors, ExchangePluginConnectionResponses, ExportSharedTestSetData, ExportSharedTestSetErrors, ExportSharedTestSetResponses, ExportTestSetData, ExportTestSetErrors, ExportTestSetResponses, FillTestSetColumnData, FillTestSetColumnErrors, FillTestSetColumnResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetCurrentGenerationData, GetCurrentGenerationErrors, GetCurrentGenerationResponses, GetGenerationEventsData, GetGenerationEventsErrors, GetGenerationEventsResponse, GetGenerationEventsResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetPluginConnectionRequestData, GetPluginConnectionRequestErrors, GetPluginConnectionRequestResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectNextScreenIdData, GetProjectNextScreenIdErrors, GetProjectNextScreenIdResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRecentTestSetTemplateData, GetRecentTestSetTemplateErrors, GetRecentTestSetTemplateResponses, GetSharedTestSetData, GetSharedTestSetErrors, GetSharedTestSetImageData, GetSharedTestSetImageErrors, GetSharedTestSetImageResponses, GetSharedTestSetResponses, GetSharedTestSetViewData, GetSharedTestSetViewErrors, GetSharedTestSetViewResponses, GetTempFrameThumbnailData, GetTempFrameThumbnailErrors, GetTempFrameThumbnailResponses, GetTempUploadData, GetTempUploadErrors, GetTempUploadResponses, GetTestSetData, GetTestSetErrors, GetTestSetImageData, GetTestSetImageErrors, GetTestSetImageResponses, GetTestSetResponses, GetTestSetSharingData, GetTestSetSharingErrors, GetTestSetSharingResponses, GetTestSetViewData, GetTestSetViewErrors, GetTestSetViewResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectScreenIdRulesData, ListProjectScreenIdRulesErrors, ListProjectScreenIdRulesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReviewItemsData, ListReviewItemsErrors, ListReviewItemsResponses, ListTestSetsData, ListTestSetsErrors, ListTestSetsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ReorderProjectScreenIdRulesData, ReorderProjectScreenIdRulesErrors, ReorderProjectScreenIdRulesResponses, ReplaceTestSetLinkData, ReplaceTestSetLinkErrors, ReplaceTestSetLinkResponses, ResetAccountPasswordData, ResetAccountPasswordErrors, ResetAccountPasswordResponses, RevokePluginConnectionData, RevokePluginConnectionErrors, RevokePluginConnectionResponses, RewriteReviewItemData, RewriteReviewItemErrors, RewriteReviewItemResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenIdRuleData, UpdateProjectScreenIdRuleErrors, UpdateProjectScreenIdRuleResponses, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateReviewItemData, UpdateReviewItemErrors, UpdateReviewItemResponses, UpdateSharedTestSetViewData, UpdateSharedTestSetViewErrors, UpdateSharedTestSetViewResponses, UpdateTestSetData, UpdateTestSetErrors, UpdateTestSetResponses, UpdateTestSetSharingData, UpdateTestSetSharingErrors, UpdateTestSetSharingResponses, UpdateTestSetViewData, UpdateTestSetViewErrors, UpdateTestSetViewResponses, UploadSharedTestSetImageData, UploadSharedTestSetImageErrors, UploadSharedTestSetImageResponses, UploadTestSetImageData, UploadTestSetImageErrors, UploadTestSetImageResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -36,7 +36,7 @@ export const listAccounts = <ThrowOnError extends boolean = false>(options?: Opt
 });
 
 /**
- * 계정 생성과 초대 토큰 발급
+ * 계정 만들기
  */
 export const createAccount = <ThrowOnError extends boolean = false>(options: Options<CreateAccountData, ThrowOnError>): RequestResult<CreateAccountResponses, CreateAccountErrors, ThrowOnError> => (options.client ?? client).post<CreateAccountResponses, CreateAccountErrors, ThrowOnError>({
     security: [{
@@ -66,7 +66,7 @@ export const getAccount = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * 계정 정보와 역할 할당 수정
+ * 계정 이름과 등급 수정
  */
 export const updateAccount = <ThrowOnError extends boolean = false>(options: Options<UpdateAccountData, ThrowOnError>): RequestResult<UpdateAccountResponses, UpdateAccountErrors, ThrowOnError> => (options.client ?? client).patch<UpdateAccountResponses, UpdateAccountErrors, ThrowOnError>({
     security: [{
@@ -75,36 +75,6 @@ export const updateAccount = <ThrowOnError extends boolean = false>(options: Opt
             type: 'apiKey'
         }],
     url: '/api/v1/accounts/{accountId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 계정이 소유한 테스트 세트 목록
- */
-export const listOwnedTestSets = <ThrowOnError extends boolean = false>(options: Options<ListOwnedTestSetsData, ThrowOnError>): RequestResult<ListOwnedTestSetsResponses, ListOwnedTestSetsErrors, ThrowOnError> => (options.client ?? client).get<ListOwnedTestSetsResponses, ListOwnedTestSetsErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/accounts/{accountId}/owned-test-sets',
-    ...options
-});
-
-/**
- * 테스트 세트 소유자 넘기기
- */
-export const transferTestSetOwner = <ThrowOnError extends boolean = false>(options: Options<TransferTestSetOwnerData, ThrowOnError>): RequestResult<TransferTestSetOwnerResponses, TransferTestSetOwnerErrors, ThrowOnError> => (options.client ?? client).post<TransferTestSetOwnerResponses, TransferTestSetOwnerErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -139,33 +109,24 @@ export const reactivateAccount = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
- * 초대 링크 다시 발급
+ * 계정 비밀번호 다시 정하기
  */
-export const reissueInvitation = <ThrowOnError extends boolean = false>(options: Options<ReissueInvitationData, ThrowOnError>): RequestResult<ReissueInvitationResponses, ReissueInvitationErrors, ThrowOnError> => (options.client ?? client).post<ReissueInvitationResponses, ReissueInvitationErrors, ThrowOnError>({
+export const resetAccountPassword = <ThrowOnError extends boolean = false>(options: Options<ResetAccountPasswordData, ThrowOnError>): RequestResult<ResetAccountPasswordResponses, ResetAccountPasswordErrors, ThrowOnError> => (options.client ?? client).put<ResetAccountPasswordResponses, ResetAccountPasswordErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'cheddar_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/accounts/{accountId}/invitation',
-    ...options
+    url: '/api/v1/accounts/{accountId}/password',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
- * 비밀번호 재설정 링크 발급
- */
-export const issuePasswordReset = <ThrowOnError extends boolean = false>(options: Options<IssuePasswordResetData, ThrowOnError>): RequestResult<IssuePasswordResetResponses, IssuePasswordResetErrors, ThrowOnError> => (options.client ?? client).post<IssuePasswordResetResponses, IssuePasswordResetErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/accounts/{accountId}/password-reset',
-    ...options
-});
-
-/**
- * 이메일과 비밀번호로 로그인
+ * 아이디와 비밀번호로 로그인
  */
 export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
     url: '/api/v1/auth/login',
@@ -182,7 +143,7 @@ export const login = <ThrowOnError extends boolean = false>(options: Options<Log
 export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
 
 /**
- * 내 계정과 유효 권한 조회
+ * 내 계정 조회
  */
 export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
     security: [{
@@ -195,32 +156,15 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
 });
 
 /**
- * 초대 링크 확인
+ * 내 비밀번호 바꾸기
  */
-export const inspectInvitation = <ThrowOnError extends boolean = false>(options: Options<InspectInvitationData, ThrowOnError>): RequestResult<InspectInvitationResponses, InspectInvitationErrors, ThrowOnError> => (options.client ?? client).get<InspectInvitationResponses, InspectInvitationErrors, ThrowOnError>({ url: '/api/v1/auth/invitations', ...options });
-
-/**
- * 초대 수락과 비밀번호 설정
- */
-export const acceptInvitation = <ThrowOnError extends boolean = false>(options: Options<AcceptInvitationData, ThrowOnError>): RequestResult<AcceptInvitationResponses, AcceptInvitationErrors, ThrowOnError> => (options.client ?? client).post<AcceptInvitationResponses, AcceptInvitationErrors, ThrowOnError>({
-    url: '/api/v1/auth/invitations/accept',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 비밀번호 재설정 링크 확인
- */
-export const inspectPasswordReset = <ThrowOnError extends boolean = false>(options: Options<InspectPasswordResetData, ThrowOnError>): RequestResult<InspectPasswordResetResponses, InspectPasswordResetErrors, ThrowOnError> => (options.client ?? client).get<InspectPasswordResetResponses, InspectPasswordResetErrors, ThrowOnError>({ url: '/api/v1/auth/password-resets', ...options });
-
-/**
- * 비밀번호 재설정
- */
-export const resetPassword = <ThrowOnError extends boolean = false>(options: Options<ResetPasswordData, ThrowOnError>): RequestResult<ResetPasswordResponses, ResetPasswordErrors, ThrowOnError> => (options.client ?? client).post<ResetPasswordResponses, ResetPasswordErrors, ThrowOnError>({
-    url: '/api/v1/auth/password-resets',
+export const changeMyPassword = <ThrowOnError extends boolean = false>(options: Options<ChangeMyPasswordData, ThrowOnError>): RequestResult<ChangeMyPasswordResponses, ChangeMyPasswordErrors, ThrowOnError> => (options.client ?? client).post<ChangeMyPasswordResponses, ChangeMyPasswordErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/auth/password',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -278,169 +222,6 @@ export const revokePluginConnection = <ThrowOnError extends boolean = false>(opt
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/plugin-connections/current',
     ...options
-});
-
-/**
- * 역할 목록
- */
-export const listRoles = <ThrowOnError extends boolean = false>(options?: Options<ListRolesData, ThrowOnError>): RequestResult<ListRolesResponses, ListRolesErrors, ThrowOnError> => (options?.client ?? client).get<ListRolesResponses, ListRolesErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/roles',
-    ...options
-});
-
-/**
- * 역할 만들기
- */
-export const createRole = <ThrowOnError extends boolean = false>(options: Options<CreateRoleData, ThrowOnError>): RequestResult<CreateRoleResponses, CreateRoleErrors, ThrowOnError> => (options.client ?? client).post<CreateRoleResponses, CreateRoleErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/roles',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 할당이 없는 역할 삭제
- */
-export const deleteRole = <ThrowOnError extends boolean = false>(options: Options<DeleteRoleData, ThrowOnError>): RequestResult<DeleteRoleResponses, DeleteRoleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRoleResponses, DeleteRoleErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/roles/{roleId}',
-    ...options
-});
-
-/**
- * 역할 상세
- */
-export const getRole = <ThrowOnError extends boolean = false>(options: Options<GetRoleData, ThrowOnError>): RequestResult<GetRoleResponses, GetRoleErrors, ThrowOnError> => (options.client ?? client).get<GetRoleResponses, GetRoleErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/roles/{roleId}',
-    ...options
-});
-
-/**
- * 역할과 권한 수정
- */
-export const updateRole = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleData, ThrowOnError>): RequestResult<UpdateRoleResponses, UpdateRoleErrors, ThrowOnError> => (options.client ?? client).patch<UpdateRoleResponses, UpdateRoleErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/roles/{roleId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 일반 역할로 복제
- */
-export const duplicateRole = <ThrowOnError extends boolean = false>(options: Options<DuplicateRoleData, ThrowOnError>): RequestResult<DuplicateRoleResponses, DuplicateRoleErrors, ThrowOnError> => (options.client ?? client).post<DuplicateRoleResponses, DuplicateRoleErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/roles/{roleId}/duplicate',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 소속 목록
- */
-export const listAffiliations = <ThrowOnError extends boolean = false>(options?: Options<ListAffiliationsData, ThrowOnError>): RequestResult<ListAffiliationsResponses, ListAffiliationsErrors, ThrowOnError> => (options?.client ?? client).get<ListAffiliationsResponses, ListAffiliationsErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/affiliations',
-    ...options
-});
-
-/**
- * 소속 만들기
- */
-export const createAffiliation = <ThrowOnError extends boolean = false>(options: Options<CreateAffiliationData, ThrowOnError>): RequestResult<CreateAffiliationResponses, CreateAffiliationErrors, ThrowOnError> => (options.client ?? client).post<CreateAffiliationResponses, CreateAffiliationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/affiliations',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 계정이 없는 소속 삭제
- */
-export const deleteAffiliation = <ThrowOnError extends boolean = false>(options: Options<DeleteAffiliationData, ThrowOnError>): RequestResult<DeleteAffiliationResponses, DeleteAffiliationErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAffiliationResponses, DeleteAffiliationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/affiliations/{affiliationId}',
-    ...options
-});
-
-/**
- * 소속 상세
- */
-export const getAffiliation = <ThrowOnError extends boolean = false>(options: Options<GetAffiliationData, ThrowOnError>): RequestResult<GetAffiliationResponses, GetAffiliationErrors, ThrowOnError> => (options.client ?? client).get<GetAffiliationResponses, GetAffiliationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/affiliations/{affiliationId}',
-    ...options
-});
-
-/**
- * 소속 이름 수정
- */
-export const updateAffiliation = <ThrowOnError extends boolean = false>(options: Options<UpdateAffiliationData, ThrowOnError>): RequestResult<UpdateAffiliationResponses, UpdateAffiliationErrors, ThrowOnError> => (options.client ?? client).patch<UpdateAffiliationResponses, UpdateAffiliationErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/affiliations/{affiliationId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
 });
 
 /**
@@ -611,28 +392,28 @@ export const reorderProjectFeatureGroups = <ThrowOnError extends boolean = false
 });
 
 /**
- * 필수 케이스 목록
+ * 화면 ID 규칙 목록
  */
-export const listProjectRequiredCases = <ThrowOnError extends boolean = false>(options: Options<ListProjectRequiredCasesData, ThrowOnError>): RequestResult<ListProjectRequiredCasesResponses, ListProjectRequiredCasesErrors, ThrowOnError> => (options.client ?? client).get<ListProjectRequiredCasesResponses, ListProjectRequiredCasesErrors, ThrowOnError>({
+export const listProjectScreenIdRules = <ThrowOnError extends boolean = false>(options: Options<ListProjectScreenIdRulesData, ThrowOnError>): RequestResult<ListProjectScreenIdRulesResponses, ListProjectScreenIdRulesErrors, ThrowOnError> => (options.client ?? client).get<ListProjectScreenIdRulesResponses, ListProjectScreenIdRulesErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'cheddar_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/projects/{projectId}/required-cases',
+    url: '/api/v1/projects/{projectId}/screen-id-rules',
     ...options
 });
 
 /**
- * 필수 케이스 추가
+ * 화면 ID 규칙 추가
  */
-export const createProjectRequiredCase = <ThrowOnError extends boolean = false>(options: Options<CreateProjectRequiredCaseData, ThrowOnError>): RequestResult<CreateProjectRequiredCaseResponses, CreateProjectRequiredCaseErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectRequiredCaseResponses, CreateProjectRequiredCaseErrors, ThrowOnError>({
+export const createProjectScreenIdRule = <ThrowOnError extends boolean = false>(options: Options<CreateProjectScreenIdRuleData, ThrowOnError>): RequestResult<CreateProjectScreenIdRuleResponses, CreateProjectScreenIdRuleErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectScreenIdRuleResponses, CreateProjectScreenIdRuleErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'cheddar_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/projects/{projectId}/required-cases',
+    url: '/api/v1/projects/{projectId}/screen-id-rules',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -641,28 +422,45 @@ export const createProjectRequiredCase = <ThrowOnError extends boolean = false>(
 });
 
 /**
- * 추가한 필수 케이스 삭제
+ * 화면 ID 규칙 삭제
  */
-export const deleteProjectRequiredCase = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectRequiredCaseData, ThrowOnError>): RequestResult<DeleteProjectRequiredCaseResponses, DeleteProjectRequiredCaseErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectRequiredCaseResponses, DeleteProjectRequiredCaseErrors, ThrowOnError>({
+export const deleteProjectScreenIdRule = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectScreenIdRuleData, ThrowOnError>): RequestResult<DeleteProjectScreenIdRuleResponses, DeleteProjectScreenIdRuleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectScreenIdRuleResponses, DeleteProjectScreenIdRuleErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'cheddar_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/projects/{projectId}/required-cases/{caseId}',
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}',
     ...options
 });
 
 /**
- * 필수 케이스 수정
+ * 화면 ID 규칙 수정
  */
-export const updateProjectRequiredCase = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectRequiredCaseData, ThrowOnError>): RequestResult<UpdateProjectRequiredCaseResponses, UpdateProjectRequiredCaseErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectRequiredCaseResponses, UpdateProjectRequiredCaseErrors, ThrowOnError>({
+export const updateProjectScreenIdRule = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectScreenIdRuleData, ThrowOnError>): RequestResult<UpdateProjectScreenIdRuleResponses, UpdateProjectScreenIdRuleErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectScreenIdRuleResponses, UpdateProjectScreenIdRuleErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'cheddar_session',
             type: 'apiKey'
         }],
-    url: '/api/v1/projects/{projectId}/required-cases/{caseId}',
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 화면 ID 규칙 순서 변경
+ */
+export const reorderProjectScreenIdRules = <ThrowOnError extends boolean = false>(options: Options<ReorderProjectScreenIdRulesData, ThrowOnError>): RequestResult<ReorderProjectScreenIdRulesResponses, ReorderProjectScreenIdRulesErrors, ThrowOnError> => (options.client ?? client).put<ReorderProjectScreenIdRulesResponses, ReorderProjectScreenIdRulesErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screen-id-rules/order',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -726,6 +524,72 @@ export const updateProjectScreen = <ThrowOnError extends boolean = false>(option
     ...options,
     headers: {
         'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 다음 화면 ID 계산
+ */
+export const getProjectNextScreenId = <ThrowOnError extends boolean = false>(options: Options<GetProjectNextScreenIdData, ThrowOnError>): RequestResult<GetProjectNextScreenIdResponses, GetProjectNextScreenIdErrors, ThrowOnError> => (options.client ?? client).get<GetProjectNextScreenIdResponses, GetProjectNextScreenIdErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}/next',
+    ...options
+});
+
+/**
+ * 화면 여러 개 추가
+ */
+export const createProjectScreens = <ThrowOnError extends boolean = false>(options: Options<CreateProjectScreensData, ThrowOnError>): RequestResult<CreateProjectScreensResponses, CreateProjectScreensErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectScreensResponses, CreateProjectScreensErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screens/batch',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 자료에서 화면 초안 만들기
+ */
+export const draftProjectScreens = <ThrowOnError extends boolean = false>(options: Options<DraftProjectScreensData, ThrowOnError>): RequestResult<DraftProjectScreensResponses, DraftProjectScreensErrors, ThrowOnError> => (options.client ?? client).post<DraftProjectScreensResponses, DraftProjectScreensErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screens/drafts',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * 자료에서 화면 ID 규칙 초안 만들기
+ */
+export const draftProjectScreenIdRules = <ThrowOnError extends boolean = false>(options: Options<DraftProjectScreenIdRulesData, ThrowOnError>): RequestResult<DraftProjectScreenIdRulesResponses, DraftProjectScreenIdRulesErrors, ThrowOnError> => (options.client ?? client).post<DraftProjectScreenIdRulesResponses, DraftProjectScreenIdRulesErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/screen-id-rules/drafts',
+    ...options,
+    headers: {
+        'Content-Type': null,
         ...options.headers
     }
 });
@@ -834,23 +698,6 @@ export const updateTestSet = <ThrowOnError extends boolean = false>(options: Opt
 });
 
 /**
- * 테스트 세트 양식 변경
- */
-export const updateTestSetColumns = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetColumnsData, ThrowOnError>): RequestResult<UpdateTestSetColumnsResponses, UpdateTestSetColumnsErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestSetColumnsResponses, UpdateTestSetColumnsErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/test-sets/{testSetId}/columns',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * 테스트 케이스 편집 연산 적용
  */
 export const applyTestSetOps = <ThrowOnError extends boolean = false>(options: Options<ApplyTestSetOpsData, ThrowOnError>): RequestResult<ApplyTestSetOpsResponses, ApplyTestSetOpsErrors, ThrowOnError> => (options.client ?? client).post<ApplyTestSetOpsResponses, ApplyTestSetOpsErrors, ThrowOnError>({
@@ -895,6 +742,37 @@ export const updateTestSetView = <ThrowOnError extends boolean = false>(options:
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * 셀 이미지 업로드
+ */
+export const uploadTestSetImage = <ThrowOnError extends boolean = false>(options: Options<UploadTestSetImageData, ThrowOnError>): RequestResult<UploadTestSetImageResponses, UploadTestSetImageErrors, ThrowOnError> => (options.client ?? client).post<UploadTestSetImageResponses, UploadTestSetImageErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/images',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * 셀 이미지 조회
+ */
+export const getTestSetImage = <ThrowOnError extends boolean = false>(options: Options<GetTestSetImageData, ThrowOnError>): RequestResult<GetTestSetImageResponses, GetTestSetImageErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetImageResponses, GetTestSetImageErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/images/{imageId}',
+    ...options
 });
 
 /**
@@ -954,49 +832,6 @@ export const replaceTestSetLink = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * 초대할 계정 찾기
- */
-export const listSharingCandidates = <ThrowOnError extends boolean = false>(options: Options<ListSharingCandidatesData, ThrowOnError>): RequestResult<ListSharingCandidatesResponses, ListSharingCandidatesErrors, ThrowOnError> => (options.client ?? client).get<ListSharingCandidatesResponses, ListSharingCandidatesErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/test-sets/{testSetId}/sharing/candidates',
-    ...options
-});
-
-/**
- * 구성원 제거
- */
-export const removeTestSetMember = <ThrowOnError extends boolean = false>(options: Options<RemoveTestSetMemberData, ThrowOnError>): RequestResult<RemoveTestSetMemberResponses, RemoveTestSetMemberErrors, ThrowOnError> => (options.client ?? client).delete<RemoveTestSetMemberResponses, RemoveTestSetMemberErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/test-sets/{testSetId}/members/{accountId}',
-    ...options
-});
-
-/**
- * 사람 초대와 권한 변경
- */
-export const setTestSetMember = <ThrowOnError extends boolean = false>(options: Options<SetTestSetMemberData, ThrowOnError>): RequestResult<SetTestSetMemberResponses, SetTestSetMemberErrors, ThrowOnError> => (options.client ?? client).put<SetTestSetMemberResponses, SetTestSetMemberErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'cheddar_session',
-            type: 'apiKey'
-        }],
-    url: '/api/v1/test-sets/{testSetId}/members/{accountId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * 공개 링크로 테스트 세트 열기
  */
 export const getSharedTestSet = <ThrowOnError extends boolean = false>(options: Options<GetSharedTestSetData, ThrowOnError>): RequestResult<GetSharedTestSetResponses, GetSharedTestSetErrors, ThrowOnError> => (options.client ?? client).get<GetSharedTestSetResponses, GetSharedTestSetErrors, ThrowOnError>({ url: '/api/v1/shared/{linkToken}', ...options });
@@ -1031,9 +866,40 @@ export const updateSharedTestSetView = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * 공개 링크의 셀 이미지 업로드
+ */
+export const uploadSharedTestSetImage = <ThrowOnError extends boolean = false>(options: Options<UploadSharedTestSetImageData, ThrowOnError>): RequestResult<UploadSharedTestSetImageResponses, UploadSharedTestSetImageErrors, ThrowOnError> => (options.client ?? client).post<UploadSharedTestSetImageResponses, UploadSharedTestSetImageErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/shared/{linkToken}/images',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * 공개 링크의 셀 이미지 조회
+ */
+export const getSharedTestSetImage = <ThrowOnError extends boolean = false>(options: Options<GetSharedTestSetImageData, ThrowOnError>): RequestResult<GetSharedTestSetImageResponses, GetSharedTestSetImageErrors, ThrowOnError> => (options.client ?? client).get<GetSharedTestSetImageResponses, GetSharedTestSetImageErrors, ThrowOnError>({ url: '/api/v1/shared/{linkToken}/images/{imageId}', ...options });
+
+/**
  * 공개 링크의 XLSX 내보내기
  */
 export const exportSharedTestSet = <ThrowOnError extends boolean = false>(options: Options<ExportSharedTestSetData, ThrowOnError>): RequestResult<ExportSharedTestSetResponses, ExportSharedTestSetErrors, ThrowOnError> => (options.client ?? client).get<ExportSharedTestSetResponses, ExportSharedTestSetErrors, ThrowOnError>({ url: '/api/v1/shared/{linkToken}/export', ...options });
+
+/**
+ * 최근 테스트 세트 양식 미리보기
+ */
+export const getRecentTestSetTemplate = <ThrowOnError extends boolean = false>(options: Options<GetRecentTestSetTemplateData, ThrowOnError>): RequestResult<GetRecentTestSetTemplateResponses, GetRecentTestSetTemplateErrors, ThrowOnError> => (options.client ?? client).get<GetRecentTestSetTemplateResponses, GetRecentTestSetTemplateErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/projects/{projectId}/recent-test-set-template',
+    ...options
+});
 
 /**
  * 프레임 임시 업로드
@@ -1094,6 +960,19 @@ export const createGeneration = <ThrowOnError extends boolean = false>(options: 
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * 열의 빈 셀 AI로 채우기
+ */
+export const fillTestSetColumn = <ThrowOnError extends boolean = false>(options: Options<FillTestSetColumnData, ThrowOnError>): RequestResult<FillTestSetColumnResponses, FillTestSetColumnErrors, ThrowOnError> => (options.client ?? client).post<FillTestSetColumnResponses, FillTestSetColumnErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/test-sets/{testSetId}/test-set-columns/{columnId}/fill',
+    ...options
 });
 
 /**

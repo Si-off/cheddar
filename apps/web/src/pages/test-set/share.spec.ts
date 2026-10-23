@@ -1,5 +1,5 @@
 import { expect, test, type WebSocketRoute } from "@playwright/test";
-import { me, mockApi, reply } from "../../shared/testing/mock-api";
+import { me, mockApi } from "../../shared/testing/mock-api";
 import {
   cases,
   columns,
@@ -7,77 +7,48 @@ import {
   testSetResponses,
 } from "../../shared/testing/test-set-fixtures";
 
-const owner = {
-  id: "a1",
-  name: "최하늘",
-  email: "haneul.choi@cheddar.app",
-  affiliation: "사내",
-};
-const kim = {
-  id: "a2",
-  name: "김지은",
-  email: "jieun.kim@cheddar.app",
-  affiliation: "A사",
-};
 const sharing = (overrides: Record<string, unknown> = {}) => ({
   visibility: "private",
-  linkAccess: "view",
+  linkPermission: "view",
   linkToken: null,
-  canInvite: true,
-  canManageLink: true,
-  owner,
-  members: [] as unknown[],
   ...overrides,
 });
 const TOKEN = "a".repeat(43);
 
-test("공개로 바꾸면 링크가 생기고, 사람을 찾아 편집 가능으로 초대한다", async ({
+test("공개 링크를 켜면 링크가 생기고 권한을 편집 가능으로 바꾼다", async ({
   page,
 }) => {
   let state = sharing();
   const calls = await mockApi(page, {
-    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/auth/me": me({ role: "member" }),
     ...testSetResponses(),
     "GET /api/v1/test-sets/t1/sharing": () => state,
     "PATCH /api/v1/test-sets/t1/sharing": (_r: unknown, body: unknown) => {
-      state = sharing({ ...(body as object), linkToken: TOKEN });
-      return state;
-    },
-    "GET /api/v1/test-sets/t1/sharing/candidates": [kim],
-    "PUT /api/v1/test-sets/t1/members/a2": (_r: unknown, body: unknown) => {
-      state = {
-        ...state,
-        members: [{ person: kim, access: (body as { access: string }).access }],
-      };
+      state = sharing({ ...state, ...(body as object), linkToken: TOKEN });
       return state;
     },
   });
   await page.goto("/test-sets/t1");
   await page.getByRole("button", { name: "공유" }).click();
   const dialog = page.getByRole("dialog", { name: "공유" });
-  await expect(dialog.getByText("소유자")).toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "공유 링크" })).toHaveCount(
     0,
   );
 
-  await dialog.getByRole("combobox", { name: "공개 범위" }).click();
-  await page.getByRole("option", { name: /공개 링크가 있는 누구나/ }).click();
+  await dialog.getByRole("switch", { name: "공개 링크" }).click();
   await expect(dialog.getByRole("textbox", { name: "공유 링크" })).toHaveValue(
     new RegExp(`/s/${TOKEN}$`),
   );
-  expect(
-    calls.find((c) => c.key === "PATCH /api/v1/test-sets/t1/sharing")?.body,
-  ).toEqual({ visibility: "public" });
-
-  await dialog.getByRole("textbox", { name: "초대할 사람" }).fill("김");
-  await dialog.getByRole("button", { name: /김지은/ }).click();
-  await dialog.getByRole("button", { name: "초대" }).click();
+  await dialog.getByRole("combobox", { name: "링크 권한" }).click();
+  await page.getByRole("option", { name: "편집 가능" }).click();
   await expect(
-    dialog.getByRole("combobox", { name: "김지은 권한" }),
+    dialog.getByRole("combobox", { name: "링크 권한" }),
   ).toContainText("편집 가능");
   expect(
-    calls.find((c) => c.key === "PUT /api/v1/test-sets/t1/members/a2")?.body,
-  ).toEqual({ access: "edit" });
+    calls
+      .filter((c) => c.key === "PATCH /api/v1/test-sets/t1/sharing")
+      .map((c) => c.body),
+  ).toEqual([{ visibility: "public" }, { linkPermission: "edit" }]);
 });
 
 test("링크 새로 만들기는 한 번 묻고 실행한다", async ({ page }) => {
@@ -103,53 +74,6 @@ test("링크 새로 만들기는 한 번 묻고 실행한다", async ({ page }) 
   expect(
     calls.some((c) => c.key === "POST /api/v1/test-sets/t1/sharing/link"),
   ).toBe(true);
-});
-
-test("초대 권한이 없으면 사람을 찾거나 권한을 바꿀 수 없다", async ({
-  page,
-}) => {
-  await mockApi(page, {
-    "GET /api/v1/auth/me": me(),
-    ...testSetResponses(),
-    "GET /api/v1/test-sets/t1/sharing": sharing({
-      canInvite: false,
-      canManageLink: false,
-      members: [{ person: kim, access: "view" }],
-    }),
-  });
-  await page.goto("/test-sets/t1");
-  await page.getByRole("button", { name: "공유" }).click();
-  const dialog = page.getByRole("dialog", { name: "공유" });
-  await expect(
-    dialog.getByRole("combobox", { name: "김지은 권한" }),
-  ).toBeDisabled();
-  await expect(
-    dialog.getByRole("textbox", { name: "초대할 사람" }),
-  ).toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "김지은 제거" })).toHaveCount(
-    0,
-  );
-});
-
-test("볼 권한이 없는 테스트 세트는 소유자 이름과 함께 접근 권한 없음을 보여준다", async ({
-  page,
-}) => {
-  await mockApi(page, {
-    "GET /api/v1/auth/me": me(),
-    "GET /api/v1/test-sets/t1": reply(403, {
-      error: {
-        code: "NO_ACCESS",
-        message: "접근 권한이 없습니다.",
-        requestId: "t",
-        details: { ownerName: "최하늘" },
-      },
-    }),
-  });
-  await page.goto("/test-sets/t1");
-  await expect(page.getByText("접근 권한이 없습니다")).toBeVisible();
-  await expect(
-    page.getByText("소유자 최하늘에게 초대를 요청하세요."),
-  ).toBeVisible();
 });
 
 // 실시간 메시지는 ID가 UUID여야 받아들인다
@@ -254,6 +178,80 @@ test("다른 사람의 연산과 셀 선택이 바로 보인다", async ({ page 
   ).toBeVisible();
 });
 
+test("실행취소할 셀을 그 사이 다른 사람이 바꿨으면 그 셀은 되돌리지 않고 알린다", async ({
+  page,
+}) => {
+  const caseId = liveSet.cases[0].id;
+  const expId = columnId("c-exp");
+  let socket: WebSocketRoute | undefined;
+  const calls = await mockApi(
+    page,
+    {
+      "GET /api/v1/auth/me": me(),
+      ...testSetResponses({
+        "GET /api/v1/test-sets/t1": liveSet,
+        "POST /api/v1/test-sets/t1/ops": () => ({
+          version: testSet.version + 1,
+          cases: [],
+          deletedCaseIds: [],
+        }),
+      }),
+    },
+    {
+      live: (ws) => {
+        socket = ws;
+        ws.onMessage((message) => {
+          if (JSON.parse(String(message)).type === "hello") welcome(ws);
+        });
+      },
+    },
+  );
+  await page.goto("/test-sets/t1");
+  await expect(
+    page.getByRole("listitem", { name: "춤추는 수달 (방문자)" }),
+  ).toBeVisible();
+  const expected = page
+    .getByRole("table", { name: "케이스" })
+    .getByRole("row")
+    .nth(1)
+    .getByRole("cell")
+    .nth(3);
+  await expected.click();
+  await page.keyboard.type("내가 고침");
+  await page.keyboard.press("Enter");
+  await expect(expected).toHaveText("내가 고침");
+  await expect
+    .poll(
+      () =>
+        calls.filter((c) => c.key === "POST /api/v1/test-sets/t1/ops").length,
+    )
+    .toBe(1);
+  socket?.send(
+    JSON.stringify({
+      type: "ops",
+      version: testSet.version + 2,
+      ops: [
+        { type: "set_cell", caseId, columnId: expId, value: "수달이 고침" },
+      ],
+      connectionId: "00000000-0000-4000-8000-000000000002",
+      actor: {
+        kind: "visitor",
+        id: "00000000-0000-4000-8000-0000000000b1",
+        name: "춤추는 수달",
+      },
+    }),
+  );
+  await expect(expected).toHaveText("수달이 고침");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(
+    page.getByText("다른 사람이 바꾼 셀은 되돌리지 않았습니다"),
+  ).toBeVisible();
+  await expect(expected).toHaveText("수달이 고침");
+  expect(
+    calls.filter((c) => c.key === "POST /api/v1/test-sets/t1/ops"),
+  ).toHaveLength(1);
+});
+
 test("권한을 잃어 연결이 끊기면 화면을 닫는다", async ({ page }) => {
   await mockApi(
     page,
@@ -268,7 +266,7 @@ test("권한을 잃어 연결이 끊기면 화면을 닫는다", async ({ page }
   await expect(page.getByText("접근 권한이 없습니다")).toBeVisible();
 });
 
-test("비공개로 바꾸기 전에 지금 링크가 사라진다고 한 번 묻는다", async ({
+test("공개 링크를 끄기 전에 지금 링크가 사라진다고 한 번 묻는다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -282,12 +280,11 @@ test("비공개로 바꾸기 전에 지금 링크가 사라진다고 한 번 묻
   });
   await page.goto("/test-sets/t1");
   await page.getByRole("button", { name: "공유" }).click();
-  await page.getByRole("combobox", { name: "공개 범위" }).click();
-  await page.getByRole("option", { name: /비공개/ }).click();
-  const confirm = page.getByRole("dialog", { name: "비공개로 바꾸기" });
+  await page.getByRole("switch", { name: "공개 링크" }).click();
+  const confirm = page.getByRole("dialog", { name: "공개 링크 끄기" });
   await expect(confirm).toContainText("지금 링크를 사용할 수 없게 되며");
   expect(calls.some((c) => c.key.startsWith("PATCH"))).toBe(false);
-  await confirm.getByRole("button", { name: "비공개로 바꾸기" }).click();
+  await confirm.getByRole("button", { name: "끄기" }).click();
   await expect(page.getByRole("textbox", { name: "공유 링크" })).toHaveCount(0);
   expect(
     calls.find((c) => c.key === "PATCH /api/v1/test-sets/t1/sharing")?.body,

@@ -9,7 +9,7 @@ Cheddar는 사람이 수행할 QA 테스트 케이스를 Figma 기획 자료로 
 
 ## 원칙
 
-- **표가 주인공이다.** 테스트 세트 화면의 시각적 무게는 표(또는 카드 보기)에 둔다. 기능은 머리글과 도구 줄의 버튼으로 들어간다. 상단 바와 패널은 `bg-canvas`, `line-default`로 물러난다.
+- **표가 주인공이다.** 테스트 세트 화면의 시각적 무게는 표(또는 캔버스 보기)에 둔다. 기능은 제목 줄과 도구 상자 하나에 들어간다. 상단 바와 패널은 `bg-canvas`, `line-default`로 물러난다.
 - **판단이 필요한 곳만 색을 쓴다.** 확인 필요, 저장 오류, AI 생성 결과, 다른 사람의 선택만 색으로 표시한다. 나머지는 중립색이다.
 - **상태는 항상 보인다.** 저장 상태와 생성 진행은 숨기지 않는다.
 - **색 하나에는 의미 하나.** `accent`는 행동과 AI 생성, `secondary`는 Figma 자료, 상태색은 상태, `presence-1`~`presence-6`은 공동 편집자에만 쓴다.
@@ -23,7 +23,7 @@ Cheddar는 사람이 수행할 QA 테스트 케이스를 Figma 기획 자료로 
 - 제품 문구에 `·`를 쓰지 않는다.
 - 오류는 짧게 쓰고 토스트로 보여준다. 토스트는 화면 아래 가운데에 띄워 옆 패널의 버튼을 가리지 않는다.
 - 툴팁은 기본적으로 만들지 않는다. 아이콘 버튼에는 접근성 이름을 반드시 넣는다.
-- 용어: 프로젝트, 테스트 세트, 테스트 케이스(케이스), 확인 필요, 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모, 표 보기, 카드 보기, 묶기, 공개, 비공개, 방문자, 역할, 소속.
+- 용어: 프로젝트, 테스트 세트, 테스트 케이스(케이스), 확인 필요, 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모, 표 보기, 캔버스 보기, 그룹화, 공개 링크, 방문자, 관리자, 구성원.
 - 이모지를 쓰지 않는다.
 
 ## 색
@@ -52,7 +52,7 @@ Cheddar는 사람이 수행할 QA 테스트 케이스를 Figma 기획 자료로 
 
 - 간격은 4px 단위 `space-1`~`space-12`. 카드 패딩 `space-4`, 패널 패딩 `space-5`, 페이지 좌우 여백 `space-6`.
 - 컨트롤 높이 기본 `control-md` 36px. 표 안과 플러그인은 `control-sm` 32px. 큰 컨트롤은 44px. 입력과 버튼의 가로 여백은 12~14px로 글자가 테두리에 붙어 보이지 않게 한다(2026-10-19 답답하다는 의견으로 한 단계 키움).
-- 표 행은 32px에서 시작해 내용에 따라 늘어난다. 표 안의 세로선, 가로선, 교차점을 끌어 열 너비와 행 높이를 조절하고, 더블클릭하면 기본 크기로 돌아간다.
+- 표 행은 32px에서 시작해 내용에 따라 늘어난다. 표 안의 세로선, 가로선, 교차점을 끌어 열 너비와 행 높이를 조절하고, 더블클릭하면 기본 크기로 돌아간다. 열을 넓히면 다른 열은 그대로이고 표가 가로로 스크롤된다. 끌 수 있는 경계에 포인터를 올리거나 끄는 동안 그 열과 행의 경계선을 강조색 선으로 표시한다. 교차점은 어느 쪽 셀에서 잡아도 너비와 높이를 함께 바꾼다. 높이를 정한 행은 스프레드시트처럼 넘치는 내용을 자르고, 고른 셀만 전부 보인다.
 - 스크롤바는 투명 트랙 위 `scroll-thumb` 둥근 손잡이 하나로 통일하고 `global.css`에서 처리한다.
 - radius: 표 셀 안 칩 `radius-xs`, 체크박스와 배지 `radius-sm`, 버튼과 입력 `radius-md`, 카드와 패널과 다이얼로그 `radius-lg`.
 - 그림자: 떠 있는 요소 `shadow-raised`, 메뉴와 토스트 `shadow-popover`, 다이얼로그 `shadow-dialog`. 카드는 그림자 대신 `line-default` 테두리로 구분한다.
@@ -60,9 +60,9 @@ Cheddar는 사람이 수행할 QA 테스트 케이스를 Figma 기획 자료로 
 ## 레이아웃
 
 - **웹 상단 바**: 제품 이름, 테스트 세트, 프로젝트, 오른쪽 계정 메뉴. 사이드바는 없다.
-- **테스트 세트 화면**: 머리글에 위치, 제목, 저장 상태, 접속자, 공유, XLSX 내보내기, 케이스 추가 생성. 도구 줄에 표와 카드 보기 전환, 검색, 묶기 기준, 확인 필요(개수), 양식 편집. 그 아래 표 또는 카드 보기가 남은 공간을 쓴다. 확인 필요는 오른쪽 패널로 연다. 탭은 쓰지 않는다.
+- **테스트 세트 화면**: 제목 줄에 제목, 저장 상태, 접속자, 공유, 작업 메뉴. 그 아래 테두리 있는 도구 상자(`Toolbar`) 하나에 보기 전환, 보기별 도구(표는 셀 도구, 캔버스는 실행취소와 그룹화, 표시를 아이콘 메뉴로. ▾는 붙이지 않는다), 케이스 추가 생성, XLSX 내보내기를 두고 오른쪽 끝에 검색과 확인 필요(개수)를 둔다. 도구 메뉴는 맨 위에 그룹 이름을 보인다. 그 아래 표 또는 캔버스가 남은 공간을 쓴다. 캔버스는 흰 상자 안에 그룹별 세로 열과 테두리 없는 연회색 카드를 두고, 결과 요약은 왼쪽 아래, 확대와 축소는 오른쪽 아래에 띄운다. 상태 색은 카드 전체의 옅은 배경과 글자로 보이며 왼쪽 색 띠는 쓰지 않는다. 확인 필요는 오른쪽 패널로 연다. 탭은 쓰지 않는다.
 - **생성 진행**: 가운데 카드 하나에 제목과 단계 4개만 보여준다.
-- **설정과 관리**: 제목 아래 탭(프로젝트 설정: 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모 / 관리: 계정, 역할, 소속).
+- **설정과 관리**: 제목 아래 탭(프로젝트 설정: 기본 양식, 기능 그룹, 필수 케이스, 화면 구조, 메모). 관리 화면은 계정 하나라 탭 없이 제목만 둔다.
 - **Figma 플러그인**: 좁은 단일 열. `body-sm`, `control-sm`. 머리글 오른쪽에 계정 메뉴(웹 열기, 로그아웃), 내용 맨 위에 프로젝트 Select, 하단에 주요 행동 하나를 고정한다.
 
 ## 동작
@@ -87,12 +87,12 @@ Cheddar는 사람이 수행할 QA 테스트 케이스를 Figma 기획 자료로 
 
 ## 컴포넌트
 
-공통 컴포넌트는 `packages/ui`에 둔다: Button, IconButton, Icon, DrawnCheck, Field, TextField, TextArea, Select, Menu, Checkbox, Switch, RadioGroup, Badge, Tag, SaveStatus, StepList(시스템의 JobProgress), Tabs, Breadcrumb, DataGrid(시스템의 CaseTable), Avatars, FrameCard, ReviewCard, Banner, Dialog(ConfirmDialog 포함), Popover, SortableList, Progress, Toast, EmptyState(LoadError 포함). 스크롤바는 앱의 `global.css`가 처리한다. Select와 Menu는 브라우저 기본 UI가 아니라 직접 그린 목록이다. 실제 모양은 웹 개발 서버의 `/design-system.html`에서 라이트와 다크로 확인한다. props와 파일 규칙은 [프로젝트 구조의 코드 규칙](docs/architecture.md#코드-규칙)을 따른다.
+공통 컴포넌트는 `packages/ui`에 둔다: Button, IconButton, Icon, DrawnCheck, Field, TextField, TextArea, Select, Menu, Checkbox, Switch, RadioGroup, Badge, Tag, TonePicker(항목 색 점과 7색 목록), SaveStatus, StepList(시스템의 JobProgress), Tabs, Breadcrumb, DataGrid(시스템의 CaseTable), Avatars, FrameCard, ReviewCard, Banner, Dialog(ConfirmDialog 포함), Popover, SortableList, Progress, Toast, EmptyState(LoadError 포함). 스크롤바는 앱의 `global.css`가 처리한다. Select와 Menu는 브라우저 기본 UI가 아니라 직접 그린 목록이다. 실제 모양은 웹 개발 서버의 `/design-system.html`에서 라이트와 다크로 확인한다. props와 파일 규칙은 [프로젝트 구조의 코드 규칙](docs/architecture.md#코드-규칙)을 따른다.
 
 ## 아이콘
 
 - 1.75 stroke 선형 아이콘, 24 그리드, 기본 16px. 구현은 lucide-react.
-- 의미 고정: `sparkles` AI 생성, `frame` Figma 프레임, `table` 표 보기, 카드 모양 아이콘 카드 보기, `sliders` 양식, `download` 내보내기, `link` 공유, `lock` 비공개, `globe` 공개, `users` 계정, `shield` 역할과 관리, `building` 소속.
+- 의미 고정: `sparkles` AI 생성, `frame` Figma 프레임, `table` 표 보기, `columns-3` 캔버스 보기와 그룹화, `sliders` 양식, `download` 내보내기, `link` 공유, `globe` 공개 링크, `users` 계정, `shield` 관리, `key-round` 비밀번호.
 
 ## 로고
 

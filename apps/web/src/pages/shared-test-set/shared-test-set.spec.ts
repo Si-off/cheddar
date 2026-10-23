@@ -51,6 +51,8 @@ test("편집 링크로 온 방문자의 편집은 공개 링크 경로로 저장
   });
   await page.goto(`/s/${TOKEN}`);
   await expect(page.getByText("보기 전용")).toHaveCount(0);
+  // 방문자는 셀과 케이스만 고치고 열은 못 더한다
+  await expect(page.getByRole("button", { name: "열 추가" })).toHaveCount(0);
   await page.getByRole("button", { name: "케이스 추가" }).click();
   await expect
     .poll(() => calls.find((c) => c.key === `POST /api/v1/shared/${TOKEN}/ops`))

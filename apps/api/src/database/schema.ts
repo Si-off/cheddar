@@ -1,3 +1,4 @@
+import type { CellValue, OptionColor } from "@cheddar/contracts";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -18,7 +19,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { PERMISSIONS } from "../authorization/permissions";
+import type { ScreenIdRulePartDto } from "../contracts/project.dto";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const created = () =>
@@ -26,10 +27,8 @@ const created = () =>
 const updated = () =>
   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 const time = (name: string) => timestamp(name, { withTimezone: true });
-export const permissionEnum = pgEnum("permission_key", PERMISSIONS);
-export const scopeEnum = pgEnum("assignment_scope", ["global", "projects"]);
+export const accountRoleEnum = pgEnum("account_role", ["admin", "member"]);
 export const accountStatusEnum = pgEnum("account_status", [
-  "invited",
   "active",
   "inactive",
 ]);
@@ -47,55 +46,27 @@ export const jobStatusEnum = pgEnum("job_status", [
   "failed",
 ]);
 
-export const affiliations = pgTable("affiliations", {
-  id: id(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
-  createdAt: created(),
-  updatedAt: updated(),
-});
 export const accounts = pgTable(
   "accounts",
   {
     id: id(),
     name: varchar("name", { length: 100 }).notNull(),
-    email: varchar("email", { length: 254 }).notNull().unique(),
-    affiliationId: uuid("affiliation_id")
-      .notNull()
-      .references(() => affiliations.id, { onDelete: "restrict" }),
+    loginId: varchar("login_id", { length: 254 }).notNull().unique(),
+    role: accountRoleEnum("role").notNull().default("member"),
     passwordHash: text("password_hash"),
-    status: accountStatusEnum("status").notNull().default("invited"),
-    expiresAt: time("expires_at"),
+    status: accountStatusEnum("status").notNull().default("active"),
     createdAt: created(),
     updatedAt: updated(),
   },
   (t) => [
     check(
-      "accounts_email_normalized",
-      sql`${t.email} = lower(btrim(${t.email}))`,
+      "accounts_login_id_normalized",
+      sql`${t.loginId} = lower(btrim(${t.loginId}))`,
     ),
     check(
       "accounts_active_password",
       sql`${t.status} <> 'active' OR ${t.passwordHash} IS NOT NULL`,
     ),
-    index("accounts_affiliation_idx").on(t.affiliationId),
-  ],
-);
-export const authTokens = pgTable(
-  "auth_tokens",
-  {
-    id: id(),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    purpose: varchar("purpose", { length: 10 }).notNull(),
-    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
-    expiresAt: time("expires_at").notNull(),
-    consumedAt: time("consumed_at"),
-    createdAt: created(),
-  },
-  (t) => [
-    check("auth_tokens_purpose", sql`${t.purpose} IN ('invite', 'reset')`),
-    index("auth_tokens_account_idx").on(t.accountId, t.purpose),
   ],
 );
 export const sessions = pgTable(
@@ -111,39 +82,6 @@ export const sessions = pgTable(
   },
   (t) => [index("sessions_account_idx").on(t.accountId)],
 );
-export const roles = pgTable(
-  "roles",
-  {
-    id: id(),
-    name: varchar("name", { length: 100 }).notNull().unique(),
-    systemKey: varchar("system_key", { length: 30 }).unique(),
-    fixed: boolean("fixed").notNull().default(false),
-    requiresExpiry: boolean("requires_expiry").notNull().default(false),
-    defaultExpiryDays: integer("default_expiry_days"),
-    createdAt: created(),
-    updatedAt: updated(),
-  },
-  (t) => [
-    check(
-      "roles_expiry_days",
-      sql`(${t.defaultExpiryDays} IS NULL OR ${t.defaultExpiryDays} > 0) AND (NOT ${t.requiresExpiry} OR ${t.defaultExpiryDays} IS NOT NULL)`,
-    ),
-    check(
-      "roles_fixed_visitor",
-      sql`${t.fixed} = (${t.systemKey} IS NOT DISTINCT FROM 'link_visitor')`,
-    ),
-  ],
-);
-export const rolePermissions = pgTable(
-  "role_permissions",
-  {
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "cascade" }),
-    permission: permissionEnum("permission").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.roleId, t.permission] })],
-);
 export const projects = pgTable("projects", {
   id: id(),
   name: varchar("name", { length: 100 }).notNull(),
@@ -154,36 +92,6 @@ export const projects = pgTable("projects", {
   createdAt: created(),
   updatedAt: updated(),
 });
-export const roleAssignments = pgTable(
-  "role_assignments",
-  {
-    id: id(),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "restrict" }),
-    scope: scopeEnum("scope").notNull(),
-  },
-  (t) => [
-    index("role_assignments_account_idx").on(t.accountId),
-    index("role_assignments_role_idx").on(t.roleId),
-  ],
-);
-export const roleAssignmentProjects = pgTable(
-  "role_assignment_projects",
-  {
-    assignmentId: uuid("assignment_id")
-      .notNull()
-      .references(() => roleAssignments.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-  },
-  (t) => [primaryKey({ columns: [t.assignmentId, t.projectId] })],
-);
-
 // A template is one versioned JSON document; each test set copies its columns into rows.
 export const projectTemplates = pgTable(
   "project_templates",
@@ -197,9 +105,12 @@ export const projectTemplates = pgTable(
           id: string;
           name: string;
           type: "text" | "select" | "checkbox" | "tags";
+          presetKey: string | null;
+          enabled: boolean;
           systemKey: "test_id" | "title" | null;
           description: string;
           options: string[];
+          colors?: Record<string, OptionColor>;
         }[]
       >()
       .notNull(),
@@ -221,16 +132,6 @@ export const featureGroups = pgTable(
   },
   (t) => [unique("feature_groups_name").on(t.projectId, t.name)],
 );
-export const requiredCases = pgTable("required_cases", {
-  id: id(),
-  projectId: uuid("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  description: text("description").notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-  isDefault: boolean("is_default").notNull().default(false),
-  position: integer("position").notNull(),
-});
 export const screenStructureItems = pgTable(
   "screen_structure_items",
   {
@@ -239,6 +140,10 @@ export const screenStructureItems = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     screenId: varchar("screen_id", { length: 100 }).notNull(),
+    type: varchar("type", { length: 16 })
+      .$type<"page" | "popup" | "bottom_sheet" | "tab">()
+      .notNull()
+      .default("page"),
     name: varchar("name", { length: 200 }).notNull(),
     parentId: uuid("parent_id"),
     description: text("description").notNull().default(""),
@@ -317,8 +222,13 @@ export const testSetColumns = pgTable(
     name: varchar("name", { length: 100 }).notNull(),
     type: columnTypeEnum("type").notNull(),
     systemKey: varchar("system_key", { length: 10 }),
+    presetKey: varchar("preset_key", { length: 40 }),
     description: text("description").notNull().default(""),
     options: jsonb("options").$type<string[]>().notNull().default([]),
+    colors: jsonb("colors")
+      .$type<Record<string, OptionColor>>()
+      .notNull()
+      .default({}),
     position: integer("position").notNull(),
   },
   (t) => [
@@ -338,6 +248,12 @@ export const testCases = pgTable(
       .notNull()
       .references(() => testSets.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
+    featureGroupId: uuid("feature_group_id").references(
+      () => featureGroups.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     createdBy: uuid("created_by").references(() => accounts.id, {
       onDelete: "restrict",
     }),
@@ -353,7 +269,7 @@ export const testCaseValues = pgTable(
     testSetId: uuid("test_set_id").notNull(),
     caseId: uuid("case_id").notNull(),
     columnId: uuid("column_id").notNull(),
-    value: jsonb("value").$type<string | boolean | string[] | null>(),
+    value: jsonb("value").$type<CellValue>(),
   },
   (t) => [
     primaryKey({ columns: [t.caseId, t.columnId] }),
@@ -366,20 +282,6 @@ export const testCaseValues = pgTable(
       foreignColumns: [testSetColumns.testSetId, testSetColumns.id],
     }).onDelete("cascade"),
   ],
-);
-export const testSetMembers = pgTable(
-  "test_set_members",
-  {
-    testSetId: uuid("test_set_id")
-      .notNull()
-      .references(() => testSets.id, { onDelete: "cascade" }),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "restrict" }),
-    access: accessEnum("access").notNull(),
-    createdAt: created(),
-  },
-  (t) => [primaryKey({ columns: [t.testSetId, t.accountId] })],
 );
 export const visitorSessions = pgTable(
   "visitor_sessions",
@@ -410,6 +312,14 @@ export const viewPreferences = pgTable(
     }),
     visitorSessionId: uuid("visitor_session_id"),
     view: varchar("view", { length: 10 }).notNull().default("table"),
+    canvasGroup: varchar("canvas_group", { length: 10 })
+      .$type<"feature" | "column" | "none">()
+      .notNull()
+      .default("feature"),
+    canvasDensity: varchar("canvas_density", { length: 10 })
+      .$type<"brief" | "detail">()
+      .notNull()
+      .default("brief"),
     groupByColumnId: uuid("group_by_column_id"),
     columnWidths: jsonb("column_widths")
       .$type<Record<string, number>>()
@@ -426,7 +336,15 @@ export const viewPreferences = pgTable(
       "view_preferences_actor",
       sql`num_nonnulls(${t.accountId}, ${t.visitorSessionId}) = 1`,
     ),
-    check("view_preferences_view", sql`${t.view} IN ('table', 'card')`),
+    check("view_preferences_view", sql`${t.view} IN ('table', 'canvas')`),
+    check(
+      "view_preferences_canvas_group",
+      sql`${t.canvasGroup} IN ('feature', 'column', 'none')`,
+    ),
+    check(
+      "view_preferences_canvas_density",
+      sql`${t.canvasDensity} IN ('brief', 'detail')`,
+    ),
     unique("view_preferences_account").on(t.testSetId, t.accountId),
     unique("view_preferences_visitor").on(t.testSetId, t.visitorSessionId),
     foreignKey({
@@ -477,7 +395,7 @@ export const generationJobs = pgTable(
     uploadId: uuid("upload_id").references(() => tempUploads.id, {
       onDelete: "set null",
     }),
-    kind: varchar("kind", { length: 10 }).notNull(),
+    kind: varchar("kind", { length: 16 }).notNull(),
     status: jobStatusEnum("status").notNull().default("pending"),
     currentStage: varchar("current_stage", { length: 30 }),
     errorCode: text("error_code"),
@@ -497,7 +415,7 @@ export const generationJobs = pgTable(
   (t) => [
     check(
       "generation_jobs_kind",
-      sql`${t.kind} IN ('initial', 'append', 'rewrite')`,
+      sql`${t.kind} IN ('initial', 'append', 'rewrite', 'fill_column')`,
     ),
     unique("generation_jobs_request").on(t.requestedBy, t.clientRequestId),
     uniqueIndex("generation_jobs_active_set")
@@ -549,6 +467,12 @@ export const reviewItems = pgTable(
       .$type<{ question: string; answer: string | null }[]>()
       .notNull(),
     draft: jsonb("draft").notNull(),
+    featureGroupId: uuid("feature_group_id").references(
+      () => featureGroups.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     status: varchar("status", { length: 12 }).notNull().default("pending"),
     createdAt: created(),
     updatedAt: updated(),
@@ -591,12 +515,17 @@ export const aiCallUsage = pgTable(
   "ai_call_usage",
   {
     id: uuid("id").primaryKey(),
-    jobId: uuid("job_id")
-      .notNull()
-      .references(() => generationJobs.id, { onDelete: "cascade" }),
-    stepId: uuid("step_id")
-      .notNull()
-      .references(() => generationSteps.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id").references(() => generationJobs.id, {
+      onDelete: "cascade",
+    }),
+    stepId: uuid("step_id").references(() => generationSteps.id, {
+      onDelete: "cascade",
+    }),
+    // 생성 작업 밖의 단발 호출(파일에서 화면 구조 초안 만들기)은 프로젝트에 속한다.
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    purpose: text("purpose"),
     provider: text("provider").notNull(),
     requestedModel: text("requested_model").notNull(),
     responseModel: text("response_model"),
@@ -628,11 +557,16 @@ export const aiCallUsage = pgTable(
       sql`${t.status} in ('running','completed','failed','unknown')`,
     ),
     check(
+      "ai_call_usage_owner",
+      sql`(${t.jobId} is not null and ${t.stepId} is not null and ${t.projectId} is null and ${t.purpose} is null) or (${t.jobId} is null and ${t.stepId} is null and ${t.projectId} is not null and ${t.purpose} is not null)`,
+    ),
+    check(
       "ai_call_usage_provider",
       sql`${t.provider} in ('openai','anthropic','fake')`,
     ),
     index("ai_call_usage_job_idx").on(t.jobId),
     index("ai_call_usage_step_idx").on(t.stepId),
+    index("ai_call_usage_project_idx").on(t.projectId),
     index("ai_call_usage_provider_time_idx").on(t.provider, t.startedAt),
   ],
 );
@@ -673,5 +607,58 @@ export const aiProviderCosts = pgTable(
       sql`${t.provider} in ('openai','anthropic')`,
     ),
     index("ai_provider_costs_time_idx").on(t.provider, t.bucketStart),
+  ],
+);
+
+export const screenIdRules = pgTable(
+  "screen_id_rules",
+  {
+    id: id(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    separator: varchar("separator", { length: 3 }).notNull().default("_"),
+    parts: jsonb("parts").$type<ScreenIdRulePartDto[]>().notNull(),
+    position: integer("position").notNull(),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [unique("screen_id_rules_name").on(t.projectId, t.name)],
+);
+
+export const cellImages = pgTable(
+  "cell_images",
+  {
+    id: id(),
+    testSetId: uuid("test_set_id")
+      .notNull()
+      .references(() => testSets.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull().unique(),
+    contentType: varchar("content_type", { length: 20 }).notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    createdAt: created(),
+    accountId: uuid("account_id").references(() => accounts.id, {
+      onDelete: "restrict",
+    }),
+    // 링크 교체로 세션이 지워져도 업로더 식별자와 이미지는 보존한다.
+    visitorSessionId: uuid("visitor_session_id"),
+  },
+  (t) => [
+    index("cell_images_set_idx").on(t.testSetId),
+    check(
+      "cell_images_actor",
+      sql`num_nonnulls(${t.accountId}, ${t.visitorSessionId}) = 1`,
+    ),
+    check(
+      "cell_images_dimensions",
+      sql`${t.width} > 0 AND ${t.height} > 0 AND ${t.byteSize} > 0 AND ${t.byteSize} <= 10485760`,
+    ),
+    check(
+      "cell_images_content_type",
+      sql`${t.contentType} IN ('image/png', 'image/jpeg', 'image/gif', 'image/webp')`,
+    ),
   ],
 );

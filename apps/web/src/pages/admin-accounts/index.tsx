@@ -15,51 +15,31 @@ import { useDeferredValue, useState } from "react";
 import {
   ACCOUNTS_PAGE_SIZE,
   type Account,
+  type AccountRole,
   type AccountStatus,
+  accountRoleLabel,
+  accountRoleOptions,
   accountStatusInfo,
   accountsQuery,
 } from "@/entities/account";
-import { affiliationsQuery } from "@/entities/affiliation";
-import { type Role, rolesQuery } from "@/entities/role";
-import {
-  CreateAccountDialog,
-  type IssuedLink,
-  IssuedLinkDialog,
-} from "@/features/manage-account";
+import { CreateAccountDialog } from "@/features/manage-account";
 
 const ALL = "";
 
-function roleSummary(account: Account, roles: readonly Role[]) {
-  return account.assignments
-    .map((a) => {
-      const name = roles.find((r) => r.id === a.roleId)?.name ?? "";
-      return a.scope === "projects"
-        ? `${name}(프로젝트 ${a.projectIds.length}개)`
-        : name;
-    })
-    .filter(Boolean)
-    .join(", ");
-}
-
 export function AdminAccountsPage() {
   const [search, setSearch] = useState("");
-  const [roleId, setRoleId] = useState(ALL);
-  const [affiliationId, setAffiliationId] = useState(ALL);
+  const [role, setRole] = useState<AccountRole | typeof ALL>(ALL);
   const [status, setStatus] = useState<AccountStatus | typeof ALL>(ALL);
   const [page, setPage] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
-  const [issued, setIssued] = useState<IssuedLink | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
 
-  const roles = useQuery(rolesQuery()).data ?? [];
-  const affiliations = useQuery(affiliationsQuery()).data ?? [];
   // 페이지를 넘기는 동안 이전 목록을 그대로 보여준다
   const accounts = useQuery({
     ...accountsQuery(
       {
         search: deferredSearch || undefined,
-        roleId: roleId || undefined,
-        affiliationId: affiliationId || undefined,
+        role: role || undefined,
         status: status || undefined,
       },
       page,
@@ -96,21 +76,15 @@ export function AdminAccountsPage() {
           >
             {a.name}
           </Link>
-          <span className="text-caption text-fg-muted">{a.email}</span>
+          <span className="text-caption text-fg-muted">{a.loginId}</span>
         </span>
       ),
     },
     {
-      id: "affiliation",
-      header: "소속",
+      id: "role",
+      header: "등급",
       width: 120,
-      cell: (a) => a.affiliation.name,
-    },
-    {
-      id: "roles",
-      header: "역할",
-      width: 260,
-      cell: (a) => roleSummary(a, roles),
+      cell: (a) => accountRoleLabel[a.role],
     },
     {
       id: "status",
@@ -122,18 +96,9 @@ export function AdminAccountsPage() {
         </Badge>
       ),
     },
-    {
-      id: "expires",
-      header: "만료일",
-      width: 120,
-      mono: true,
-      cell: (a) => a.expiresOn ?? "",
-    },
   ];
 
-  const filtering = Boolean(
-    deferredSearch || roleId || affiliationId || status,
-  );
+  const filtering = Boolean(deferredSearch || role || status);
 
   return (
     <>
@@ -141,7 +106,7 @@ export function AdminAccountsPage() {
         <TextField
           size="sm"
           icon={Search}
-          placeholder="이름 또는 이메일"
+          placeholder="이름 또는 아이디"
           aria-label="계정 검색"
           className="w-60 max-w-full"
           value={search}
@@ -149,27 +114,13 @@ export function AdminAccountsPage() {
         />
         <Select
           size="sm"
-          aria-label="역할"
-          className="w-36"
-          value={roleId}
-          items={[
-            { value: ALL, label: "모든 역할" },
-            ...roles
-              .filter((r) => !r.fixed)
-              .map((r) => ({ value: r.id, label: r.name })),
-          ]}
-          onValueChange={(v) => filterBy(setRoleId)(v ?? ALL)}
-        />
-        <Select
-          size="sm"
-          aria-label="소속"
-          className="w-36"
-          value={affiliationId}
-          items={[
-            { value: ALL, label: "모든 소속" },
-            ...affiliations.map((a) => ({ value: a.id, label: a.name })),
-          ]}
-          onValueChange={(v) => filterBy(setAffiliationId)(v ?? ALL)}
+          aria-label="등급"
+          className="w-32"
+          value={role}
+          items={[{ value: ALL, label: "모든 등급" }, ...accountRoleOptions]}
+          onValueChange={(v) =>
+            filterBy(setRole)((v ?? ALL) as AccountRole | typeof ALL)
+          }
         />
         <Select
           size="sm"
@@ -245,12 +196,7 @@ export function AdminAccountsPage() {
         </>
       )}
 
-      <CreateAccountDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={setIssued}
-      />
-      <IssuedLinkDialog link={issued} onClose={() => setIssued(null)} />
+      <CreateAccountDialog open={createOpen} onOpenChange={setCreateOpen} />
     </>
   );
 }

@@ -1,10 +1,11 @@
 /**
  * main과 UI 사이 메시지 계약의 버전. UI가 main의 새 기능이나 바뀐 응답을 쓰기 시작하면 올린다.
- * 2: frame-exported가 화면 문서 대신 REST 원본(source)을 보낸다.
+ * 2: 업로드 중 지워진 프레임을 FRAME_REMOVED로 알리고, 파일 키가 없어도 업로드를 시작한다.
+ * 3: frame-exported가 화면 문서 대신 REST 원본(source)을 보낸다.
  * 원격 UI는 main보다 먼저 바뀔 수 있으므로 main은 이전 UI의 메시지를 계속 받아야 하고,
  * UI는 main의 버전이 이 값보다 낮으면 업로드를 막는다.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 export const isResourceId = (value: unknown): value is string =>
   typeof value === "string" &&
@@ -46,6 +47,8 @@ export type FrameSelection = {
 };
 export type ExportErrorCode =
   | "INVALID_SELECTION"
+  /** 업로드 중 지워진 프레임. 그 프레임만 빼고 나머지를 올린다. */
+  | "FRAME_REMOVED"
   | "FILE_KEY_UNAVAILABLE"
   | "FRAME_CHANGED"
   | "EXPORT_FAILED"
@@ -106,7 +109,8 @@ export type MainToUiMessage =
       type: "upload-prepared";
       requestId: string;
       sessionId: string;
-      fileKey: string;
+      /** 개인 플러그인 API가 없으면 없다. 업로드에는 쓰지 않는다. */
+      fileKey: string | null;
       frames: SelectedFrame[];
     }
   | {
@@ -240,6 +244,7 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
   if (value.type === "export-error")
     return [
       "INVALID_SELECTION",
+      "FRAME_REMOVED",
       "FILE_KEY_UNAVAILABLE",
       "FRAME_CHANGED",
       "EXPORT_FAILED",
@@ -272,7 +277,7 @@ export function isMainToUiMessage(value: unknown): value is MainToUiMessage {
   if (!text(value.sessionId, 100)) return false;
   if (value.type === "upload-prepared")
     return (
-      text(value.fileKey, 200) &&
+      (value.fileKey === null || text(value.fileKey, 200)) &&
       frames(value.frames) &&
       value.frames.length > 0
     );

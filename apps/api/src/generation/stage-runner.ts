@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import { isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { and, eq, sql } from "drizzle-orm";
+import type { CellValue } from "../contracts/test-set.dto";
 import {
+  featureGroups,
   generationJobs,
   generationSteps,
   reviewItems,
@@ -11,12 +14,20 @@ import { LocalStorage } from "../storage/local-storage";
 import { imageMime } from "../temp-uploads/manifest";
 import { CaseOperationsService } from "../test-sets/case-operations.service";
 import { forbidden } from "../test-sets/test-sets.store";
+import { withoutCellImages } from "../test-sets/values";
 import { GenerationService, jobFinished } from "./generation.service";
 import type { Stage } from "./model-config";
 import { validateDraft } from "./output-schema";
 import { AiFailure, type AiRequest } from "./providers/ai-provider";
 import { ProviderService } from "./providers/provider.service";
 import { DEFINITIONS } from "./steps";
+import {
+  emptyCell,
+  isAiColumn,
+  isEmptyCell,
+  isQaRecord,
+} from "./steps/column-rules";
+import { fillColumn } from "./steps/fill-column";
 import type {
   CaseOutput,
   Draft,
@@ -55,12 +66,10 @@ export async function boundedMap<T, R>(
 }
 export function fingerprint(input: GenerationInput, draft: Draft) {
   return JSON.stringify(
-    input.columns
-      .filter((c) => c.systemKey !== "test_id")
-      .map((c) => {
-        const value = draft[c.id];
-        return Array.isArray(value) ? [...value].sort() : (value ?? null);
-      }),
+    input.columns.filter(isAiColumn).map((c) => {
+      const value = isCellImage(draft[c.id]) ? "" : draft[c.id];
+      return Array.isArray(value) ? [...value].sort() : (value ?? null);
+    }),
   );
 }
 @Injectable()
@@ -87,7 +96,12 @@ export class StageRunner implements OnModuleDestroy {
     context: GenerationInput,
     sourceData: unknown,
   ) {
-    const definition = DEFINITIONS[stage];
+    context = withoutCellImages(context);
+    sourceData = withoutCellImages(sourceData);
+    const definition =
+      stage === "rewrite" && context.fillColumn
+        ? fillColumn
+        : DEFINITIONS[stage];
     this.shutdown.signal.throwIfAborted();
     const { model, provider } = this.providers.forStage(stage);
     await this.db
@@ -238,9 +252,19 @@ export class StageRunner implements OnModuleDestroy {
         )
       )
         throw new Error("기능 그룹과 화면 ID를 확인하세요.");
-    } else if (stage === "rewrite") validateDraft(input.columns, value);
-    else {
+    } else if (stage === "rewrite") {
+      if (input.fillColumn) {
+        for (const cell of Object.values(value as Record<string, CellValue>))
+          validateDraft([input.fillColumn], { [input.fillColumn.id]: cell });
+      } else validateDraft(input.columns, value);
+    } else {
       const output = value as CaseOutput;
+      if (
+        stage === "finish" &&
+        (output.caseGroupKeys?.length !== output.cases.length ||
+          output.reviewGroupKeys?.length !== output.reviews.length)
+      )
+        throw new Error("케이스와 확인 필요 항목의 기능 그룹 키를 확인하세요.");
       for (const draft of [
         ...output.cases,
         ...output.reviews.map((r) => r.draft),
@@ -250,13 +274,13 @@ export class StageRunner implements OnModuleDestroy {
         if (title && !(draft[title.id] as string)?.trim())
           throw new Error("케이스 제목을 작성하세요.");
       }
-      const ids = output.coverage.map((c) => c.requiredCaseId);
+      const ids = output.coverage.map((c) => c.viewpointId);
       if (
         new Set(ids).size !== ids.length ||
-        ids.some((id) => !input.requiredCases.some((r) => r.id === id)) ||
-        (stage === "finish" && ids.length !== input.requiredCases.length)
+        ids.some((id) => !input.viewpoints.some((r) => r.id === id)) ||
+        (stage === "finish" && ids.length !== input.viewpoints.length)
       )
-        throw new Error("필수 케이스별 반영 여부를 확인하세요.");
+        throw new Error("점검 관점 ID별 반영 여부를 확인하세요.");
     }
   }
   async process(jobId: string, stage: Stage) {
@@ -357,14 +381,36 @@ export class StageRunner implements OnModuleDestroy {
         );
         next = "finish";
       } else if (stage === "finish") {
+        const grouped = await this.db
+          .select()
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.stage, "cases"),
+              eq(generationSteps.status, "completed"),
+            ),
+          )
+          .orderBy(generationSteps.workKey);
         const output = (await this.step(jobId, stage, "all", input, {
-          outputs: await outputs<CaseOutput>("cases"),
+          outputs: grouped.map((s) => ({
+            ...(s.output as CaseOutput),
+            groupKey: s.workKey,
+          })),
           screens: await outputs<ScreenOutput>("screens"),
           flows: await outputs<FlowOutput>("flows"),
           memo: input.memo,
           existingCases: input.existingCases,
         })) as CaseOutput;
         await this.finish(job, input, output);
+      } else if (job.kind === "fill_column") {
+        const output = (await this.step(jobId, stage, "all", input, {
+          cases: input.existingCases,
+          targetColumn: input.fillColumn,
+          memo: input.memo,
+          screenStructure: input.screenStructure,
+        })) as Record<string, CellValue>;
+        await this.finishFill(job, input, output);
       } else {
         const draft = (await this.step(jobId, stage, "all", input, {
           review: input.review,
@@ -447,10 +493,10 @@ export class StageRunner implements OnModuleDestroy {
       }
     }
   }
-  async finish(
+  async finishFill(
     job: typeof generationJobs.$inferSelect,
     input: GenerationInput,
-    output: CaseOutput,
+    output: Record<string, CellValue>,
   ) {
     await this.db.transaction(async (tx) => {
       await this.generation.assertActor(job.testSetId, job.requestedBy, tx);
@@ -466,23 +512,114 @@ export class StageRunner implements OnModuleDestroy {
         .from(generationJobs)
         .where(eq(generationJobs.id, job.id))
         .for("update");
+      if (!fresh || ["completed", "failed"].includes(fresh.status)) return;
+      const column = (
+        await this.generation.store.columns(job.testSetId, tx)
+      ).find((c) => c.id === input.fillColumn?.id);
+      if (!column) throw new Error("대상 열이 삭제되었습니다.");
+      const originals = new Map(input.existingCases.map((c) => [c.id, c]));
+      const current = await this.generation.store.cases(job.testSetId, tx);
+      const ops = current.flatMap((c) => {
+        const original = originals.get(c.id);
+        const value = output[c.id];
+        // 요청 시점과 저장 시점 모두 비어 있는 셀만 채운다. false는 사용자가 정한 값이다.
+        if (
+          !original ||
+          !isEmptyCell(original.values[column.id]) ||
+          !isEmptyCell(c.values[column.id]) ||
+          isEmptyCell(value)
+        )
+          return [];
+        return [
+          {
+            type: "set_cell" as const,
+            caseId: c.id,
+            columnId: column.id,
+            value,
+          },
+        ];
+      });
+      for (let offset = 0; offset < ops.length; offset += 500)
+        await this.operations.applyInTransaction(
+          tx,
+          job.testSetId,
+          job.requestedBy,
+          { ops: ops.slice(offset, offset + 500) },
+        );
+      await tx
+        .update(generationJobs)
+        .set({
+          status: "completed",
+          ...jobFinished(),
+          currentStage: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(generationJobs.id, job.id));
+    });
+    await this.generation.store.events.publish({
+      type: "resync",
+      testSetId: job.testSetId,
+    });
+  }
+  async finish(
+    job: typeof generationJobs.$inferSelect,
+    input: GenerationInput,
+    output: CaseOutput,
+  ) {
+    await this.db.transaction(async (tx) => {
+      await this.generation.assertActor(job.testSetId, job.requestedBy, tx);
+      const { access, row } = await this.generation.store.visible(
+        job.testSetId,
+        job.requestedBy,
+        tx,
+        true,
+      );
+      if (!access.canEdit) throw forbidden();
+      const [fresh] = await tx
+        .select()
+        .from(generationJobs)
+        .where(eq(generationJobs.id, job.id))
+        .for("update");
       if (!fresh || fresh.status === "completed") return;
+      // 스냅샷 이후 삭제된 그룹과 제안용 키는 연결하지 않는다.
+      const groups = await tx
+        .select({ id: featureGroups.id })
+        .from(featureGroups)
+        .where(eq(featureGroups.projectId, row.projectId))
+        .for("key share");
+      const groupIds = new Set(groups.map((g) => g.id));
+      const groupId = (key: string | null | undefined) =>
+        key && groupIds.has(key) ? key : null;
       const existing = await this.generation.store.cases(job.testSetId, tx);
       const seen = new Set(existing.map((c) => fingerprint(input, c.values)));
       let merged = 0;
-      const cases = output.cases.filter((draft) => {
+      const cases = output.cases.flatMap((draft, index) => {
         const key = fingerprint(input, draft);
         if (seen.has(key)) {
           merged++;
-          return false;
+          return [];
         }
         seen.add(key);
-        return true;
+        return [
+          { draft, featureGroupId: groupId(output.caseGroupKeys?.[index]) },
+        ];
       });
       let afterCaseId = existing.at(-1)?.id ?? null;
-      const ops = cases.map((values) => {
+      const ops = cases.map(({ draft, featureGroupId }) => {
+        const values = {
+          ...draft,
+          ...Object.fromEntries(
+            input.columns.filter(isQaRecord).map((c) => [c.id, emptyCell(c)]),
+          ),
+        };
         const caseId = randomUUID();
-        const op = { type: "add_case" as const, caseId, afterCaseId, values };
+        const op = {
+          type: "add_case" as const,
+          caseId,
+          afterCaseId,
+          values,
+          featureGroupId,
+        };
         afterCaseId = caseId;
         return op;
       });
@@ -505,6 +642,7 @@ export class StageRunner implements OnModuleDestroy {
               ? [{ question: r.question, answer: null }]
               : [],
             draft: r.draft,
+            featureGroupId: groupId(output.reviewGroupKeys?.[position]),
             createdAt: new Date(Date.now() + position),
           })),
         );

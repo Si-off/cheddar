@@ -1,13 +1,35 @@
+import {
+  type CellImage,
+  isCellImage,
+  type OptionColor,
+  type CaseOp as SharedCaseOp,
+  type CellValue as SharedCellValue,
+} from "@cheddar/contracts";
 import type { ColumnType, TemplateColumn } from "@/entities/project";
 
-/** 테스트 세트의 항목. 프로젝트 기본 양식에서 복사한 뒤 따로 바뀐다. */
-export type Column = TemplateColumn;
+export type { CellImage, OptionColor };
+export { isCellImage };
 
-export type CellValue = string | boolean | string[] | null;
+/** 테스트 세트의 항목. 프로젝트 기본 양식에서 복사한 뒤 따로 바뀐다. */
+export type Column = Omit<TemplateColumn, "enabled"> & {
+  /** 항목 이름별 칩 색. 없는 항목은 회색이다. */
+  colors?: Record<string, OptionColor>;
+};
+
+/** 텍스트 열의 셀에는 글자 대신 이미지 한 장을 넣을 수 있다. */
+export type CellValue = SharedCellValue;
 
 export interface TestCase {
   id: string;
   values: Record<string, CellValue>;
+  /** 이 케이스의 기능 그룹. 캔버스의 기본 그룹화에 쓴다. 표와 XLSX에는 나오지 않는다. */
+  featureGroupId?: string | null;
+}
+
+/** 프로젝트의 기능 그룹(순서대로) */
+export interface FeatureGroupRef {
+  id: string;
+  name: string;
 }
 
 export interface TestSetAccess {
@@ -28,6 +50,7 @@ export interface TestSet {
   access: TestSetAccess;
   columns: Column[];
   cases: TestCase[];
+  featureGroups?: FeatureGroupRef[];
 }
 
 /** 공개 링크로 연 테스트 세트. 소유자는 이름만, 나는 계정이나 방문자다. */
@@ -46,51 +69,71 @@ export interface TestSetSummary {
   updatedAt: string;
 }
 
-export type TestSetFilter = "all" | "mine" | "shared";
+export type TestSetFilter = "all" | "mine";
 
-/** 셀 편집 연산. 공동 편집에서도 같은 모양을 쓴다. 같은 셀은 나중 값이 이긴다. */
-export type CaseOp =
-  | { type: "set_cell"; caseId: string; columnId: string; value: CellValue }
-  | {
-      type: "add_case";
-      caseId: string;
-      afterCaseId: string | null;
-      values?: Record<string, CellValue>;
-    }
-  | { type: "delete_cases"; caseIds: string[] }
-  | { type: "move_case"; caseId: string; afterCaseId: string | null };
+/** 셀과 열 편집 연산. 공동 편집에서도 같은 모양을 쓴다. 같은 셀은 나중 값이 이긴다. */
+export type CaseOp = SharedCaseOp;
+
+/** 연산이 바꾸는 테스트 세트 내용. 열과 케이스를 함께 든다. */
+export interface SheetState {
+  columns: Column[];
+  cases: TestCase[];
+}
 
 export interface ViewPreference {
-  view: "table" | "card";
+  view: "table" | "canvas";
+  /** 캔버스를 무엇으로 나눌지. column이면 groupByColumnId의 값으로 나눈다. */
+  canvasGroup: "feature" | "column" | "none";
   groupByColumnId: string | null;
+  /** 캔버스 카드에 보일 내용. 간략은 ID와 제목, 상세는 모든 열 */
+  canvasDensity: "brief" | "detail";
   columnWidths: Record<string, number>;
   rowHeights: Record<string, number>;
 }
 
 export const defaultView: ViewPreference = {
   view: "table",
+  canvasGroup: "feature",
   groupByColumnId: null,
+  canvasDensity: "brief",
   columnWidths: {},
   rowHeights: {},
 };
 
 /** 카드 열과 표 구역으로 묶을 수 있는 형식 */
+/** 이어진 케이스에서 값이 같으면 한 칸으로 병합해 보이는 사전 정의 열 */
+const MERGE_PRESET_KEYS = new Set([
+  "test_env",
+  "test_case",
+  "title",
+  "screen_id",
+  "steps",
+]);
+export const mergeable = (column: Pick<Column, "presetKey">) =>
+  column.presetKey !== null && MERGE_PRESET_KEYS.has(column.presetKey);
+
 export const groupable = (type: ColumnType) =>
   type === "select" || type === "tags" || type === "checkbox";
 
-/** 형식에 맞지 않는 값은 빈 값으로 본다 */
+/** 항목의 칩 색 */
+export const optionColor = (
+  column: Pick<Column, "colors">,
+  option: string,
+): OptionColor => column.colors?.[option] ?? "gray";
+
+/** 셀에 든 이미지. 텍스트 열에서만 읽는다. */
+export const cellImage = (column: Pick<Column, "type">, value: unknown) =>
+  column.type === "text" && isCellImage(value) ? value : null;
+
+/** 형식에 맞지 않는 값은 빈 값으로 본다. 선택과 태그는 스프레드시트처럼 목록에 없는 값도 그대로 읽는다. */
 export function readCell(column: Column, value: CellValue | undefined) {
   switch (column.type) {
     case "checkbox":
       return value === true;
     case "tags":
-      return Array.isArray(value)
-        ? value.filter((v) => column.options.includes(v))
-        : [];
+      return Array.isArray(value) ? value : [];
     case "select":
-      return typeof value === "string" && column.options.includes(value)
-        ? value
-        : null;
+      return typeof value === "string" && value ? value : null;
     default:
       return typeof value === "string" ? value : "";
   }
@@ -104,6 +147,22 @@ export function cellText(column: Column, value: CellValue | undefined) {
   return typeof v === "string" ? v : "";
 }
 
+/** 셀에 값이 있는지. 이미지만 든 셀도 값이 있다. */
+export const hasValue = (column: Column, value: CellValue | undefined) =>
+  cellImage(column, value) !== null || cellText(column, value) !== "";
+
+/** 두 값이 사람이 보기에 같은지. 이미지는 글자로 비교하면 모두 빈칸이라 이미지 id로 비교한다. */
+export function sameValue(
+  column: Column,
+  a: CellValue | undefined,
+  b: CellValue | undefined,
+) {
+  const ia = cellImage(column, a);
+  const ib = cellImage(column, b);
+  if (ia || ib) return ia?.image === ib?.image;
+  return cellText(column, a) === cellText(column, b);
+}
+
 /** 붙여넣은 글자를 형식에 맞는 값으로 바꾼다. 맞지 않으면 undefined. */
 export function parseCell(column: Column, text: string): CellValue | undefined {
   const t = text.trim();
@@ -114,18 +173,13 @@ export function parseCell(column: Column, text: string): CellValue | undefined {
       return ["예", "true", "y", "o", "v", "✓"].includes(t.toLowerCase())
         ? true
         : undefined;
+    // 선택과 태그는 스프레드시트의 목록처럼 목록에 없는 값도 그대로 넣는다.
     case "select":
-      if (!t) return null;
-      return column.options.includes(t) ? t : undefined;
-    case "tags": {
-      if (!t) return [];
-      const tags = [...new Set(t.split(/[,\n]/).map((s) => s.trim()))].filter(
+      return t || null;
+    case "tags":
+      return [...new Set(t.split(/[,\n]/).map((s) => s.trim()))].filter(
         Boolean,
       );
-      return tags.every((tag) => column.options.includes(tag))
-        ? tags
-        : undefined;
-    }
     default:
       return text;
   }
@@ -137,10 +191,63 @@ export const caseTitle = (testSet: Pick<TestSet, "columns">, c: TestCase) => {
 };
 
 /** 서버 응답을 기다리지 않고 화면에 먼저 반영한다. 서버 결과가 오면 그것으로 덮는다. */
-export function applyOps(cases: TestCase[], ops: CaseOp[]): TestCase[] {
-  let next = cases;
+export function applyOps(state: SheetState, ops: CaseOp[]): SheetState {
+  let next = state.cases;
+  let columns = state.columns;
   for (const op of ops) {
     switch (op.type) {
+      case "add_column": {
+        if (columns.some((c) => c.id === op.columnId)) break;
+        const added: Column = {
+          id: op.columnId,
+          systemKey: null,
+          ...op.column,
+        };
+        const at =
+          op.afterColumnId === null
+            ? 0
+            : columns.findIndex((c) => c.id === op.afterColumnId) + 1;
+        columns = [...columns.slice(0, at), added, ...columns.slice(at)];
+        break;
+      }
+      case "remove_column": {
+        columns = columns.filter((c) => c.id !== op.columnId);
+        next = next.map((c) => {
+          if (!(op.columnId in c.values)) return c;
+          const { [op.columnId]: _, ...values } = c.values;
+          return { ...c, values };
+        });
+        break;
+      }
+      case "update_column":
+        columns = columns.map((c) =>
+          c.id === op.columnId
+            ? {
+                ...c,
+                name: op.name,
+                description: op.description,
+                type: op.columnType ?? c.type,
+                options: op.options ?? c.options,
+                colors: op.colors ?? c.colors,
+              }
+            : c,
+        );
+        // 드롭다운으로 바꾼 열의 이미지는 선택 값이 될 수 없어 비운다
+        if (op.columnType)
+          next = next.map((c) =>
+            isCellImage(c.values[op.columnId])
+              ? { ...c, values: { ...c.values, [op.columnId]: null } }
+              : c,
+          );
+        break;
+      case "reorder_columns": {
+        const byId = new Map(columns.map((c) => [c.id, c]));
+        const ordered = op.columnIds
+          .map((id) => byId.get(id))
+          .filter((c): c is Column => c !== undefined);
+        if (ordered.length === columns.length) columns = ordered;
+        break;
+      }
       case "set_cell":
         next = next.map((c) =>
           c.id === op.caseId
@@ -150,7 +257,17 @@ export function applyOps(cases: TestCase[], ops: CaseOp[]): TestCase[] {
         break;
       case "add_case": {
         if (next.some((c) => c.id === op.caseId)) break;
-        const added = { id: op.caseId, values: { ...op.values } };
+        // 기능 그룹을 주지 않으면 바로 앞 케이스를 따른다(서버와 같다)
+        const featureGroupId =
+          op.featureGroupId !== undefined
+            ? op.featureGroupId
+            : (next.find((c) => c.id === op.afterCaseId)?.featureGroupId ??
+              null);
+        const added = {
+          id: op.caseId,
+          values: { ...op.values },
+          featureGroupId,
+        };
         const at =
           op.afterCaseId === null
             ? 0
@@ -163,6 +280,11 @@ export function applyOps(cases: TestCase[], ops: CaseOp[]): TestCase[] {
         next = next.filter((c) => !ids.has(c.id));
         break;
       }
+      case "set_feature_group":
+        next = next.map((c) =>
+          c.id === op.caseId ? { ...c, featureGroupId: op.featureGroupId } : c,
+        );
+        break;
       case "move_case": {
         const moved = next.find((c) => c.id === op.caseId);
         if (!moved) break;
@@ -176,7 +298,132 @@ export function applyOps(cases: TestCase[], ops: CaseOp[]): TestCase[] {
       }
     }
   }
-  return next;
+  return columns === state.columns && next === state.cases
+    ? state
+    : { columns, cases: next };
+}
+
+/** 형식별 빈 값 */
+export const emptyValue = (column: Pick<Column, "type">): CellValue =>
+  column.type === "checkbox"
+    ? false
+    : column.type === "tags"
+      ? []
+      : column.type === "select"
+        ? null
+        : "";
+
+/** 되돌릴 때 그 셀이 아직 이 값이어야 한다(그 사이 다른 사람이 바꾸지 않았는지 확인한다) */
+export interface CellExpectation {
+  caseId: string;
+  columnId: string;
+  value: CellValue;
+}
+
+export interface Reversal {
+  ops: CaseOp[];
+  expect: CellExpectation[];
+  /** 되돌릴 때 그 케이스가 아직 이 기능 그룹이어야 한다 */
+  expectGroup?: { caseId: string; featureGroupId: string | null }[];
+}
+
+/**
+ * 연산을 되돌리는 연산. 셀 값과 케이스 추가·삭제·이동만 되돌리고 열 연산은 되돌리지 않는다.
+ * 지운 케이스는 같은 ID와 값(테스트 ID 포함)으로 원래 자리에 다시 넣는다.
+ */
+export function invertOps(state: SheetState, ops: CaseOp[]): Reversal {
+  let work = state;
+  const groups: CaseOp[][] = [];
+  const expect: CellExpectation[] = [];
+  const expectGroup: NonNullable<Reversal["expectGroup"]> = [];
+  for (const op of ops) {
+    const inverse: CaseOp[] = [];
+    if (op.type === "set_cell") {
+      const target = work.cases.find((c) => c.id === op.caseId);
+      const column = work.columns.find((c) => c.id === op.columnId);
+      if (target && column) {
+        inverse.push({
+          type: "set_cell",
+          caseId: op.caseId,
+          columnId: op.columnId,
+          value: target.values[op.columnId] ?? emptyValue(column),
+        });
+        expect.push({
+          caseId: op.caseId,
+          columnId: op.columnId,
+          value: op.value,
+        });
+      }
+    } else if (op.type === "add_case") {
+      inverse.push({ type: "delete_cases", caseIds: [op.caseId] });
+    } else if (op.type === "delete_cases") {
+      const ids = new Set(op.caseIds);
+      work.cases.forEach((c, index) => {
+        if (!ids.has(c.id)) return;
+        inverse.push({
+          type: "add_case",
+          caseId: c.id,
+          afterCaseId: work.cases[index - 1]?.id ?? null,
+          values: c.values,
+          featureGroupId: c.featureGroupId ?? null,
+        });
+      });
+    } else if (op.type === "set_feature_group") {
+      const target = work.cases.find((c) => c.id === op.caseId);
+      if (target) {
+        inverse.push({
+          type: "set_feature_group",
+          caseId: op.caseId,
+          featureGroupId: target.featureGroupId ?? null,
+        });
+        expectGroup.push({
+          caseId: op.caseId,
+          featureGroupId: op.featureGroupId,
+        });
+      }
+    } else if (op.type === "move_case") {
+      const index = work.cases.findIndex((c) => c.id === op.caseId);
+      if (index >= 0)
+        inverse.push({
+          type: "move_case",
+          caseId: op.caseId,
+          afterCaseId: work.cases[index - 1]?.id ?? null,
+        });
+    }
+    groups.unshift(inverse);
+    work = applyOps(work, [op]);
+  }
+  return { ops: groups.flat(), expect, expectGroup };
+}
+
+/** 기능 그룹별 묶음. 프로젝트 순서를 따르고, 그룹이 없거나 지워진 그룹의 케이스는 맨 뒤 "미분류"에 모은다. */
+export function groupByFeature(
+  featureGroups: readonly FeatureGroupRef[],
+  cases: TestCase[],
+): {
+  key: string;
+  label: string;
+  featureGroupId: string | null;
+  cases: TestCase[];
+}[] {
+  const known = new Set(featureGroups.map((g) => g.id));
+  const lanes = featureGroups.map((g) => ({
+    key: g.id,
+    label: g.name,
+    featureGroupId: g.id as string | null,
+    cases: cases.filter((c) => c.featureGroupId === g.id),
+  }));
+  const rest = cases.filter(
+    (c) => !c.featureGroupId || !known.has(c.featureGroupId),
+  );
+  if (rest.length > 0 || lanes.length === 0)
+    lanes.push({
+      key: "none",
+      label: "미분류",
+      featureGroupId: null,
+      cases: rest,
+    });
+  return lanes;
 }
 
 /** 서버가 돌려준 바뀐 케이스로 덮는다. 순서는 화면 순서를 지킨다. */
@@ -221,7 +468,16 @@ export function groupCases(
         cases: cases.filter((c) => groupValue(c) !== true),
       },
     ];
-  const lanes: CaseGroup[] = group.options.map((option) => ({
+  // 목록에 없는 값(붙여넣기, 항목 변경 뒤 남은 값)도 사라지지 않게 목록 항목 뒤에 구역을 둔다.
+  const extra = [
+    ...new Set(
+      cases.flatMap((c) => {
+        const v = groupValue(c);
+        return Array.isArray(v) ? v : typeof v === "string" ? [v] : [];
+      }),
+    ),
+  ].filter((v) => !group.options.includes(v));
+  const lanes: CaseGroup[] = [...group.options, ...extra].map((option) => ({
     key: `o:${option}`,
     label: option,
     value: group.type === "tags" ? [option] : option,

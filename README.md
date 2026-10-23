@@ -35,7 +35,9 @@ pnpm install --frozen-lockfile
 | `DATABASE_URL` | 실행 DB 연결 |
 | `TEST_DATABASE_URL` | 테스트 DB 연결. superuser가 아닌 role, 실행 DB와 다른 DB |
 | `FILE_STORAGE_ROOT` | 임시 업로드를 둘 저장소 밖의 절대 경로 |
-| `API_PORT` | 기본 3101, loopback으로만 listen |
+| `API_PORT` | 기본 3101. 비어 있으면 호스팅 서비스가 주는 `PORT`를 따른다 |
+| `API_HOST` | listen 주소. 기본 `127.0.0.1`, 외부 호스팅에서는 `0.0.0.0` |
+| `COOKIE_SAME_SITE` | 기본 `lax`. 웹과 API의 도메인이 다를 때만 `none`이며 `NODE_ENV=production`이 필요하다 |
 | `CORS_ORIGINS` | 웹 origin을 쉼표로 구분. 쿠키 자격 증명을 허용 |
 | `ALLOW_FIGMA_NULL_ORIGIN` | `true`면 development에서 Figma 플러그인(Origin `null`)의 연결과 업로드 경로를 허용 |
 | `PLUGIN_UI_ORIGIN` | 원격으로 띄운 플러그인 UI의 origin. 연결과 업로드 경로만 쿠키 없이 허용. `CORS_ORIGINS`와 겹치면 안 된다 |
@@ -51,11 +53,11 @@ pnpm install --frozen-lockfile
 
 ```sh
 pnpm db:migrate
-pnpm --filter @cheddar/api admin:create --email admin@example.com --name "첫 관리자"
+pnpm --filter @cheddar/api admin:create --login-id admin --name "첫 관리자"
 pnpm dev:api
 ```
 
-마이그레이션은 스키마와 기본 역할, 소속을 설치한다. 첫 관리자 CLI는 계정이 없는 DB에서만 실행되며 초대 토큰을 출력한다. 웹의 `/invite?token=<토큰>`에서 비밀번호를 정하고 로그인한다. 메일 발송과 공용 회원가입은 없다. 서버 시작은 마이그레이션을 실행하지 않는다.
+마이그레이션은 스키마를 설치한다. 첫 관리자 CLI는 계정이 없는 DB에서만 실행되며 임시 비밀번호를 출력한다. 그 아이디와 비밀번호로 웹에 로그인한 뒤 계정 메뉴의 비밀번호 바꾸기로 바꾼다. 다른 계정은 관리 화면에서 관리자가 처음 비밀번호를 정해 만든다. 메일 발송과 공용 회원가입은 없다. 서버 시작은 마이그레이션을 실행하지 않는다.
 
 - `/health/live`, `/health/ready`: 프로세스와 DB, 저장소 상태
 - `/openapi.json`: 현재 API 명세. 정적 사본은 `apps/api/openapi.json`
@@ -69,10 +71,10 @@ pnpm dev:web
 웹은 `http://127.0.0.1:5173/`에서 연다. 개발 모드에서는 [공통 컴포넌트 미리보기](http://127.0.0.1:5173/design-system.html)도 열 수 있다.
 
 ```sh
-VITE_WEB_BASE_URL=http://127.0.0.1:5173 pnpm dev:plugin
+pnpm dev:plugin
 ```
 
-플러그인 UI와 main을 감시 빌드해 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. Figma 데스크톱에서 개발용 manifest(`apps/figma-plugin/manifest.json`, 플러그인 ID `1692417282897261384`)를 불러온다. 플러그인의 API 주소는 기본 `http://localhost:3101`(`VITE_API_BASE_URL`), 웹 주소는 main 빌드 때의 `VITE_WEB_BASE_URL`이다. 플러그인에서 로그인하면 브라우저의 `/plugin-connect`에서 연결을 승인하고, 업로드가 끝나면 웹의 새 테스트 세트가 열린다. API에는 `ALLOW_FIGMA_NULL_ORIGIN=true`가 필요하다.
+플러그인 UI와 main을 감시 빌드해 `apps/figma-plugin/dist/index.html`과 `dist/main.js`를 만든다. Figma 데스크톱에서 개발용 manifest(`apps/figma-plugin/manifest.json`, 플러그인 ID `1692417282897261384`)를 불러온다. 플러그인의 API 주소는 기본 `http://localhost:3101`(`VITE_API_BASE_URL`), 웹 주소는 main 빌드 때의 `VITE_WEB_BASE_URL`이고, 개발 감시 빌드에서 값이 없으면 `http://127.0.0.1:5173`을 쓴다. 플러그인에서 로그인하면 브라우저의 `/plugin-connect`에서 연결을 승인하고, 업로드가 끝나면 웹의 새 테스트 세트가 열린다. API에는 `ALLOW_FIGMA_NULL_ORIGIN=true`가 필요하다.
 
 ```sh
 pnpm dev:plugin:remote
@@ -120,3 +122,7 @@ pnpm --filter @cheddar/api openapi:check
 ## 디자인 토큰과 공통 컴포넌트
 
 토큰 원본은 `packages/design-tokens/src/theme.css`다. 색, 간격, radius, 폰트, 모션은 토큰만 쓴다. `@cheddar/ui`는 Base UI 위에 토큰과 모션 원칙을 적용한 공통 컴포넌트이며 사용법은 [공통 UI 안내](packages/ui/README.md)에 있다.
+
+## 로컬 시연
+
+개발 도구 설치 없이 Docker로 웹, API, DB와 Figma 플러그인을 준비하려면 [시연 가이드](demo/README.md)를 따른다. 전달받은 API 설정을 `apps/api/.env.local`에 두고 `docker compose up -d --build`를 실행한다. 시연 데이터는 개발 DB와 별도의 Docker 볼륨에 저장한다.

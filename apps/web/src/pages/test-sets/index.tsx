@@ -21,8 +21,7 @@ import {
 
 const filters: { value: TestSetFilter; label: string }[] = [
   { value: "all", label: "전체" },
-  { value: "mine", label: "내 테스트 세트" },
-  { value: "shared", label: "공유받은 테스트 세트" },
+  { value: "mine", label: "내가 만든 테스트 세트" },
 ];
 
 const dateFormat = new Intl.DateTimeFormat("ko-KR", {
@@ -40,7 +39,7 @@ function updatedLabel(iso: string) {
   return dateFormat.format(new Date(iso));
 }
 
-export function TestSetsPage({ canCreate }: { canCreate: boolean }) {
+export function TestSetsPage() {
   const [filter, setFilter] = useState<TestSetFilter>("all");
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim());
@@ -71,7 +70,7 @@ export function TestSetsPage({ canCreate }: { canCreate: boolean }) {
         </span>
       ),
     },
-    { id: "owner", header: "소유자", width: 120, cell: (s) => s.owner.name },
+    { id: "owner", header: "만든 사람", width: 120, cell: (s) => s.owner.name },
     {
       id: "cases",
       header: "케이스",
@@ -100,7 +99,7 @@ export function TestSetsPage({ canCreate }: { canCreate: boolean }) {
   ];
 
   // 다른 화면으로 가는 것이므로 버튼 모양의 링크로 둔다
-  const create = canCreate && (
+  const create = (
     <Link
       to="/test-sets/new"
       className={buttonVariants({ variant: "primary" })}
@@ -150,9 +149,7 @@ export function TestSetsPage({ canCreate }: { canCreate: boolean }) {
           title={
             query ? "찾는 테스트 세트가 없습니다" : "테스트 세트가 없습니다"
           }
-          actions={
-            !query && filter !== "shared" ? create || undefined : undefined
-          }
+          actions={query ? undefined : create}
         />
       ) : (
         <DataGrid

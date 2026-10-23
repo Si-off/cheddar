@@ -2,6 +2,7 @@
 export const columns = [
   {
     id: "c-id",
+    presetKey: "test_id",
     systemKey: "test_id",
     name: "테스트 ID",
     type: "text",
@@ -10,6 +11,7 @@ export const columns = [
   },
   {
     id: "c-title",
+    presetKey: "title",
     systemKey: "title",
     name: "제목",
     type: "text",
@@ -18,6 +20,7 @@ export const columns = [
   },
   {
     id: "c-exp",
+    presetKey: "expected",
     systemKey: null,
     name: "예상 결과",
     type: "text",
@@ -26,6 +29,7 @@ export const columns = [
   },
   {
     id: "c-pri",
+    presetKey: null,
     systemKey: null,
     name: "우선순위",
     type: "select",
@@ -34,6 +38,7 @@ export const columns = [
   },
   {
     id: "c-tags",
+    presetKey: null,
     systemKey: null,
     name: "영역",
     type: "tags",
@@ -42,6 +47,7 @@ export const columns = [
   },
   {
     id: "c-auto",
+    presetKey: null,
     systemKey: null,
     name: "자동화",
     type: "checkbox",
@@ -61,6 +67,7 @@ export const cases = [
       "c-tags": ["회원"],
       "c-auto": true,
     },
+    featureGroupId: "g1",
   },
   {
     id: "k2",
@@ -72,6 +79,7 @@ export const cases = [
       "c-tags": ["약관"],
       "c-auto": false,
     },
+    featureGroupId: "g2",
   },
 ];
 
@@ -86,12 +94,18 @@ export const testSet = {
   access: { canEdit: true, canRename: true, canDelete: true, canExport: true },
   columns,
   cases,
+  featureGroups: [
+    { id: "g1", name: "이메일 가입" },
+    { id: "g2", name: "약관 동의" },
+  ],
   updatedAt: "2026-10-19T00:00:00Z",
 };
 
 export const defaultViewResponse = {
   view: "table",
+  canvasGroup: "feature",
   groupByColumnId: null,
+  canvasDensity: "brief",
   columnWidths: {},
   rowHeights: {},
 };

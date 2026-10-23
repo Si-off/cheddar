@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { API_ENV, type ApiEnv } from "../../config/env";
-import type { Stage } from "../model-config";
+import type { AiTask } from "../model-config";
 import { readAiConfig } from "../model-config";
 import { AnthropicProvider } from "./anthropic";
 import { FakeProvider } from "./fake";
@@ -14,7 +14,7 @@ export class ProviderService {
   constructor(@Inject(API_ENV) env: ApiEnv) {
     this.config = env.ai ?? readAiConfig({});
   }
-  forStage(stage: Stage) {
+  forStage(stage: AiTask) {
     const model = this.config.models[stage];
     return {
       model,

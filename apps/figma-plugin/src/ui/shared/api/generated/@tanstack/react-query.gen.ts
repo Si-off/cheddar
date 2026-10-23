@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptInvitation, acceptReviewItem, applySharedTestSetOps, applyTestSetOps, approvePluginConnection, createAccount, createAffiliation, createGeneration, createPluginConnection, createProject, createProjectFeatureGroup, createProjectRequiredCase, createProjectScreen, createRole, createTempUpload, createTestSet, deactivateAccount, deleteAffiliation, deleteProjectFeatureGroup, deleteProjectRequiredCase, deleteProjectScreen, deleteRole, deleteTestSet, duplicateRole, exchangePluginConnection, exportSharedTestSet, exportTestSet, getAccount, getAffiliation, getCurrentGeneration, getLiveness, getMe, getPluginConnectionRequest, getProject, getProjectMemo, getProjectTemplate, getReadiness, getRole, getSharedTestSet, getSharedTestSetView, getTempFrameThumbnail, getTempUpload, getTestSet, getTestSetSharing, getTestSetView, inspectInvitation, inspectPasswordReset, issuePasswordReset, listAccounts, listAffiliations, listOwnedTestSets, listProjectFeatureGroups, listProjectRequiredCases, listProjects, listProjectScreens, listReviewItems, listRoles, listSharingCandidates, listTestSets, login, logout, type Options, reactivateAccount, reissueInvitation, removeTestSetMember, reorderProjectFeatureGroups, replaceTestSetLink, resetPassword, revokePluginConnection, rewriteReviewItem, setTestSetMember, transferTestSetOwner, updateAccount, updateAffiliation, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectRequiredCase, updateProjectScreen, updateProjectTemplate, updateReviewItem, updateRole, updateSharedTestSetView, updateTestSet, updateTestSetColumns, updateTestSetSharing, updateTestSetView } from '../sdk.gen';
-import type { AcceptInvitationData, AcceptInvitationError, AcceptInvitationResponse, AcceptReviewItemData, AcceptReviewItemError, AcceptReviewItemResponse, ApplySharedTestSetOpsData, ApplySharedTestSetOpsError, ApplySharedTestSetOpsResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, ApprovePluginConnectionData, ApprovePluginConnectionError, ApprovePluginConnectionResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateAffiliationData, CreateAffiliationError, CreateAffiliationResponse, CreateGenerationData, CreateGenerationError, CreateGenerationResponse, CreatePluginConnectionData, CreatePluginConnectionError, CreatePluginConnectionResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectRequiredCaseData, CreateProjectRequiredCaseError, CreateProjectRequiredCaseResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenResponse, CreateRoleData, CreateRoleError, CreateRoleResponse, CreateTempUploadData, CreateTempUploadError, CreateTempUploadResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteAffiliationData, DeleteAffiliationError, DeleteAffiliationResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectRequiredCaseData, DeleteProjectRequiredCaseError, DeleteProjectRequiredCaseResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenResponse, DeleteRoleData, DeleteRoleError, DeleteRoleResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DuplicateRoleData, DuplicateRoleError, DuplicateRoleResponse, ExchangePluginConnectionData, ExchangePluginConnectionError, ExchangePluginConnectionResponse, ExportSharedTestSetData, ExportSharedTestSetError, ExportSharedTestSetResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, GetAccountData, GetAccountError, GetAccountResponse, GetAffiliationData, GetAffiliationError, GetAffiliationResponse, GetCurrentGenerationData, GetCurrentGenerationError, GetCurrentGenerationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetPluginConnectionRequestData, GetPluginConnectionRequestError, GetPluginConnectionRequestResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRoleData, GetRoleError, GetRoleResponse, GetSharedTestSetData, GetSharedTestSetError, GetSharedTestSetResponse, GetSharedTestSetViewData, GetSharedTestSetViewError, GetSharedTestSetViewResponse, GetTempFrameThumbnailData, GetTempFrameThumbnailError, GetTempFrameThumbnailResponse, GetTempUploadData, GetTempUploadError, GetTempUploadResponse, GetTestSetData, GetTestSetError, GetTestSetResponse, GetTestSetSharingData, GetTestSetSharingError, GetTestSetSharingResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, InspectInvitationData, InspectInvitationError, InspectInvitationResponse, InspectPasswordResetData, InspectPasswordResetError, InspectPasswordResetResponse, IssuePasswordResetData, IssuePasswordResetError, IssuePasswordResetResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListAffiliationsData, ListAffiliationsError, ListAffiliationsResponse, ListOwnedTestSetsData, ListOwnedTestSetsError, ListOwnedTestSetsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectRequiredCasesData, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListReviewItemsData, ListReviewItemsError, ListReviewItemsResponse, ListRolesData, ListRolesError, ListRolesResponse, ListSharingCandidatesData, ListSharingCandidatesError, ListSharingCandidatesResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReissueInvitationData, ReissueInvitationError, ReissueInvitationResponse, RemoveTestSetMemberData, RemoveTestSetMemberError, RemoveTestSetMemberResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ReplaceTestSetLinkData, ReplaceTestSetLinkError, ReplaceTestSetLinkResponse, ResetPasswordData, ResetPasswordError, ResetPasswordResponse, RevokePluginConnectionData, RevokePluginConnectionError, RevokePluginConnectionResponse, RewriteReviewItemData, RewriteReviewItemError, RewriteReviewItemResponse, SetTestSetMemberData, SetTestSetMemberError, SetTestSetMemberResponse, TransferTestSetOwnerData, TransferTestSetOwnerError, TransferTestSetOwnerResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateAffiliationData, UpdateAffiliationError, UpdateAffiliationResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectRequiredCaseData, UpdateProjectRequiredCaseError, UpdateProjectRequiredCaseResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateReviewItemData, UpdateReviewItemError, UpdateReviewItemResponse, UpdateRoleData, UpdateRoleError, UpdateRoleResponse, UpdateSharedTestSetViewData, UpdateSharedTestSetViewError, UpdateSharedTestSetViewResponse, UpdateTestSetColumnsData, UpdateTestSetColumnsError, UpdateTestSetColumnsResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetSharingData, UpdateTestSetSharingError, UpdateTestSetSharingResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse } from '../types.gen';
+import { acceptReviewItem, applySharedTestSetOps, applyTestSetOps, approvePluginConnection, changeMyPassword, createAccount, createGeneration, createPluginConnection, createProject, createProjectFeatureGroup, createProjectScreen, createProjectScreenIdRule, createProjectScreens, createTempUpload, createTestSet, deactivateAccount, deleteProjectFeatureGroup, deleteProjectScreen, deleteProjectScreenIdRule, deleteTestSet, draftProjectScreenIdRules, draftProjectScreens, exchangePluginConnection, exportSharedTestSet, exportTestSet, fillTestSetColumn, getAccount, getCurrentGeneration, getLiveness, getMe, getPluginConnectionRequest, getProject, getProjectMemo, getProjectNextScreenId, getProjectTemplate, getReadiness, getRecentTestSetTemplate, getSharedTestSet, getSharedTestSetImage, getSharedTestSetView, getTempFrameThumbnail, getTempUpload, getTestSet, getTestSetImage, getTestSetSharing, getTestSetView, listAccounts, listProjectFeatureGroups, listProjects, listProjectScreenIdRules, listProjectScreens, listReviewItems, listTestSets, login, logout, type Options, reactivateAccount, reorderProjectFeatureGroups, reorderProjectScreenIdRules, replaceTestSetLink, resetAccountPassword, revokePluginConnection, rewriteReviewItem, updateAccount, updateProject, updateProjectFeatureGroup, updateProjectMemo, updateProjectScreen, updateProjectScreenIdRule, updateProjectTemplate, updateReviewItem, updateSharedTestSetView, updateTestSet, updateTestSetSharing, updateTestSetView, uploadSharedTestSetImage, uploadTestSetImage } from '../sdk.gen';
+import type { AcceptReviewItemData, AcceptReviewItemError, AcceptReviewItemResponse, ApplySharedTestSetOpsData, ApplySharedTestSetOpsError, ApplySharedTestSetOpsResponse, ApplyTestSetOpsData, ApplyTestSetOpsError, ApplyTestSetOpsResponse, ApprovePluginConnectionData, ApprovePluginConnectionError, ApprovePluginConnectionResponse, ChangeMyPasswordData, ChangeMyPasswordError, ChangeMyPasswordResponse, CreateAccountData, CreateAccountError, CreateAccountResponse, CreateGenerationData, CreateGenerationError, CreateGenerationResponse, CreatePluginConnectionData, CreatePluginConnectionError, CreatePluginConnectionResponse, CreateProjectData, CreateProjectError, CreateProjectFeatureGroupData, CreateProjectFeatureGroupError, CreateProjectFeatureGroupResponse, CreateProjectResponse, CreateProjectScreenData, CreateProjectScreenError, CreateProjectScreenIdRuleData, CreateProjectScreenIdRuleError, CreateProjectScreenIdRuleResponse, CreateProjectScreenResponse, CreateProjectScreensData, CreateProjectScreensError, CreateProjectScreensResponse, CreateTempUploadData, CreateTempUploadError, CreateTempUploadResponse, CreateTestSetData, CreateTestSetError, CreateTestSetResponse, DeactivateAccountData, DeactivateAccountError, DeactivateAccountResponse, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupError, DeleteProjectFeatureGroupResponse, DeleteProjectScreenData, DeleteProjectScreenError, DeleteProjectScreenIdRuleData, DeleteProjectScreenIdRuleError, DeleteProjectScreenIdRuleResponse, DeleteProjectScreenResponse, DeleteTestSetData, DeleteTestSetError, DeleteTestSetResponse, DraftProjectScreenIdRulesData, DraftProjectScreenIdRulesError, DraftProjectScreenIdRulesResponse, DraftProjectScreensData, DraftProjectScreensError, DraftProjectScreensResponse, ExchangePluginConnectionData, ExchangePluginConnectionError, ExchangePluginConnectionResponse, ExportSharedTestSetData, ExportSharedTestSetError, ExportSharedTestSetResponse, ExportTestSetData, ExportTestSetError, ExportTestSetResponse, FillTestSetColumnData, FillTestSetColumnError, FillTestSetColumnResponse, GetAccountData, GetAccountError, GetAccountResponse, GetCurrentGenerationData, GetCurrentGenerationError, GetCurrentGenerationResponse, GetLivenessData, GetLivenessError, GetLivenessResponse, GetMeData, GetMeError, GetMeResponse, GetPluginConnectionRequestData, GetPluginConnectionRequestError, GetPluginConnectionRequestResponse, GetProjectData, GetProjectError, GetProjectMemoData, GetProjectMemoError, GetProjectMemoResponse, GetProjectNextScreenIdData, GetProjectNextScreenIdError, GetProjectNextScreenIdResponse, GetProjectResponse, GetProjectTemplateData, GetProjectTemplateError, GetProjectTemplateResponse, GetReadinessData, GetReadinessError, GetReadinessResponse, GetRecentTestSetTemplateData, GetRecentTestSetTemplateError, GetRecentTestSetTemplateResponse, GetSharedTestSetData, GetSharedTestSetError, GetSharedTestSetImageData, GetSharedTestSetImageError, GetSharedTestSetImageResponse, GetSharedTestSetResponse, GetSharedTestSetViewData, GetSharedTestSetViewError, GetSharedTestSetViewResponse, GetTempFrameThumbnailData, GetTempFrameThumbnailError, GetTempFrameThumbnailResponse, GetTempUploadData, GetTempUploadError, GetTempUploadResponse, GetTestSetData, GetTestSetError, GetTestSetImageData, GetTestSetImageError, GetTestSetImageResponse, GetTestSetResponse, GetTestSetSharingData, GetTestSetSharingError, GetTestSetSharingResponse, GetTestSetViewData, GetTestSetViewError, GetTestSetViewResponse, ListAccountsData, ListAccountsError, ListAccountsResponse, ListProjectFeatureGroupsData, ListProjectFeatureGroupsError, ListProjectFeatureGroupsResponse, ListProjectScreenIdRulesData, ListProjectScreenIdRulesError, ListProjectScreenIdRulesResponse, ListProjectScreensData, ListProjectScreensError, ListProjectScreensResponse, ListProjectsData, ListProjectsError, ListProjectsResponse, ListReviewItemsData, ListReviewItemsError, ListReviewItemsResponse, ListTestSetsData, ListTestSetsError, ListTestSetsResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutError, LogoutResponse, ReactivateAccountData, ReactivateAccountError, ReactivateAccountResponse, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsError, ReorderProjectFeatureGroupsResponse, ReorderProjectScreenIdRulesData, ReorderProjectScreenIdRulesError, ReorderProjectScreenIdRulesResponse, ReplaceTestSetLinkData, ReplaceTestSetLinkError, ReplaceTestSetLinkResponse, ResetAccountPasswordData, ResetAccountPasswordError, ResetAccountPasswordResponse, RevokePluginConnectionData, RevokePluginConnectionError, RevokePluginConnectionResponse, RewriteReviewItemData, RewriteReviewItemError, RewriteReviewItemResponse, UpdateAccountData, UpdateAccountError, UpdateAccountResponse, UpdateProjectData, UpdateProjectError, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupError, UpdateProjectFeatureGroupResponse, UpdateProjectMemoData, UpdateProjectMemoError, UpdateProjectMemoResponse, UpdateProjectResponse, UpdateProjectScreenData, UpdateProjectScreenError, UpdateProjectScreenIdRuleData, UpdateProjectScreenIdRuleError, UpdateProjectScreenIdRuleResponse, UpdateProjectScreenResponse, UpdateProjectTemplateData, UpdateProjectTemplateError, UpdateProjectTemplateResponse, UpdateReviewItemData, UpdateReviewItemError, UpdateReviewItemResponse, UpdateSharedTestSetViewData, UpdateSharedTestSetViewError, UpdateSharedTestSetViewResponse, UpdateTestSetData, UpdateTestSetError, UpdateTestSetResponse, UpdateTestSetSharingData, UpdateTestSetSharingError, UpdateTestSetSharingResponse, UpdateTestSetViewData, UpdateTestSetViewError, UpdateTestSetViewResponse, UploadSharedTestSetImageData, UploadSharedTestSetImageError, UploadSharedTestSetImageResponse, UploadTestSetImageData, UploadTestSetImageError, UploadTestSetImageResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -147,7 +147,7 @@ export const listAccountsInfiniteOptions = (options?: Options<ListAccountsData>)
 };
 
 /**
- * 계정 생성과 초대 토큰 발급
+ * 계정 만들기
  */
 export const createAccountMutation = (options?: Partial<Options<CreateAccountData>>): UseMutationOptions<CreateAccountResponse, CreateAccountError, Options<CreateAccountData>> => {
     const mutationOptions: UseMutationOptions<CreateAccountResponse, CreateAccountError, Options<CreateAccountData>> = {
@@ -182,47 +182,12 @@ export const getAccountOptions = (options: Options<GetAccountData>) => queryOpti
 });
 
 /**
- * 계정 정보와 역할 할당 수정
+ * 계정 이름과 등급 수정
  */
 export const updateAccountMutation = (options?: Partial<Options<UpdateAccountData>>): UseMutationOptions<UpdateAccountResponse, UpdateAccountError, Options<UpdateAccountData>> => {
     const mutationOptions: UseMutationOptions<UpdateAccountResponse, UpdateAccountError, Options<UpdateAccountData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateAccount({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listOwnedTestSetsQueryKey = (options: Options<ListOwnedTestSetsData>) => createQueryKey('listOwnedTestSets', options);
-
-/**
- * 계정이 소유한 테스트 세트 목록
- */
-export const listOwnedTestSetsOptions = (options: Options<ListOwnedTestSetsData>) => queryOptions<ListOwnedTestSetsResponse, ListOwnedTestSetsError, ListOwnedTestSetsResponse, ReturnType<typeof listOwnedTestSetsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listOwnedTestSets({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listOwnedTestSetsQueryKey(options)
-});
-
-/**
- * 테스트 세트 소유자 넘기기
- */
-export const transferTestSetOwnerMutation = (options?: Partial<Options<TransferTestSetOwnerData>>): UseMutationOptions<TransferTestSetOwnerResponse, TransferTestSetOwnerError, Options<TransferTestSetOwnerData>> => {
-    const mutationOptions: UseMutationOptions<TransferTestSetOwnerResponse, TransferTestSetOwnerError, Options<TransferTestSetOwnerData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await transferTestSetOwner({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -268,12 +233,12 @@ export const reactivateAccountMutation = (options?: Partial<Options<ReactivateAc
 };
 
 /**
- * 초대 링크 다시 발급
+ * 계정 비밀번호 다시 정하기
  */
-export const reissueInvitationMutation = (options?: Partial<Options<ReissueInvitationData>>): UseMutationOptions<ReissueInvitationResponse, ReissueInvitationError, Options<ReissueInvitationData>> => {
-    const mutationOptions: UseMutationOptions<ReissueInvitationResponse, ReissueInvitationError, Options<ReissueInvitationData>> = {
+export const resetAccountPasswordMutation = (options?: Partial<Options<ResetAccountPasswordData>>): UseMutationOptions<ResetAccountPasswordResponse, ResetAccountPasswordError, Options<ResetAccountPasswordData>> => {
+    const mutationOptions: UseMutationOptions<ResetAccountPasswordResponse, ResetAccountPasswordError, Options<ResetAccountPasswordData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await reissueInvitation({
+            const { data } = await resetAccountPassword({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -285,24 +250,7 @@ export const reissueInvitationMutation = (options?: Partial<Options<ReissueInvit
 };
 
 /**
- * 비밀번호 재설정 링크 발급
- */
-export const issuePasswordResetMutation = (options?: Partial<Options<IssuePasswordResetData>>): UseMutationOptions<IssuePasswordResetResponse, IssuePasswordResetError, Options<IssuePasswordResetData>> => {
-    const mutationOptions: UseMutationOptions<IssuePasswordResetResponse, IssuePasswordResetError, Options<IssuePasswordResetData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await issuePasswordReset({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * 이메일과 비밀번호로 로그인
+ * 아이디와 비밀번호로 로그인
  */
 export const loginMutation = (options?: Partial<Options<LoginData>>): UseMutationOptions<LoginResponse, LoginError, Options<LoginData>> => {
     const mutationOptions: UseMutationOptions<LoginResponse, LoginError, Options<LoginData>> = {
@@ -338,7 +286,7 @@ export const logoutMutation = (options?: Partial<Options<LogoutData>>): UseMutat
 export const getMeQueryKey = (options?: Options<GetMeData>) => createQueryKey('getMe', options);
 
 /**
- * 내 계정과 유효 권한 조회
+ * 내 계정 조회
  */
 export const getMeOptions = (options?: Options<GetMeData>) => queryOptions<GetMeResponse, GetMeError, GetMeResponse, ReturnType<typeof getMeQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -353,66 +301,13 @@ export const getMeOptions = (options?: Options<GetMeData>) => queryOptions<GetMe
     queryKey: getMeQueryKey(options)
 });
 
-export const inspectInvitationQueryKey = (options: Options<InspectInvitationData>) => createQueryKey('inspectInvitation', options);
-
 /**
- * 초대 링크 확인
+ * 내 비밀번호 바꾸기
  */
-export const inspectInvitationOptions = (options: Options<InspectInvitationData>) => queryOptions<InspectInvitationResponse, InspectInvitationError, InspectInvitationResponse, ReturnType<typeof inspectInvitationQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await inspectInvitation({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: inspectInvitationQueryKey(options)
-});
-
-/**
- * 초대 수락과 비밀번호 설정
- */
-export const acceptInvitationMutation = (options?: Partial<Options<AcceptInvitationData>>): UseMutationOptions<AcceptInvitationResponse, AcceptInvitationError, Options<AcceptInvitationData>> => {
-    const mutationOptions: UseMutationOptions<AcceptInvitationResponse, AcceptInvitationError, Options<AcceptInvitationData>> = {
+export const changeMyPasswordMutation = (options?: Partial<Options<ChangeMyPasswordData>>): UseMutationOptions<ChangeMyPasswordResponse, ChangeMyPasswordError, Options<ChangeMyPasswordData>> => {
+    const mutationOptions: UseMutationOptions<ChangeMyPasswordResponse, ChangeMyPasswordError, Options<ChangeMyPasswordData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await acceptInvitation({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const inspectPasswordResetQueryKey = (options: Options<InspectPasswordResetData>) => createQueryKey('inspectPasswordReset', options);
-
-/**
- * 비밀번호 재설정 링크 확인
- */
-export const inspectPasswordResetOptions = (options: Options<InspectPasswordResetData>) => queryOptions<InspectPasswordResetResponse, InspectPasswordResetError, InspectPasswordResetResponse, ReturnType<typeof inspectPasswordResetQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await inspectPasswordReset({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: inspectPasswordResetQueryKey(options)
-});
-
-/**
- * 비밀번호 재설정
- */
-export const resetPasswordMutation = (options?: Partial<Options<ResetPasswordData>>): UseMutationOptions<ResetPasswordResponse, ResetPasswordError, Options<ResetPasswordData>> => {
-    const mutationOptions: UseMutationOptions<ResetPasswordResponse, ResetPasswordError, Options<ResetPasswordData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await resetPassword({
+            const { data } = await changeMyPassword({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -499,197 +394,6 @@ export const revokePluginConnectionMutation = (options?: Partial<Options<RevokeP
     const mutationOptions: UseMutationOptions<RevokePluginConnectionResponse, RevokePluginConnectionError, Options<RevokePluginConnectionData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await revokePluginConnection({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listRolesQueryKey = (options?: Options<ListRolesData>) => createQueryKey('listRoles', options);
-
-/**
- * 역할 목록
- */
-export const listRolesOptions = (options?: Options<ListRolesData>) => queryOptions<ListRolesResponse, ListRolesError, ListRolesResponse, ReturnType<typeof listRolesQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listRoles({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listRolesQueryKey(options)
-});
-
-/**
- * 역할 만들기
- */
-export const createRoleMutation = (options?: Partial<Options<CreateRoleData>>): UseMutationOptions<CreateRoleResponse, CreateRoleError, Options<CreateRoleData>> => {
-    const mutationOptions: UseMutationOptions<CreateRoleResponse, CreateRoleError, Options<CreateRoleData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createRole({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * 할당이 없는 역할 삭제
- */
-export const deleteRoleMutation = (options?: Partial<Options<DeleteRoleData>>): UseMutationOptions<DeleteRoleResponse, DeleteRoleError, Options<DeleteRoleData>> => {
-    const mutationOptions: UseMutationOptions<DeleteRoleResponse, DeleteRoleError, Options<DeleteRoleData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deleteRole({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const getRoleQueryKey = (options: Options<GetRoleData>) => createQueryKey('getRole', options);
-
-/**
- * 역할 상세
- */
-export const getRoleOptions = (options: Options<GetRoleData>) => queryOptions<GetRoleResponse, GetRoleError, GetRoleResponse, ReturnType<typeof getRoleQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getRole({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getRoleQueryKey(options)
-});
-
-/**
- * 역할과 권한 수정
- */
-export const updateRoleMutation = (options?: Partial<Options<UpdateRoleData>>): UseMutationOptions<UpdateRoleResponse, UpdateRoleError, Options<UpdateRoleData>> => {
-    const mutationOptions: UseMutationOptions<UpdateRoleResponse, UpdateRoleError, Options<UpdateRoleData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateRole({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * 일반 역할로 복제
- */
-export const duplicateRoleMutation = (options?: Partial<Options<DuplicateRoleData>>): UseMutationOptions<DuplicateRoleResponse, DuplicateRoleError, Options<DuplicateRoleData>> => {
-    const mutationOptions: UseMutationOptions<DuplicateRoleResponse, DuplicateRoleError, Options<DuplicateRoleData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await duplicateRole({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listAffiliationsQueryKey = (options?: Options<ListAffiliationsData>) => createQueryKey('listAffiliations', options);
-
-/**
- * 소속 목록
- */
-export const listAffiliationsOptions = (options?: Options<ListAffiliationsData>) => queryOptions<ListAffiliationsResponse, ListAffiliationsError, ListAffiliationsResponse, ReturnType<typeof listAffiliationsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listAffiliations({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listAffiliationsQueryKey(options)
-});
-
-/**
- * 소속 만들기
- */
-export const createAffiliationMutation = (options?: Partial<Options<CreateAffiliationData>>): UseMutationOptions<CreateAffiliationResponse, CreateAffiliationError, Options<CreateAffiliationData>> => {
-    const mutationOptions: UseMutationOptions<CreateAffiliationResponse, CreateAffiliationError, Options<CreateAffiliationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createAffiliation({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * 계정이 없는 소속 삭제
- */
-export const deleteAffiliationMutation = (options?: Partial<Options<DeleteAffiliationData>>): UseMutationOptions<DeleteAffiliationResponse, DeleteAffiliationError, Options<DeleteAffiliationData>> => {
-    const mutationOptions: UseMutationOptions<DeleteAffiliationResponse, DeleteAffiliationError, Options<DeleteAffiliationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deleteAffiliation({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const getAffiliationQueryKey = (options: Options<GetAffiliationData>) => createQueryKey('getAffiliation', options);
-
-/**
- * 소속 상세
- */
-export const getAffiliationOptions = (options: Options<GetAffiliationData>) => queryOptions<GetAffiliationResponse, GetAffiliationError, GetAffiliationResponse, ReturnType<typeof getAffiliationQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getAffiliation({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getAffiliationQueryKey(options)
-});
-
-/**
- * 소속 이름 수정
- */
-export const updateAffiliationMutation = (options?: Partial<Options<UpdateAffiliationData>>): UseMutationOptions<UpdateAffiliationResponse, UpdateAffiliationError, Options<UpdateAffiliationData>> => {
-    const mutationOptions: UseMutationOptions<UpdateAffiliationResponse, UpdateAffiliationError, Options<UpdateAffiliationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateAffiliation({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -891,14 +595,14 @@ export const reorderProjectFeatureGroupsMutation = (options?: Partial<Options<Re
     return mutationOptions;
 };
 
-export const listProjectRequiredCasesQueryKey = (options: Options<ListProjectRequiredCasesData>) => createQueryKey('listProjectRequiredCases', options);
+export const listProjectScreenIdRulesQueryKey = (options: Options<ListProjectScreenIdRulesData>) => createQueryKey('listProjectScreenIdRules', options);
 
 /**
- * 필수 케이스 목록
+ * 화면 ID 규칙 목록
  */
-export const listProjectRequiredCasesOptions = (options: Options<ListProjectRequiredCasesData>) => queryOptions<ListProjectRequiredCasesResponse, ListProjectRequiredCasesError, ListProjectRequiredCasesResponse, ReturnType<typeof listProjectRequiredCasesQueryKey>>({
+export const listProjectScreenIdRulesOptions = (options: Options<ListProjectScreenIdRulesData>) => queryOptions<ListProjectScreenIdRulesResponse, ListProjectScreenIdRulesError, ListProjectScreenIdRulesResponse, ReturnType<typeof listProjectScreenIdRulesQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listProjectRequiredCases({
+        const { data } = await listProjectScreenIdRules({
             ...options,
             ...queryKey[0],
             signal,
@@ -906,16 +610,16 @@ export const listProjectRequiredCasesOptions = (options: Options<ListProjectRequ
         });
         return data;
     },
-    queryKey: listProjectRequiredCasesQueryKey(options)
+    queryKey: listProjectScreenIdRulesQueryKey(options)
 });
 
 /**
- * 필수 케이스 추가
+ * 화면 ID 규칙 추가
  */
-export const createProjectRequiredCaseMutation = (options?: Partial<Options<CreateProjectRequiredCaseData>>): UseMutationOptions<CreateProjectRequiredCaseResponse, CreateProjectRequiredCaseError, Options<CreateProjectRequiredCaseData>> => {
-    const mutationOptions: UseMutationOptions<CreateProjectRequiredCaseResponse, CreateProjectRequiredCaseError, Options<CreateProjectRequiredCaseData>> = {
+export const createProjectScreenIdRuleMutation = (options?: Partial<Options<CreateProjectScreenIdRuleData>>): UseMutationOptions<CreateProjectScreenIdRuleResponse, CreateProjectScreenIdRuleError, Options<CreateProjectScreenIdRuleData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectScreenIdRuleResponse, CreateProjectScreenIdRuleError, Options<CreateProjectScreenIdRuleData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await createProjectRequiredCase({
+            const { data } = await createProjectScreenIdRule({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -927,12 +631,12 @@ export const createProjectRequiredCaseMutation = (options?: Partial<Options<Crea
 };
 
 /**
- * 추가한 필수 케이스 삭제
+ * 화면 ID 규칙 삭제
  */
-export const deleteProjectRequiredCaseMutation = (options?: Partial<Options<DeleteProjectRequiredCaseData>>): UseMutationOptions<DeleteProjectRequiredCaseResponse, DeleteProjectRequiredCaseError, Options<DeleteProjectRequiredCaseData>> => {
-    const mutationOptions: UseMutationOptions<DeleteProjectRequiredCaseResponse, DeleteProjectRequiredCaseError, Options<DeleteProjectRequiredCaseData>> = {
+export const deleteProjectScreenIdRuleMutation = (options?: Partial<Options<DeleteProjectScreenIdRuleData>>): UseMutationOptions<DeleteProjectScreenIdRuleResponse, DeleteProjectScreenIdRuleError, Options<DeleteProjectScreenIdRuleData>> => {
+    const mutationOptions: UseMutationOptions<DeleteProjectScreenIdRuleResponse, DeleteProjectScreenIdRuleError, Options<DeleteProjectScreenIdRuleData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await deleteProjectRequiredCase({
+            const { data } = await deleteProjectScreenIdRule({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -944,12 +648,29 @@ export const deleteProjectRequiredCaseMutation = (options?: Partial<Options<Dele
 };
 
 /**
- * 필수 케이스 수정
+ * 화면 ID 규칙 수정
  */
-export const updateProjectRequiredCaseMutation = (options?: Partial<Options<UpdateProjectRequiredCaseData>>): UseMutationOptions<UpdateProjectRequiredCaseResponse, UpdateProjectRequiredCaseError, Options<UpdateProjectRequiredCaseData>> => {
-    const mutationOptions: UseMutationOptions<UpdateProjectRequiredCaseResponse, UpdateProjectRequiredCaseError, Options<UpdateProjectRequiredCaseData>> = {
+export const updateProjectScreenIdRuleMutation = (options?: Partial<Options<UpdateProjectScreenIdRuleData>>): UseMutationOptions<UpdateProjectScreenIdRuleResponse, UpdateProjectScreenIdRuleError, Options<UpdateProjectScreenIdRuleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProjectScreenIdRuleResponse, UpdateProjectScreenIdRuleError, Options<UpdateProjectScreenIdRuleData>> = {
         mutationFn: async (fnOptions) => {
-            const { data } = await updateProjectRequiredCase({
+            const { data } = await updateProjectScreenIdRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 화면 ID 규칙 순서 변경
+ */
+export const reorderProjectScreenIdRulesMutation = (options?: Partial<Options<ReorderProjectScreenIdRulesData>>): UseMutationOptions<ReorderProjectScreenIdRulesResponse, ReorderProjectScreenIdRulesError, Options<ReorderProjectScreenIdRulesData>> => {
+    const mutationOptions: UseMutationOptions<ReorderProjectScreenIdRulesResponse, ReorderProjectScreenIdRulesError, Options<ReorderProjectScreenIdRulesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reorderProjectScreenIdRules({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1019,6 +740,75 @@ export const updateProjectScreenMutation = (options?: Partial<Options<UpdateProj
     const mutationOptions: UseMutationOptions<UpdateProjectScreenResponse, UpdateProjectScreenError, Options<UpdateProjectScreenData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateProjectScreen({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getProjectNextScreenIdQueryKey = (options: Options<GetProjectNextScreenIdData>) => createQueryKey('getProjectNextScreenId', options);
+
+/**
+ * 다음 화면 ID 계산
+ */
+export const getProjectNextScreenIdOptions = (options: Options<GetProjectNextScreenIdData>) => queryOptions<GetProjectNextScreenIdResponse, GetProjectNextScreenIdError, GetProjectNextScreenIdResponse, ReturnType<typeof getProjectNextScreenIdQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getProjectNextScreenId({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getProjectNextScreenIdQueryKey(options)
+});
+
+/**
+ * 화면 여러 개 추가
+ */
+export const createProjectScreensMutation = (options?: Partial<Options<CreateProjectScreensData>>): UseMutationOptions<CreateProjectScreensResponse, CreateProjectScreensError, Options<CreateProjectScreensData>> => {
+    const mutationOptions: UseMutationOptions<CreateProjectScreensResponse, CreateProjectScreensError, Options<CreateProjectScreensData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createProjectScreens({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 자료에서 화면 초안 만들기
+ */
+export const draftProjectScreensMutation = (options?: Partial<Options<DraftProjectScreensData>>): UseMutationOptions<DraftProjectScreensResponse, DraftProjectScreensError, Options<DraftProjectScreensData>> => {
+    const mutationOptions: UseMutationOptions<DraftProjectScreensResponse, DraftProjectScreensError, Options<DraftProjectScreensData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await draftProjectScreens({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 자료에서 화면 ID 규칙 초안 만들기
+ */
+export const draftProjectScreenIdRulesMutation = (options?: Partial<Options<DraftProjectScreenIdRulesData>>): UseMutationOptions<DraftProjectScreenIdRulesResponse, DraftProjectScreenIdRulesError, Options<DraftProjectScreenIdRulesData>> => {
+    const mutationOptions: UseMutationOptions<DraftProjectScreenIdRulesResponse, DraftProjectScreenIdRulesError, Options<DraftProjectScreenIdRulesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await draftProjectScreenIdRules({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1152,23 +942,6 @@ export const updateTestSetMutation = (options?: Partial<Options<UpdateTestSetDat
 };
 
 /**
- * 테스트 세트 양식 변경
- */
-export const updateTestSetColumnsMutation = (options?: Partial<Options<UpdateTestSetColumnsData>>): UseMutationOptions<UpdateTestSetColumnsResponse, UpdateTestSetColumnsError, Options<UpdateTestSetColumnsData>> => {
-    const mutationOptions: UseMutationOptions<UpdateTestSetColumnsResponse, UpdateTestSetColumnsError, Options<UpdateTestSetColumnsData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateTestSetColumns({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
  * 테스트 케이스 편집 연산 적용
  */
 export const applyTestSetOpsMutation = (options?: Partial<Options<ApplyTestSetOpsData>>): UseMutationOptions<ApplyTestSetOpsResponse, ApplyTestSetOpsError, Options<ApplyTestSetOpsData>> => {
@@ -1219,6 +992,41 @@ export const updateTestSetViewMutation = (options?: Partial<Options<UpdateTestSe
     };
     return mutationOptions;
 };
+
+/**
+ * 셀 이미지 업로드
+ */
+export const uploadTestSetImageMutation = (options?: Partial<Options<UploadTestSetImageData>>): UseMutationOptions<UploadTestSetImageResponse, UploadTestSetImageError, Options<UploadTestSetImageData>> => {
+    const mutationOptions: UseMutationOptions<UploadTestSetImageResponse, UploadTestSetImageError, Options<UploadTestSetImageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadTestSetImage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getTestSetImageQueryKey = (options: Options<GetTestSetImageData>) => createQueryKey('getTestSetImage', options);
+
+/**
+ * 셀 이미지 조회
+ */
+export const getTestSetImageOptions = (options: Options<GetTestSetImageData>) => queryOptions<GetTestSetImageResponse, GetTestSetImageError, GetTestSetImageResponse, ReturnType<typeof getTestSetImageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getTestSetImage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getTestSetImageQueryKey(options)
+});
 
 export const exportTestSetQueryKey = (options: Options<ExportTestSetData>) => createQueryKey('exportTestSet', options);
 
@@ -1280,58 +1088,6 @@ export const replaceTestSetLinkMutation = (options?: Partial<Options<ReplaceTest
     const mutationOptions: UseMutationOptions<ReplaceTestSetLinkResponse, ReplaceTestSetLinkError, Options<ReplaceTestSetLinkData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await replaceTestSetLink({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listSharingCandidatesQueryKey = (options: Options<ListSharingCandidatesData>) => createQueryKey('listSharingCandidates', options);
-
-/**
- * 초대할 계정 찾기
- */
-export const listSharingCandidatesOptions = (options: Options<ListSharingCandidatesData>) => queryOptions<ListSharingCandidatesResponse, ListSharingCandidatesError, ListSharingCandidatesResponse, ReturnType<typeof listSharingCandidatesQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listSharingCandidates({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listSharingCandidatesQueryKey(options)
-});
-
-/**
- * 구성원 제거
- */
-export const removeTestSetMemberMutation = (options?: Partial<Options<RemoveTestSetMemberData>>): UseMutationOptions<RemoveTestSetMemberResponse, RemoveTestSetMemberError, Options<RemoveTestSetMemberData>> => {
-    const mutationOptions: UseMutationOptions<RemoveTestSetMemberResponse, RemoveTestSetMemberError, Options<RemoveTestSetMemberData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await removeTestSetMember({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * 사람 초대와 권한 변경
- */
-export const setTestSetMemberMutation = (options?: Partial<Options<SetTestSetMemberData>>): UseMutationOptions<SetTestSetMemberResponse, SetTestSetMemberError, Options<SetTestSetMemberData>> => {
-    const mutationOptions: UseMutationOptions<SetTestSetMemberResponse, SetTestSetMemberError, Options<SetTestSetMemberData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await setTestSetMember({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1412,6 +1168,41 @@ export const updateSharedTestSetViewMutation = (options?: Partial<Options<Update
     return mutationOptions;
 };
 
+/**
+ * 공개 링크의 셀 이미지 업로드
+ */
+export const uploadSharedTestSetImageMutation = (options?: Partial<Options<UploadSharedTestSetImageData>>): UseMutationOptions<UploadSharedTestSetImageResponse, UploadSharedTestSetImageError, Options<UploadSharedTestSetImageData>> => {
+    const mutationOptions: UseMutationOptions<UploadSharedTestSetImageResponse, UploadSharedTestSetImageError, Options<UploadSharedTestSetImageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadSharedTestSetImage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getSharedTestSetImageQueryKey = (options: Options<GetSharedTestSetImageData>) => createQueryKey('getSharedTestSetImage', options);
+
+/**
+ * 공개 링크의 셀 이미지 조회
+ */
+export const getSharedTestSetImageOptions = (options: Options<GetSharedTestSetImageData>) => queryOptions<GetSharedTestSetImageResponse, GetSharedTestSetImageError, GetSharedTestSetImageResponse, ReturnType<typeof getSharedTestSetImageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSharedTestSetImage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSharedTestSetImageQueryKey(options)
+});
+
 export const exportSharedTestSetQueryKey = (options: Options<ExportSharedTestSetData>) => createQueryKey('exportSharedTestSet', options);
 
 /**
@@ -1428,6 +1219,24 @@ export const exportSharedTestSetOptions = (options: Options<ExportSharedTestSetD
         return data;
     },
     queryKey: exportSharedTestSetQueryKey(options)
+});
+
+export const getRecentTestSetTemplateQueryKey = (options: Options<GetRecentTestSetTemplateData>) => createQueryKey('getRecentTestSetTemplate', options);
+
+/**
+ * 최근 테스트 세트 양식 미리보기
+ */
+export const getRecentTestSetTemplateOptions = (options: Options<GetRecentTestSetTemplateData>) => queryOptions<GetRecentTestSetTemplateResponse, GetRecentTestSetTemplateError, GetRecentTestSetTemplateResponse, ReturnType<typeof getRecentTestSetTemplateQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRecentTestSetTemplate({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRecentTestSetTemplateQueryKey(options)
 });
 
 /**
@@ -1490,6 +1299,23 @@ export const createGenerationMutation = (options?: Partial<Options<CreateGenerat
     const mutationOptions: UseMutationOptions<CreateGenerationResponse, CreateGenerationError, Options<CreateGenerationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * 열의 빈 셀 AI로 채우기
+ */
+export const fillTestSetColumnMutation = (options?: Partial<Options<FillTestSetColumnData>>): UseMutationOptions<FillTestSetColumnResponse, FillTestSetColumnError, Options<FillTestSetColumnData>> => {
+    const mutationOptions: UseMutationOptions<FillTestSetColumnResponse, FillTestSetColumnError, Options<FillTestSetColumnData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await fillTestSetColumn({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

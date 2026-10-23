@@ -26,13 +26,19 @@ const pick = (record: Record<string, number>, ids: readonly string[]) =>
 
 /** 지운 항목과 케이스, 묶을 수 없게 바뀐 항목은 서버가 받지 않으므로 뺀다 */
 function clean(view: ViewPreference, targets: ViewTargets): ViewPreference {
+  const groupByColumnId =
+    view.groupByColumnId &&
+    targets.groupableColumnIds.includes(view.groupByColumnId)
+      ? view.groupByColumnId
+      : null;
   return {
     ...view,
-    groupByColumnId:
-      view.groupByColumnId &&
-      targets.groupableColumnIds.includes(view.groupByColumnId)
-        ? view.groupByColumnId
-        : null,
+    groupByColumnId,
+    // 고른 열이 없어졌으면 기능 그룹으로 나눈다
+    canvasGroup:
+      view.canvasGroup === "column" && !groupByColumnId
+        ? "feature"
+        : view.canvasGroup,
     columnWidths: pick(view.columnWidths, targets.columnIds),
     rowHeights: pick(view.rowHeights, targets.caseIds),
   };

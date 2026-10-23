@@ -12,10 +12,14 @@ import {
   Post,
   Put,
   Query,
+  Res,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiBody,
+  ApiConsumes,
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -27,33 +31,56 @@ import {
   ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
+import type { Response } from "express";
 import { CurrentAccount } from "../authorization/guards";
-import { ApiError } from "../common/errors";
+import { CellImageDto, IMAGE_UPLOAD_SCHEMA } from "../contracts/cell-image.dto";
 import {
   AddCaseOpDto,
+  AddColumnOpDto,
   ApplyOpsDto,
-  ColumnsResultDto,
   CreateTestSetDto,
+  CustomTemplateChoiceDto,
   DeleteCasesOpDto,
   MoveCaseOpDto,
   OpsResultDto,
+  ProjectTemplateChoiceDto,
+  RecentTemplateChoiceDto,
+  RemoveColumnOpDto,
+  ReorderColumnsOpDto,
   SetCellOpDto,
+  SetFeatureGroupOpDto,
   TestSetDto,
   TestSetListDto,
   TestSetQueryDto,
   TestSetViewDto,
-  UpdateColumnsDto,
+  UpdateColumnOpDto,
   UpdateTestSetDto,
 } from "../contracts/test-set.dto";
 import { CaseOperationsService } from "./case-operations.service";
+import { CellImageUploadInterceptor } from "./cell-image-upload.interceptor";
+import { CellImagesService } from "./cell-images.service";
 import { TestSetsService } from "./test-sets.service";
 
 @ApiTags("테스트 세트")
 @ApiCookieAuth()
-@ApiExtraModels(SetCellOpDto, AddCaseOpDto, DeleteCasesOpDto, MoveCaseOpDto)
+@ApiExtraModels(
+  SetCellOpDto,
+  SetFeatureGroupOpDto,
+  AddCaseOpDto,
+  DeleteCasesOpDto,
+  MoveCaseOpDto,
+  AddColumnOpDto,
+  RemoveColumnOpDto,
+  ReorderColumnsOpDto,
+  UpdateColumnOpDto,
+  ProjectTemplateChoiceDto,
+  RecentTemplateChoiceDto,
+  CustomTemplateChoiceDto,
+)
 @Controller("api/v1/test-sets")
 export class TestSetsController {
   constructor(
+    @Inject(CellImagesService) private readonly images: CellImagesService,
     @Inject(TestSetsService) private readonly service: TestSetsService,
     @Inject(CaseOperationsService)
     private readonly operations: CaseOperationsService,
@@ -87,13 +114,7 @@ export class TestSetsController {
     @Param("testSetId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
   ) {
-    try {
-      return await this.service.detail(id, accountId);
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "NOT_FOUND")
-        await this.service.denyDetail(id);
-      throw error;
-    }
+    return this.service.detail(id, accountId);
   }
 
   @Patch(":testSetId")
@@ -120,21 +141,6 @@ export class TestSetsController {
     @CurrentAccount() accountId: string,
   ) {
     return this.service.remove(id, accountId);
-  }
-
-  @Put(":testSetId/columns")
-  @ApiOperation({
-    operationId: "updateTestSetColumns",
-    summary: "테스트 세트 양식 변경",
-  })
-  @ApiBody({ type: UpdateColumnsDto })
-  @ApiOkResponse({ type: ColumnsResultDto })
-  columns(
-    @Param("testSetId", ParseUUIDPipe) id: string,
-    @CurrentAccount() accountId: string,
-    @Body() dto: UpdateColumnsDto,
-  ) {
-    return this.service.saveColumns(id, accountId, dto);
   }
 
   @Post(":testSetId/ops")
@@ -181,6 +187,35 @@ export class TestSetsController {
     @Body() dto: TestSetViewDto,
   ) {
     return this.service.saveView(id, accountId, dto);
+  }
+
+  @Post(":testSetId/images")
+  @UseInterceptors(CellImageUploadInterceptor)
+  @ApiOperation({
+    operationId: "uploadTestSetImage",
+    summary: "셀 이미지 업로드",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({ schema: IMAGE_UPLOAD_SCHEMA })
+  @ApiCreatedResponse({ type: CellImageDto })
+  uploadImage(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.images.upload(id, accountId, file);
+  }
+  @Get(":testSetId/images/:imageId")
+  @ApiOperation({ operationId: "getTestSetImage", summary: "셀 이미지 조회" })
+  @ApiProduces("image/png", "image/jpeg", "image/gif", "image/webp")
+  @ApiOkResponse({ schema: { type: "string", format: "binary" } })
+  image(
+    @Param("testSetId", ParseUUIDPipe) id: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @CurrentAccount() accountId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.images.download(id, accountId, imageId, response);
   }
 
   @Get(":testSetId/export")

@@ -23,7 +23,6 @@ import {
   requestFrameThumbnail,
   saveLastProject,
   useFigmaConnection,
-  validateFrameUpload,
 } from "@/shared/lib/figma-bridge";
 import { FrameUpload } from "@/shared/lib/frame-upload";
 import { readFrameSource } from "@/shared/lib/screen-document";
@@ -35,16 +34,33 @@ type Phase =
   | { name: "select" }
   | { name: "uploading"; upload: FrameUpload; posting: boolean }
   | { name: "failed"; upload: FrameUpload }
-  | { name: "done"; uploadId: string; projectId: string; opened: boolean };
+  | {
+      name: "done";
+      uploadId: string;
+      projectId: string;
+      opened: boolean;
+      /** 지워졌거나 읽지 못해 빼고 올린 프레임 수 */
+      omitted: number;
+    };
 
-/** 선택이 바뀌면 그 선택의 미리보기를 차례로 받아 온다 */
+// 플러그인 창은 출처가 없는 문서라 blob 주소를 불러오지 못한다. 이미지를 data 주소로 넣는다.
+function dataUrl(image: Uint8Array) {
+  let binary = "";
+  for (let i = 0; i < image.length; i += 0x8000)
+    binary += String.fromCharCode(...image.subarray(i, i + 0x8000));
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+/**
+ * 선택이 바뀌면 그 선택의 미리보기를 차례로 받아 온다. 받아 둔 미리보기는 업로드 화면에서도 쓰도록
+ * 지우지 않는다. selection이 null이면 새로 받지 않는다.
+ */
 function useThumbnails(selection: FrameSelection | null) {
   const [urls, setUrls] = useState<Record<string, string>>({});
+  // 선택이 바뀌면(프레임 편집 포함) 새로 받아 바꾼다. 새 이미지가 올 때까지 이전 이미지를 둔다.
   useEffect(() => {
     if (!selection) return;
     let cancelled = false;
-    const made: string[] = [];
-    setUrls({});
     void (async () => {
       for (const frame of selection.frames) {
         if (cancelled) return;
@@ -54,10 +70,7 @@ function useThumbnails(selection: FrameSelection | null) {
             frame.nodeId,
           );
           if (cancelled) return;
-          const url = URL.createObjectURL(
-            new Blob([image as BlobPart], { type: "image/png" }),
-          );
-          made.push(url);
+          const url = dataUrl(image);
           setUrls((current) => ({ ...current, [frame.nodeId]: url }));
         } catch {
           // 미리보기가 없어도 업로드는 할 수 있다
@@ -66,54 +79,41 @@ function useThumbnails(selection: FrameSelection | null) {
     })();
     return () => {
       cancelled = true;
-      for (const url of made) URL.revokeObjectURL(url);
     };
   }, [selection]);
   return urls;
 }
 
-// main이 보낸 REST 원본으로 화면 문서를 만든다
+// main이 보낸 REST 원본으로 화면 문서를 만든다. 서버 상한을 넘으면 줄여서 올린다.
 async function exportFrame(sessionId: string, nodeId: string) {
   const started = performance.now();
-  const { image, source } = await exportSelectedFrame(sessionId, nodeId);
+  const { frame, image, source } = await exportSelectedFrame(sessionId, nodeId);
   const received = performance.now();
-  const document = readFrameSource(source);
+  const { document, reduced } = readFrameSource(source);
+  if (reduced)
+    console.info("[cheddar] 화면 문서를 줄여서 올립니다", {
+      frame: frame.name,
+    });
   debugRemoteUi("frame read", {
     sourceChars: source.document.length,
     exportMs: Math.round(received - started),
     buildMs: Math.round(performance.now() - received),
   });
-  return { image, document };
+  return { frame, image, document };
 }
-// 세션이 끝났거나 문서가 바뀌면 같은 세션으로는 다시 시도할 수 없다
 // 프레임을 올리지 못한 이유를 사용자가 할 수 있는 일로 알려준다. 이유가 섞이면 다시 시도를 안내한다.
+// 큰 이미지는 줄여서 다시 그리므로, 줄여도 20MB를 넘을 때만 나눠 올리라고 한다.
 const failureHint = (code: string | null) =>
   code === "IMAGE_TOO_LARGE"
     ? "프레임 이미지가 20MB를 넘습니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
-    : code === "DATA_TOO_LARGE"
-      ? "프레임 내용이 너무 큽니다. 취소한 뒤 Figma에서 프레임을 나눠 다시 올리세요."
-      : "다시 시도하세요.";
+    : "다시 시도하세요.";
 
-type Grants = MeDto["permissions"];
-// 플러그인 업로드는 전체 범위 권한만 인정한다
-const canUpload = (grants: Grants) =>
-  grants.some((g) => g.permission === "plugin.upload" && g.scope === "global");
-// 웹의 새 테스트 세트와 같은 규칙으로 고를 수 있는 프로젝트를 거른다
-const canCreateIn = (grants: Grants, projectId: string) =>
-  grants.some(
-    (g) =>
-      g.permission === "test_set.create" &&
-      (g.scope === "global" || g.projectIds.includes(projectId)),
-  );
-
-/** 테스트 세트를 만들 수 있는 프로젝트와 고른 값. 지난번 고른 프로젝트를 기본값으로 쓴다. */
-function useProjectChoice(grants: Grants) {
+/** 고를 수 있는 프로젝트와 고른 값. 지난번 고른 프로젝트를 기본값으로 쓴다. */
+function useProjectChoice() {
   const projects = useQuery({
     queryKey: ["projects"],
     queryFn: async () =>
-      (await sdk.listProjects({ throwOnError: true })).data.items.filter(
-        (project) => canCreateIn(grants, project.id),
-      ),
+      (await sdk.listProjects({ throwOnError: true })).data.items,
   });
   const remembered = useQuery({
     queryKey: ["last-project"],
@@ -138,9 +138,18 @@ function useProjectChoice(grants: Grants) {
   };
 }
 
-const sessionLost = (error: unknown) =>
+// Figma와 연결이 끊겨 더 읽을 수 없는 경우. 플러그인을 다시 실행해야 한다.
+const disconnected = (error: unknown) =>
   error instanceof FigmaExportError &&
-  ["SESSION_EXPIRED", "FRAME_CHANGED", "DISCONNECTED"].includes(error.code);
+  ["SESSION_EXPIRED", "DISCONNECTED"].includes(error.code);
+const DISCONNECTED_MESSAGE =
+  "Figma와 연결이 끊겼습니다. 플러그인을 다시 실행하세요.";
+const startFailure = (error: unknown) =>
+  disconnected(error)
+    ? DISCONNECTED_MESSAGE
+    : error instanceof FigmaExportError && error.code === "INVALID_SELECTION"
+      ? "올릴 프레임이 없습니다."
+      : "프레임을 읽지 못했습니다. 다시 시도하세요.";
 
 export function UploadPage({
   account,
@@ -154,8 +163,7 @@ export function UploadPage({
   onSignedOut: () => void;
 }) {
   const toast = useToast();
-  const choice = useProjectChoice(account.permissions);
-  const uploadAllowed = canUpload(account.permissions);
+  const choice = useProjectChoice();
   const selection = useFigmaConnection((s) => s.selection);
   const [phase, setPhase] = useState<Phase>({ name: "select" });
   const [, rerender] = useState(0);
@@ -164,9 +172,6 @@ export function UploadPage({
   const thumbnails = useThumbnails(phase.name === "select" ? selection : null);
 
   const frames = selection?.frames ?? [];
-  const invalid =
-    !!selection &&
-    (selection.unsupportedCount > 0 || selection.emptySectionCount > 0);
 
   const release = (upload: FrameUpload) => releaseFrameUpload(upload.sessionId);
   const loginEnded = () =>
@@ -199,7 +204,20 @@ export function UploadPage({
       signal,
     );
     if (signal.aborted) return;
-    if (failed) {
+    // 읽은 프레임이 하나라도 있으면 그것만 올린다. 하나도 없을 때만 멈춘다.
+    if (upload.doneCount === 0) {
+      if (upload.stopped) {
+        release(upload);
+        setPhase({ name: "select" });
+        toast.show({ tone: "danger", message: DISCONNECTED_MESSAGE });
+        return;
+      }
+      if (failed === 0) {
+        release(upload);
+        setPhase({ name: "select" });
+        toast.show({ tone: "danger", message: "올릴 프레임이 없습니다." });
+        return;
+      }
       setPhase({ name: "failed", upload });
       toast.show({
         tone: "danger",
@@ -212,9 +230,6 @@ export function UploadPage({
     const ended = await loginEnded();
     if (signal.aborted) return;
     if (ended) return signOut(upload);
-    // 다시 시도 사이에 문서가 바뀌었으면 이전에 읽은 내용을 보내지 않는다
-    await validateFrameUpload(upload.sessionId);
-    if (signal.aborted) return;
     const { manifest, images } = upload.payload();
     try {
       // 로그아웃으로 화면이 닫히면 요청을 끊고, 늦게 온 응답으로 브라우저를 열거나 다시 로그아웃하지 않는다
@@ -225,7 +240,12 @@ export function UploadPage({
       });
       if (signal.aborted) return;
       release(upload);
-      const done = { name: "done", uploadId: data.id, projectId } as const;
+      const done = {
+        name: "done",
+        uploadId: data.id,
+        projectId,
+        omitted: upload.failedCount + upload.skippedCount,
+      } as const;
       setPhase({ ...done, opened: false });
       if (await openInWeb(data.id, projectId))
         setPhase({ ...done, opened: true });
@@ -263,9 +283,7 @@ export function UploadPage({
       setPhase({ name: "select" });
       toast.show({
         tone: "danger",
-        message: sessionLost(error)
-          ? "프레임이 바뀌었습니다. 다시 선택하세요."
-          : "프레임을 읽지 못했습니다. 다시 시도하세요.",
+        message: startFailure(error),
       });
     }
   };
@@ -283,9 +301,7 @@ export function UploadPage({
       setPhase({ name: "select" });
       toast.show({
         tone: "danger",
-        message: sessionLost(error)
-          ? "프레임이 바뀌었습니다. 다시 선택하세요."
-          : "프레임을 읽지 못했습니다. 다시 시도하세요.",
+        message: startFailure(error),
       });
     }
   };
@@ -333,6 +349,11 @@ export function UploadPage({
             {phase.opened && openedName && (
               <span className="text-fg-muted">
                 {openedName}에 새 테스트 세트를 열었습니다.
+              </span>
+            )}
+            {phase.omitted > 0 && (
+              <span className="text-fg-muted">
+                프레임 {phase.omitted}개는 빼고 올렸습니다.
               </span>
             )}
           </div>
@@ -394,7 +415,7 @@ export function UploadPage({
                   imageSrc={thumbnails[frame.nodeId]}
                   // 서버가 받기 전에는 완료로 보이지 않게 한다
                   state={
-                    state === "failed"
+                    state === "failed" || state === "skipped"
                       ? "failed"
                       : phase.name === "uploading"
                         ? "uploading"
@@ -417,9 +438,7 @@ export function UploadPage({
           variant="primary"
           block
           icon={Upload}
-          disabled={
-            !frames.length || invalid || !uploadAllowed || !choice.projectId
-          }
+          disabled={!frames.length || !choice.projectId}
           onClick={() => void start()}
         >
           {frames.length ? `프레임 ${frames.length}개 업로드` : "프레임 업로드"}
@@ -427,11 +446,7 @@ export function UploadPage({
       }
     >
       <div className="flex flex-1 flex-col gap-3.5">
-        {!uploadAllowed ? (
-          <Banner tone="warning" title="업로드 권한이 없습니다">
-            관리자에게 플러그인 업로드 권한을 요청하세요.
-          </Banner>
-        ) : choice.projects.isError ? (
+        {choice.projects.isError ? (
           <Banner
             tone="danger"
             title="프로젝트를 불러오지 못했습니다"
@@ -442,9 +457,7 @@ export function UploadPage({
             }
           />
         ) : choice.ready && !choice.items.length ? (
-          <Banner tone="warning" title="고를 수 있는 프로젝트가 없습니다">
-            관리자에게 테스트 세트 만들기 권한을 요청하세요.
-          </Banner>
+          <Banner tone="warning" title="고를 수 있는 프로젝트가 없습니다" />
         ) : (
           <Select
             label="프로젝트"
@@ -456,13 +469,6 @@ export function UploadPage({
             value={choice.projectId}
             onValueChange={choice.pick}
           />
-        )}
-        {invalid && (
-          <Banner tone="warning">
-            {(selection?.unsupportedCount ?? 0) > 0
-              ? "Frame이나 Section만 올릴 수 있습니다. 다른 레이어는 선택에서 빼세요."
-              : "프레임이 없는 Section이 있습니다."}
-          </Banner>
         )}
         {frames.length ? (
           <div className="flex flex-col gap-2">
@@ -483,16 +489,14 @@ export function UploadPage({
             </div>
           </div>
         ) : (
-          !invalid && (
-            <div className="flex flex-1 flex-col justify-center">
-              <EmptyState
-                compact
-                icon={Frame}
-                title="선택한 프레임이 없습니다"
-                description="캔버스에서 Frame이나 Section을 선택하세요."
-              />
-            </div>
-          )
+          <div className="flex flex-1 flex-col justify-center">
+            <EmptyState
+              compact
+              icon={Frame}
+              title="선택한 프레임이 없습니다"
+              description="캔버스에서 Frame이나 Section을 선택하세요."
+            />
+          </div>
         )}
       </div>
     </PluginShell>

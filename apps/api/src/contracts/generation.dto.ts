@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
+  IsArray,
   IsIn,
   IsObject,
   IsString,
@@ -13,7 +14,10 @@ import { CaseDto, CELL_SCHEMA, type CellValue } from "./test-set.dto";
 const optional = (_: unknown, value: unknown) => value !== undefined;
 const draftSchema = {
   type: "object",
-  additionalProperties: CELL_SCHEMA,
+  additionalProperties: {
+    ...CELL_SCHEMA,
+    oneOf: CELL_SCHEMA.oneOf.filter((schema) => schema.type !== "object"),
+  },
 } as const;
 export class CreateGenerationDto {
   @ApiPropertyOptional({
@@ -30,6 +34,11 @@ export class CreateGenerationDto {
   @ValidateIf(optional)
   @IsUUID()
   uploadId?: string;
+  @ApiPropertyOptional({ type: [String], format: "uuid" })
+  @ValidateIf(optional)
+  @IsArray()
+  @IsUUID("all", { each: true })
+  frameIds?: string[];
   @ApiPropertyOptional({ maxLength: 10000 })
   @ValidateIf(optional)
   @IsString()
@@ -40,7 +49,8 @@ export class GenerationAcceptedDto {
   @ApiProperty({ format: "uuid" }) jobId!: string;
 }
 export class GenerationCurrentDto extends GenerationAcceptedDto {
-  @ApiProperty({ enum: ["initial", "append", "rewrite"] }) kind!: string;
+  @ApiProperty({ enum: ["initial", "append", "rewrite", "fill_column"] })
+  kind!: string;
   @ApiProperty({ enum: ["queued", "running", "succeeded", "failed"] }) status!:
     | "queued"
     | "running"

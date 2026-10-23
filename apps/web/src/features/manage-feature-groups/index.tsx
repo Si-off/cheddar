@@ -97,48 +97,29 @@ export function FeatureGroupsEditor({
   readOnly,
 }: FeatureGroupsEditorProps) {
   const actions = useFeatureGroupActions(projectId);
-  const [name, setName] = useState("");
   const [editing, setEditing] = useState<{
     group: FeatureGroup;
     focus: "name" | "description";
   } | null>(null);
+  const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<FeatureGroup | null>(null);
-
-  const add = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed)
-      actions.create.mutate(
-        { name: trimmed, description: "" },
-        { onSuccess: () => setName("") },
-      );
-  };
+  const addButton = (
+    <Button
+      variant="primary"
+      size="sm"
+      icon={Plus}
+      onClick={() => setAdding(true)}
+    >
+      기능 그룹 추가
+    </Button>
+  );
 
   return (
     <>
-      {!readOnly && (
-        <form onSubmit={add} className="flex flex-wrap items-center gap-2">
-          <TextField
-            size="sm"
-            placeholder="그룹 이름"
-            aria-label="새 기능 그룹 이름"
-            className="w-64 max-w-full"
-            maxLength={100}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            icon={Plus}
-            loading={actions.create.isPending}
-            disabled={!name.trim()}
-          >
-            추가
-          </Button>
-        </form>
-      )}
+      <div className="flex max-w-4xl flex-wrap items-center gap-2">
+        <h2 className="m-0 flex-1 text-title-sm text-fg">기능 그룹</h2>
+        {!readOnly && addButton}
+      </div>
       {groups.length > 0 && (
         <section className="max-w-4xl rounded-lg border border-line bg-surface">
           <SortableList
@@ -196,8 +177,34 @@ export function FeatureGroupsEditor({
               </div>
             )}
           />
+          {!readOnly && (
+            <button
+              type="button"
+              aria-label="기능 그룹 추가"
+              onClick={() => setAdding(true)}
+              className="grid min-h-10 w-full place-items-center rounded-b-lg border-0 border-line border-t bg-transparent text-fg-muted transition-colors duration-fast hover:bg-subtle hover:text-fg"
+            >
+              <Plus size={16} strokeWidth={1.75} aria-hidden />
+            </button>
+          )}
         </section>
       )}
+      <Dialog.Root open={adding} onOpenChange={setAdding}>
+        <Dialog.Content size="sm">
+          {adding && (
+            <EditForm
+              group={null}
+              focus="name"
+              pending={actions.create.isPending}
+              onSave={(body) =>
+                actions.create.mutate(body, {
+                  onSuccess: () => setAdding(false),
+                })
+              }
+            />
+          )}
+        </Dialog.Content>
+      </Dialog.Root>
       <Dialog.Root
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
@@ -244,13 +251,14 @@ function EditForm({
   pending,
   onSave,
 }: {
-  group: FeatureGroup;
+  /** 없으면 새 기능 그룹 */
+  group: FeatureGroup | null;
   focus: "name" | "description";
   pending: boolean;
   onSave: (body: { name: string; description: string }) => void;
 }) {
-  const [name, setName] = useState(group.name);
-  const [description, setDescription] = useState(group.description);
+  const [name, setName] = useState(group?.name ?? "");
+  const [description, setDescription] = useState(group?.description ?? "");
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (name.trim())
@@ -258,7 +266,15 @@ function EditForm({
   };
   return (
     <form onSubmit={submit} className="contents">
-      <Dialog.Header title={focus === "name" ? "이름 변경" : "설명 편집"} />
+      <Dialog.Header
+        title={
+          group
+            ? focus === "name"
+              ? "이름 변경"
+              : "설명 편집"
+            : "기능 그룹 추가"
+        }
+      />
       <Dialog.Body>
         <TextField
           label="그룹 이름"
@@ -285,7 +301,7 @@ function EditForm({
           loading={pending}
           disabled={!name.trim()}
         >
-          저장
+          {group ? "저장" : "추가"}
         </Button>
       </Dialog.Footer>
     </form>

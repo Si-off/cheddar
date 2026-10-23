@@ -8,24 +8,24 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { PERMISSIONS } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
 import { createDocument } from "../src/common/openapi";
 import {
+  ChangePasswordDto,
   CreateAccountDto,
-  CreateRoleDto,
-  SetPasswordDto,
+  PasswordDto,
   UpdateAccountDto,
-  UpdateRoleDto,
 } from "../src/contracts/identity.dto";
 import { defaultColumns } from "../src/projects/template";
 
-test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝트·테스트 세트 계약을 노출", async () => {
+test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 세트 계약을 노출", async () => {
   const app = await createApp(
     {
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
       storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
       port: 3101,
+      host: "127.0.0.1",
+      cookieSameSite: "lax",
       corsOrigins: [],
       workersEnabled: false,
     },
@@ -40,20 +40,9 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       ),
     );
     assert.deepEqual(document, exported);
-    assert.equal(
-      Object.values(document.paths).reduce(
-        (n, p) =>
-          n +
-          Object.keys(p).filter((k) =>
-            ["get", "post", "put", "patch", "delete"].includes(k),
-          ).length,
-        0,
-      ),
-      87,
-    );
     assert.ok(
       Object.keys(document.paths).every((p) =>
-        /^\/(health|api\/v1\/(auth|accounts|roles|affiliations|projects|test-sets|shared|temp-uploads|generations|review-items|plugin-connections))/.test(
+        /^\/(health|api\/v1\/(auth|accounts|projects|test-sets|shared|temp-uploads|generations|review-items|plugin-connections))/.test(
           p,
         ),
       ),
@@ -68,35 +57,57 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       ajv.addSchema(schema, `#/components/schemas/${name}`);
     for (const name of Object.keys(components))
       assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
-    const owned =
-      document.paths["/api/v1/accounts/{accountId}/owned-test-sets"].get;
-    assert.equal(owned?.operationId, "listOwnedTestSets");
-    const transfer =
-      document.paths[
-        "/api/v1/accounts/{accountId}/owned-test-sets/{testSetId}/owner"
-      ].post;
-    assert.equal(transfer?.operationId, "transferTestSetOwner");
-    assert.ok(transfer?.responses["204"]);
-    const body = transfer?.requestBody;
-    assert.ok(body && !("$ref" in body));
-    assert.equal(body.required, true);
-    assert.deepEqual(body.content["application/json"].schema, {
-      $ref: "#/components/schemas/TransferTestSetOwnerDto",
+    for (const name of ["TestSetColumnDto", "TemplateResponseColumnDto"]) {
+      const schema = components[name];
+      assert.ok(schema && !("$ref" in schema));
+      assert.ok(schema.required?.includes("colors"));
+    }
+    const recent =
+      document.paths["/api/v1/projects/{projectId}/recent-test-set-template"]
+        .get;
+    assert.equal(recent?.operationId, "getRecentTestSetTemplate");
+    const recentResponse = recent?.responses["200"];
+    assert.ok(recentResponse && !("$ref" in recentResponse));
+    assert.deepEqual(recentResponse.content?.["application/json"].schema, {
+      $ref: "#/components/schemas/RecentTemplateDto",
     });
-    const owner = ajv.getSchema("#/components/schemas/TransferTestSetOwnerDto");
-    assert.ok(owner);
-    assert.equal(owner({ accountId: defaultColumns()[0].id }), true);
-    assert.equal(owner({}), false);
-    assert.equal(owner({ accountId: "wrong" }), false);
-    assert.equal(
-      owner({ accountId: defaultColumns()[0].id, extra: true }),
-      false,
+    const recentSchema = components.RecentTemplateDto;
+    assert.ok(recentSchema && !("$ref" in recentSchema));
+    assert.deepEqual(recentSchema.required, ["testSet", "columns"]);
+    const recentSetSchema = recentSchema.properties?.testSet;
+    assert.ok(recentSetSchema && !("$ref" in recentSetSchema));
+    assert.equal(recentSetSchema.nullable, true);
+    for (const path of Object.keys(document.paths))
+      assert.doesNotMatch(
+        path,
+        /roles|affiliations|invitations|password-resets|owned-test-sets|members|candidates/,
+      );
+    assert.ok(document.paths["/api/v1/auth/password"].post?.responses["204"]);
+    assert.ok(
+      document.paths["/api/v1/accounts/{accountId}/password"].put?.responses[
+        "204"
+      ],
     );
+    const account = ajv.getSchema("#/components/schemas/CreateAccountDto");
+    assert.ok(account);
+    const validAccount = {
+      name: "구성원",
+      loginId: "qa.member",
+      role: "member",
+      password: "valid-password-12345",
+    };
+    assert.equal(account(validAccount), true);
+    for (const patch of [
+      { role: "administrator" },
+      { password: "short" },
+      { affiliationId: defaultColumns()[0].id },
+    ])
+      assert.equal(account({ ...validAccount, ...patch }), false);
     const ops = ajv.getSchema("#/components/schemas/ApplyOpsDto");
     assert.ok(ops);
     const caseId = defaultColumns()[0].id,
       columnId = defaultColumns()[1].id;
-    for (const value of ["텍스트", null, false, ["태그"]])
+    for (const value of ["텍스트", null, false, ["태그"], { image: columnId }])
       assert.equal(
         ops({ ops: [{ type: "set_cell", caseId, columnId, value }] }),
         true,
@@ -106,11 +117,85 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
       true,
     );
     assert.equal(ops({ ops: [{ type: "add_case", caseId }] }), false);
+    for (const featureGroupId of [null, columnId]) {
+      assert.equal(
+        ops({ ops: [{ type: "set_feature_group", caseId, featureGroupId }] }),
+        true,
+      );
+      assert.equal(
+        ops({
+          ops: [
+            { type: "add_case", caseId, afterCaseId: null, featureGroupId },
+          ],
+        }),
+        true,
+      );
+    }
+    assert.equal(ops({ ops: [{ type: "set_feature_group", caseId }] }), false);
+    assert.equal(
+      ops({
+        ops: [{ type: "set_feature_group", caseId, featureGroupId: "wrong" }],
+      }),
+      false,
+    );
+    const caseDto = ajv.getSchema("#/components/schemas/CaseDto");
+    assert.ok(caseDto);
+    assert.equal(
+      caseDto({ id: caseId, featureGroupId: null, values: {} }),
+      true,
+    );
+    assert.equal(
+      caseDto({ id: caseId, featureGroupId: columnId, values: {} }),
+      true,
+    );
+    assert.equal(caseDto({ id: caseId, values: {} }), false);
+    assert.equal(
+      caseDto({ id: caseId, featureGroupId: "wrong", values: {} }),
+      false,
+    );
+    for (const name of ["TestSetDto", "SharedTestSetDto"]) {
+      const schema = components[name];
+      assert.ok(schema && !("$ref" in schema));
+      assert.ok(schema.required?.includes("featureGroups"));
+    }
     assert.equal(
       ops({ ops: [{ type: "set_cell", caseId, columnId, value: 123 }] }),
       false,
     );
     assert.equal(ops({ ops: [] }), false);
+    assert.equal(
+      document.paths["/api/v1/test-sets/{testSetId}/columns"],
+      undefined,
+    );
+    for (const op of [
+      {
+        type: "add_column",
+        columnId,
+        column: {
+          name: "사용자 열",
+          type: "text",
+          description: "",
+          options: [],
+          presetKey: null,
+        },
+        afterColumnId: caseId,
+      },
+      { type: "remove_column", columnId },
+      { type: "reorder_columns", columnIds: [caseId, columnId] },
+    ])
+      assert.equal(ops({ ops: [op] }), true, JSON.stringify(ops.errors));
+    const createSet = ajv.getSchema("#/components/schemas/CreateTestSetDto");
+    assert.ok(createSet);
+    for (const template of [
+      { kind: "project" },
+      { kind: "recent" },
+      { kind: "custom", columns: defaultColumns() },
+    ])
+      assert.equal(
+        createSet({ name: "세트", projectId: caseId, template }),
+        true,
+        JSON.stringify(createSet.errors),
+      );
     const binary =
       document.paths["/api/v1/test-sets/{testSetId}/export"].get?.responses[
         "200"
@@ -138,7 +223,10 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
     );
     const me = components.MeDto;
     assert.ok(me && !("$ref" in me));
-    assert.ok(me.properties?.permissions);
+    assert.deepEqual(
+      Object.keys(me.properties ?? {}).sort(),
+      ["id", "name", "loginId", "role", "status"].sort(),
+    );
     assert.ok(!me.properties?.passwordHash);
     const queryParameters =
       document.paths["/api/v1/accounts"].get?.parameters ?? [];
@@ -155,79 +243,54 @@ test("명세는 DB 없이 생성되며 인증·계정·역할·소속·프로젝
     const invalidLogin = await fetch(`${base}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "잘못된 이메일", password: "password" }),
+      body: JSON.stringify({ loginId: "", password: "password" }),
     });
     assert.equal(
       invalidLogin.status,
       400,
       "로그인 DTO 검증은 DB 접근 전에 실행해야 합니다.",
     );
-    assert.equal(
-      (await fetch(`${base}/api/v1/auth/invitations?token=short`)).status,
-      400,
-    );
-    const invalidReset = await fetch(`${base}/api/v1/auth/password-resets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: "x".repeat(43), password: "short" }),
-    });
-    assert.equal(invalidReset.status, 400);
-    const role = ajv.getSchema("#/components/schemas/CreateRoleDto");
-    assert.ok(role);
-    assert.equal(
-      role({
-        name: "역할",
-        permissions: PERMISSIONS,
-        requiresExpiry: false,
-        defaultExpiryDays: null,
-      }),
-      true,
-    );
-    assert.equal(
-      role({
-        name: "역할",
-        permissions: ["unknown"],
-        requiresExpiry: false,
-        defaultExpiryDays: null,
-      }),
-      false,
-    );
-    assert.equal(
-      role({
-        name: "역할",
-        permissions: [],
-        requiresExpiry: false,
-        defaultExpiryDays: null,
-        fixed: true,
-      }),
-      false,
-    );
+    for (const path of [
+      "/auth/invitations",
+      "/auth/password-resets",
+      "/roles",
+      "/affiliations",
+    ])
+      assert.equal((await fetch(`${base}/api/v1${path}`)).status, 404);
   } finally {
     await app.close();
   }
 });
-test("DTO는 알 수 없는 권한·null 덮어쓰기·짧은 비밀번호를 거부", async () => {
+test("DTO는 잘못된 등급·삭제한 필드·null 덮어쓰기·비밀번호 길이를 거부", async () => {
   for (const [type, value] of [
     [UpdateAccountDto, { name: null }],
-    [UpdateAccountDto, { assignments: null }],
-    [UpdateRoleDto, { permissions: ["unknown"] }],
-    [UpdateRoleDto, { requiresExpiry: null }],
-    [CreateRoleDto, { name: "역할", permissions: [], requiresExpiry: true }],
+    [UpdateAccountDto, { role: null }],
+    [UpdateAccountDto, { loginId: "changed" }],
+    [UpdateAccountDto, { assignments: [] }],
+    [UpdateAccountDto, { expiresAt: null }],
+    [UpdateAccountDto, { role: "administrator" }],
     [
       CreateAccountDto,
-      { name: "계정", email: "wrong", affiliationId: "wrong", assignments: [] },
+      {
+        name: "계정",
+        loginId: "bad id",
+        role: "member",
+        password: "password-12345",
+      },
     ],
-    [SetPasswordDto, { token: "x".repeat(43), password: "short" }],
+    [PasswordDto, { password: "short" }],
+    [PasswordDto, { password: "x".repeat(129) }],
+    [ChangePasswordDto, { currentPassword: "", newPassword: "password-12345" }],
+    [ChangePasswordDto, { currentPassword: "legacy", newPassword: "short" }],
   ] as const) {
-    const errors = await validate(
-      plainToInstance(type as new () => object, value),
-      { whitelist: true, forbidNonWhitelisted: true },
+    assert.ok(
+      (
+        await validate(plainToInstance(type as new () => object, value), {
+          whitelist: true,
+          forbidNonWhitelisted: true,
+        })
+      ).length > 0,
+      JSON.stringify(value),
     );
-    assert.ok(errors.length > 0, JSON.stringify(value));
   }
-  assert.equal(
-    (await validate(plainToInstance(UpdateAccountDto, { expiresAt: null })))
-      .length,
-    0,
-  );
 });

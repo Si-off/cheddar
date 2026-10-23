@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { ApiError } from "../common/errors";
+import { optionColors } from "../contracts/option-colors";
 import {
   type TemplateColumnDto,
   UpdateTemplateDto,
@@ -10,27 +11,45 @@ import {
 const fail = (message: string): never => {
   throw new ApiError(400, "VALIDATION_FAILED", message);
 };
-export function validateTemplate(input: unknown): UpdateTemplateDto {
+function validateColumns(input: unknown, project: boolean): UpdateTemplateDto {
   if (!input || typeof input !== "object" || Array.isArray(input))
     return fail("양식의 입력 내용을 확인해주세요.");
   const dto = plainToInstance(UpdateTemplateDto, input);
   if (validateSync(dto, { whitelist: true, forbidNonWhitelisted: true }).length)
     return fail("양식의 항목 수, 이름, 설명과 형식을 확인해주세요.");
-  const keys = ["test_id", "title"];
-  const names = ["테스트 ID", "제목"];
   const ids = new Set<string>();
   const columnNames = new Set<string>();
-  for (const [index, column] of dto.columns.entries()) {
-    if (
-      index < 2
-        ? column.systemKey !== keys[index] ||
-          column.name !== names[index] ||
-          column.type !== "text"
-        : column.systemKey !== null
-    )
-      return fail(
-        "테스트 ID와 제목은 양식의 처음 두 항목이며 이름과 형식을 바꿀 수 없습니다.",
-      );
+  const presets = new Set<string>();
+  const systems = new Set<string>();
+  for (const column of dto.columns) {
+    if (column.presetKey !== null) {
+      const preset = findPresetColumn(column.presetKey);
+      if (
+        !preset ||
+        presets.has(column.presetKey) ||
+        column.systemKey !== preset.systemKey ||
+        column.name !== preset.name ||
+        column.type !== preset.type ||
+        column.description !== preset.description ||
+        JSON.stringify(column.options) !== JSON.stringify(preset.options)
+      )
+        return fail("사전 정의 열은 켜고 끄기와 순서만 바꿀 수 있습니다.");
+      presets.add(column.presetKey);
+    }
+    if (column.systemKey !== null) {
+      const name = column.systemKey === "test_id" ? "테스트 ID" : "제목";
+      if (
+        systems.has(column.systemKey) ||
+        column.name !== name ||
+        column.type !== "text" ||
+        !column.enabled ||
+        (project && column.presetKey !== column.systemKey)
+      )
+        return fail(
+          "테스트 ID와 제목은 항상 켜져 있어야 하며 이름과 형식을 바꿀 수 없습니다.",
+        );
+      systems.add(column.systemKey);
+    }
     const id = column.id.toLowerCase();
     if (ids.has(id)) return fail("같은 항목이 두 번 들어 있습니다.");
     if (columnNames.has(column.name))
@@ -49,124 +68,201 @@ export function validateTemplate(input: unknown): UpdateTemplateDto {
           "선택과 태그의 값은 1~50개이며 각 1~100자로 서로 달라야 합니다.",
         );
     } else column.options = [];
+    column.colors = optionColors(
+      column.options,
+      column.presetKey
+        ? findPresetColumn(column.presetKey)?.colors
+        : column.colors,
+    );
   }
+  if (systems.size !== 2) return fail("테스트 ID와 제목이 필요합니다.");
+  if (project && presets.size !== PRESET_COLUMNS.length)
+    return fail("사전 정의 열은 모두 하나씩 있어야 합니다.");
+  if (!project && dto.columns[0]?.systemKey !== "test_id")
+    return fail("테스트 ID는 맨 앞에 있어야 합니다.");
   return dto;
 }
+export const PRESET_COLUMNS: readonly Readonly<
+  Omit<TemplateColumnDto, "id" | "options"> & { options: readonly string[] }
+>[] = Object.freeze(
+  (
+    [
+      {
+        presetKey: "test_id",
+        systemKey: "test_id",
+        enabled: true,
+        name: "테스트 ID",
+        type: "text",
+        description: "각 테스트 케이스를 구분하는 번호입니다.",
+        options: [],
+      },
+      {
+        presetKey: "test_env",
+        systemKey: null,
+        enabled: true,
+        name: "테스트 환경",
+        type: "text",
+        description:
+          "APP, WEB, ADMIN처럼 적고 같은 값이 이어지면 첫 행에만 씁니다.",
+        options: [],
+      },
+      {
+        presetKey: "test_case",
+        systemKey: null,
+        enabled: true,
+        name: "테스트 케이스",
+        type: "text",
+        description:
+          "화면과 기능을 쓰고 경우가 나뉘면 Case 1. 정상 등록처럼 번호를 붙입니다.",
+        options: [],
+      },
+      {
+        presetKey: "title",
+        systemKey: "title",
+        enabled: true,
+        name: "제목",
+        type: "text",
+        description: "확인할 작업이나 조건을 한 문장으로 적습니다.",
+        options: [],
+      },
+      {
+        presetKey: "user_role",
+        systemKey: null,
+        enabled: true,
+        name: "사용자/관리자",
+        type: "select",
+        description:
+          "테스트를 수행할 계정 유형을 고릅니다. 확인되지 않으면 비워둡니다.",
+        options: ["사용자", "관리자"],
+      },
+      {
+        presetKey: "screen_id",
+        systemKey: null,
+        enabled: true,
+        name: "화면 ID 또는 URL",
+        type: "text",
+        description: "화면 구조에 있는 ID만 쓰고 없으면 추후 채번으로 둡니다.",
+        options: [],
+      },
+      {
+        presetKey: "steps",
+        systemKey: null,
+        enabled: true,
+        name: "수행 절차",
+        type: "text",
+        description:
+          "번호 목록으로 쓰고 버튼은 [등록하기]로 감싸며 같은 테스트 케이스 안에서 번호를 이어 씁니다.",
+        options: [],
+      },
+      {
+        presetKey: "expected",
+        systemKey: null,
+        enabled: true,
+        name: "예상 결과",
+        type: "text",
+        description:
+          "`- `로 시작해 `~되는지 확인`으로 끝내고 문구와 버튼은 `문구 : `, `버튼 : ` 뒤에 원문 그대로 적습니다.",
+        options: [],
+      },
+      {
+        presetKey: "qa_result",
+        systemKey: null,
+        enabled: true,
+        name: "QA 결과",
+        type: "select",
+        description: "생성 시 비웁니다.",
+        options: ["Pass", "Fail", "Deferred", "N/A", "-", "추가 요청"],
+        colors: {
+          Pass: "green",
+          Fail: "red",
+          Deferred: "yellow",
+          "N/A": "gray",
+          "-": "gray",
+          "추가 요청": "yellow",
+        },
+      },
+      {
+        presetKey: "qa_owner",
+        systemKey: null,
+        enabled: true,
+        name: "QA 담당자",
+        type: "text",
+        description: "생성 시 비웁니다.",
+        options: [],
+      },
+      {
+        presetKey: "result_comment",
+        systemKey: null,
+        enabled: true,
+        name: "결과 및 의견",
+        type: "text",
+        description: "생성 시 비웁니다.",
+        options: [],
+      },
+      {
+        presetKey: "dev_status",
+        systemKey: null,
+        enabled: true,
+        name: "개발 진행 상태",
+        type: "select",
+        description: "생성 시 비웁니다.",
+        options: ["완료", "수정중", "수정 완료", "보류", "기타", "-"],
+        colors: {
+          완료: "green",
+          수정중: "blue",
+          "수정 완료": "green",
+          보류: "yellow",
+          기타: "gray",
+          "-": "gray",
+        },
+      },
+      {
+        presetKey: "dev_owner",
+        systemKey: null,
+        enabled: true,
+        name: "개발 담당자",
+        type: "text",
+        description: "생성 시 비웁니다.",
+        options: [],
+      },
+      {
+        presetKey: "extra",
+        systemKey: null,
+        enabled: false,
+        name: "추가 정보",
+        type: "text",
+        description: "생성 시 비웁니다.",
+        options: [],
+      },
+    ] satisfies Omit<TemplateColumnDto, "id">[]
+  ).map((column) =>
+    Object.freeze({
+      ...column,
+      colors: Object.freeze({
+        ...Object.fromEntries(
+          column.options.map((option) => [option, "gray" as const]),
+        ),
+        ...("colors" in column ? column.colors : {}),
+      }),
+      options: Object.freeze(column.options),
+    }),
+  ),
+);
+export function findPresetColumn(presetKey: string) {
+  return PRESET_COLUMNS.find((column) => column.presetKey === presetKey);
+}
 export function defaultColumns(): TemplateColumnDto[] {
-  const columns: Omit<TemplateColumnDto, "id" | "systemKey">[] = [
-    {
-      name: "테스트 ID",
-      type: "text",
-      description: "각 테스트 케이스를 구분하는 번호입니다.",
-      options: [],
-    },
-    {
-      name: "제목",
-      type: "text",
-      description: "확인할 작업이나 조건을 한 문장으로 적습니다.",
-      options: [],
-    },
-    {
-      name: "테스트 환경",
-      type: "text",
-      description:
-        "앱, 웹, 관리자 화면 등 테스트할 환경을 적습니다. 확인되지 않은 환경은 비워둡니다.",
-      options: [],
-    },
-    {
-      name: "테스트 케이스",
-      type: "text",
-      description: "테스트 대상 화면과 확인할 기능을 적습니다.",
-      options: [],
-    },
-    {
-      name: "사용자/관리자",
-      type: "select",
-      description:
-        "테스트를 수행할 계정 유형을 고릅니다. 확인되지 않으면 비워둡니다.",
-      options: ["사용자", "관리자"],
-    },
-    {
-      name: "화면 ID 또는 URL",
-      type: "text",
-      description:
-        "제공된 화면 ID나 화면 주소를 적습니다. 확인되지 않은 값은 만들지 않고 비워둡니다.",
-      options: [],
-    },
-    {
-      name: "수행 절차",
-      type: "text",
-      description:
-        "시작 화면과 필요한 사전 조건을 포함해 수행할 행동을 번호 순서로 적습니다.",
-      options: [],
-    },
-    {
-      name: "예상 결과",
-      type: "text",
-      description:
-        "절차를 수행했을 때 확인할 화면, 문구, 상태와 동작을 구체적으로 적습니다.",
-      options: [],
-    },
-    {
-      name: "QA 결과",
-      type: "select",
-      description:
-        "실제 테스트 후 결과를 고릅니다. 테스트를 수행하기 전에는 비워둡니다.",
-      options: ["Pass", "Fail", "Deferred", "N/A", "-", "추가 요청"],
-    },
-    {
-      name: "QA 담당자",
-      type: "text",
-      description:
-        "배정된 QA 담당자를 적습니다. 담당자가 정해지지 않았으면 비워둡니다.",
-      options: [],
-    },
-    {
-      name: "결과 및 의견",
-      type: "text",
-      description:
-        "실제 테스트에서 확인한 결과와 의견을 적습니다. 테스트를 수행하기 전에는 비워둡니다.",
-      options: [],
-    },
-    {
-      name: "개발 진행 상태",
-      type: "select",
-      description:
-        "개발 작업의 현재 상태를 고릅니다. 확인되지 않은 상태는 비워둡니다.",
-      options: ["완료", "수정중", "수정 완료", "보류", "기타", "-"],
-    },
-    {
-      name: "개발 담당자",
-      type: "text",
-      description:
-        "배정된 개발 담당자를 적습니다. 담당자가 정해지지 않았으면 비워둡니다.",
-      options: [],
-    },
-    {
-      name: "추가 정보",
-      type: "text",
-      description:
-        "해당 테스트 케이스에 필요한 참고 사항을 적습니다. 참고 사항이 없으면 비워둡니다.",
-      options: [],
-    },
-  ];
-  return columns.map((column, index) => ({
+  return PRESET_COLUMNS.map((column) => ({
     ...column,
+    options: [...column.options],
+    colors: { ...column.colors },
     id: randomUUID(),
-    systemKey: index === 0 ? "test_id" : index === 1 ? "title" : null,
   }));
 }
-export const DEFAULT_REQUIRED_CASES = [
-  "화면 진입과 첫 상태",
-  "입력마다 필수 여부, 형식, 길이 경계",
-  "버튼 활성 조건",
-  "목록의 검색, 필터, 정렬, 페이지, 결과 없음",
-  "오류 표시",
-  "팝업과 모달 열기와 닫기",
-  "권한이나 상태에 따라 다르게 보이는 요소",
-  "업무를 처음부터 끝까지 정상 완료",
-  "업무 중 분기마다 하나",
-  "중간 취소와 뒤로 가기",
-  "입력하거나 바꾼 값이 다른 화면과 목록에 반영되는지",
-  "Figma에 변경 표시가 있는 요소",
-];
+export function validateTemplate(input: unknown): UpdateTemplateDto {
+  return validateColumns(input, true);
+}
+// 세트는 사전 정의 열 일부를 생략할 수 있다.
+export function validateSetColumns(input: unknown): UpdateTemplateDto {
+  return validateColumns(input, false);
+}

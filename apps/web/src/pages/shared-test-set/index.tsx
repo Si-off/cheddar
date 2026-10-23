@@ -7,15 +7,18 @@ import {
   LoadError,
   SaveStatus,
   TextField,
+  Toolbar,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Download, Eye, FileX, Link2Off, Search } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CellImageContext,
   cellText,
   groupable,
   type SharedTestSet,
+  sharedImages,
   sharedTestSetQuery,
   type TestSet,
 } from "@/entities/test-set";
@@ -23,7 +26,7 @@ import {
   liveConnectionHeader,
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
-import { useCaseOps } from "@/features/edit-cases";
+import { useCaseHistory, useCaseOps } from "@/features/edit-cases";
 import { useExportSharedXlsx } from "@/features/export-xlsx";
 import { sharedViewSource, useTestSetView } from "@/features/test-set-view";
 import { isApiFailure, sdk } from "@/shared/api";
@@ -94,6 +97,8 @@ function SharedScreen({
       });
     },
   });
+  // 내가 한 편집만 되돌린다
+  const history = useCaseHistory({ queryKey, apply });
   const live = useLiveTestSet(`shared/${encodeURIComponent(linkToken)}`, {
     version: () =>
       queryClient.getQueryData<SharedTestSet>(queryKey)?.version ?? 0,
@@ -122,7 +127,14 @@ function SharedScreen({
     caseIds: testSet.cases.map((c) => c.id),
   });
   const [search, setSearch] = useState("");
+  // 셀 도구를 그려 넣을 도구 상자 안 자리
+  const [cellTools, setCellTools] = useState<HTMLElement | null>(null);
   const query = useDeferredValue(search.trim().toLowerCase());
+  const canEdit = testSet.access.canEdit;
+  const images = useMemo(
+    () => sharedImages(linkToken, canEdit),
+    [linkToken, canEdit],
+  );
 
   if (live.closed === "session-expired") return null;
   if (live.closed === "deleted")
@@ -145,98 +157,108 @@ function SharedScreen({
   const others = live.people.filter(
     (p) => p.connectionId !== live.me?.connectionId,
   );
-  const addCase = () => {
+  const addCase = (
+    afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
+  ) => {
     const caseId = crypto.randomUUID();
-    const last = testSet.cases[testSet.cases.length - 1];
-    apply([
-      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values: {} },
-    ]);
+    history.record([{ type: "add_case", caseId, afterCaseId, values: {} }]);
     return caseId;
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas">
-      <header className="flex min-h-14 flex-wrap items-center gap-3 border-line border-b bg-surface px-6 py-2">
-        <span className="font-bold text-title">Cheddar</span>
-        <span className="h-5 w-px bg-line" />
-        <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
-        {readOnly ? (
-          <Badge tone="info" icon={Eye}>
-            보기 전용
-          </Badge>
-        ) : (
-          <SaveStatus state={state} />
-        )}
-        <span className="flex-1" />
-        {others.length > 0 && (
-          <Avatars
-            people={others.map((p) => ({
-              id: p.connectionId,
-              name: p.name,
-              color: p.color,
-              guest: p.kind === "visitor",
-            }))}
+    <CellImageContext value={images}>
+      <div className="flex min-h-dvh flex-col bg-canvas">
+        <header className="flex min-h-14 flex-wrap items-center gap-3 border-line border-b bg-surface px-6 py-2">
+          <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
+          {readOnly ? (
+            <Badge tone="info" icon={Eye}>
+              보기 전용
+            </Badge>
+          ) : (
+            <SaveStatus state={state} />
+          )}
+          <span className="flex-1" />
+          {others.length > 0 && (
+            <Avatars
+              people={others.map((p) => ({
+                id: p.connectionId,
+                name: p.name,
+                color: p.color,
+                guest: p.kind === "visitor",
+              }))}
+            />
+          )}
+          <span className="flex items-center gap-2 text-body-sm text-fg-muted">
+            <Avatars
+              aria-label="나"
+              people={[
+                {
+                  id: testSet.me.id,
+                  name: testSet.me.name,
+                  color: live.me?.color ?? 1,
+                  guest: visitor,
+                },
+              ]}
+            />
+            {testSet.me.name}
+          </span>
+          {testSet.access.canExport && (
+            <Button
+              size="sm"
+              icon={Download}
+              loading={exportXlsx.isPending}
+              onClick={() => exportXlsx.mutate()}
+            >
+              XLSX 내보내기
+            </Button>
+          )}
+          {visitor && (
+            <Link
+              to="/login"
+              search={{ redirect: `/s/${linkToken}` }}
+              className={buttonVariants({ variant: "ghost", size: "sm" })}
+            >
+              로그인
+            </Link>
+          )}
+        </header>
+        <main className="flex flex-col gap-3 px-8 pt-5 pb-8">
+          <Toolbar aria-label="테스트 세트 도구">
+            {!readOnly && <span ref={setCellTools} className="contents" />}
+            <span className="flex-1" />
+            <TextField
+              size="sm"
+              icon={Search}
+              placeholder="케이스 검색"
+              aria-label="케이스 검색"
+              className="w-60 max-w-full"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </Toolbar>
+          <CaseTable
+            aria-label="테스트 케이스"
+            columns={testSet.columns}
+            cases={cases}
+            readOnly={readOnly}
+            canEditColumns={!readOnly && !visitor}
+            onOps={history.record}
+            onAddCase={() => addCase()}
+            onInsertCase={addCase}
+            presence={live.presence}
+            onActiveCellChange={live.select}
+            columnWidths={view.columnWidths}
+            rowHeights={view.rowHeights}
+            onColumnWidthsChange={(columnWidths) => setView({ columnWidths })}
+            onRowHeightsChange={(rowHeights) => setView({ rowHeights })}
+            toolsTarget={cellTools}
+            onUndo={history.undo}
+            onRedo={history.redo}
+            canUndo={history.canUndo}
+            canRedo={history.canRedo}
           />
-        )}
-        <span className="flex items-center gap-2 text-body-sm text-fg-muted">
-          <Avatars
-            aria-label="나"
-            people={[
-              {
-                id: testSet.me.id,
-                name: testSet.me.name,
-                color: live.me?.color ?? 1,
-                guest: visitor,
-              },
-            ]}
-          />
-          {testSet.me.name}
-        </span>
-        {testSet.access.canExport && (
-          <Button
-            size="sm"
-            icon={Download}
-            loading={exportXlsx.isPending}
-            onClick={() => exportXlsx.mutate()}
-          >
-            XLSX 내보내기
-          </Button>
-        )}
-        {visitor && (
-          <Link
-            to="/login"
-            search={{ redirect: `/s/${linkToken}` }}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            로그인
-          </Link>
-        )}
-      </header>
-      <main className="flex flex-col gap-3 px-8 pt-5 pb-8">
-        <TextField
-          size="sm"
-          icon={Search}
-          placeholder="케이스 검색"
-          aria-label="케이스 검색"
-          className="w-60 max-w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <CaseTable
-          aria-label="테스트 케이스"
-          columns={testSet.columns}
-          cases={cases}
-          readOnly={readOnly}
-          onOps={apply}
-          onAddCase={addCase}
-          presence={live.presence}
-          onActiveCellChange={live.select}
-          columnWidths={view.columnWidths}
-          rowHeights={view.rowHeights}
-          onColumnWidthsChange={(columnWidths) => setView({ columnWidths })}
-          onRowHeightsChange={(rowHeights) => setView({ rowHeights })}
-        />
-      </main>
-    </div>
+        </main>
+      </div>
+    </CellImageContext>
   );
 }

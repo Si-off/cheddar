@@ -48,7 +48,7 @@ export class SharedService {
       visitorToken = newToken();
       response.cookie(VISITOR_COOKIE, visitorToken, {
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: this.env.cookieSameSite,
         path: "/",
         secure: this.env.production ?? false,
         maxAge: 365 * 24 * 60 * 60 * 1000,

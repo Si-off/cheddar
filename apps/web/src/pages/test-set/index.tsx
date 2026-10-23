@@ -1,23 +1,24 @@
 import {
   Avatars,
   Banner,
-  Breadcrumb,
-  BreadcrumbItem,
   Button,
   buttonVariants,
-  Dialog,
   EmptyState,
   IconButton,
   LoadError,
   Menu,
   SaveStatus,
-  Select,
   Tabs,
   TextField,
+  Toolbar,
+  ToolbarMenu,
+  ToolbarSeparator,
+  useToast,
 } from "@cheddar/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  AlignLeft,
   CircleHelp,
   Columns3,
   Download,
@@ -25,40 +26,32 @@ import {
   Link2,
   MoreHorizontal,
   Search,
-  SlidersHorizontal,
   Sparkles,
   Table2,
   Trash2,
 } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   currentGenerationQuery,
   reviewItemsQuery,
   tempUploadQuery,
 } from "@/entities/generation";
-import {
-  type ColumnErrors,
-  fromTemplateDraft,
-  type TemplateDraft,
-  toTemplateDraft,
-  validateTemplateDraft,
-} from "@/entities/project";
+import { templateQuery } from "@/entities/project";
 import {
   type CaseOp,
+  CellImageContext,
   type CellValue,
   cellText,
   groupable,
-  groupCases,
-  readCell,
   type TestSet,
+  testSetImages,
   testSetQuery,
 } from "@/entities/test-set";
 import {
   liveConnectionHeader,
   useLiveTestSet,
 } from "@/features/collaborate-test-set";
-import { useCaseOps } from "@/features/edit-cases";
-import { useSaveColumns } from "@/features/edit-test-set-columns";
+import { useCaseHistory, useCaseOps } from "@/features/edit-cases";
 import { useExportXlsx } from "@/features/export-xlsx";
 import { GenerateSheet } from "@/features/generate-cases";
 import {
@@ -68,21 +61,13 @@ import {
 import { useReviewActions, useRewriteWatch } from "@/features/resolve-review";
 import { sharingQuery } from "@/features/share-test-set";
 import { testSetViewSource, useTestSetView } from "@/features/test-set-view";
-import { isApiFailure, sdk } from "@/shared/api";
-import { CaseBoard } from "@/widgets/case-board";
+import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
+import { CaseCanvas } from "@/widgets/case-canvas";
 import { CaseDialog } from "@/widgets/case-dialog";
-import { CaseTable } from "@/widgets/case-table";
-import { ColumnsEditor } from "@/widgets/columns-editor";
+import { CaseTable, CellToolbar } from "@/widgets/case-table";
 import { NoAccessNotice } from "@/widgets/no-access-notice";
 import { ReviewPanel } from "@/widgets/review-panel";
 import { ShareDialog } from "@/widgets/share-dialog";
-
-/** 권한 없음 응답에 담긴 소유자 이름 */
-const ownerNameOf = (error: unknown) => {
-  const details = (error as { error?: { details?: { ownerName?: unknown } } })
-    ?.error?.details;
-  return typeof details?.ownerName === "string" ? details.ownerName : undefined;
-};
 
 export function TestSetPage({
   testSetId,
@@ -94,15 +79,8 @@ export function TestSetPage({
 }) {
   const testSet = useQuery({
     ...testSetQuery(testSetId),
-    meta: { quietCodes: ["NOT_FOUND", "NO_ACCESS"] },
+    meta: { quietCodes: ["NOT_FOUND"] },
   });
-  if (testSet.isError && isApiFailure(testSet.error, "NO_ACCESS"))
-    return (
-      <NoAccessNotice
-        ownerName={ownerNameOf(testSet.error)}
-        backLink={<Link to="/test-sets" />}
-      />
-    );
   if (testSet.isError)
     return (
       <main className="mx-auto w-full max-w-6xl px-6 py-8">
@@ -138,9 +116,10 @@ function TestSetScreen({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { queryKey } = testSetQuery(testSet.id);
   const connection = useRef<() => string | null>(() => null);
-  const { apply, state, applyRemote, resync, refresh } = useCaseOps({
+  const { apply, state, applyRemote, resync, refresh, settled } = useCaseOps({
     queryKey,
     fetch: () =>
       queryClient.fetchQuery({ ...testSetQuery(testSet.id), staleTime: 0 }),
@@ -191,6 +170,8 @@ function TestSetScreen({
     },
   });
   connection.current = live.connectionId;
+  // 내가 한 편집만 되돌린다
+  const history = useCaseHistory({ queryKey, apply });
   // 로그인이 끝나 연결이 닫히면 로그인 뒤 이 화면으로 돌아온다
   useEffect(() => {
     if (live.closed === "session-expired")
@@ -214,14 +195,22 @@ function TestSetScreen({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openCaseId, setOpenCaseId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<
-    "columns" | "rename" | "delete" | "generate" | "share" | null
+    "rename" | "delete" | "generate" | "share" | null
   >(null);
   const readOnly = !testSet.access.canEdit;
+  const images = useMemo(
+    () => testSetImages(testSet.id, !readOnly),
+    [testSet.id, readOnly],
+  );
   const generation = useQuery(currentGenerationQuery(testSet.id)).data;
   const active =
     generation?.status === "queued" || generation?.status === "running";
-  // 다시 작성은 확인 필요 패널에서 보여주므로 케이스 생성만 진행 중으로 본다
-  const running = active && generation?.kind !== "rewrite";
+  // 다시 작성은 확인 필요 패널에서, 열 채우기는 표에서 보여주므로 케이스 생성만 진행 중으로 본다
+  const running =
+    active &&
+    generation?.kind !== "rewrite" &&
+    generation?.kind !== "fill_column";
+  const filling = active && generation?.kind === "fill_column";
   const reviewItems = useQuery(reviewItemsQuery(testSet.id)).data ?? [];
   const reviewCount = reviewItems.filter(
     (i) => i.status === "pending" || i.status === "rewriting",
@@ -229,6 +218,8 @@ function TestSetScreen({
   // 제외한 항목을 되돌릴 수 있도록 처리하지 않은 항목이 남아 있으면 버튼을 둔다
   const hasReview = reviewItems.some((i) => i.status !== "resolved");
   const [reviewOpen, setReviewOpen] = useState(false);
+  // 표의 셀 도구를 그려 넣을 도구 상자 안 자리
+  const [cellTools, setCellTools] = useState<HTMLElement | null>(null);
   const review = useReviewActions(testSet.id);
   // 다시 작성 중에 새로 고쳤으면 그 작업이 끝날 때를 다시 기다린다
   useRewriteWatch(
@@ -240,11 +231,23 @@ function TestSetScreen({
     enabled: Boolean(uploadId) && !readOnly,
     meta: { quietCodes: ["NOT_FOUND"] },
   }).data;
+  // 열 추가에서 고를 프로젝트 양식의 열. 프로젝트를 볼 수 없으면 직접 정의만 된다.
+  const presetColumns = useQuery({
+    ...templateQuery(testSet.project.id),
+    enabled: !readOnly,
+    meta: { quietCodes: ["NOT_FOUND", "FORBIDDEN"] },
+  }).data?.columns;
 
+  const canvas = view.view === "canvas";
   const groupColumn =
     testSet.columns.find(
       (c) => c.id === view.groupByColumnId && groupable(c.type),
     ) ?? null;
+  // 캔버스를 나눌 기준. 열을 골랐는데 그 열이 없어졌으면 기능 그룹으로 나눈다.
+  const canvasGroup =
+    view.canvasGroup === "column" && !groupColumn
+      ? "feature"
+      : view.canvasGroup;
   const cases = query
     ? testSet.cases.filter((c) =>
         testSet.columns.some((col) =>
@@ -257,19 +260,42 @@ function TestSetScreen({
     [...selected].filter((id) => testSet.cases.some((c) => c.id === id)),
   );
 
-  const addCase = (values: Record<string, CellValue> = {}) => {
+  const addCase = (
+    values: Record<string, CellValue> = {},
+    afterCaseId: string | null = testSet.cases.at(-1)?.id ?? null,
+  ) => {
     const caseId = crypto.randomUUID();
-    const last = testSet.cases[testSet.cases.length - 1];
-    apply([
-      { type: "add_case", caseId, afterCaseId: last?.id ?? null, values },
-    ]);
+    history.record([{ type: "add_case", caseId, afterCaseId, values }]);
     return caseId;
   };
   const removeSelected = () => {
-    apply([{ type: "delete_cases", caseIds: [...selectedIds] }]);
+    history.record([{ type: "delete_cases", caseIds: [...selectedIds] }]);
     setSelected(new Set());
   };
-  const onOps = (ops: CaseOp[]) => apply(ops);
+  const onOps = (ops: CaseOp[]) => history.record(ops);
+  // 열 추가 연산이 저장된 뒤에 채우기를 시작한다
+  const fillColumn = (columnId: string) =>
+    settled()
+      .then(() =>
+        sdk.fillTestSetColumn({
+          path: { testSetId: testSet.id, columnId },
+          throwOnError: true,
+        }),
+      )
+      .then(() =>
+        queryClient.invalidateQueries({
+          queryKey: currentGenerationQuery(testSet.id).queryKey,
+        }),
+      )
+      .catch((error) =>
+        toast.show({
+          message: toApiFailure(error, {
+            unknownResult:
+              "응답을 받지 못했습니다. 새로 고쳐 채우기가 시작됐는지 확인하세요.",
+          }).message,
+          tone: "danger",
+        }),
+      );
 
   const tableProps = {
     columns: testSet.columns,
@@ -285,6 +311,9 @@ function TestSetScreen({
       setView({ rowHeights }),
     presence: live.presence,
     onActiveCellChange: live.select,
+    presetColumns,
+    allCases: testSet.cases,
+    onFillColumn: running ? undefined : fillColumn,
   };
 
   if (live.closed === "session-expired") return null;
@@ -302,21 +331,13 @@ function TestSetScreen({
         />
       </main>
     ) : (
-      <NoAccessNotice
-        ownerName={testSet.owner.name}
-        backLink={<Link to="/test-sets" />}
-      />
+      <NoAccessNotice backLink={<Link to="/test-sets" />} />
     );
 
   return (
-    <main className="flex w-full flex-col gap-4 px-8 pt-6 pb-8">
-      <div className="flex flex-col gap-2">
-        <Breadcrumb>
-          <BreadcrumbItem render={<Link to="/test-sets" />}>
-            테스트 세트
-          </BreadcrumbItem>
-          <BreadcrumbItem current>{testSet.name}</BreadcrumbItem>
-        </Breadcrumb>
+    // 표와 캔버스는 화면 높이를 채우고 안에서 스크롤한다
+    <CellImageContext value={images}>
+      <main className="flex min-h-0 w-full flex-1 flex-col gap-4 px-8 pt-6 pb-8">
         <div className="flex min-h-9 flex-wrap items-center gap-3">
           <h1 className="m-0 text-title text-fg">{testSet.name}</h1>
           {!readOnly && <SaveStatus state={state} />}
@@ -334,25 +355,6 @@ function TestSetScreen({
           <Button icon={Link2} onClick={() => setDialog("share")}>
             공유
           </Button>
-          {testSet.access.canExport && (
-            <Button
-              icon={Download}
-              loading={exportXlsx.isPending}
-              onClick={() => exportXlsx.mutate()}
-            >
-              XLSX 내보내기
-            </Button>
-          )}
-          {!readOnly && (
-            <Button
-              variant="ai"
-              icon={Sparkles}
-              disabled={running}
-              onClick={() => setDialog("generate")}
-            >
-              케이스 추가 생성
-            </Button>
-          )}
           {(testSet.access.canRename || testSet.access.canDelete) && (
             <Menu.Root>
               <Menu.Trigger
@@ -386,325 +388,295 @@ function TestSetScreen({
             </Menu.Root>
           )}
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-line border-t pt-1">
-        <Tabs.Root
-          value={view.view}
-          onValueChange={(v) => setView({ view: v as "table" | "card" })}
-        >
-          <Tabs.List variant="pill" aria-label="보기">
-            <Tabs.Tab value="table" icon={Table2}>
-              표
-            </Tabs.Tab>
-            <Tabs.Tab value="card" icon={Columns3}>
-              카드
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs.Root>
-        <TextField
-          size="sm"
-          icon={Search}
-          placeholder="케이스 검색"
-          aria-label="케이스 검색"
-          className="w-60 max-w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Select
-          size="sm"
-          aria-label="묶기 기준"
-          className="w-40"
-          value={groupColumn?.id ?? ""}
-          items={[
-            { value: "", label: "묶지 않음" },
-            ...testSet.columns
-              .filter((c) => groupable(c.type))
-              .map((c) => ({ value: c.id, label: c.name })),
-          ]}
-          onValueChange={(id) => setView({ groupByColumnId: id || null })}
-        />
-        {view.view === "table" && selectedIds.size > 0 && (
-          <>
-            <span className="mx-1 h-5 w-px bg-line" />
-            <span className="text-caption text-fg-muted">
-              {selectedIds.size}개 선택
-            </span>
+        <Toolbar aria-label="테스트 세트 도구">
+          <Tabs.Root
+            value={view.view}
+            onValueChange={(v) => setView({ view: v as "table" | "canvas" })}
+          >
+            <Tabs.List variant="pill" aria-label="보기">
+              <Tabs.Tab value="table" icon={Table2}>
+                표
+              </Tabs.Tab>
+              <Tabs.Tab value="canvas" icon={Columns3}>
+                캔버스
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.Root>
+          {view.view === "table" && testSet.cases.length > 0 && (
+            <>
+              <ToolbarSeparator />
+              <span ref={setCellTools} className="contents" />
+            </>
+          )}
+          {view.view === "table" && testSet.cases.length === 0 && !readOnly && (
+            // 마지막 행을 지운 뒤에도 바로 되살릴 수 있게 실행취소는 남긴다
+            <>
+              <ToolbarSeparator />
+              <CellToolbar
+                actions={{
+                  undo: history.canUndo ? history.undo : null,
+                  redo: history.canRedo ? history.redo : null,
+                }}
+              />
+            </>
+          )}
+          {canvas && (
+            <>
+              <ToolbarSeparator />
+              {!readOnly && (
+                <CellToolbar
+                  actions={{
+                    undo: history.canUndo ? history.undo : null,
+                    redo: history.canRedo ? history.redo : null,
+                  }}
+                />
+              )}
+              <ToolbarMenu icon={Columns3} label="그룹화">
+                {[
+                  { key: "feature", label: "기능 그룹" },
+                  ...testSet.columns
+                    .filter((c) => groupable(c.type))
+                    .map((c) => ({ key: c.id, label: c.name })),
+                  { key: "none", label: "없음" },
+                ].map((option) => {
+                  const checked =
+                    option.key === "feature" || option.key === "none"
+                      ? canvasGroup === option.key
+                      : canvasGroup === "column" &&
+                        groupColumn?.id === option.key;
+                  return (
+                    <Menu.CheckboxItem
+                      key={option.key}
+                      closeOnClick
+                      checked={checked}
+                      onCheckedChange={() =>
+                        setView(
+                          option.key === "feature" || option.key === "none"
+                            ? { canvasGroup: option.key }
+                            : {
+                                canvasGroup: "column",
+                                groupByColumnId: option.key,
+                              },
+                        )
+                      }
+                    >
+                      {option.label}
+                    </Menu.CheckboxItem>
+                  );
+                })}
+              </ToolbarMenu>
+              <ToolbarMenu icon={AlignLeft} label="표시">
+                {(
+                  [
+                    { key: "brief", label: "간략" },
+                    { key: "detail", label: "상세" },
+                  ] as const
+                ).map((option) => (
+                  <Menu.CheckboxItem
+                    key={option.key}
+                    closeOnClick
+                    checked={view.canvasDensity === option.key}
+                    onCheckedChange={() =>
+                      setView({ canvasDensity: option.key })
+                    }
+                  >
+                    {option.label}
+                  </Menu.CheckboxItem>
+                ))}
+              </ToolbarMenu>
+            </>
+          )}
+          {(!readOnly || testSet.access.canExport) && <ToolbarSeparator />}
+          {!readOnly && (
+            <Button
+              size="sm"
+              variant="ai"
+              icon={Sparkles}
+              disabled={running}
+              onClick={() => setDialog("generate")}
+            >
+              케이스 추가 생성
+            </Button>
+          )}
+          {testSet.access.canExport && (
             <Button
               size="sm"
               variant="ghost"
-              icon={Trash2}
-              onClick={removeSelected}
+              icon={Download}
+              loading={exportXlsx.isPending}
+              onClick={() => exportXlsx.mutate()}
             >
-              삭제
+              XLSX 내보내기
             </Button>
-          </>
-        )}
-        <span className="flex-1" />
-        {(hasReview || reviewOpen) && (
-          <Button
+          )}
+          {view.view === "table" && selectedIds.size > 0 && (
+            <>
+              <ToolbarSeparator />
+              <span className="text-caption text-fg-muted">
+                {selectedIds.size}개 선택
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Trash2}
+                onClick={removeSelected}
+              >
+                삭제
+              </Button>
+            </>
+          )}
+          <span className="flex-1" />
+          <TextField
             size="sm"
-            icon={CircleHelp}
-            aria-pressed={reviewOpen}
-            onClick={() => setReviewOpen(!reviewOpen)}
-            className="border-warning text-warning"
-          >
-            확인 필요
-            <span className="tabular-nums">{reviewCount}</span>
-          </Button>
-        )}
-        {!readOnly && (
-          <Button
-            size="sm"
-            icon={SlidersHorizontal}
-            onClick={() => setDialog("columns")}
-          >
-            양식 편집
-          </Button>
-        )}
-      </div>
-
-      {running && generation && (
-        <Banner
-          tone="info"
-          title="케이스를 만들고 있습니다"
-          actions={
-            <Link
-              to="/test-sets/$testSetId/generating"
-              params={{ testSetId: testSet.id }}
-              className={buttonVariants({ size: "sm" })}
+            icon={Search}
+            placeholder="케이스 검색"
+            aria-label="케이스 검색"
+            className="w-60 max-w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {(hasReview || reviewOpen) && (
+            <Button
+              size="sm"
+              icon={CircleHelp}
+              aria-pressed={reviewOpen}
+              onClick={() => setReviewOpen(!reviewOpen)}
+              className="border-warning text-warning"
             >
-              진행 보기
-            </Link>
-          }
-        />
-      )}
+              확인 필요
+              <span className="tabular-nums">{reviewCount}</span>
+            </Button>
+          )}
+        </Toolbar>
 
-      <div className="flex flex-col items-start gap-4 lg:flex-row">
-        <div className="min-w-0 flex-1">
-          {view.view === "card" ? (
-            <CaseBoard
-              columns={testSet.columns}
-              cases={cases}
-              groupColumnId={groupColumn?.id ?? null}
-              readOnly={readOnly}
-              onOps={onOps}
-              onOpenCase={setOpenCaseId}
-              onAddCase={(values) => setOpenCaseId(addCase(values))}
-            />
-          ) : testSet.cases.length === 0 ? (
-            <EmptyState
-              icon={Table2}
-              title="케이스가 없습니다"
-              actions={
-                !readOnly && (
-                  <Button onClick={() => addCase()}>케이스 추가</Button>
-                )
-              }
-            />
-          ) : groupColumn ? (
-            <div className="flex flex-col gap-6">
-              {groupCases(groupColumn, cases).map((group) => (
-                <section
-                  key={group.key}
-                  aria-label={group.label}
-                  className="flex flex-col gap-2"
-                >
-                  <h2 className="m-0 text-title-sm text-fg">
-                    {group.label}{" "}
-                    <span className="text-caption text-fg-muted tabular-nums">
-                      {group.cases.length}
-                    </span>
-                  </h2>
+        {filling && <Banner tone="info" title="열을 채우고 있습니다" />}
+        {running && generation && (
+          <Banner
+            tone="info"
+            title="케이스를 만들고 있습니다"
+            actions={
+              <Link
+                to="/test-sets/$testSetId/generating"
+                params={{ testSetId: testSet.id }}
+                className={buttonVariants({ size: "sm" })}
+              >
+                진행 보기
+              </Link>
+            }
+          />
+        )}
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+          <div className="flex min-w-0 flex-1 flex-col">
+            {canvas ? (
+              <CaseCanvas
+                columns={testSet.columns}
+                cases={cases}
+                allCases={testSet.cases}
+                featureGroups={testSet.featureGroups ?? []}
+                group={canvasGroup}
+                groupColumnId={groupColumn?.id ?? null}
+                density={view.canvasDensity}
+                readOnly={readOnly}
+                onOps={onOps}
+                onOpenCase={setOpenCaseId}
+              />
+            ) : testSet.cases.length === 0 ? (
+              <EmptyState
+                icon={Table2}
+                title="케이스가 없습니다"
+                actions={
+                  !readOnly && (
+                    <Button onClick={() => addCase()}>케이스 추가</Button>
+                  )
+                }
+              />
+            ) : (
+              <div className="relative min-h-96 flex-1">
+                <div className="absolute inset-0 flex flex-col">
                   <CaseTable
-                    aria-label={`${group.label} 케이스`}
-                    cases={group.cases}
-                    onAddCase={() => addCase({ [groupColumn.id]: group.value })}
+                    aria-label="케이스"
+                    cases={cases}
+                    onAddCase={() => addCase()}
+                    onInsertCase={(after) => addCase({}, after)}
+                    toolsTarget={cellTools}
+                    onUndo={history.undo}
+                    onRedo={history.redo}
+                    canUndo={history.canUndo}
+                    canRedo={history.canRedo}
                     {...tableProps}
                   />
-                </section>
-              ))}
-            </div>
-          ) : (
-            <CaseTable
-              aria-label="케이스"
-              cases={cases}
-              onAddCase={() => addCase()}
-              {...tableProps}
-            />
-          )}
+                </div>
+              </div>
+            )}
+          </div>
+          <ReviewPanel
+            columns={testSet.columns}
+            items={reviewItems}
+            readOnly={readOnly}
+            onAnswer={(item, answer) => review.update.mutate({ item, answer })}
+            onDraft={(item, columnId, value) =>
+              review.update.mutate({
+                item,
+                draft: { ...item.draft, [columnId]: value },
+              })
+            }
+            onExclude={(item) =>
+              review.update.mutate({ item, status: "excluded" })
+            }
+            onRestore={(item) =>
+              review.update.mutate({ item, status: "pending" })
+            }
+            onAccept={(item) => review.accept.mutate(item)}
+            onRewrite={(item, answer) =>
+              review.rewrite.mutate({ item, answer })
+            }
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+          />
         </div>
-        <ReviewPanel
-          columns={testSet.columns}
-          items={reviewItems}
-          readOnly={readOnly}
-          onAnswer={(item, answer) => review.update.mutate({ item, answer })}
-          onDraft={(item, columnId, value) =>
-            review.update.mutate({
-              item,
-              draft: { ...item.draft, [columnId]: value },
+
+        <GenerateSheet
+          testSetId={testSet.id}
+          upload={
+            upload && upload.frames.length > 0
+              ? { id: upload.id, frameCount: upload.frames.length }
+              : null
+          }
+          open={dialog === "generate"}
+          onOpenChange={(open) => setDialog(open ? "generate" : null)}
+          onStarted={() =>
+            navigate({
+              to: "/test-sets/$testSetId/generating",
+              params: { testSetId: testSet.id },
             })
           }
-          onExclude={(item) =>
-            review.update.mutate({ item, status: "excluded" })
-          }
-          onRestore={(item) =>
-            review.update.mutate({ item, status: "pending" })
-          }
-          onAccept={(item) => review.accept.mutate(item)}
-          onRewrite={(item, answer) => review.rewrite.mutate({ item, answer })}
-          open={reviewOpen}
-          onOpenChange={setReviewOpen}
         />
-      </div>
-
-      <GenerateSheet
-        testSetId={testSet.id}
-        upload={
-          upload && upload.frames.length > 0
-            ? { id: upload.id, frameCount: upload.frames.length }
-            : null
-        }
-        open={dialog === "generate"}
-        onOpenChange={(open) => setDialog(open ? "generate" : null)}
-        onStarted={() =>
-          navigate({
-            to: "/test-sets/$testSetId/generating",
-            params: { testSetId: testSet.id },
-          })
-        }
-      />
-      <CaseDialog
-        columns={testSet.columns}
-        testCase={testSet.cases.find((c) => c.id === openCaseId) ?? null}
-        readOnly={readOnly}
-        onOps={onOps}
-        onClose={() => setOpenCaseId(null)}
-      />
-      <ColumnsSheet
-        testSet={testSet}
-        open={dialog === "columns"}
-        onOpenChange={(open) => setDialog(open ? "columns" : null)}
-      />
-      <RenameTestSetDialog
-        testSet={testSet}
-        open={dialog === "rename"}
-        onOpenChange={(open) => setDialog(open ? "rename" : null)}
-      />
-      <ShareDialog
-        testSetId={testSet.id}
-        open={dialog === "share"}
-        onOpenChange={(open) => setDialog(open ? "share" : null)}
-      />
-      <DeleteTestSetDialog
-        testSet={testSet}
-        open={dialog === "delete"}
-        onOpenChange={(open) => setDialog(open ? "delete" : null)}
-        onDeleted={() => navigate({ to: "/test-sets" })}
-      />
-    </main>
-  );
-}
-
-/** 이 테스트 세트의 항목만 바꾼다. 프로젝트 기본 양식은 그대로다. */
-function ColumnsSheet({
-  testSet,
-  open,
-  onOpenChange,
-}: {
-  testSet: TestSet;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content placement="side" size="lg">
-        {open && (
-          <ColumnsForm testSet={testSet} onDone={() => onOpenChange(false)} />
-        )}
-      </Dialog.Content>
-    </Dialog.Root>
-  );
-}
-
-function ColumnsForm({
-  testSet,
-  onDone,
-}: {
-  testSet: TestSet;
-  onDone: () => void;
-}) {
-  const save = useSaveColumns(testSet.id);
-  const base = { revision: 1, columns: testSet.columns };
-  const [draft, setDraft] = useState<TemplateDraft>(() =>
-    toTemplateDraft(base),
-  );
-  const [selectedId, setSelectedId] = useState(testSet.columns[0]?.id ?? "");
-  const [errors, setErrors] = useState<Record<string, ColumnErrors> | null>(
-    null,
-  );
-  const dirty =
-    JSON.stringify(fromTemplateDraft(draft).columns) !==
-    JSON.stringify(testSet.columns);
-  // 저장하면 값이 지워지는 항목: 지운 항목, 형식이나 선택 항목이 바뀌어 기존 값이 맞지 않는 항목
-  const next = fromTemplateDraft(draft).columns;
-  const losing = testSet.columns.filter((old) => {
-    const changed = next.find((c) => c.id === old.id);
-    return testSet.cases.some((c) => {
-      const v = c.values[old.id];
-      if (!cellText(old, v)) return false;
-      if (!changed) return true;
-      return (
-        changed.type !== "text" &&
-        JSON.stringify(readCell(changed, v)) !==
-          JSON.stringify(readCell(old, v))
-      );
-    });
-  });
-
-  const submit = () => {
-    const found = validateTemplateDraft(draft);
-    setErrors(found);
-    const first = draft.columns.find((c) => found[c.id]);
-    if (first) {
-      setSelectedId(first.id);
-      return;
-    }
-    save.mutate(draft, { onSuccess: onDone });
-  };
-
-  return (
-    <>
-      <Dialog.Header title="테스트 세트 양식" />
-      <Dialog.Body className="flex-1 overflow-auto">
-        <ColumnsEditor
-          value={draft}
-          onChange={(next) => {
-            setDraft(next);
-            if (errors) setErrors(validateTemplateDraft(next));
-          }}
-          errors={errors ?? undefined}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
+        <CaseDialog
+          columns={testSet.columns}
+          testCase={testSet.cases.find((c) => c.id === openCaseId) ?? null}
+          readOnly={readOnly}
+          onOps={onOps}
+          onClose={() => setOpenCaseId(null)}
         />
-      </Dialog.Body>
-      <Dialog.Footer>
-        {losing.length > 0 && (
-          <span className="flex-1 text-caption text-warning">
-            저장하면 {losing.map((c) => c.name).join(", ")} 항목의 기존 값
-            일부가 지워집니다
-          </span>
-        )}
-        <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
-        <Button
-          variant="primary"
-          disabled={!dirty}
-          loading={save.isPending}
-          onClick={submit}
-        >
-          저장
-        </Button>
-      </Dialog.Footer>
-    </>
+        <RenameTestSetDialog
+          testSet={testSet}
+          open={dialog === "rename"}
+          onOpenChange={(open) => setDialog(open ? "rename" : null)}
+        />
+        <ShareDialog
+          testSetId={testSet.id}
+          open={dialog === "share"}
+          onOpenChange={(open) => setDialog(open ? "share" : null)}
+        />
+        <DeleteTestSetDialog
+          testSet={testSet}
+          open={dialog === "delete"}
+          onOpenChange={(open) => setDialog(open ? "delete" : null)}
+          onDeleted={() => navigate({ to: "/test-sets" })}
+        />
+      </main>
+    </CellImageContext>
   );
 }

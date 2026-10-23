@@ -1,20 +1,26 @@
+import type { OptionColor } from "@cheddar/contracts";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
   IsInt,
   IsString,
   IsUUID,
+  Matches,
+  Max,
   MaxLength,
   Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from "class-validator";
+
+import { COLORS_SCHEMA, IsOptionColors } from "./option-colors";
 
 const optional = (_: unknown, value: unknown) => value !== undefined;
 const trim = ({ value }: { value: unknown }) =>
@@ -84,25 +90,12 @@ export class UpdateFeatureGroupDto {
   @MaxLength(2000)
   description?: string;
 }
-export class CreateRequiredCaseDto {
-  @ApiProperty({ minLength: 1, maxLength: 300 })
-  @Transform(trim)
-  @IsString()
-  @MinLength(1)
-  @MaxLength(300)
-  description!: string;
-}
-export class UpdateRequiredCaseDto {
-  @ApiPropertyOptional({ minLength: 1, maxLength: 300 })
-  @ValidateIf(optional)
-  @Transform(trim)
-  @IsString()
-  @MinLength(1)
-  @MaxLength(300)
-  description?: string;
-  @ApiPropertyOptional() @ValidateIf(optional) @IsBoolean() enabled?: boolean;
-}
+export const SCREEN_TYPES = ["page", "popup", "bottom_sheet", "tab"] as const;
 export class CreateScreenDto {
+  @ApiPropertyOptional({ enum: SCREEN_TYPES, default: "page" })
+  @ValidateIf(optional)
+  @IsIn(SCREEN_TYPES)
+  type?: (typeof SCREEN_TYPES)[number];
   @ApiProperty({ minLength: 1, maxLength: 100 })
   @Transform(trim)
   @IsString()
@@ -127,6 +120,10 @@ export class CreateScreenDto {
   parentId?: string | null;
 }
 export class UpdateScreenDto {
+  @ApiPropertyOptional({ enum: SCREEN_TYPES, default: "page" })
+  @ValidateIf(optional)
+  @IsIn(SCREEN_TYPES)
+  type?: (typeof SCREEN_TYPES)[number];
   @ApiPropertyOptional({ minLength: 1, maxLength: 100 })
   @ValidateIf(optional)
   @Transform(trim)
@@ -169,6 +166,17 @@ export class FeatureGroupOrderDto {
 }
 export const COLUMN_TYPES = ["text", "select", "checkbox", "tags"] as const;
 export class TemplateColumnDto {
+  @ApiPropertyOptional({ ...COLORS_SCHEMA, default: {} })
+  @IsOptionColors()
+  colors?: Record<string, OptionColor> = {};
+
+  @ApiProperty({ type: String, nullable: true, maxLength: 40 })
+  @ValidateIf((_o, value) => value !== null)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  presetKey!: string | null;
+  @ApiProperty() @IsBoolean() enabled!: boolean;
   @ApiProperty({ format: "uuid" }) @IsUUID() id!: string;
   @ApiProperty({
     type: String,
@@ -218,9 +226,14 @@ export class UpdateTemplateDto {
   @Type(() => TemplateColumnDto)
   columns!: TemplateColumnDto[];
 }
+export class TemplateResponseColumnDto extends TemplateColumnDto {
+  @ApiProperty({ ...COLORS_SCHEMA, default: {}, selfRequired: true })
+  colors?: Record<string, OptionColor> = {};
+}
 export class TemplateDto {
   @ApiProperty({ type: "integer", minimum: 1 }) revision!: number;
-  @ApiProperty({ type: [TemplateColumnDto] }) columns!: TemplateColumnDto[];
+  @ApiProperty({ type: [TemplateResponseColumnDto] })
+  columns!: TemplateResponseColumnDto[];
 }
 export class ProjectDto {
   @ApiProperty({ format: "uuid" }) id!: string;
@@ -243,16 +256,9 @@ export class FeatureGroupDto {
 export class FeatureGroupListDto {
   @ApiProperty({ type: [FeatureGroupDto] }) items!: FeatureGroupDto[];
 }
-export class RequiredCaseDto {
-  @ApiProperty({ format: "uuid" }) id!: string;
-  @ApiProperty() description!: string;
-  @ApiProperty() enabled!: boolean;
-  @ApiProperty() isDefault!: boolean;
-}
-export class RequiredCaseListDto {
-  @ApiProperty({ type: [RequiredCaseDto] }) items!: RequiredCaseDto[];
-}
 export class ScreenDto {
+  @ApiProperty({ enum: SCREEN_TYPES }) type!: (typeof SCREEN_TYPES)[number];
+  @ApiProperty() ruleMismatch!: boolean;
   @ApiProperty({ format: "uuid" }) id!: string;
   @ApiProperty() screenId!: string;
   @ApiProperty() name!: string;
@@ -285,4 +291,175 @@ export class MemoDto {
     additionalProperties: false,
   })
   updatedBy!: MemoAuthorDto | null;
+}
+
+export class ScreenIdRuleCodeDto {
+  @ApiProperty({ minLength: 1, maxLength: 40, pattern: "^[A-Za-z0-9_-]+$" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  @Matches(/^[A-Za-z0-9_-]+$/)
+  code!: string;
+  @ApiProperty({ maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  meaning!: string;
+}
+export class ScreenIdRulePartDto {
+  @ApiProperty({ minLength: 1, maxLength: 40 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  name!: string;
+  @ApiProperty({ enum: ["list", "fixed", "number"] })
+  @IsIn(["list", "fixed", "number"])
+  kind!: "list" | "fixed" | "number";
+  @ApiProperty({ type: [ScreenIdRuleCodeDto] })
+  @IsArray()
+  @ArrayUnique((item: ScreenIdRuleCodeDto) => item?.code)
+  @ValidateNested({ each: true })
+  @Type(() => ScreenIdRuleCodeDto)
+  codes!: ScreenIdRuleCodeDto[];
+  @ApiProperty({ maxLength: 40 })
+  @IsString()
+  @MaxLength(40)
+  value!: string;
+  @ApiProperty({ type: "integer", minimum: 0, maximum: 6 })
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  digits!: number;
+}
+export class CreateScreenIdRuleDto {
+  @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name!: string;
+  @ApiPropertyOptional({ default: "_", maxLength: 3 })
+  @IsString()
+  @MaxLength(3)
+  separator: string = "_";
+  @ApiProperty({ type: [ScreenIdRulePartDto], minItems: 1, maxItems: 8 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => ScreenIdRulePartDto)
+  parts!: ScreenIdRulePartDto[];
+}
+export class UpdateScreenIdRuleDto {
+  @ApiPropertyOptional({ minLength: 1, maxLength: 100 })
+  @ValidateIf(optional)
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  name?: string;
+  @ApiPropertyOptional({ maxLength: 3 })
+  @ValidateIf(optional)
+  @IsString()
+  @MaxLength(3)
+  separator?: string;
+  @ApiPropertyOptional({
+    type: [ScreenIdRulePartDto],
+    minItems: 1,
+    maxItems: 8,
+  })
+  @ValidateIf(optional)
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => ScreenIdRulePartDto)
+  parts?: ScreenIdRulePartDto[];
+}
+export class ScreenIdRuleDto {
+  @ApiProperty({ format: "uuid" }) id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() separator!: string;
+  @ApiProperty({ type: [ScreenIdRulePartDto] }) parts!: ScreenIdRulePartDto[];
+  @ApiProperty() example!: string;
+}
+export class ScreenIdRuleListDto {
+  @ApiProperty({ type: [ScreenIdRuleDto] }) items!: ScreenIdRuleDto[];
+}
+export class NextScreenIdDto {
+  @ApiProperty({ type: String, nullable: true }) screenId!: string | null;
+}
+export class CreateScreensResultDto {
+  @ApiProperty({ type: "integer" }) created!: number;
+  @ApiProperty({ type: "integer" }) skipped!: number;
+}
+export class ScreenSourcesMultipartDto {
+  @ApiPropertyOptional({ maxLength: 60000 })
+  @ValidateIf(optional)
+  @IsString()
+  @MaxLength(60000)
+  text?: string;
+}
+export class ScreenIdRuleDraftDto {
+  @ApiProperty() name!: string;
+  @ApiProperty() separator!: string;
+  @ApiProperty({ type: [ScreenIdRulePartDto] }) parts!: ScreenIdRulePartDto[];
+  @ApiProperty() example!: string;
+}
+export class ScreenIdRuleDraftListDto {
+  @ApiProperty({ type: [ScreenIdRuleDraftDto] }) items!: ScreenIdRuleDraftDto[];
+  @ApiProperty({ type: [String] }) unreadFiles!: string[];
+}
+export class ScreenDraftDto {
+  @ApiProperty() key!: string;
+  @ApiProperty() screenId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ enum: SCREEN_TYPES }) type!: (typeof SCREEN_TYPES)[number];
+  @ApiProperty({ type: String, nullable: true }) parentKey!: string | null;
+  @ApiProperty() description!: string;
+  @ApiProperty() group!: string;
+  @ApiProperty() exists!: boolean;
+  @ApiProperty() ruleMismatch!: boolean;
+}
+export class ScreenDraftListDto {
+  @ApiProperty({ type: [ScreenDraftDto] }) items!: ScreenDraftDto[];
+  @ApiProperty({ type: "integer" }) skipped!: number;
+  @ApiProperty({ type: [String] }) unreadFiles!: string[];
+}
+export class CreateScreensItemDto {
+  @ApiPropertyOptional({ enum: SCREEN_TYPES, default: "page" })
+  @ValidateIf(optional)
+  @IsIn(SCREEN_TYPES)
+  type?: (typeof SCREEN_TYPES)[number];
+  @ApiProperty({ minLength: 1, maxLength: 100 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  screenId!: string;
+  @ApiProperty({ minLength: 1, maxLength: 200 })
+  @Transform(trim)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name!: string;
+  @ApiProperty({ maxLength: 2000 })
+  @Transform(trim)
+  @IsString()
+  @MaxLength(2000)
+  description!: string;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100 })
+  @ValidateIf((_o, value) => value !== undefined && value !== null)
+  @IsString()
+  @MaxLength(100)
+  parentScreenId?: string | null;
+}
+export class CreateScreensDto {
+  /** 초안 한도(MAX_DRAFTS)와 같다 */
+  @ApiProperty({ type: [CreateScreensItemDto], minItems: 1, maxItems: 5000 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
+  @ValidateNested({ each: true })
+  @Type(() => CreateScreensItemDto)
+  items!: CreateScreensItemDto[];
 }

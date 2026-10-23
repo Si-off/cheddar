@@ -1,5 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
-import { API, me, mockApi, reply } from "../../shared/testing/mock-api";
+import {
+  API,
+  me,
+  mockApi,
+  reply,
+  WEB_ORIGIN,
+} from "../../shared/testing/mock-api";
 import {
   testSet,
   testSetResponses,
@@ -13,7 +19,7 @@ async function mockEvents(page: Page, events: string) {
     route.fulfill({
       status: 200,
       headers: {
-        "access-control-allow-origin": "http://127.0.0.1:5173",
+        "access-control-allow-origin": WEB_ORIGIN,
         "access-control-allow-credentials": "true",
         "cache-control": "no-cache",
       },
@@ -50,7 +56,7 @@ test("진행 이벤트를 받은 뒤 이전 단계로 돌아가며 깜빡이지 
     await route.fulfill({
       status: 200,
       headers: {
-        "access-control-allow-origin": "http://127.0.0.1:5173",
+        "access-control-allow-origin": WEB_ORIGIN,
         "access-control-allow-credentials": "true",
       },
       contentType: "text/event-stream",

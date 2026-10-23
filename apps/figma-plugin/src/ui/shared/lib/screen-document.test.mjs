@@ -212,18 +212,25 @@ test("연결선은 보드 안 노드 이름과 라벨로 남긴다", () => {
   assert.deepEqual(doc.links, [{ from: "결제", to: "완료", label: "성공 시" }]);
 });
 
-test("원본 문자열로 화면 문서를 만들고 서버 상한을 넘으면 막는다", () => {
+test("원본 문자열로 화면 문서를 만들고 서버 상한을 넘으면 막지 않고 줄인다", () => {
   const source = (children) => ({
     document: JSON.stringify(board("주문", children)),
     annotations: {},
     externalNames: {},
   });
-  assert.deepEqual(
-    readFrameSource(source([text("t", "결제하기", 0, 0)])).texts,
-    ["결제하기"],
-  );
-  const large = Array.from({ length: 1000 }, (_, i) =>
+  const small = readFrameSource(source([text("t", "결제하기", 0, 0)]));
+  assert.equal(small.reduced, false);
+  assert.deepEqual(small.document.texts, ["결제하기"]);
+  const large = Array.from({ length: 1400 }, (_, i) =>
     text(`t${i}`, `${i}-${"한".repeat(1990)}`, 0, i * 30),
   );
-  assert.throws(() => readFrameSource(source(large)), /DATA_TOO_LARGE/);
+  const { document, reduced } = readFrameSource(source(large));
+  assert.equal(reduced, true);
+  assert.ok(
+    new TextEncoder().encode(JSON.stringify(document)).length <=
+      protocol.MAX_FRAME_DATA_BYTES,
+  );
+  assert.equal(document.board.name, "주문");
+  assert.deepEqual(document.tree, []);
+  assert.ok(document.texts.length > 0);
 });

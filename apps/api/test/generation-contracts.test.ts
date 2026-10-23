@@ -6,6 +6,7 @@ import test from "node:test";
 import { Test } from "@nestjs/testing";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
+import { AuthService } from "../src/auth/auth.service";
 import { configureApp } from "../src/common/application";
 import { createDocument } from "../src/common/openapi";
 import {
@@ -55,6 +56,7 @@ const input = (): GenerationInput => ({
       id: randomUUID(),
       name: "태그",
       systemKey: null,
+      presetKey: null,
       type: "tags",
       description: "허용 태그",
       options: ["화면", "업무"],
@@ -63,6 +65,7 @@ const input = (): GenerationInput => ({
       id: randomUUID(),
       name: "확인",
       systemKey: null,
+      presetKey: null,
       type: "checkbox",
       description: "",
       options: [],
@@ -78,7 +81,9 @@ const input = (): GenerationInput => ({
     },
   ],
   featureGroups: [],
-  requiredCases: [{ id: randomUUID(), description: "화면 진입" }],
+  viewpoints: [
+    { id: "screen_entry", name: "화면 진입", when: "진입 화면이 있을 때" },
+  ],
   screenStructure: [],
   existingCases: [],
   styleExamples: [],
@@ -446,6 +451,7 @@ test("HTTP DTO 검증과 SSE OpenAPI는 DB 없이 확인", async () => {
     ],
     providers: [
       { provide: GenerationService, useValue: service },
+      { provide: AuthService, useValue: {} },
       { provide: ReviewItemsService, useValue: {} },
       {
         provide: TempUploadsService,
@@ -467,6 +473,8 @@ test("HTTP DTO 검증과 SSE OpenAPI는 DB 없이 확인", async () => {
     databaseUrl: "unused",
     storageRoot: "unused",
     port: 3101,
+    host: "127.0.0.1",
+    cookieSameSite: "lax",
     corsOrigins: [],
   });
   try {

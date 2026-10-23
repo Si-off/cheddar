@@ -1,0 +1,32 @@
+# Render Blueprint. 계정 정보는 넣지 않는다. sync: false 값은 Render 대시보드에서 입력한다.
+services:
+  - type: web
+    name: cheddar-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm i -g pnpm@12.11.2 && pnpm install --frozen-lockfile --prod=false && pnpm --filter @cheddar/api build
+    startCommand: pnpm --filter @cheddar/api start
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.0
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: FILE_STORAGE_ROOT
+        value: /tmp/cheddar-files
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

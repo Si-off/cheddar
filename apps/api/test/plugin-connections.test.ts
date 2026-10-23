@@ -1,6 +1,5 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -19,12 +18,8 @@ import type {
   PluginConnectionTokenDto,
 } from "../src/contracts/plugin-connection.dto";
 import type { ProjectListDto } from "../src/contracts/project.dto";
-import {
-  accounts as accountRows,
-  pluginConnections,
-} from "../src/database/schema";
+import { pluginConnections } from "../src/database/schema";
 import { ProjectsService } from "../src/projects/projects.service";
-import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
 
@@ -52,17 +47,16 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
     );
     lease.accountIds.push(admin.account.id);
     const password = "플러그인-테스트-비밀번호-12345";
-    await auth.setPassword(admin.token, password, "invite");
-    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    await accounts.resetPassword(admin.account.id, password);
+    const cookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const person = await accounts.create({
       name: "플러그인 사용자",
-      email: "plugin-person@example.com",
-      affiliationId: admin.account.affiliation.id,
-      assignments: [],
+      loginId: "plugin-person@example.com",
+      role: "member",
+      password,
     });
-    lease.accountIds.push(person.account.id);
-    await auth.setPassword(person.token, password, "invite");
-    let personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, password)).token}`;
+    lease.accountIds.push(person.id);
+    let personCookie = `${SESSION_COOKIE}=${(await auth.login(person.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",
@@ -300,15 +294,15 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           401,
           "UNAUTHENTICATED",
         );
-        await accounts.setActive(person.account.id, false);
+        await accounts.setActive(person.id, false);
         await error(
           await approve(created.requestToken, personCookie),
           401,
           "UNAUTHENTICATED",
         );
         assert.equal((await row(created.requestToken)).status, "pending");
-        await accounts.setActive(person.account.id, true);
-        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, password)).token}`;
+        await accounts.setActive(person.id, true);
+        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.loginId, password)).token}`;
       },
     );
 
@@ -331,7 +325,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
         const issued = await json<PluginConnectionTokenDto>(winner);
         assert.equal(
           issued.account.id,
-          approvals[0].status === 204 ? admin.account.id : person.account.id,
+          approvals[0].status === 204 ? admin.account.id : person.id,
         );
         assert.equal((await me(issued.token)).status, 200);
       },
@@ -424,38 +418,15 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
       },
     );
 
-    await t.test("업로드는 현재 전체 plugin.upload 권한을 요구", async () => {
+    await t.test("활성 구성원도 플러그인 토큰으로 업로드", async () => {
       const connection = await issue(personCookie);
-      assert.equal(connection.account.name, person.account.name);
+      assert.equal(connection.account.name, person.name);
       assert.equal((await me(connection.token)).status, 200);
-      await error(await upload(connection.token), 403, "FORBIDDEN");
-      const role = await app.get(RolesService).create({
-        name: randomUUID(),
-        permissions: ["plugin.upload"],
-        requiresExpiry: false,
-        defaultExpiryDays: null,
-      });
-      lease.roleIds.push(role.id);
-      const project = await app.get(ProjectsService).create(admin.account.id, {
-        name: "플러그인 권한 프로젝트",
-        description: "",
-      });
-      await accounts.update(person.account.id, {
-        assignments: [
-          { roleId: role.id, scope: "projects", projectIds: [project.id] },
-        ],
-      });
-      await error(await upload(connection.token), 403, "FORBIDDEN");
-      await accounts.update(person.account.id, {
-        assignments: [{ roleId: role.id, scope: "global", projectIds: [] }],
-      });
       assert.equal((await upload(connection.token)).status, 201);
-      await accounts.update(person.account.id, { assignments: [] });
-      await error(await upload(connection.token), 403, "FORBIDDEN");
     });
 
     await t.test(
-      "플러그인 토큰은 볼 수 있는 프로젝트 목록만 받는다",
+      "활성 구성원의 플러그인 토큰은 모든 프로젝트를 받는다",
       async () => {
         const project = await app
           .get(ProjectsService)
@@ -481,32 +452,23 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           "브라우저와 같은 목록을 받는다.",
         );
         const personConnection = await issue(personCookie);
-        assert.ok(!(await ids(personConnection.token)).includes(project.id));
+        assert.ok((await ids(personConnection.token)).includes(project.id));
       },
     );
 
     await t.test(
-      "계정 만료 확인, 비활성화와 비밀번호 변경 시 모든 연결 영구 폐기",
+      "비활성화와 비밀번호 변경 시 모든 연결 영구 폐기",
       async () => {
         const first = await issue(personCookie),
           second = await issue(personCookie);
-        await db
-          .update(accountRows)
-          .set({ expiresAt: new Date(0) })
-          .where(eq(accountRows.id, person.account.id));
-        await error(await me(first.token), 401, "UNAUTHENTICATED");
-        await db
-          .update(accountRows)
-          .set({ expiresAt: null })
-          .where(eq(accountRows.id, person.account.id));
         const beforeDeactivation = await create();
         assert.equal(
           (await approve(beforeDeactivation.requestToken, personCookie)).status,
           204,
         );
-        await accounts.setActive(person.account.id, false);
+        await accounts.setActive(person.id, false);
         await error(await me(first.token), 401, "UNAUTHENTICATED");
-        await accounts.setActive(person.account.id, true);
+        await accounts.setActive(person.id, true);
         await error(
           await exchange(beforeDeactivation.requestToken),
           410,
@@ -516,15 +478,14 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           await error(await me(connection.token), 401, "UNAUTHENTICATED");
           assert.ok((await row(connection.requestToken)).revokedAt);
         }
-        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, password)).token}`;
+        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.loginId, password)).token}`;
         const beforeReset = await issue(personCookie);
         const approved = await create();
         assert.equal(
           (await approve(approved.requestToken, personCookie)).status,
           204,
         );
-        const reset = await accounts.issue(person.account.id, "reset");
-        await auth.setPassword(reset.token, `${password}-변경`, "reset");
+        await accounts.resetPassword(person.id, `${password}-변경`);
         await error(await me(beforeReset.token), 401, "UNAUTHENTICATED");
         await error(
           await exchange(approved.requestToken),
@@ -532,15 +493,16 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
           "PLUGIN_CONNECTION_EXPIRED",
         );
         assert.ok((await row(beforeReset.requestToken)).revokedAt);
-        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.account.email, `${password}-변경`)).token}`;
-        const beforeExpiryUpdate = await issue(personCookie);
-        await accounts.update(person.account.id, {
-          expiresAt: new Date(0).toISOString(),
-        });
-        await error(await me(beforeExpiryUpdate.token), 401, "UNAUTHENTICATED");
-        await accounts.update(person.account.id, { expiresAt: null });
-        await error(await me(beforeExpiryUpdate.token), 401, "UNAUTHENTICATED");
-        assert.ok((await row(beforeExpiryUpdate.requestToken)).revokedAt);
+        personCookie = `${SESSION_COOKIE}=${(await auth.login(person.loginId, `${password}-변경`)).token}`;
+        const beforeOwnChange = await issue(personCookie);
+        await auth.changePassword(
+          person.id,
+          personCookie.split("=")[1],
+          `${password}-변경`,
+          password,
+        );
+        await error(await me(beforeOwnChange.token), 401, "UNAUTHENTICATED");
+        assert.ok((await row(beforeOwnChange.requestToken)).revokedAt);
       },
     );
 
@@ -798,7 +760,7 @@ test("실제 PostgreSQL에서 플러그인 브라우저 로그인과 제한된 B
 test("환경 설정은 null Origin 플래그를 일반 CORS 목록과 분리하고 development에 한정", () => {
   const env = {
     DATABASE_URL: "postgresql://unused@127.0.0.1/unused",
-    FILE_STORAGE_ROOT: process.env.TEMP,
+    FILE_STORAGE_ROOT: join(tmpdir(), "cheddar-env-test"),
     NODE_ENV: "development",
     AI_PROVIDER: "fake",
   };

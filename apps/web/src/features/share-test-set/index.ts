@@ -1,6 +1,5 @@
 import { useToast } from "@cheddar/ui";
 import {
-  keepPreviousData,
   queryOptions,
   useMutation,
   useQueryClient,
@@ -17,22 +16,6 @@ export const sharingQuery = (testSetId: string) =>
       (
         await sdk.getTestSetSharing({
           path: { testSetId },
-          throwOnError: true,
-        })
-      ).data,
-  });
-
-/** 초대할 수 있는 계정. 이름이나 이메일 일부로 찾는다 */
-export const sharingCandidatesQuery = (testSetId: string, search: string) =>
-  queryOptions({
-    queryKey: ["test-set-sharing-candidates", testSetId, search],
-    enabled: search.length > 0,
-    placeholderData: keepPreviousData,
-    queryFn: async () =>
-      (
-        await sdk.listSharingCandidates({
-          path: { testSetId },
-          query: { search },
           throwOnError: true,
         })
       ).data,
@@ -73,28 +56,15 @@ export function useSharingActions(testSetId: string) {
   return {
     update: useSharingChange(
       testSetId,
-      (body: { visibility?: "private" | "public"; linkAccess?: ShareAccess }) =>
-        sdk.updateTestSetSharing({ path, body, throwOnError: true }),
+      (body: {
+        visibility?: "private" | "public";
+        linkPermission?: ShareAccess;
+      }) => sdk.updateTestSetSharing({ path, body, throwOnError: true }),
     ),
     replaceLink: useSharingChange(
       testSetId,
       () => sdk.replaceTestSetLink({ path, throwOnError: true }),
       { success: "새 링크를 만들었습니다" },
-    ),
-    setMember: useSharingChange(
-      testSetId,
-      ({ accountId, access }: { accountId: string; access: ShareAccess }) =>
-        sdk.setTestSetMember({
-          path: { testSetId, accountId },
-          body: { access },
-          throwOnError: true,
-        }),
-    ),
-    removeMember: useSharingChange(testSetId, (accountId: string) =>
-      sdk.removeTestSetMember({
-        path: { testSetId, accountId },
-        throwOnError: true,
-      }),
     ),
   };
 }

@@ -126,6 +126,7 @@ export class ReviewItemsService {
               caseId: randomUUID(),
               afterCaseId: existing.at(-1)?.id ?? null,
               values: draft,
+              featureGroupId: row.featureGroupId,
             },
           ],
         },
@@ -186,7 +187,7 @@ export class ReviewItemsService {
           memo: "",
           frames: [],
           featureGroups: [],
-          requiredCases: [],
+          viewpoints: [],
           screenStructure: [],
           styleExamples: [],
           existingCases: similarCases(

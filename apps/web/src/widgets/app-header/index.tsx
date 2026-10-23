@@ -1,29 +1,26 @@
 import { Icon, Menu, NavTab, NavTabs } from "@cheddar/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, LogOut, Shield } from "lucide-react";
-import { currentAccountQuery } from "@/entities/account";
-import { can } from "@/entities/permission";
-import { useLogout } from "@/features/auth";
+import { ChevronDown, KeyRound, LogOut, Shield } from "lucide-react";
+import { useState } from "react";
+import {
+  accountRoleLabel,
+  currentAccountQuery,
+  isAdmin,
+} from "@/entities/account";
+import { ChangePasswordDialog, useLogout } from "@/features/auth";
 
-/** 상단 바: 주요 메뉴와 계정 메뉴. 관리 진입은 관리 권한이 있을 때만 보인다. */
+/** 상단 바: 주요 메뉴와 계정 메뉴. 관리 진입은 관리자에게만 보인다. */
 export function AppHeader() {
   const { data: account } = useSuspenseQuery(currentAccountQuery());
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
   const logout = useLogout(() => navigate({ to: "/login" }));
-  const canManage =
-    can(account.permissions, "account.manage") ||
-    can(account.permissions, "role.manage");
+  const canManage = isAdmin(account);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-6 border-b border-line bg-surface px-6">
-      <Link
-        to="/test-sets"
-        className="text-title-sm font-bold text-fg no-underline"
-      >
-        Cheddar
-      </Link>
       <NavTabs variant="pill" aria-label="주요 메뉴">
         <NavTab
           render={<Link to="/test-sets" />}
@@ -56,28 +53,29 @@ export function AppHeader() {
         <Menu.Popup align="end" className="w-64">
           <div className="flex flex-col gap-0.5 px-2 py-2">
             <span className="text-title-sm text-fg">{account.name}</span>
-            <span className="text-caption text-fg-muted">{account.email}</span>
             <span className="text-caption text-fg-muted">
-              {account.affiliation.name}
+              {account.loginId}, {accountRoleLabel[account.role]}
             </span>
           </div>
           <Menu.Separator />
           {canManage && (
-            <>
-              <Menu.Item
-                icon={Shield}
-                onClick={() => navigate({ to: "/admin" })}
-              >
-                관리
-              </Menu.Item>
-              <Menu.Separator />
-            </>
+            <Menu.Item icon={Shield} onClick={() => navigate({ to: "/admin" })}>
+              관리
+            </Menu.Item>
           )}
+          <Menu.Item icon={KeyRound} onClick={() => setChangingPassword(true)}>
+            비밀번호 바꾸기
+          </Menu.Item>
+          <Menu.Separator />
           <Menu.Item icon={LogOut} onClick={() => logout.mutate()}>
             로그아웃
           </Menu.Item>
         </Menu.Popup>
       </Menu.Root>
+      <ChangePasswordDialog
+        open={changingPassword}
+        onOpenChange={setChangingPassword}
+      />
     </header>
   );
 }

@@ -1,37 +1,37 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { request as httpRequest } from "node:http";
 import test from "node:test";
 import { eq } from "drizzle-orm";
+import ExcelJS from "exceljs";
 import { AccountsService } from "../src/accounts/accounts.service";
 import { createFirstAdministrator } from "../src/accounts/bootstrap";
 import { AuthService, SESSION_COOKIE } from "../src/auth/auth.service";
 import { AuthorizationService } from "../src/authorization/authorization.service";
-import type { Permission } from "../src/authorization/permissions";
 import { createApp } from "../src/common/application";
 import { ApiError } from "../src/common/errors";
-import type { CreateAccountDto, RoleDto } from "../src/contracts/identity.dto";
 import type {
   FeatureGroupDto,
   FeatureGroupListDto,
   MemoDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseListDto,
+  ScreenDraftListDto,
   ScreenDto,
+  ScreenIdRuleDraftListDto,
+  ScreenIdRuleDto,
+  ScreenIdRuleListDto,
   ScreenListDto,
   TemplateDto,
 } from "../src/contracts/project.dto";
-import { DatabaseService } from "../src/database/database.service";
 import {
   projectMemos,
   projects,
   projectTemplates,
-  requiredCases,
 } from "../src/database/schema";
+import { readAiConfig } from "../src/generation/model-config";
 import { ProjectsService } from "../src/projects/projects.service";
-import { DEFAULT_REQUIRED_CASES } from "../src/projects/template";
-import { RolesService } from "../src/roles/roles.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
 
@@ -40,7 +40,10 @@ const code = (expected: string) => (error: unknown) =>
 const password = "프로젝트-테스트-비밀번호-12345";
 test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조 계약", async (t) => {
   const lease = await openTestDatabase();
-  const app = await createApp(lease.config, lease.folder);
+  const app = await createApp(
+    { ...lease.config, ai: readAiConfig({ AI_PROVIDER: "fake" }) },
+    lease.folder,
+  );
   try {
     await app.get(LocalStorage).initialize();
     await app.listen(0, "127.0.0.1");
@@ -48,8 +51,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     const service = app.get(ProjectsService),
       accounts = app.get(AccountsService),
       auth = app.get(AuthService),
-      authorization = app.get(AuthorizationService),
-      roles = app.get(RolesService);
+      authorization = app.get(AuthorizationService);
     const db = lease.database.db;
     const admin = await createFirstAdministrator(
       authorization,
@@ -58,8 +60,8 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       "프로젝트 관리자",
     );
     lease.accountIds.push(admin.account.id);
-    await auth.setPassword(admin.token, password, "invite");
-    const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.email, password)).token}`;
+    await accounts.resetPassword(admin.account.id, password);
+    const adminCookie = `${SESSION_COOKIE}=${(await auth.login(admin.account.loginId, password)).token}`;
     const request = (
       path: string,
       method = "GET",
@@ -89,33 +91,22 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       );
       assert.equal(result.error.code, expected);
     };
-    const makeRole = async (permissions: Permission[]): Promise<RoleDto> => {
-      const role = await roles.create({
-        name: randomUUID(),
-        permissions,
-        requiresExpiry: false,
-        defaultExpiryDays: null,
-      });
-      lease.roleIds.push(role.id);
-      return role;
-    };
-    const actor = async (assignments: CreateAccountDto["assignments"]) => {
+    const actor = async () => {
       const account = await accounts.create({
         name: "설정 사용자",
-        email: `${randomUUID()}@example.com`,
-        affiliationId: admin.account.affiliation.id,
-        assignments,
+        loginId: `${randomUUID()}@example.com`,
+        role: "member",
+        password,
       });
-      lease.accountIds.push(account.account.id);
-      await auth.setPassword(account.token, password, "invite");
+      lease.accountIds.push(account.id);
       return {
-        id: account.account.id,
-        cookie: `${SESSION_COOKIE}=${(await auth.login(account.account.email, password)).token}`,
+        id: account.id,
+        cookie: `${SESSION_COOKIE}=${(await auth.login(account.loginId, password)).token}`,
       };
     };
     let first!: ProjectDto, second!: ProjectDto;
     await t.test(
-      "만들기는 기본 양식·12개 필수 케이스·빈 메모를 함께 저장",
+      "만들기는 사전 정의 열 14개와 기본 enabled·빈 메모를 함께 저장",
       async () => {
         first = await asJson<ProjectDto>(
           await request("", "POST", { name: "  가 프로젝트  " }),
@@ -140,9 +131,9 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           template.columns.map((c) => c.name),
           [
             "테스트 ID",
-            "제목",
             "테스트 환경",
             "테스트 케이스",
+            "제목",
             "사용자/관리자",
             "화면 ID 또는 URL",
             "수행 절차",
@@ -180,14 +171,15 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         );
         assert.ok(template.columns.every((c) => c.description.length > 0));
         assert.equal(new Set(template.columns.map((c) => c.id)).size, 14);
-        const cases = await asJson<RequiredCaseListDto>(
-          await request(`/${first.id}/required-cases`),
+        assert.equal(
+          new Set(template.columns.map((c) => c.presetKey)).size,
+          14,
         );
-        assert.deepEqual(
-          cases.items.map((c) => c.description),
-          DEFAULT_REQUIRED_CASES,
+        assert.ok(
+          template.columns.every(
+            (c) => c.enabled === (c.presetKey !== "extra"),
+          ),
         );
-        assert.ok(cases.items.every((c) => c.enabled && c.isDefault));
         assert.deepEqual(
           await asJson(await request(`/${first.id}/feature-groups`)),
           { items: [] },
@@ -212,19 +204,28 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     await t.test("하위 설정 저장 실패 시 프로젝트 생성도 롤백", async () => {
       const name = randomUUID();
       const before = await db.select({ id: projects.id }).from(projects);
-      // 기본 데이터까지 삽입한 뒤 응답 권한 계산이 실패해도 전체 트랜잭션을 되돌린다.
-      const brokenAuthorization = {
-        effective: async () => {
-          throw new Error("응답 권한 계산 실패");
-        },
-      } as unknown as AuthorizationService;
-      const broken = new ProjectsService(
-        app.get(DatabaseService),
-        brokenAuthorization,
+      const fault = `cheddar_test_${randomUUID().replaceAll("-", "")}`;
+      // 프로젝트와 양식 삽입 후 메모 저장이 실패해도 전체 생성이 롤백되어야 한다.
+      await lease.database.pool.query(
+        `CREATE FUNCTION "${fault}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'TEST_MEMO_WRITE_FAILED'; END $$`,
       );
-      await assert.rejects(
-        broken.create(admin.account.id, { name, description: "" }),
-      );
+      try {
+        await lease.database.pool.query(
+          `CREATE TRIGGER "${fault}" BEFORE INSERT ON project_memos FOR EACH ROW EXECUTE FUNCTION "${fault}"()`,
+        );
+        await assert.rejects(
+          service.create(admin.account.id, { name, description: "" }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.cause instanceof Error &&
+            error.cause.message === "TEST_MEMO_WRITE_FAILED",
+        );
+      } finally {
+        await lease.database.pool.query(
+          `DROP TRIGGER IF EXISTS "${fault}" ON project_memos`,
+        );
+        await lease.database.pool.query(`DROP FUNCTION "${fault}"()`);
+      }
       assert.equal(
         (await db.select().from(projects).where(eq(projects.name, name)))
           .length,
@@ -235,177 +236,97 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         before,
       );
     });
-    const exporter = await makeRole(["test_set.export"]),
-      managerRole = await makeRole(["project.manage"]);
-    const scoped = await actor([
-      { roleId: exporter.id, scope: "projects", projectIds: [first.id] },
-    ]);
-    const manager = await actor([
-      { roleId: managerRole.id, scope: "projects", projectIds: [first.id] },
-    ]);
-    const noGrants = await actor([]);
-    const emptyRole = await makeRole([]);
-    const empty = await actor([
-      { roleId: emptyRole.id, scope: "projects", projectIds: [first.id] },
-    ]);
-    await t.test(
-      "권한별 보기, 숨김 404와 project.manage 쓰기 범위",
-      async () => {
-        for (const suffix of [
-          "",
-          "/template",
-          "/feature-groups",
-          "/required-cases",
-          "/screens",
-          "/memo",
-        ]) {
+    const scoped = await actor(),
+      manager = await actor();
+    await t.test("구성원은 모든 프로젝트와 설정을 보고 편집한다", async () => {
+      for (const who of [scoped, manager]) {
+        const list = await asJson<ProjectListDto>(
+          await request("", "GET", undefined, who.cookie),
+        );
+        assert.deepEqual(
+          list.items.map((p) => p.id),
+          [first.id, second.id],
+        );
+        assert.ok(list.items.every((p) => p.canManage));
+        for (const project of [first, second]) {
+          for (const suffix of [
+            "",
+            "/template",
+            "/feature-groups",
+            "/screens",
+            "/screen-id-rules",
+            "/memo",
+          ])
+            assert.equal(
+              (
+                await request(
+                  `/${project.id}${suffix}`,
+                  "GET",
+                  undefined,
+                  who.cookie,
+                )
+              ).status,
+              200,
+            );
           assert.equal(
             (
               await request(
-                `/${first.id}${suffix}`,
-                "GET",
-                undefined,
-                scoped.cookie,
+                `/${project.id}`,
+                "PATCH",
+                { description: "새 설명" },
+                who.cookie,
               )
             ).status,
             200,
           );
-          for (const cookie of [
-            scoped.cookie,
-            manager.cookie,
-            noGrants.cookie,
-            empty.cookie,
-          ])
-            await error(
-              await request(`/${second.id}${suffix}`, "GET", undefined, cookie),
-              404,
-              "NOT_FOUND",
-            );
-          for (const cookie of [noGrants.cookie, empty.cookie])
-            await error(
-              await request(`/${first.id}${suffix}`, "GET", undefined, cookie),
-              404,
-              "NOT_FOUND",
-            );
         }
-        const scopedList = await asJson<ProjectListDto>(
-          await request("", "GET", undefined, scoped.cookie),
-        );
-        assert.deepEqual(
-          scopedList.items.map((p) => p.id),
-          [first.id],
-        );
-        assert.equal(scopedList.items[0].canManage, false);
-        assert.deepEqual(
-          await asJson(await request("", "GET", undefined, noGrants.cookie)),
-          { items: [] },
-        );
-        assert.equal(
-          (
-            await asJson<ProjectDto>(
-              await request(`/${first.id}`, "GET", undefined, manager.cookie),
-            )
-          ).canManage,
-          true,
-        );
-        for (const permission of [
-          "account.manage",
-          "role.manage",
-          "test_set.export",
-        ] as const) {
-          const role = await makeRole([permission]);
-          const global = await actor([
-            { roleId: role.id, scope: "global", projectIds: [] },
-          ]);
-          const list = await asJson<ProjectListDto>(
-            await request("", "GET", undefined, global.cookie),
-          );
-          assert.equal(list.items.length, 2);
-          assert.ok(list.items.every((p) => !p.canManage));
-        }
-        await error(await request(`/${randomUUID()}`), 404, "NOT_FOUND");
-        await error(
-          await request("", "POST", { name: "거부" }, manager.cookie),
-          403,
-          "FORBIDDEN",
-        );
-        await error(
-          await request(
-            `/${second.id}`,
-            "PATCH",
-            { name: "거부" },
-            manager.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-        const updated = await asJson<ProjectDto>(
-          await request(
-            `/${first.id}`,
-            "PATCH",
-            { description: "  새 설명  " },
-            manager.cookie,
-          ),
-        );
-        assert.equal(updated.description, "새 설명");
-        const suffixes = [
-          ["", "PATCH", { name: "거부" }],
-          ["/template", "PUT", {}],
-          ["/feature-groups", "POST", {}],
-          [`/feature-groups/${randomUUID()}`, "PATCH", {}],
-          [`/feature-groups/${randomUUID()}`, "DELETE", undefined],
-          ["/feature-groups/order", "PUT", { ids: [] }],
-          ["/required-cases", "POST", {}],
-          [`/required-cases/${randomUUID()}`, "PATCH", {}],
-          [`/required-cases/${randomUUID()}`, "DELETE", undefined],
-          ["/screens", "POST", {}],
-          [`/screens/${randomUUID()}`, "PATCH", {}],
-          [`/screens/${randomUUID()}`, "DELETE", undefined],
-          ["/memo", "PUT", { body: "거부" }],
-        ] as const;
-        for (const [suffix, method, body] of suffixes)
-          await error(
-            await request(`/${first.id}${suffix}`, method, body, scoped.cookie),
-            403,
-            "FORBIDDEN",
-          );
-      },
-    );
-    await t.test(
-      "project.create 전체 권한은 만들기와 보기만 허용하고 관리 권한을 자동 부여하지 않음",
-      async () => {
-        const role = await makeRole(["project.create"]);
-        const creator = await actor([
-          { roleId: role.id, scope: "global", projectIds: [] },
-        ]);
-        const project = await asJson<ProjectDto>(
-          await request("", "POST", { name: "만들기만" }, creator.cookie),
-          201,
-        );
-        assert.equal(project.canManage, false);
-        assert.equal(
-          (await request(`/${project.id}`, "GET", undefined, creator.cookie))
-            .status,
-          200,
-        );
-        await error(
-          await request(
-            `/${project.id}/memo`,
-            "PUT",
-            { body: "거부" },
-            creator.cookie,
-          ),
-          403,
-          "FORBIDDEN",
-        );
-      },
-    );
+      }
+      await error(await request(`/${randomUUID()}`), 404, "NOT_FOUND");
+      const created = await asJson<ProjectDto>(
+        await request("", "POST", { name: "구성원 프로젝트" }, scoped.cookie),
+        201,
+      );
+      assert.equal(created.canManage, true);
+      const saved = await asJson<MemoDto>(
+        await request(
+          `/${created.id}/memo`,
+          "PUT",
+          { body: "작성" },
+          manager.cookie,
+        ),
+      );
+      assert.equal(saved.body, "작성");
+    });
     await t.test("양식 revision 충돌과 동시 저장은 하나만 성공", async () => {
       const template = await asJson<TemplateDto>(
         await request(`/${first.id}/template`),
       );
-      template.columns[2].name = "사전 준비";
-      template.columns[2].options = ["지움"];
+      for (const mutate of [
+        (columns: TemplateDto["columns"]) => {
+          columns[2].name = "사전 준비";
+        },
+        (columns: TemplateDto["columns"]) => {
+          columns[0].enabled = false;
+        },
+      ]) {
+        const invalid = structuredClone(template);
+        mutate(invalid.columns);
+        await error(
+          await request(`/${first.id}/template`, "PUT", invalid),
+          400,
+          "VALIDATION_FAILED",
+        );
+      }
+      template.columns.push({
+        id: randomUUID(),
+        presetKey: null,
+        enabled: true,
+        systemKey: null,
+        name: "사전 준비",
+        type: "text",
+        description: "",
+        options: ["지움"],
+      });
       const saved = await asJson<TemplateDto>(
         await request(`/${first.id}/template`, "PUT", template, manager.cookie),
       );
@@ -506,61 +427,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           create("동시 추가"),
         ]);
         assert.deepEqual(simultaneous.map((r) => r.status).sort(), [201, 409]);
-      },
-    );
-    await t.test(
-      "기본 필수 케이스는 사용 여부만 변경, 사용자 케이스는 수정과 삭제 허용",
-      async () => {
-        const list = await service.listCases(first.id, admin.account.id),
-          standard = list.items[0];
-        assert.equal(
-          (await service.updateCase(first.id, standard.id, { enabled: false }))
-            .enabled,
-          false,
-        );
-        await assert.rejects(
-          service.updateCase(first.id, standard.id, {
-            description: standard.description,
-          }),
-          code("DEFAULT_REQUIRED_CASE"),
-        );
-        await assert.rejects(
-          service.removeCase(first.id, standard.id),
-          code("DEFAULT_REQUIRED_CASE"),
-        );
-        const custom = await service.createCase(first.id, {
-          description: "  사용자 케이스  ",
-        });
-        assert.equal(custom.description, "사용자 케이스");
-        assert.equal(custom.enabled, true);
-        assert.equal(custom.isDefault, false);
-        assert.equal(
-          (await service.listCases(first.id, admin.account.id)).items.at(-1)
-            ?.id,
-          custom.id,
-        );
-        assert.equal(
-          (
-            await service.updateCase(first.id, custom.id, {
-              description: "수정",
-              enabled: false,
-            })
-          ).description,
-          "수정",
-        );
-        await assert.rejects(
-          service.updateCase(second.id, custom.id, { enabled: true }),
-          code("NOT_FOUND"),
-        );
-        await assert.rejects(
-          service.removeCase(second.id, custom.id),
-          code("NOT_FOUND"),
-        );
-        await service.removeCase(first.id, custom.id);
-        await assert.rejects(
-          service.removeCase(first.id, custom.id),
-          code("NOT_FOUND"),
-        );
       },
     );
     await t.test(
@@ -711,6 +577,434 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
         );
       },
     );
+    await t.test("화면 규칙 CRUD·검증·순서·다음 ID·불일치", async () => {
+      const project = await asJson<ProjectDto>(
+        await request("", "POST", { name: "규칙 테스트" }),
+        201,
+      );
+      const root = `/${project.id}`;
+      const body = {
+        name: "페이지",
+        parts: [
+          {
+            name: "환경",
+            kind: "list",
+            codes: [{ code: "PC", meaning: "웹" }],
+            value: "",
+            digits: 0,
+          },
+          { name: "번호", kind: "number", codes: [], value: "", digits: 3 },
+        ],
+      };
+      const screen = await asJson<ScreenDto>(
+        await request(`${root}/screens`, "POST", {
+          screenId: "PC_002",
+          name: "화면",
+          description: "",
+          type: "popup",
+        }),
+        201,
+      );
+      assert.equal(screen.type, "popup");
+      assert.equal(screen.ruleMismatch, false);
+      const rule = await asJson<ScreenIdRuleDto>(
+        await request(`${root}/screen-id-rules`, "POST", body),
+        201,
+      );
+      assert.equal(rule.example, "PC_001");
+      assert.equal(rule.separator, "_");
+      await error(
+        await request(`${root}/screen-id-rules`, "POST", body),
+        409,
+        "DUPLICATE_NAME",
+      );
+      for (const part of [
+        { ...body.parts[0], codes: [] },
+        {
+          ...body.parts[0],
+          codes: [
+            { code: "PC", meaning: "" },
+            { code: "PC", meaning: "" },
+          ],
+        },
+        { ...body.parts[0], value: "잘못된 값" },
+        { ...body.parts[1], digits: 0 },
+        { ...body.parts[1], digits: 7 },
+        { ...body.parts[0], kind: "fixed", value: "" },
+      ])
+        await error(
+          await request(`${root}/screen-id-rules`, "POST", {
+            ...body,
+            name: "거부",
+            parts: [part],
+          }),
+          400,
+          "VALIDATION_ERROR",
+        );
+      const other = await asJson<ScreenIdRuleDto>(
+        await request(`${root}/screen-id-rules`, "POST", {
+          ...body,
+          name: "두 번째",
+        }),
+        201,
+      );
+      for (const ids of [
+        [rule.id],
+        [rule.id, rule.id],
+        [rule.id, randomUUID()],
+      ])
+        await error(
+          await request(`${root}/screen-id-rules/order`, "PUT", { ids }),
+          409,
+          "STALE_ORDER",
+        );
+      const ordered = await asJson<ScreenIdRuleListDto>(
+        await request(`${root}/screen-id-rules/order`, "PUT", {
+          ids: [other.id, rule.id],
+        }),
+      );
+      assert.deepEqual(
+        ordered.items.map((item) => item.id),
+        [other.id, rule.id],
+      );
+      assert.deepEqual(
+        await asJson(
+          await request(`${root}/screen-id-rules/${rule.id}/next?prefix=PC`),
+        ),
+        { screenId: "PC_003" },
+      );
+      await error(
+        await request(`/${second.id}/screen-id-rules/${rule.id}`, "PATCH", {
+          name: "다른 프로젝트",
+        }),
+        404,
+        "NOT_FOUND",
+      );
+      await error(
+        await request(`/${second.id}/screen-id-rules/${rule.id}`, "DELETE"),
+        404,
+        "NOT_FOUND",
+      );
+      await error(
+        await request(
+          `/${second.id}/screen-id-rules/${rule.id}/next?prefix=PC`,
+        ),
+        404,
+        "NOT_FOUND",
+      );
+      assert.equal(
+        (
+          await request(
+            `${root}/screen-id-rules/${rule.id}/next?prefix=PC`,
+            "GET",
+            undefined,
+            scoped.cookie,
+          )
+        ).status,
+        200,
+      );
+      await asJson(
+        await request(`${root}/screens/${screen.id}`, "PATCH", {
+          screenId: "BAD",
+        }),
+      );
+      assert.equal(
+        (await asJson<ScreenListDto>(await request(`${root}/screens`))).items[0]
+          .ruleMismatch,
+        true,
+      );
+      const patched = await asJson<ScreenIdRuleDto>(
+        await request(`${root}/screen-id-rules/${rule.id}`, "PATCH", {
+          parts: [
+            { name: "고정", kind: "fixed", codes: [], value: "BAD", digits: 0 },
+          ],
+        }),
+      );
+      assert.equal(patched.example, "BAD");
+      assert.equal(
+        (await asJson<ScreenListDto>(await request(`${root}/screens`))).items[0]
+          .ruleMismatch,
+        false,
+      );
+      for (const id of [rule.id, other.id])
+        assert.equal(
+          (await request(`${root}/screen-id-rules/${id}`, "DELETE")).status,
+          204,
+        );
+      const saved = (
+        await asJson<ScreenListDto>(await request(`${root}/screens`))
+      ).items[0];
+      assert.equal(saved.screenId, "BAD");
+      assert.equal(saved.ruleMismatch, false);
+      assert.equal(saved.type, "popup");
+    });
+    await t.test(
+      "파일에서 화면 초안: 상위 경로 잇기, 중복, ID 없는 행, 버튼, 기존 화면, 일괄 추가",
+      async () => {
+        const project = await asJson<ProjectDto>(
+          await request("", "POST", { name: "IA 테스트" }),
+          201,
+        );
+        const root = `/${project.id}`;
+        const post = async (
+          path: string,
+          files: { name: string; body: Uint8Array | string }[],
+          text?: string,
+        ) => {
+          const form = new FormData();
+          if (text !== undefined) form.append("text", text);
+          for (const file of files)
+            form.append("files[]", new Blob([file.body]), file.name);
+          return fetch(`${base}/api/v1/projects${root}${path}`, {
+            method: "POST",
+            headers: { Cookie: adminCookie },
+            body: form,
+          });
+        };
+        const workbook = new ExcelJS.Workbook();
+        workbook
+          .addWorksheet("IA")
+          .addRows([
+            ["IA 문서"],
+            [
+              "No",
+              "module",
+              "1Depth",
+              "2Depth",
+              "Type",
+              "Screen ID_최종",
+              "Note",
+            ],
+            [1, "홈", "", "", "Page", "U_HOME_PG_001", ""],
+            [2, "", "공지", "", "Page", "U_HOME_PG_002", "목록"],
+            [3, "", "", "상세", "Popup", "U_HOME_PO_001", "설명"],
+            [4, "", "", "다운로드", "Button", "", ""],
+            [5, "", "", "탭", "Tab", "U_HOME_PG_002", ""],
+            [6, "", "알림", "", "Page", "", ""],
+            [7, "", "", "알림 상세", "Bottom sheet", "U_HOME_BT_001", ""],
+            [8, "마이", "", "", "Page", "OLD", ""],
+          ]);
+        workbook.addWorksheet("메모").addRow(["다른 시트"]);
+        const xlsx = new Uint8Array(await workbook.xlsx.writeBuffer());
+        await asJson(
+          await request(`${root}/screens`, "POST", {
+            screenId: "OLD",
+            name: "기존",
+            description: "",
+          }),
+          201,
+        );
+        const drafts = await asJson<ScreenDraftListDto>(
+          await post("/screens/drafts", [
+            { name: "화면 목록.xlsx", body: xlsx },
+            { name: "설명.pdf", body: "pdf" },
+          ]),
+          201,
+        );
+        assert.deepEqual(drafts.unreadFiles, ["설명.pdf"]);
+        assert.equal(drafts.skipped, 1);
+        const draft = (id: string) => {
+          const row = drafts.items.find((item) => item.screenId === id);
+          assert.ok(row, id);
+          return row;
+        };
+        assert.deepEqual(
+          drafts.items.map((item) => item.screenId),
+          [
+            "U_HOME_PG_001",
+            "U_HOME_PG_002",
+            "U_HOME_PO_001",
+            "U_HOME_BT_001",
+            "OLD",
+          ],
+        );
+        assert.equal(
+          draft("U_HOME_PG_002").parentKey,
+          draft("U_HOME_PG_001").key,
+        );
+        assert.equal(
+          draft("U_HOME_PO_001").parentKey,
+          draft("U_HOME_PG_002").key,
+        );
+        assert.equal(draft("U_HOME_PO_001").name, "상세");
+        assert.equal(draft("U_HOME_PO_001").type, "popup");
+        assert.equal(draft("U_HOME_PO_001").description, "설명");
+        // 상위 행(알림)에 ID가 없으면 그 위 화면에 잇는다.
+        assert.equal(
+          draft("U_HOME_BT_001").parentKey,
+          draft("U_HOME_PG_001").key,
+        );
+        assert.equal(draft("U_HOME_BT_001").type, "bottom_sheet");
+        assert.equal(draft("OLD").exists, true);
+        assert.equal(draft("U_HOME_PG_001").exists, false);
+
+        const keyToId = new Map(drafts.items.map((d) => [d.key, d.screenId]));
+        const result = await asJson(
+          await request(`${root}/screens/batch`, "POST", {
+            items: drafts.items.map((d) => ({
+              screenId: d.screenId,
+              name: d.name,
+              type: d.type,
+              description: d.description,
+              parentScreenId: d.parentKey ? keyToId.get(d.parentKey) : null,
+            })),
+          }),
+          201,
+        );
+        assert.deepEqual(result, { created: 4, skipped: 1 });
+        const list = (
+          await asJson<ScreenListDto>(await request(`${root}/screens`))
+        ).items;
+        const saved = (id: string) => {
+          const row = list.find((item) => item.screenId === id);
+          assert.ok(row, id);
+          return row;
+        };
+        assert.equal(
+          saved("U_HOME_PO_001").parentId,
+          saved("U_HOME_PG_002").id,
+        );
+        assert.equal(saved("U_HOME_PG_001").parentId, null);
+
+        // 붙여 넣은 글에서도 화면 ID만 뽑는다.
+        const pasted = await asJson<ScreenDraftListDto>(
+          await post(
+            "/screens/drafts",
+            [],
+            "U_HOME_PG_009 새 화면\n제목만 있는 줄",
+          ),
+          201,
+        );
+        assert.deepEqual(
+          pasted.items.map((d) => [d.screenId, d.exists]),
+          [["U_HOME_PG_009", false]],
+        );
+        await error(
+          await post("/screens/drafts", [{ name: "a.pdf", body: "x" }]),
+          422,
+          "SOURCE_UNREADABLE",
+        );
+        await error(
+          await post("/screens/drafts", [], "화면 ID 없음"),
+          422,
+          "SCREEN_IDS_NOT_FOUND",
+        );
+        await error(await post("/screens/drafts", []), 400, "VALIDATION_ERROR");
+        assert.equal(
+          (
+            await post("/screens/drafts", [
+              {
+                name: "large.xlsx",
+                body: new Uint8Array(10 * 1024 * 1024 + 1),
+              },
+            ])
+          ).status,
+          413,
+        );
+        // 서로를 상위로 가리켜도 순환을 저장하지 않는다
+        await asJson(
+          await request(`${root}/screens/batch`, "POST", {
+            items: [
+              {
+                screenId: "LOOP_A",
+                name: "A",
+                description: "",
+                parentScreenId: "LOOP_B",
+              },
+              {
+                screenId: "LOOP_B",
+                name: "B",
+                description: "",
+                parentScreenId: "LOOP_A",
+              },
+            ],
+          }),
+          201,
+        );
+        const looped = (
+          await asJson<ScreenListDto>(await request(`${root}/screens`))
+        ).items.filter((item) => item.screenId.startsWith("LOOP_"));
+        assert.equal(looped.length, 2);
+        assert.equal(looped.filter((item) => item.parentId === null).length, 1);
+        // 파일 합계가 한도를 넘으면 본문을 읽기 전에 막는다
+        const oversized = await new Promise<number>((resolve, reject) => {
+          const req = httpRequest(
+            `${base}/api/v1/projects${root}/screens/drafts`,
+            {
+              method: "POST",
+              headers: {
+                Cookie: adminCookie,
+                "Content-Length": String(32 * 1024 * 1024),
+              },
+            },
+            (res) => {
+              res.resume();
+              res.on("end", () => resolve(res.statusCode ?? 0));
+            },
+          );
+          req.on("error", reject);
+          req.end();
+        });
+        assert.equal(oversized, 413);
+        await error(
+          await request(`${root}/screens/batch`, "POST", { items: [] }),
+          400,
+          "VALIDATION_ERROR",
+        );
+      },
+    );
+    await t.test(
+      "파일에서 화면 ID 규칙 초안: 맞는 ID가 있는 규칙만, 이름 겹침 피하기",
+      async () => {
+        const project = await asJson<ProjectDto>(
+          await request("", "POST", { name: "규칙 초안" }),
+          201,
+        );
+        const root = `/${project.id}`;
+        await asJson(
+          await request(`${root}/screen-id-rules`, "POST", {
+            name: "규칙 1",
+            separator: "_",
+            parts: [
+              { name: "번호", kind: "number", codes: [], value: "", digits: 3 },
+            ],
+          }),
+          201,
+        );
+        const form = new FormData();
+        form.append(
+          "text",
+          "PC_CPN_REG_PG_001 쿠폰 등록\nPC_ORD_LIST_PG_002 주문 목록\nU_SP_0101_PG 스플래시",
+        );
+        const drafts = await asJson<ScreenIdRuleDraftListDto>(
+          await fetch(`${base}/api/v1/projects${root}/screen-id-rules/drafts`, {
+            method: "POST",
+            headers: { Cookie: adminCookie },
+            body: form,
+          }),
+          201,
+        );
+        assert.equal(drafts.items.length, 2);
+        assert.ok(!drafts.items.some((rule) => rule.name === "규칙 1"));
+        const [admin] = drafts.items;
+        assert.equal(admin.parts.length, 5);
+        assert.deepEqual(
+          admin.parts[1].codes.map((c) => c.code),
+          ["CPN", "ORD"],
+        );
+        assert.equal(admin.parts[4].kind, "number");
+        assert.equal(admin.example, "PC_CPN_REG_PG_001");
+        // 초안은 그대로 규칙으로 저장할 수 있다.
+        await asJson(
+          await request(`${root}/screen-id-rules`, "POST", {
+            name: admin.name,
+            separator: admin.separator,
+            parts: admin.parts,
+          }),
+          201,
+        );
+      },
+    );
     await t.test("메모 부재 응답, upsert 1행과 마지막 수정 계정", async () => {
       await db.delete(projectMemos).where(eq(projectMemos.projectId, first.id));
       assert.deepEqual(await service.memo(first.id, admin.account.id), {
@@ -754,11 +1048,6 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           .values({ name: "기본값", createdBy: admin.account.id })
           .returning();
         assert.equal(row.description, "");
-        const [required] = await db
-          .insert(requiredCases)
-          .values({ projectId: row.id, description: "사용자", position: 0 })
-          .returning();
-        assert.equal(required.isDefault, false);
         await db
           .insert(projectMemos)
           .values({ projectId: row.id, authorId: admin.account.id, body: "" });

@@ -1,20 +1,16 @@
 import { Button, EmptyState, LoadError } from "@cheddar/ui";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { FolderKanban, Plus } from "lucide-react";
 import { useState } from "react";
-import { currentAccountQuery } from "@/entities/account";
-import { can } from "@/entities/permission";
 import { projectsQuery } from "@/entities/project";
 import { CreateProjectDialog } from "@/features/create-project";
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { data: account } = useSuspenseQuery(currentAccountQuery());
   const projects = useQuery(projectsQuery());
   const [creating, setCreating] = useState(false);
-  const canCreate = can(account.permissions, "project.create");
-  const create = canCreate && (
+  const create = (
     <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
       프로젝트 만들기
     </Button>

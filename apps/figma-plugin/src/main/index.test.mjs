@@ -150,27 +150,27 @@ async function prepare(subject) {
     selectionVersion: ready.selection.version,
   });
 }
-test("unsupported direct selections and stale selections cannot start", async () => {
+test("only a selection without any frame stops the upload; a stale version or missing file key does not", async () => {
   const mixed = setup({ nodes: [{ id: "a", type: "INSTANCE" }] });
   const selected = await mixed.send({ type: "ui-ready" });
   assert.equal(selected.selection.frames.length, 0);
   assert.equal(selected.selection.unsupportedCount, 1);
   assert.equal((await prepare(mixed)).code, "INVALID_SELECTION");
+  // 누른 사이 선택이 바뀌어도 누른 순간의 선택으로 시작한다
   const subject = setup();
   const ready = await subject.send({ type: "ui-ready" });
   subject.events.get("selectionchange")();
-  assert.equal(
-    (
-      await subject.send({
-        type: "prepare-upload",
-        requestId: "bad",
-        selectionVersion: ready.selection.version,
-      })
-    ).code,
-    "INVALID_SELECTION",
-  );
-  const missing = setup({ fileKey: null });
-  assert.equal((await prepare(missing)).code, "FILE_KEY_UNAVAILABLE");
+  const stale = await subject.send({
+    type: "prepare-upload",
+    requestId: "stale",
+    selectionVersion: ready.selection.version,
+  });
+  assert.equal(stale.type, "upload-prepared");
+  assert.equal(stale.frames.length, 1);
+  // 파일 키는 업로드에 쓰지 않으므로 없어도 시작한다
+  const missing = await prepare(setup({ fileKey: null }));
+  assert.equal(missing.type, "upload-prepared");
+  assert.equal(missing.fileKey, null);
 });
 
 function branch(type, id, children = []) {
@@ -266,48 +266,62 @@ test("mixed Section and descendant selections deduplicate frames regardless of a
   }
 });
 
-test("empty Sections, invalid frame metadata, and unsupported direct nodes block registration", async () => {
+test("empty Sections, invalid frames, and other layers are left out instead of blocking", async () => {
   const empty = branch("SECTION", "empty", [
     branch("GROUP", "group", [{ id: "text", type: "TEXT" }]),
     branch("SECTION", "empty-inner"),
   ]);
-  for (const nodes of [[empty], [screen("direct"), empty]]) {
-    const subject = setup({ nodes });
-    const selected = await subject.send({ type: "ui-ready" });
-    assert.equal(selected.selection.emptySectionCount, 1);
-    assert.equal(selected.selection.unsupportedCount, 0);
-    assert.equal((await prepare(subject)).code, "INVALID_SELECTION");
-  }
+  const onlyEmpty = setup({ nodes: [empty] });
+  assert.equal((await prepare(onlyEmpty)).code, "INVALID_SELECTION");
+  const withFrame = setup({ nodes: [screen("direct"), empty] });
+  const selected = await withFrame.send({ type: "ui-ready" });
+  assert.equal(selected.selection.emptySectionCount, 1);
+  assert.deepEqual(
+    Array.from((await prepare(withFrame)).frames, (f) => f.nodeId),
+    ["direct"],
+  );
   const invalid = { ...screen("invalid"), width: 0 };
   const section = branch("SECTION", "section", [screen("valid"), invalid]);
   const subject = setup({
     nodes: [section, { id: "direct-text", type: "TEXT" }],
   });
-  const selected = await subject.send({ type: "ui-ready" });
-  assert.deepEqual(selectedIds(selected), ["valid"]);
-  assert.equal(selected.selection.unsupportedCount, 2);
-  assert.equal(selected.selection.emptySectionCount, 0);
-  assert.equal((await prepare(subject)).code, "INVALID_SELECTION");
+  const mixed = await subject.send({ type: "ui-ready" });
+  assert.deepEqual(selectedIds(mixed), ["valid"]);
+  assert.equal(mixed.selection.unsupportedCount, 2);
+  assert.deepEqual(
+    Array.from((await prepare(subject)).frames, (f) => f.nodeId),
+    ["valid"],
+  );
   assert.equal(
     subject.protocol.isMainToUiMessage({
-      ...selected,
-      selection: { ...selected.selection, emptySectionCount: 2 },
+      ...mixed,
+      selection: { ...mixed.selection, emptySectionCount: 2 },
     }),
     false,
   );
 });
 
-test("a prepared Section snapshot survives selection changes but stops after document edits", async () => {
+test("a prepared upload survives selection changes and edits elsewhere in the document", async () => {
   const first = screen("first");
   const section = branch("SECTION", "section", [first]);
   const subject = setup({ nodes: [section] });
   const prepared = await prepare(subject);
   subject.page.selection = [screen("another")];
   subject.events.get("selectionchange")();
+  section.children.push(screen("added"));
+  for (const callback of subject.pageEvents) callback();
+  subject.events.get("stylechange")();
   assert.deepEqual(
     Array.from(prepared.frames, (frame) => frame.nodeId),
     ["first"],
   );
+  const exported = await subject.send({
+    type: "export-frame",
+    requestId: "after-edits",
+    sessionId: "session",
+    nodeId: first.id,
+  });
+  assert.equal(exported.type, "frame-exported");
   assert.equal(
     (
       await subject.send({
@@ -317,19 +331,6 @@ test("a prepared Section snapshot survives selection changes but stops after doc
       })
     ).type,
     "upload-validated",
-  );
-  section.children.push(screen("added"));
-  for (const callback of subject.pageEvents) callback();
-  assert.equal(
-    (
-      await subject.send({
-        type: "export-frame",
-        requestId: "changed",
-        sessionId: "session",
-        nodeId: first.id,
-      })
-    ).code,
-    "FRAME_CHANGED",
   );
 });
 test("exports the REST source, annotations and outside link names without filtering", async () => {
@@ -421,23 +422,47 @@ test("exports the REST source, annotations and outside link names without filter
     "upload-validated",
   );
 });
-test("document changes and released sessions cannot publish a mixed snapshot", async () => {
+test("a removed frame is reported on its own and a released session expires", async () => {
   const subject = setup();
   await prepare(subject);
+  // 업로드는 페이지를 지켜보지 않는다
+  assert.equal(subject.pageEvents.size, 1);
   for (const callback of subject.pageEvents) callback();
+  const renamed = { ...subject.frame };
+  subject.frame.name = "주문 수정";
+  const exported = await subject.send({
+    type: "export-frame",
+    requestId: "renamed",
+    sessionId: "session",
+    nodeId: "1:2",
+  });
+  assert.equal(exported.type, "frame-exported");
+  // 이름이 바뀌었으면 지금 이름으로 올린다
+  assert.equal(exported.frame.name, "주문 수정");
+  assert.notEqual(renamed.name, exported.frame.name);
+  // 메시지 계약을 넘는 이름은 잘라서 보낸다
+  subject.frame.name = "가".repeat(300);
+  const long = await subject.send({
+    type: "export-frame",
+    requestId: "long-name",
+    sessionId: "session",
+    nodeId: "1:2",
+  });
+  assert.equal(long.frame.name.length, 255);
+  assert.equal(subject.protocol.isMainToUiMessage(long), true);
+  subject.frame.removed = true;
   assert.equal(
     (
       await subject.send({
         type: "export-frame",
-        requestId: "changed",
+        requestId: "removed",
         sessionId: "session",
         nodeId: "1:2",
       })
     ).code,
-    "FRAME_CHANGED",
+    "FRAME_REMOVED",
   );
   await subject.send({ type: "release-upload", sessionId: "session" });
-  assert.equal(subject.pageEvents.size, 1);
   assert.equal(
     (
       await subject.send({
@@ -449,28 +474,38 @@ test("document changes and released sessions cannot publish a mixed snapshot", a
     "SESSION_EXPIRED",
   );
 });
-test("oversized REST sources and failed exports produce safe actionable codes", async () => {
-  const subject = setup();
+test("an oversized REST source is reduced to the board instead of failing, and failed exports stay private", async () => {
   const oversized = setup({
     rest: {
       id: "1:2",
       type: "FRAME",
       name: "주문",
-      characters: "a".repeat(subject.protocol.MAX_FRAME_SOURCE_CHARS),
+      absoluteBoundingBox: { x: 0, y: 0, width: 390, height: 844 },
+      children: [
+        {
+          id: "1:3",
+          type: "TEXT",
+          name: "t",
+          characters: "a".repeat(64 * 1024 * 1024),
+        },
+      ],
     },
   });
   await prepare(oversized);
-  assert.equal(
-    (
-      await oversized.send({
-        type: "export-frame",
-        requestId: "large",
-        sessionId: "session",
-        nodeId: "1:2",
-      })
-    ).code,
-    "DATA_TOO_LARGE",
-  );
+  const large = await oversized.send({
+    type: "export-frame",
+    requestId: "large",
+    sessionId: "session",
+    nodeId: "1:2",
+  });
+  assert.equal(large.type, "frame-exported");
+  assert.ok(oversized.protocol.isMainToUiMessage(large));
+  assert.deepEqual(JSON.parse(large.source.document), {
+    id: "1:2",
+    type: "FRAME",
+    name: "주문",
+    absoluteBoundingBox: { x: 0, y: 0, width: 390, height: 844 },
+  });
   const failed = setup({ failPng: true });
   await prepare(failed);
   const result = await failed.send({
@@ -489,6 +524,59 @@ test("oversized REST sources and failed exports produce safe actionable codes", 
     }),
     false,
   );
+});
+
+test("a too-large image is drawn again at a smaller scale", async () => {
+  const subject = setup();
+  subject.frame.exportAsync = async (options) => {
+    if (options.format === "JSON_REST_V1")
+      return { document: { id: "1:2", type: "FRAME", name: "주문" } };
+    subject.exported.push(options);
+    return options.constraint.value === 1
+      ? new Uint8Array(20 * 1024 * 1024 + 1)
+      : new Uint8Array([137, 80, 78, 71]);
+  };
+  await prepare(subject);
+  const result = await subject.send({
+    type: "export-frame",
+    requestId: "big-image",
+    sessionId: "session",
+    nodeId: "1:2",
+  });
+  assert.equal(result.type, "frame-exported");
+  assert.deepEqual(
+    subject.exported.map((o) => o.constraint.value),
+    [1, 0.5],
+  );
+});
+
+test("a frame that changes while it is drawn is read again and sent as it is now", async () => {
+  const subject = setup();
+  const rest = (characters) => ({
+    id: "1:2",
+    type: "FRAME",
+    name: "주문",
+    children: [{ id: "1:3", type: "TEXT", name: "결제", characters }],
+  });
+  let current = rest("결제");
+  let draws = 0;
+  subject.frame.exportAsync = async ({ format }) => {
+    if (format === "JSON_REST_V1") return { document: current };
+    draws += 1;
+    // 첫 번째 그리는 사이 글자가 바뀐다
+    if (draws === 1) current = rest("결제하기");
+    return new Uint8Array([137, 80, 78, 71]);
+  };
+  await prepare(subject);
+  const result = await subject.send({
+    type: "export-frame",
+    requestId: "changing",
+    sessionId: "session",
+    nodeId: "1:2",
+  });
+  assert.equal(result.type, "frame-exported");
+  assert.deepEqual(JSON.parse(result.source.document), rest("결제하기"));
+  assert.equal(draws, 2);
 });
 
 test("thumbnails are bounded PNG exports independent of upload sessions and reject stale selection", async () => {

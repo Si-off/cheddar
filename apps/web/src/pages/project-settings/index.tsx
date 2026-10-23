@@ -7,26 +7,24 @@ import {
 import { useBlocker } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import {
-  type ColumnErrors,
   featureGroupsQuery,
   fromTemplateDraft,
   memoQuery,
   type Project,
   projectQuery,
-  requiredCasesQuery,
+  screenIdRulesQuery,
   screensQuery,
   type Template,
   type TemplateDraft,
   templateQuery,
   toTemplateDraft,
-  validateTemplateDraft,
 } from "@/entities/project";
 import { MemoEditor } from "@/features/edit-project-memo";
-import { useSaveTemplate } from "@/features/edit-template";
 import { FeatureGroupsEditor } from "@/features/manage-feature-groups";
-import { RequiredCasesEditor } from "@/features/manage-required-cases";
+import { ScreenIdRulesEditor } from "@/features/manage-screen-id-rules";
 import { ScreensEditor } from "@/features/manage-screens";
-import { ColumnsEditor } from "@/widgets/columns-editor";
+import { useSaveTemplate } from "@/features/manage-template-columns";
+import { ColumnPicker } from "@/widgets/column-picker";
 import { ProjectShell } from "@/widgets/project-shell";
 
 /** 프로젝트와 탭 내용을 함께 불러온다. 둘 중 하나라도 실패하면 다시 시도를 보여준다. */
@@ -70,7 +68,7 @@ export function ProjectTemplatePage({ projectId }: { projectId: string }) {
     <SettingsFrame
       projectId={projectId}
       content={template}
-      title="기본 양식을 불러오지 못했습니다"
+      title="양식을 불러오지 못했습니다"
     >
       {(project, data) => (
         <TemplateSettings project={project} template={data} />
@@ -96,10 +94,6 @@ function TemplateSettings({
   const [base, setBase] = useState(template);
   const [draft, setDraft] = useState(() => toTemplateDraft(template));
   const [outdated, setOutdated] = useState(false);
-  const [selectedId, setSelectedId] = useState(template.columns[0]?.id ?? "");
-  const [errors, setErrors] = useState<Record<string, ColumnErrors> | null>(
-    null,
-  );
   const save = useSaveTemplate(project.id, {
     // 저장하는 동안 더 고친 내용은 남긴다
     onSaved: (saved) => {
@@ -131,7 +125,6 @@ function TemplateSettings({
   const reset = (next: Template) => {
     setBase(next);
     setDraft(toTemplateDraft(next));
-    setErrors(null);
     setOutdated(false);
   };
   const loadLatest = () =>
@@ -140,21 +133,7 @@ function TemplateSettings({
       .then(reset)
       .catch(() => undefined);
 
-  const submit = () => {
-    const found = validateTemplateDraft(draft);
-    setErrors(found);
-    const first = draft.columns.find((c) => found[c.id]);
-    if (first) {
-      setSelectedId(first.id);
-      return;
-    }
-    save.mutate(draft);
-  };
-  const change = (next: TemplateDraft) => {
-    setDraft(next);
-    // 고친 뒤에는 남은 오류만 보여준다
-    if (errors) setErrors(validateTemplateDraft(next));
-  };
+  const submit = () => save.mutate(draft);
 
   const actions = !readOnly && (
     <>
@@ -194,13 +173,11 @@ function TemplateSettings({
           최신 양식을 불러오면 지금 입력한 내용은 사라집니다.
         </Banner>
       )}
-      <ColumnsEditor
+      <ColumnPicker
         value={draft}
-        onChange={change}
-        errors={errors ?? undefined}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
+        onChange={setDraft}
         readOnly={readOnly}
+        className="max-w-4xl"
       />
     </ProjectShell>
   );
@@ -227,29 +204,9 @@ export function ProjectFeatureGroupsPage({ projectId }: { projectId: string }) {
   );
 }
 
-export function ProjectRequiredCasesPage({ projectId }: { projectId: string }) {
-  const cases = useQuery(requiredCasesQuery(projectId));
-  return (
-    <SettingsFrame
-      projectId={projectId}
-      content={cases}
-      title="필수 케이스를 불러오지 못했습니다"
-    >
-      {(project, data) => (
-        <ProjectShell project={project}>
-          <RequiredCasesEditor
-            projectId={projectId}
-            cases={data}
-            readOnly={!project.canManage}
-          />
-        </ProjectShell>
-      )}
-    </SettingsFrame>
-  );
-}
-
 export function ProjectScreensPage({ projectId }: { projectId: string }) {
   const screens = useQuery(screensQuery(projectId));
+  const rules = useQuery(screenIdRulesQuery(projectId));
   return (
     <SettingsFrame
       projectId={projectId}
@@ -258,11 +215,19 @@ export function ProjectScreensPage({ projectId }: { projectId: string }) {
     >
       {(project, data) => (
         <ProjectShell project={project}>
-          <ScreensEditor
-            projectId={projectId}
-            screens={data}
-            readOnly={!project.canManage}
-          />
+          <div className="flex flex-col gap-8">
+            <ScreenIdRulesEditor
+              projectId={projectId}
+              rules={rules.data ?? []}
+              readOnly={!project.canManage}
+            />
+            <ScreensEditor
+              projectId={projectId}
+              screens={data}
+              rules={rules.data}
+              readOnly={!project.canManage}
+            />
+          </div>
         </ProjectShell>
       )}
     </SettingsFrame>

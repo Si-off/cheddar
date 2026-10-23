@@ -222,16 +222,29 @@ export function buildScreenDocument(
   };
 }
 
-/** main이 보낸 원본으로 화면 문서를 만든다. 서버 상한을 넘으면 DATA_TOO_LARGE로 실패한다. */
-export function readFrameSource(source: FrameSource): ScreenDocument {
-  const document = buildScreenDocument(
-    JSON.parse(source.document) as SourceNode,
-    source,
+const utf8Size = (document: ScreenDocument) =>
+  new TextEncoder().encode(JSON.stringify(document)).length;
+
+/**
+ * 화면 문서가 서버 상한보다 크면 줄인다. 구조 트리, 연결, 주석, 글자 순으로 덜어내고 보드 정보는 남긴다.
+ * 막지 않고 올릴 수 있는 만큼 올린다.
+ */
+export function fitScreenDocument(document: ScreenDocument) {
+  if (utf8Size(document) <= MAX_FRAME_DATA_BYTES)
+    return { document, reduced: false };
+  const smaller: ScreenDocument = { ...document, tree: [] };
+  for (const key of ["links", "notes", "texts"] as const)
+    while (utf8Size(smaller) > MAX_FRAME_DATA_BYTES && smaller[key].length > 0)
+      smaller[key] = smaller[key].slice(
+        0,
+        Math.floor(smaller[key].length / 2),
+      ) as never;
+  return { document: smaller, reduced: true };
+}
+
+/** main이 보낸 원본으로 화면 문서를 만든다. 서버 상한을 넘으면 줄인다. */
+export function readFrameSource(source: FrameSource) {
+  return fitScreenDocument(
+    buildScreenDocument(JSON.parse(source.document) as SourceNode, source),
   );
-  if (
-    new TextEncoder().encode(JSON.stringify(document)).length >
-    MAX_FRAME_DATA_BYTES
-  )
-    throw new Error("DATA_TOO_LARGE");
-  return document;
 }

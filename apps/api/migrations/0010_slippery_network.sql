@@ -1,0 +1,1 @@
+ALTER TABLE "generation_jobs" ALTER COLUMN "kind" SET DATA TYPE varchar(16);

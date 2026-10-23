@@ -10,54 +10,79 @@ import {
   Patch,
   Post,
   Put,
+  Query,
+  UploadedFiles,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FilesInterceptor } from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiCookieAuth,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
-import {
-  AllowPluginToken,
-  CurrentAccount,
-  RequirePermission,
-} from "../authorization/guards";
+import { AllowPluginToken, CurrentAccount } from "../authorization/guards";
 import {
   CreateFeatureGroupDto,
   CreateProjectDto,
-  CreateRequiredCaseDto,
   CreateScreenDto,
+  CreateScreenIdRuleDto,
+  CreateScreensDto,
+  CreateScreensResultDto,
   FeatureGroupDto,
   FeatureGroupListDto,
   FeatureGroupOrderDto,
   MemoDto,
+  NextScreenIdDto,
   ProjectDto,
   ProjectListDto,
-  RequiredCaseDto,
-  RequiredCaseListDto,
+  ScreenDraftListDto,
   ScreenDto,
+  ScreenIdRuleDraftListDto,
+  ScreenIdRuleDto,
+  ScreenIdRuleListDto,
   ScreenListDto,
+  ScreenSourcesMultipartDto,
   TemplateDto,
   UpdateFeatureGroupDto,
   UpdateMemoDto,
   UpdateProjectDto,
-  UpdateRequiredCaseDto,
   UpdateScreenDto,
+  UpdateScreenIdRuleDto,
   UpdateTemplateDto,
 } from "../contracts/project.dto";
 import { ProjectsService } from "./projects.service";
+import { ScreenDraftsService } from "./screen-drafts.service";
+import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES } from "./screen-sources";
 
-const projectSource = { source: "params", key: "projectId" } as const;
+const sourceFiles = FilesInterceptor("files[]", MAX_SOURCE_FILES, {
+  limits: { fileSize: MAX_SOURCE_BYTES, fieldSize: 200_000, fields: 1 },
+});
+const sourcesBody = {
+  schema: {
+    type: "object",
+    properties: {
+      text: { type: "string" },
+      "files[]": { type: "array", items: { type: "string", format: "binary" } },
+    },
+  },
+} as const;
+
 @ApiTags("프로젝트 설정")
 @ApiCookieAuth()
+@ApiExtraModels(ScreenSourcesMultipartDto)
 @Controller("api/v1/projects")
 export class ProjectsController {
   constructor(
     @Inject(ProjectsService) private readonly service: ProjectsService,
+    @Inject(ScreenDraftsService) private readonly drafts: ScreenDraftsService,
   ) {}
   // 플러그인이 업로드할 프로젝트를 고를 때도 쓴다
   @Get()
@@ -73,7 +98,6 @@ export class ProjectsController {
   }
 
   @Post()
-  @RequirePermission("project.create")
   @ApiOperation({
     operationId: "createProject",
     summary: "프로젝트와 기본 설정 만들기",
@@ -95,7 +119,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "updateProject", summary: "프로젝트 수정" })
   @ApiBody({ type: UpdateProjectDto })
   @ApiOkResponse({ type: ProjectDto })
@@ -121,7 +144,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/template")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "updateProjectTemplate",
     summary: "기본 양식 저장",
@@ -150,7 +172,6 @@ export class ProjectsController {
   }
 
   @Post(":projectId/feature-groups")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "createProjectFeatureGroup",
     summary: "기능 그룹 추가",
@@ -165,7 +186,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId/feature-groups/:groupId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "updateProjectFeatureGroup",
     summary: "기능 그룹 수정",
@@ -181,7 +201,6 @@ export class ProjectsController {
   }
 
   @Delete(":projectId/feature-groups/:groupId")
-  @RequirePermission("project.manage", projectSource)
   @HttpCode(204)
   @ApiOperation({
     operationId: "deleteProjectFeatureGroup",
@@ -196,7 +215,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/feature-groups/order")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({
     operationId: "reorderProjectFeatureGroups",
     summary: "기능 그룹 순서 변경",
@@ -210,63 +228,74 @@ export class ProjectsController {
     return this.service.orderGroups(id, dto.ids);
   }
 
-  @Get(":projectId/required-cases")
+  @Get(":projectId/screen-id-rules")
   @ApiOperation({
-    operationId: "listProjectRequiredCases",
-    summary: "필수 케이스 목록",
+    operationId: "listProjectScreenIdRules",
+    summary: "화면 ID 규칙 목록",
   })
-  @ApiOkResponse({ type: RequiredCaseListDto })
-  cases(
+  @ApiOkResponse({ type: ScreenIdRuleListDto })
+  rules(
     @Param("projectId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
   ) {
-    return this.service.listCases(id, accountId);
+    return this.service.listRules(id, accountId);
   }
 
-  @Post(":projectId/required-cases")
-  @RequirePermission("project.manage", projectSource)
+  @Post(":projectId/screen-id-rules")
   @ApiOperation({
-    operationId: "createProjectRequiredCase",
-    summary: "필수 케이스 추가",
+    operationId: "createProjectScreenIdRule",
+    summary: "화면 ID 규칙 추가",
   })
-  @ApiBody({ type: CreateRequiredCaseDto })
-  @ApiCreatedResponse({ type: RequiredCaseDto })
-  createCase(
+  @ApiBody({ type: CreateScreenIdRuleDto })
+  @ApiCreatedResponse({ type: ScreenIdRuleDto })
+  createRule(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @Body() dto: CreateRequiredCaseDto,
+    @Body() dto: CreateScreenIdRuleDto,
   ) {
-    return this.service.createCase(id, dto);
+    return this.service.saveRule(id, dto);
   }
 
-  @Patch(":projectId/required-cases/:caseId")
-  @RequirePermission("project.manage", projectSource)
+  @Patch(":projectId/screen-id-rules/:ruleId")
   @ApiOperation({
-    operationId: "updateProjectRequiredCase",
-    summary: "필수 케이스 수정",
+    operationId: "updateProjectScreenIdRule",
+    summary: "화면 ID 규칙 수정",
   })
-  @ApiBody({ type: UpdateRequiredCaseDto })
-  @ApiOkResponse({ type: RequiredCaseDto })
-  updateCase(
+  @ApiBody({ type: UpdateScreenIdRuleDto })
+  @ApiOkResponse({ type: ScreenIdRuleDto })
+  updateRule(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @Param("caseId", ParseUUIDPipe) caseId: string,
-    @Body() dto: UpdateRequiredCaseDto,
+    @Param("ruleId", ParseUUIDPipe) ruleId: string,
+    @Body() dto: UpdateScreenIdRuleDto,
   ) {
-    return this.service.updateCase(id, caseId, dto);
+    return this.service.saveRule(id, dto, ruleId.toLowerCase());
   }
 
-  @Delete(":projectId/required-cases/:caseId")
-  @RequirePermission("project.manage", projectSource)
+  @Delete(":projectId/screen-id-rules/:ruleId")
   @HttpCode(204)
   @ApiOperation({
-    operationId: "deleteProjectRequiredCase",
-    summary: "추가한 필수 케이스 삭제",
+    operationId: "deleteProjectScreenIdRule",
+    summary: "화면 ID 규칙 삭제",
   })
   @ApiNoContentResponse()
-  removeCase(
+  removeRule(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @Param("caseId", ParseUUIDPipe) caseId: string,
+    @Param("ruleId", ParseUUIDPipe) ruleId: string,
   ) {
-    return this.service.removeCase(id, caseId);
+    return this.service.removeRule(id, ruleId);
+  }
+
+  @Put(":projectId/screen-id-rules/order")
+  @ApiOperation({
+    operationId: "reorderProjectScreenIdRules",
+    summary: "화면 ID 규칙 순서 변경",
+  })
+  @ApiBody({ type: FeatureGroupOrderDto })
+  @ApiOkResponse({ type: ScreenIdRuleListDto })
+  orderRules(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() dto: FeatureGroupOrderDto,
+  ) {
+    return this.service.orderRules(id, dto.ids);
   }
 
   @Get(":projectId/screens")
@@ -283,7 +312,6 @@ export class ProjectsController {
   }
 
   @Post(":projectId/screens")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "createProjectScreen", summary: "화면 추가" })
   @ApiBody({ type: CreateScreenDto })
   @ApiCreatedResponse({ type: ScreenDto })
@@ -295,7 +323,6 @@ export class ProjectsController {
   }
 
   @Patch(":projectId/screens/:itemId")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "updateProjectScreen", summary: "화면 수정" })
   @ApiBody({ type: UpdateScreenDto })
   @ApiOkResponse({ type: ScreenDto })
@@ -308,7 +335,6 @@ export class ProjectsController {
   }
 
   @Delete(":projectId/screens/:itemId")
-  @RequirePermission("project.manage", projectSource)
   @HttpCode(204)
   @ApiOperation({
     operationId: "deleteProjectScreen",
@@ -322,6 +348,77 @@ export class ProjectsController {
     return this.service.removeScreen(id, itemId);
   }
 
+  @Get(":projectId/screen-id-rules/:ruleId/next")
+  @ApiOperation({
+    operationId: "getProjectNextScreenId",
+    summary: "다음 화면 ID 계산",
+  })
+  @ApiQuery({ name: "prefix", required: false, type: String })
+  @ApiOkResponse({ type: NextScreenIdDto })
+  nextScreenId(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Param("ruleId", ParseUUIDPipe) ruleId: string,
+    @CurrentAccount() accountId: string,
+    @Query("prefix") prefix = "",
+  ) {
+    return this.service.nextRuleId(
+      id,
+      accountId,
+      ruleId,
+      typeof prefix === "string" ? prefix : "",
+    );
+  }
+
+  @Post(":projectId/screens/batch")
+  @ApiOperation({
+    operationId: "createProjectScreens",
+    summary: "화면 여러 개 추가",
+  })
+  @ApiBody({ type: CreateScreensDto })
+  @ApiCreatedResponse({ type: CreateScreensResultDto })
+  createScreens(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() dto: CreateScreensDto,
+  ) {
+    return this.service.addScreens(id, dto.items);
+  }
+
+  @Post(":projectId/screens/drafts")
+  @UseInterceptors(sourceFiles)
+  @ApiOperation({
+    operationId: "draftProjectScreens",
+    summary: "자료에서 화면 초안 만들기",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody(sourcesBody)
+  @ApiCreatedResponse({ type: ScreenDraftListDto })
+  screenDrafts(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: ScreenSourcesMultipartDto,
+    @UploadedFiles() files: Express.Multer.File[] = [],
+  ) {
+    return this.drafts.screenDrafts(id, accountId, dto.text ?? "", files);
+  }
+
+  @Post(":projectId/screen-id-rules/drafts")
+  @UseInterceptors(sourceFiles)
+  @ApiOperation({
+    operationId: "draftProjectScreenIdRules",
+    summary: "자료에서 화면 ID 규칙 초안 만들기",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody(sourcesBody)
+  @ApiCreatedResponse({ type: ScreenIdRuleDraftListDto })
+  ruleDrafts(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: ScreenSourcesMultipartDto,
+    @UploadedFiles() files: Express.Multer.File[] = [],
+  ) {
+    return this.drafts.ruleDrafts(id, accountId, dto.text ?? "", files);
+  }
+
   @Get(":projectId/memo")
   @ApiOperation({ operationId: "getProjectMemo", summary: "메모 보기" })
   @ApiOkResponse({ type: MemoDto })
@@ -333,7 +430,6 @@ export class ProjectsController {
   }
 
   @Put(":projectId/memo")
-  @RequirePermission("project.manage", projectSource)
   @ApiOperation({ operationId: "updateProjectMemo", summary: "메모 저장" })
   @ApiBody({ type: UpdateMemoDto })
   @ApiOkResponse({ type: MemoDto })

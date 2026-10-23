@@ -14,7 +14,7 @@ export const stageLabels: { key: GenerationStage; label: string }[] = [
 
 export interface Generation {
   jobId: string;
-  kind: "initial" | "append" | "rewrite";
+  kind: "initial" | "append" | "rewrite" | "fill_column";
   status: GenerationStatus;
   stage: GenerationStage | null;
   addedCount: number;

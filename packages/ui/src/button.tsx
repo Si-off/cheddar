@@ -74,7 +74,8 @@ const iconButtonVariants = cva(
   "inline-flex shrink-0 items-center justify-center rounded-md border border-transparent text-fg-muted transition-colors duration-fast hover:bg-subtle hover:text-fg disabled:opacity-50 aria-pressed:bg-selected aria-pressed:text-accent-text",
   {
     variants: {
-      size: { sm: "size-8", md: "size-9" },
+      // xs: 다른 조작 위에 겹쳐 놓는 작은 버튼(예: 부분 칸 모서리 메뉴). 누르는 영역 최소 24px
+      size: { xs: "size-6 rounded-sm", sm: "size-8", md: "size-9" },
       variant: { ghost: "", solid: "border-line bg-surface" },
     },
     defaultVariants: { size: "md", variant: "ghost" },
@@ -107,7 +108,7 @@ export function IconButton({
       aria-pressed={pressed}
       className={cn(iconButtonVariants({ size, variant }), className)}
     >
-      <Icon icon={icon} size={size === "sm" ? "sm" : "md"} />
+      <Icon icon={icon} size={size === "sm" || size === "xs" ? "sm" : "md"} />
     </BaseButton>
   );
 }

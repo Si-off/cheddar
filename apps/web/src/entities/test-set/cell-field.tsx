@@ -1,6 +1,13 @@
 import { Checkbox, Select, TextArea, TextField } from "@cheddar/ui";
 import { useEffect, useRef, useState } from "react";
-import { type CellValue, type Column, cellText, readCell } from "./model";
+import { CellImageThumb } from "./cell-image";
+import {
+  type CellValue,
+  type Column,
+  cellImage,
+  cellText,
+  readCell,
+} from "./model";
 
 /** 셀 값 하나를 형식에 맞는 입력으로 고친다. 글자는 칸을 벗어날 때, 그 밖은 고르는 즉시 알린다. */
 export function CellField({
@@ -22,6 +29,15 @@ export function CellField({
   useEffect(() => {
     if (focused.current === null) setText(serverText);
   }, [serverText]);
+  // 이미지 셀은 글자 칸으로 덮어쓰지 않게 보기만 한다
+  const image = cellImage(column, value);
+  if (image)
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-label text-fg">{column.name}</span>
+        <CellImageThumb imageId={image.image} />
+      </div>
+    );
   if (column.type === "checkbox")
     return (
       <Checkbox

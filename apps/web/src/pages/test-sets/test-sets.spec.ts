@@ -1,5 +1,6 @@
 import { expect, type Route, test } from "@playwright/test";
 import { me, mockApi, reply } from "../../shared/testing/mock-api";
+import { template } from "../../shared/testing/project-fixtures";
 import {
   testSet,
   testSetResponses,
@@ -30,7 +31,7 @@ test("목록을 범위로 나누고 이름으로 찾는다", async ({ page }) =>
   await expect(row).toContainText("확인 필요 4");
   await expect(row).toContainText("방금");
 
-  await page.getByRole("tab", { name: "내 테스트 세트" }).click();
+  await page.getByRole("tab", { name: "내가 만든 테스트 세트" }).click();
   await expect.poll(() => queries.at(-1)).toContain("filter=mine");
   await page.getByRole("textbox", { name: "테스트 세트 검색" }).fill("회원");
   await expect
@@ -64,6 +65,7 @@ test("새 테스트 세트를 직접 작성으로 만들면 바로 테스트 세
         },
       ],
     },
+    "GET /api/v1/projects/p1/template": template,
     "POST /api/v1/test-sets": reply(201, testSet),
     ...testSetResponses(),
   });
@@ -84,7 +86,59 @@ test("새 테스트 세트를 직접 작성으로 만들면 바로 테스트 세
     name: "2.4.0 회원가입 개편",
     projectId: "p1",
     memo: "",
+    template: { kind: "project" },
   });
+});
+
+test("양식을 직접 고르면 켠 열만 담아 만든다", async ({ page }) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    "GET /api/v1/projects": {
+      items: [
+        {
+          id: "p1",
+          name: "쇼핑몰 앱 리뉴얼",
+          description: "",
+          columnCount: 6,
+          screenCount: 0,
+          canManage: true,
+        },
+      ],
+    },
+    "GET /api/v1/projects/p1/template": template,
+    "GET /api/v1/projects/p1/recent-test-set-template": {
+      testSet: { id: "t0", name: "2.3.0 로그인" },
+      columns: template.columns.filter(
+        (c) => c.enabled && c.name !== "수행 절차",
+      ),
+    },
+    "POST /api/v1/test-sets": reply(201, testSet),
+    ...testSetResponses(),
+  });
+  await page.goto("/test-sets/new");
+  // 최근 세트의 열을 미리 보여준다
+  const recent = page.getByRole("radio", { name: /최근 테스트 세트와 같게/ });
+  await expect(recent).toBeVisible();
+  await expect(page.getByText("2.3.0 로그인")).toBeVisible();
+  await page.getByRole("textbox", { name: "테스트 세트 이름" }).fill("2.4.0");
+  await page.getByRole("radio", { name: "직접 고르기" }).click();
+  await page.getByRole("button", { name: "열 고르기" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "우선순위" }).click();
+  await dialog.getByRole("button", { name: "적용" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "직접 작성" }).click();
+  await expect(page).toHaveURL(/\/test-sets\/t1$/);
+  const body = calls.find((c) => c.key === "POST /api/v1/test-sets")?.body as {
+    template: { kind: string; columns: { name: string; enabled: boolean }[] };
+  };
+  expect(body.template.kind).toBe("custom");
+  expect(
+    body.template.columns.find((c) => c.name === "우선순위")?.enabled,
+  ).toBe(false);
+  expect(body.template.columns.find((c) => c.name === "제목")?.enabled).toBe(
+    true,
+  );
 });
 
 test("플러그인에서 고른 프로젝트로 새 테스트 세트를 연다", async ({ page }) => {
@@ -130,18 +184,16 @@ test("플러그인에서 고른 프로젝트로 새 테스트 세트를 연다",
   await expect(page.getByText("프로젝트를 고르세요")).toBeVisible();
 });
 
-test("테스트 세트를 만들 권한이 없으면 새 테스트 세트 버튼이 없다", async ({
-  page,
-}) => {
+test("구성원도 테스트 세트를 만들 수 있다", async ({ page }) => {
   await mockApi(page, {
-    "GET /api/v1/auth/me": me(["test_set.export"]),
+    "GET /api/v1/auth/me": me({ role: "member" }),
     "GET /api/v1/test-sets": { items: [] },
   });
   await page.goto("/test-sets");
   await expect(page.getByText("테스트 세트가 없습니다")).toBeVisible();
-  await expect(page.getByRole("link", { name: "새 테스트 세트" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("link", { name: "새 테스트 세트" }),
+  ).toBeVisible();
 });
 
 test("프레임 없이는 케이스 생성을 시작할 수 없고 직접 작성만 된다", async ({

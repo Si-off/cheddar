@@ -14,7 +14,14 @@ export {
   IconButton,
   type IconButtonProps,
 } from "./button";
+export {
+  CheckTable,
+  type CheckTableColumn,
+  type CheckTableGroup,
+  type CheckTableProps,
+} from "./check-table";
 export { Checkbox, type CheckboxProps } from "./checkbox";
+export { ContextMenu } from "./context-menu";
 export {
   type CellPosition,
   DataGrid,
@@ -43,6 +50,7 @@ export {
 export { ReviewCard, type ReviewCardProps } from "./review-card";
 export { Select, type SelectItem, type SelectProps } from "./select";
 export { SortableList, type SortableListProps } from "./sortable-list";
+export { SourceInput, type SourceInputProps } from "./source-input";
 export {
   type SaveState,
   SaveStatus,
@@ -72,4 +80,6 @@ export {
   ToastProvider,
   useToast,
 } from "./toast";
+export { TonePicker } from "./tone-picker";
+export { Toolbar, ToolbarMenu, ToolbarSeparator } from "./toolbar";
 export { cn, motionTokens, type PresenceColor } from "./utils";

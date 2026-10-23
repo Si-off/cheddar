@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { me, mockApi, reply } from "../../shared/testing/mock-api";
+import { me, mockApi, reply, WEB_ORIGIN } from "../../shared/testing/mock-api";
+import { template } from "../../shared/testing/project-fixtures";
 import {
   cases,
   testSet,
@@ -11,6 +12,7 @@ type Op = { type: string; [key: string]: unknown };
 /** 받은 연산을 그대로 반영했다고 답한다. 새 케이스에는 다음 번호를 붙인다. */
 function opsHandler() {
   let next = 3;
+  let version = 1;
   return (_route: unknown, body: unknown) => {
     const ops = (body as { ops: Op[] }).ops;
     const changed = ops
@@ -25,7 +27,7 @@ function opsHandler() {
     const deleted = ops
       .filter((op) => op.type === "delete_cases")
       .flatMap((op) => op.caseIds as string[]);
-    return { version: 2, cases: changed, deletedCaseIds: deleted };
+    return { version: ++version, cases: changed, deletedCaseIds: deleted };
   };
 }
 
@@ -94,6 +96,110 @@ test("셀을 골라 Enter로 고치고, 글자를 치면 바로 바꾸고, Delet
   await expect(page.getByRole("status").getByText("저장됨")).toBeVisible();
 });
 
+test("Enter 없이 다른 셀을 누르거나 표 밖을 눌러도 고친 값이 반영되고, Escape는 취소한다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await expect(page.getByRole("heading", { name: testSet.name })).toBeVisible();
+
+  await cell(page, 1, "예상 결과").click();
+  await page.keyboard.type("A");
+  await cell(page, 2, "제목").click();
+  await expect(cell(page, 1, "예상 결과")).toHaveText("A");
+
+  await cell(page, 2, "예상 결과").dblclick();
+  await page.keyboard.type(" 확인");
+  await page.getByRole("heading", { name: testSet.name }).click();
+  await expect(cell(page, 2, "예상 결과")).toHaveText("가입 버튼 비활성 확인");
+
+  await cell(page, 1, "제목").click();
+  await page.keyboard.type("취소할 입력");
+  await page.keyboard.press("Escape");
+  await expect(cell(page, 1, "제목")).toHaveText(cases[0].values["c-title"]);
+
+  await expect.poll(() => opsBodies(calls).length).toBe(2);
+  expect(opsBodies(calls)).toEqual([
+    [{ type: "set_cell", caseId: "k1", columnId: "c-exp", value: "A" }],
+    [
+      {
+        type: "set_cell",
+        caseId: "k2",
+        columnId: "c-exp",
+        value: "가입 버튼 비활성 확인",
+      },
+    ],
+  ]);
+});
+
+test("세로선과 가로선이 만나는 곳은 어느 쪽에서 잡아도 열 너비와 행 높이를 함께 바꾼다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses(),
+  });
+  await page.goto("/test-sets/t1");
+  await expect(page.getByRole("heading", { name: testSet.name })).toBeVisible();
+
+  const sizeOf = async () => {
+    const box = await cell(page, 1, "제목").boundingBox();
+    if (!box) throw new Error("셀이 보이지 않는다");
+    return box;
+  };
+  const box = await sizeOf();
+  // 교차점 바로 오른쪽 아래, 다음 행의 다음 열 셀 위에서 잡는다
+  await page.mouse.move(box.x + box.width + 2, box.y + box.height + 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width + 82, box.y + box.height + 42, {
+    steps: 4,
+  });
+  await page.mouse.up();
+
+  const after = await sizeOf();
+  expect(after.width).toBeGreaterThan(box.width + 60);
+  expect(after.height).toBeGreaterThan(box.height + 30);
+  // 크기를 바꾸려고 누른 셀은 고르지 않는다
+  await expect(page.locator('[aria-current="true"]')).toHaveCount(0);
+  await expect
+    .poll(() => {
+      const body = calls
+        .filter((c) => c.key === "PUT /api/v1/test-sets/t1/view")
+        .at(-1)?.body as
+        | {
+            columnWidths?: Record<string, number>;
+            rowHeights?: Record<string, number>;
+          }
+        | undefined;
+      return [body?.columnWidths?.["c-title"], body?.rowHeights?.k1];
+    })
+    .toEqual([Math.round(after.width), Math.round(after.height)]);
+});
+
+test("도구 메뉴를 하나 연 뒤 다른 도구 아이콘에 포인터를 올리면 그 메뉴로 바뀐다", async ({
+  page,
+}) => {
+  await mockApi(page, { "GET /api/v1/auth/me": me(), ...testSetResponses() });
+  await page.goto("/test-sets/t1");
+  await expect(page.getByRole("heading", { name: testSet.name })).toBeVisible();
+
+  const insert = page.getByRole("button", { name: "삽입" });
+  await insert.hover();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "수정" }).click();
+  await expect(page.getByRole("menuitem", { name: /잘라내기/ })).toBeVisible();
+  await insert.hover();
+  // 이전 메뉴는 움직임 없이 바로 닫혀 두 메뉴의 글자가 겹치지 않는다
+  expect(await page.getByText("잘라내기").count()).toBe(0);
+  await expect(
+    page.getByRole("menuitem", { name: /위에 행 1개 삽입/ }),
+  ).toBeVisible();
+});
+
 test("케이스를 추가하면 서버가 붙인 번호가 보이고, 고른 케이스를 지운다", async ({
   page,
 }) => {
@@ -141,7 +247,7 @@ test("케이스를 추가한 뒤 바로 치면 새 케이스의 제목이 된다
     });
 });
 
-test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에 맞는 값만 바꾼다", async ({
+test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 목록 밖 값도 넣어 표시하고 체크박스에 맞지 않는 값만 건너뛴다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -152,7 +258,10 @@ test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에
   await cell(page, 1, "예상 결과").click();
   await page.evaluate(() => {
     const data = new DataTransfer();
-    data.setData("text/plain", "가입 실패\t낮음\n버튼 활성\t없는값\n");
+    data.setData(
+      "text/plain",
+      "가입 실패\t낮음\n버튼 활성\t없는값\t회원, 새 태그\t아마도\n",
+    );
     document.activeElement?.dispatchEvent(
       new ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
     );
@@ -162,13 +271,21 @@ test("스프레드시트에서 복사한 여러 셀을 붙여넣으면 형식에
     { type: "set_cell", caseId: "k1", columnId: "c-exp", value: "가입 실패" },
     { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
     { type: "set_cell", caseId: "k2", columnId: "c-exp", value: "버튼 활성" },
+    { type: "set_cell", caseId: "k2", columnId: "c-pri", value: "없는값" },
+    {
+      type: "set_cell",
+      caseId: "k2",
+      columnId: "c-tags",
+      value: ["회원", "새 태그"],
+    },
   ]);
+  await expect(cell(page, 2, "우선순위")).toHaveText("없는값목록에 없는 값");
   await expect(
     page.getByText("1칸은 항목 형식에 맞지 않거나 표 밖이라 넣지 않았습니다"),
   ).toBeVisible();
 });
 
-test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 값이 바뀐다", async ({
+test("드롭다운 아래 연필로 그 자리에서 선택 항목을 고치면 열 항목만 바뀌고 셀 값은 남는다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -176,57 +293,228 @@ test("카드 보기에서 우선순위로 묶고 카드를 다른 열로 끌면 
     ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
   });
   await page.goto("/test-sets/t1");
-  await page.getByRole("tab", { name: "카드" }).click();
-  await page.getByRole("combobox", { name: "묶기 기준" }).click();
-  await page.getByRole("option", { name: "우선순위" }).click();
-  const lane = (name: string) =>
-    page.getByRole("listitem", { name, exact: true });
-  await expect(lane("높음")).toContainText("TC-001");
-  await lane("높음")
-    .getByRole("button", { name: /TC-001/ })
-    .dragTo(lane("낮음"));
-  await expect(lane("낮음")).toContainText("TC-001");
+  await expect(cell(page, 1, "우선순위")).toHaveText("높음");
+  await cell(page, 1, "우선순위").click();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: "우선순위 항목 편집" }).click();
+  const panel = page.getByRole("dialog", { name: "우선순위 항목 편집" });
+  const items = panel.getByRole("textbox", { name: "선택 항목 이름" });
+  await expect(items).toHaveCount(3);
+  // 같은 이름이 생기면 완료하지 않는다
+  await items.nth(0).fill("보통");
+  await panel.getByRole("button", { name: "완료" }).click();
+  await expect(panel.getByRole("alert")).toHaveText(
+    "같은 선택 항목이 있습니다",
+  );
+  await items.nth(0).fill("매우 높음");
+  await panel.getByRole("button", { name: "항목 추가" }).click();
+  await page.keyboard.type("긴급");
+  await panel.getByRole("button", { name: "완료" }).click();
+  await expect(panel).toBeHidden();
   await expect
     .poll(() => opsBodies(calls)[0])
     .toEqual([
-      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
+      {
+        type: "update_column",
+        columnId: "c-pri",
+        name: "우선순위",
+        description: "",
+        options: ["매우 높음", "보통", "낮음", "긴급"],
+      },
     ]);
-  // 보기와 묶기 기준은 사람별로 저장한다
+  // 스프레드시트의 목록처럼 이미 입력된 값은 바꾸지 않고, 목록 밖이 된 값으로 표시한다
+  await expect(cell(page, 1, "우선순위")).toHaveText("높음목록에 없는 값");
+
+  // 머리글 메뉴에서도 같은 편집 패널을 연다. Esc로 닫으면 보내지 않는다.
+  await page.getByRole("button", { name: "우선순위 열 작업" }).click();
+  await page.getByRole("menuitem", { name: "선택 항목 편집" }).click();
+  await expect(panel.getByRole("textbox")).toHaveCount(4);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  expect(opsBodies(calls)).toHaveLength(1);
+});
+
+test("셀 메뉴의 값 삭제로 값을 비운다", async ({ page }) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "우선순위").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "값 삭제" }).click();
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: null },
+    ]);
+  await expect(cell(page, 1, "우선순위")).toHaveText("");
+});
+
+test("캔버스는 기능 그룹별 열로 보이고, 카드를 다른 그룹으로 끌면 그 그룹으로 옮긴다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await page.getByRole("tab", { name: "캔버스" }).click();
+  const lane = (name: string) =>
+    page.getByRole("listitem", { name, exact: true });
+  await expect(lane("이메일 가입")).toContainText("TC-001");
+  await expect(lane("약관 동의")).toContainText("TC-002");
+  await lane("이메일 가입")
+    .getByRole("button", { name: /TC-001/ })
+    .dragTo(lane("약관 동의"));
+  await expect(lane("약관 동의")).toContainText("TC-001");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_feature_group", caseId: "k1", featureGroupId: "g2" },
+    ]);
+  // 보기는 사람별로 저장한다
   await expect
     .poll(
       () =>
         calls.filter((c) => c.key === "PUT /api/v1/test-sets/t1/view").at(-1)
           ?.body,
     )
-    .toMatchObject({ view: "card", groupByColumnId: "c-pri" });
+    .toMatchObject({ view: "canvas", canvasGroup: "feature" });
+
+  // 그룹화를 우선순위 열로 바꾸고 끌면 그 값이 바뀐다
+  const tools = page.getByRole("toolbar", { name: "테스트 세트 도구" });
+  await tools.getByRole("button", { name: "그룹화" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "우선순위" }).click();
+  await expect(lane("높음")).toContainText("TC-001");
+  await lane("높음")
+    .getByRole("button", { name: /TC-001/ })
+    .dragTo(lane("낮음"));
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "낮음" },
+    ]);
+  await expect
+    .poll(
+      () =>
+        calls.filter((c) => c.key === "PUT /api/v1/test-sets/t1/view").at(-1)
+          ?.body,
+    )
+    .toMatchObject({ canvasGroup: "column", groupByColumnId: "c-pri" });
 });
 
-test("양식 편집에서 항목 이름을 바꾸면 이 테스트 세트의 항목만 저장한다", async ({
+test("머리글 +로 양식의 열을 더하고, 열 메뉴에서 사용자 열을 지운다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
+    "GET /api/v1/projects/p1/template": template,
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await page.getByRole("button", { name: "열 추가" }).click();
+  const dialog = page.getByRole("dialog", { name: "열 추가" });
+  await dialog
+    .getByRole("switch", { name: "기존 케이스 2개 AI로 채우기" })
+    .click();
+  await dialog.getByRole("button", { name: "수행 절차" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("columnheader", { name: "수행 절차" }),
+  ).toBeVisible();
+  expect(opsBodies(calls)[0]?.[0]).toMatchObject({
+    type: "add_column",
+    afterColumnId: "c-auto",
+    column: { presetKey: "steps", name: "수행 절차", type: "text" },
+  });
+  // 열이 저장된 뒤 그 열의 채우기를 요청한다
+  const columnId = opsBodies(calls)[0]?.[0]?.columnId as string;
+  await expect
+    .poll(() =>
+      calls.some(
+        (c) =>
+          c.key ===
+          `POST /api/v1/test-sets/t1/test-set-columns/${columnId}/fill`,
+      ),
+    )
+    .toBe(true);
+
+  const header = page.getByRole("columnheader", { name: "우선순위" });
+  await header.hover();
+  await header.getByRole("button", { name: "우선순위 열 작업" }).click();
+  await page.getByRole("menuitem", { name: "삭제" }).click();
+  await page
+    .getByRole("dialog", { name: "우선순위 삭제" })
+    .getByRole("button", { name: "삭제" })
+    .click();
+  await expect(
+    page.getByRole("columnheader", { name: "우선순위" }),
+  ).toHaveCount(0);
+  expect(opsBodies(calls)[1]).toEqual([
+    { type: "remove_column", columnId: "c-pri" },
+  ]);
+});
+
+test("셀 메뉴에서 아래에 행을 삽입하면 그 케이스 다음에 생긴다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "아래에 행 1개 삽입" }).click();
+  await expect(cell(page, 2, "테스트 ID")).toHaveText("TC-003");
+  expect(opsBodies(calls)[0]?.[0]).toMatchObject({
+    type: "add_case",
+    afterCaseId: "k1",
+  });
+});
+
+test("제목이 같은 이어진 케이스는 한 칸으로 보이고, 고치면 묶인 케이스가 모두 바뀐다", async ({
+  page,
+}) => {
+  const first = cases[0] as (typeof cases)[number];
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
     ...testSetResponses({
-      "PUT /api/v1/test-sets/t1/columns": (_route: unknown, body: unknown) => ({
-        version: 2,
-        columns: (body as { columns: unknown[] }).columns,
-        cases,
-      }),
+      "GET /api/v1/test-sets/t1": {
+        ...testSet,
+        cases: [
+          first,
+          { id: "k9", values: { ...first.values, "c-id": "TC-002" } },
+          ...cases.slice(1),
+        ],
+      },
+      "POST /api/v1/test-sets/t1/ops": opsHandler(),
     }),
   });
   await page.goto("/test-sets/t1");
-  await page.getByRole("button", { name: "양식 편집" }).click();
-  const sheet = page.getByRole("dialog", { name: "테스트 세트 양식" });
-  await sheet.getByRole("button").filter({ hasText: "예상 결과" }).click();
-  await sheet.getByRole("textbox", { name: "항목 이름" }).fill("기대 결과");
-  await sheet.getByRole("button", { name: "저장" }).click();
-  await expect(sheet).toHaveCount(0);
-  await expect(
-    page.getByRole("columnheader", { name: "기대 결과" }),
-  ).toBeVisible();
-  const body = calls.find((c) => c.key === "PUT /api/v1/test-sets/t1/columns")
-    ?.body as { columns: { name: string }[] };
-  expect(body.columns.map((c) => c.name)).toContain("기대 결과");
+  const table = page.getByRole("table", { name: "케이스" });
+  await expect(table.getByText(first.values["c-title"] as string)).toHaveCount(
+    1,
+  );
+  await cell(page, 1, "제목").click();
+  await page.keyboard.press("Enter");
+  await page.getByRole("textbox", { name: "제목" }).fill("새 제목");
+  await page.getByRole("textbox", { name: "제목" }).press("Enter");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-title", value: "새 제목" },
+      { type: "set_cell", caseId: "k9", columnId: "c-title", value: "새 제목" },
+    ]);
+  // 병합된 칸에서 아래로 가면 묶음 다음 케이스다
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await page.getByRole("textbox", { name: "제목" }).fill("셋째");
+  await page.getByRole("textbox", { name: "제목" }).press("Enter");
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([
+      { type: "set_cell", caseId: "k2", columnId: "c-title", value: "셋째" },
+    ]);
 });
 
 test("XLSX 내보내기를 누르면 파일을 받는다", async ({ page }) => {
@@ -238,7 +526,7 @@ test("XLSX 내보내기를 누르면 파일을 받는다", async ({ page }) => {
     route.fulfill({
       status: 200,
       headers: {
-        "access-control-allow-origin": "http://127.0.0.1:5173",
+        "access-control-allow-origin": WEB_ORIGIN,
         "access-control-allow-credentials": "true",
       },
       contentType:
@@ -252,7 +540,7 @@ test("XLSX 내보내기를 누르면 파일을 받는다", async ({ page }) => {
   expect((await download).suggestedFilename()).toBe(`${testSet.name}.xlsx`);
 });
 
-test("편집 권한이 없으면 표를 고칠 수 없고 양식 편집도 없다", async ({
+test("편집 권한이 없으면 표를 고칠 수 없고 열 추가도 없다", async ({
   page,
 }) => {
   const calls = await mockApi(page, {
@@ -270,7 +558,7 @@ test("편집 권한이 없으면 표를 고칠 수 없고 양식 편집도 없�
     }),
   });
   await page.goto("/test-sets/t1");
-  await expect(page.getByRole("button", { name: "양식 편집" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "열 추가" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "XLSX 내보내기" })).toHaveCount(
     0,
   );
@@ -321,13 +609,17 @@ test("키보드로 표에 들어오면 첫 셀을 고르고 방향키와 Enter�
   await expect(page.getByRole("textbox", { name: "제목" })).toBeFocused();
 });
 
-test("카드를 태그 없음 열로 옮기면 태그를 모두 비운다", async ({ page }) => {
+test("캔버스에서 카드를 태그 없음 열로 옮기면 태그를 모두 비운다", async ({
+  page,
+}) => {
   const calls = await mockApi(page, {
     "GET /api/v1/auth/me": me(),
     ...testSetResponses({
       "GET /api/v1/test-sets/t1/view": {
-        view: "card",
+        view: "canvas",
+        canvasGroup: "column",
         groupByColumnId: "c-tags",
+        canvasDensity: "brief",
         columnWidths: {},
         rowHeights: {},
       },
@@ -456,4 +748,79 @@ test("글자 셀에서 방향키로 선택 항목 셀로 옮겨도 키보드 조
     .toEqual([
       { type: "set_cell", caseId: "k1", columnId: "c-pri", value: null },
     ]);
+});
+
+test("선택 셀에 목록에 없는 값을 쳐서 넣으면 그대로 저장하고 목록 밖 값으로 표시한다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "우선순위").click();
+  await page.keyboard.type("보류");
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() => opsBodies(calls)[0])
+    .toEqual([
+      { type: "set_cell", caseId: "k1", columnId: "c-pri", value: "보류" },
+    ]);
+  await expect(cell(page, 1, "우선순위")).toHaveText("보류목록에 없는 값");
+  // 셀을 고른 채로 있으면 입력 칸이 목록 밖 상태를 함께 읽어 준다
+  await expect(
+    page.getByRole("textbox", { name: "우선순위" }),
+  ).toHaveAccessibleDescription("목록에 없는 값");
+
+  // 목록 안의 값은 그대로 칩으로 보인다
+  await cell(page, 2, "우선순위").click();
+  await page.keyboard.type("낮음");
+  await page.keyboard.press("Enter");
+  await expect(cell(page, 2, "우선순위")).toHaveText("낮음");
+});
+
+test("도구 상자의 셀 도구로 고른 셀 아래에 행을 삽입하고 행을 지운다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  const tools = page.getByRole("toolbar", { name: "테스트 세트 도구" });
+  await cell(page, 1, "예상 결과").click();
+  await tools.getByRole("button", { name: "삽입" }).click();
+  await page.getByRole("menuitem", { name: "아래에 행 1개 삽입" }).click();
+  await expect(cell(page, 2, "테스트 ID")).toHaveText("TC-003");
+  expect(opsBodies(calls)[0]?.[0]).toMatchObject({
+    type: "add_case",
+    afterCaseId: "k1",
+  });
+
+  await cell(page, 1, "예상 결과").click();
+  await tools.getByRole("button", { name: "수정" }).click();
+  await page.getByRole("menuitem", { name: "행 삭제" }).click();
+  await expect
+    .poll(() => opsBodies(calls)[1])
+    .toEqual([{ type: "delete_cases", caseIds: ["k1"] }]);
+});
+
+test("고른 셀의 행이 검색으로 숨으면 셀 도구가 그 행에 작용하지 않는다", async ({
+  page,
+}) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...testSetResponses({ "POST /api/v1/test-sets/t1/ops": opsHandler() }),
+  });
+  await page.goto("/test-sets/t1");
+  await cell(page, 1, "예상 결과").click();
+  await page.getByRole("textbox", { name: "케이스 검색" }).fill("약관");
+  await expect(
+    page.getByRole("table", { name: "케이스" }).getByRole("row"),
+  ).toHaveCount(2);
+  await page
+    .getByRole("toolbar", { name: "테스트 세트 도구" })
+    .getByRole("button", { name: "수정" })
+    .click();
+  await expect(page.getByRole("menuitem", { name: "행 삭제" })).toBeDisabled();
 });

@@ -24,7 +24,7 @@ const frames = ["a", "b", "c"].map((id) => ({
 }));
 const doc = (id) => ({ board: { name: id } });
 
-test("실패한 프레임만 다시 추출하고 모두 끝나면 원래 순서로 보낼 내용을 만든다", async () => {
+test("일시적인 실패는 한 번 더 읽고, 그래도 실패한 프레임만 다시 시도에서 읽는다", async () => {
   const upload = new FrameUpload("s", frames);
   const calls = [];
   let failB = true;
@@ -38,11 +38,15 @@ test("실패한 프레임만 다시 추출하고 모두 끝나면 원래 순서�
   const signal = new AbortController().signal;
   assert.equal(await upload.extract(exportFrame, slice, () => {}, signal), 1);
   assert.equal(upload.states.get("b"), "failed");
-  assert.throws(() => upload.payload());
+  // 읽은 프레임만으로도 보낼 수 있다
+  assert.deepEqual(
+    JSON.parse(upload.payload().manifest).frames.map((f) => f.name),
+    ["화면 a", "화면 c"],
+  );
 
   failB = false;
   assert.equal(await upload.extract(exportFrame, slice, () => {}, signal), 0);
-  assert.deepEqual(calls, ["a", "b", "c", "b"]);
+  assert.deepEqual(calls, ["a", "b", "b", "c", "b"]);
   const { manifest, images } = upload.payload();
   assert.deepEqual(
     JSON.parse(manifest).frames.map((f) => [
@@ -59,22 +63,70 @@ test("실패한 프레임만 다시 추출하고 모두 끝나면 원래 순서�
   assert.deepEqual(images, ["one", "one", "c1", "c2"]);
 });
 
-test("문서가 바뀌면 남은 프레임을 모두 실패로 두고 멈춘다", async () => {
+test("지워진 프레임은 건너뛰고 나머지를 읽으며, 연결이 끊기면 멈춘다", async () => {
   const upload = new FrameUpload("s", frames);
+  const calls = [];
   const exportFrame = async (id) => {
-    if (id === "b") throw new Error("FRAME_CHANGED");
+    calls.push(id);
+    if (id === "b") throw new Error("FRAME_REMOVED");
     return { image: new Uint8Array([1]), document: doc(id) };
   };
-  await assert.rejects(
-    upload.extract(
+  const signal = new AbortController().signal;
+  assert.equal(
+    await upload.extract(
       exportFrame,
       async () => ["x"],
       () => {},
-      new AbortController().signal,
+      signal,
     ),
-    /FRAME_CHANGED/,
+    0,
   );
-  assert.deepEqual([...upload.states.values()], ["done", "failed", "failed"]);
+  assert.deepEqual([...upload.states.values()], ["done", "skipped", "done"]);
+  assert.equal(upload.skippedCount, 1);
+  // 다시 시도해도 지워진 프레임은 읽지 않는다
+  await upload.extract(
+    exportFrame,
+    async () => ["x"],
+    () => {},
+    signal,
+  );
+  assert.deepEqual(calls, ["a", "b", "c"]);
+
+  // 연결이 끊기면 남은 프레임은 실패로 두고 멈추되, 읽은 프레임은 그대로 올릴 수 있다
+  const lost = new FrameUpload("s", frames);
+  const lostCalls = [];
+  await lost.extract(
+    async (id) => {
+      lostCalls.push(id);
+      if (id === "b") throw new Error("DISCONNECTED");
+      return { image: new Uint8Array([1]), document: doc(id) };
+    },
+    async () => ["x"],
+    () => {},
+    signal,
+  );
+  assert.equal(lost.stopped, "DISCONNECTED");
+  assert.deepEqual(lostCalls, ["a", "b"]);
+  assert.deepEqual([...lost.states.values()], ["done", "failed", "failed"]);
+  assert.deepEqual(
+    JSON.parse(lost.payload().manifest).frames.map((f) => f.name),
+    ["화면 a"],
+  );
+});
+
+test("읽는 사이 바뀐 이름으로 올린다", async () => {
+  const upload = new FrameUpload("s", [frames[0]]);
+  await upload.extract(
+    async () => ({
+      image: new Uint8Array([1]),
+      document: doc("a"),
+      frame: { ...frames[0], name: "새 이름" },
+    }),
+    async () => ["x"],
+    () => {},
+    new AbortController().signal,
+  );
+  assert.equal(JSON.parse(upload.payload().manifest).frames[0].name, "새 이름");
 });
 
 test("실패 이유가 모두 같을 때만 그 이유를 알려준다", async () => {
@@ -96,7 +148,7 @@ test("실패 이유가 모두 같을 때만 그 이유를 알려준다", async (
   const mixed = new FrameUpload("s", frames);
   await mixed.extract(
     async (nodeId) => {
-      throw new Error(nodeId === "1" ? "IMAGE_TOO_LARGE" : "DATA_TOO_LARGE");
+      throw new Error(nodeId === "1" ? "IMAGE_TOO_LARGE" : "INVALID_SELECTION");
     },
     async () => [],
     () => {},
