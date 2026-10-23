@@ -14,7 +14,13 @@ import {
 } from "./providers/ai-provider";
 import { normalizeUsage } from "./usage";
 
-export type UsageTarget = { jobId: string; stepId: string; fake: boolean };
+export type UsageTarget =
+  | { jobId: string; stepId: string; fake: boolean }
+  | { projectId: string; purpose: string; fake: boolean };
+const owner = (target: UsageTarget) =>
+  "jobId" in target
+    ? { jobId: target.jobId, stepId: target.stepId }
+    : { projectId: target.projectId, purpose: target.purpose };
 
 @Injectable()
 export class AiUsageService {
@@ -44,7 +50,7 @@ export class AiUsageService {
             .where(
               inArray(
                 generationSteps.id,
-                unknown.map((call) => call.stepId),
+                unknown.flatMap((call) => (call.stepId ? [call.stepId] : [])),
               ),
             );
       });
@@ -65,7 +71,7 @@ export class AiUsageService {
       return true;
     } catch {
       process.stderr.write(
-        `${JSON.stringify({ event: "ai_usage_write_failed", jobId: target.jobId, stepId: target.stepId, callId })}\n`,
+        `${JSON.stringify({ event: "ai_usage_write_failed", ...owner(target), callId })}\n`,
       );
       return false;
     }
@@ -80,8 +86,7 @@ export class AiUsageService {
       startedAt = new Date();
     const base = {
       id,
-      jobId: target.jobId,
-      stepId: target.stepId,
+      ...owner(target),
       provider: target.fake ? "fake" : request.model.provider,
       requestedModel: request.model.model,
       startedAt,
@@ -171,54 +176,63 @@ export class AiUsageService {
           .values(values)
           .onConflictDoUpdate({ target: aiCallUsage.id, set: values }),
       );
-      // 호출 기록에서 다시 합산해 이전 합계 저장 실패도 다음 호출에서 복구한다.
-      const totalsSaved = await this.write(target, id, () =>
-        this.database.db.transaction(async (tx) => {
-          // 같은 단계의 동시 집계가 오래된 합계로 덮어쓰지 않도록 먼저 잠근다.
-          await tx
-            .select({ id: generationSteps.id })
-            .from(generationSteps)
-            .where(eq(generationSteps.id, target.stepId))
-            .for("update");
-          const [totals] = await tx
-            .select({
-              inputTokens: sql<
-                number | null
-              >`sum(${aiCallUsage.inputTokens} - ${aiCallUsage.cachedInputTokens} - ${aiCallUsage.cacheWriteTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
-              outputTokens: sql<
-                number | null
-              >`sum(${aiCallUsage.outputTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
-              cacheReadTokens: sql<
-                number | null
-              >`sum(${aiCallUsage.cachedInputTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
-              cacheCreationTokens: sql<
-                number | null
-              >`sum(${aiCallUsage.cacheWriteTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
-              cost: sql<
-                string | null
-              >`case when bool_and(${aiCallUsage.status} in ('completed', 'failed') and ${aiCallUsage.calculatedCostUsd} is not null) then sum(${aiCallUsage.calculatedCostUsd}) else null end`,
-            })
-            .from(aiCallUsage)
-            .where(eq(aiCallUsage.stepId, target.stepId));
-          await tx
-            .update(generationSteps)
-            .set(totals)
-            .where(eq(generationSteps.id, target.stepId));
-        }),
-      );
-      if (!totalsSaved)
-        await this.write(target, id, () =>
-          this.database.db
-            .update(generationSteps)
-            .set({
-              inputTokens: null,
-              outputTokens: null,
-              cacheReadTokens: null,
-              cacheCreationTokens: null,
-              cost: null,
-            })
-            .where(eq(generationSteps.id, target.stepId)),
-        );
+      // 단계 합계는 생성 작업의 호출에만 있다.
+      if ("stepId" in target) await this.stepTotals(target, id);
     }
+  }
+
+  private async stepTotals(
+    target: Extract<UsageTarget, { stepId: string }>,
+    id: string,
+  ) {
+    const { stepId } = target;
+    // 호출 기록에서 다시 합산해 이전 합계 저장 실패도 다음 호출에서 복구한다.
+    const totalsSaved = await this.write(target, id, () =>
+      this.database.db.transaction(async (tx) => {
+        // 같은 단계의 동시 집계가 오래된 합계로 덮어쓰지 않도록 먼저 잠근다.
+        await tx
+          .select({ id: generationSteps.id })
+          .from(generationSteps)
+          .where(eq(generationSteps.id, stepId))
+          .for("update");
+        const [totals] = await tx
+          .select({
+            inputTokens: sql<
+              number | null
+            >`sum(${aiCallUsage.inputTokens} - ${aiCallUsage.cachedInputTokens} - ${aiCallUsage.cacheWriteTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
+            outputTokens: sql<
+              number | null
+            >`sum(${aiCallUsage.outputTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
+            cacheReadTokens: sql<
+              number | null
+            >`sum(${aiCallUsage.cachedInputTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
+            cacheCreationTokens: sql<
+              number | null
+            >`sum(${aiCallUsage.cacheWriteTokens}) filter (where ${aiCallUsage.usageKnown})::integer`,
+            cost: sql<
+              string | null
+            >`case when bool_and(${aiCallUsage.status} in ('completed', 'failed') and ${aiCallUsage.calculatedCostUsd} is not null) then sum(${aiCallUsage.calculatedCostUsd}) else null end`,
+          })
+          .from(aiCallUsage)
+          .where(eq(aiCallUsage.stepId, stepId));
+        await tx
+          .update(generationSteps)
+          .set(totals)
+          .where(eq(generationSteps.id, stepId));
+      }),
+    );
+    if (!totalsSaved)
+      await this.write(target, id, () =>
+        this.database.db
+          .update(generationSteps)
+          .set({
+            inputTokens: null,
+            outputTokens: null,
+            cacheReadTokens: null,
+            cacheCreationTokens: null,
+            cost: null,
+          })
+          .where(eq(generationSteps.id, stepId)),
+      );
   }
 }

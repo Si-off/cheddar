@@ -11,16 +11,17 @@ import {
   Post,
   Put,
   Query,
-  UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FilesInterceptor } from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiCookieAuth,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -33,18 +34,22 @@ import {
   CreateProjectDto,
   CreateScreenDto,
   CreateScreenIdRuleDto,
+  CreateScreensDto,
+  CreateScreensResultDto,
   FeatureGroupDto,
   FeatureGroupListDto,
   FeatureGroupOrderDto,
-  ImportScreensResultDto,
   MemoDto,
   NextScreenIdDto,
   ProjectDto,
   ProjectListDto,
+  ScreenDraftListDto,
   ScreenDto,
+  ScreenIdRuleDraftListDto,
   ScreenIdRuleDto,
   ScreenIdRuleListDto,
   ScreenListDto,
+  ScreenSourcesMultipartDto,
   TemplateDto,
   UpdateFeatureGroupDto,
   UpdateMemoDto,
@@ -54,13 +59,30 @@ import {
   UpdateTemplateDto,
 } from "../contracts/project.dto";
 import { ProjectsService } from "./projects.service";
+import { ScreenDraftsService } from "./screen-drafts.service";
+import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES } from "./screen-sources";
+
+const sourceFiles = FilesInterceptor("files[]", MAX_SOURCE_FILES, {
+  limits: { fileSize: MAX_SOURCE_BYTES, fieldSize: 200_000, fields: 1 },
+});
+const sourcesBody = {
+  schema: {
+    type: "object",
+    properties: {
+      text: { type: "string" },
+      "files[]": { type: "array", items: { type: "string", format: "binary" } },
+    },
+  },
+} as const;
 
 @ApiTags("프로젝트 설정")
 @ApiCookieAuth()
+@ApiExtraModels(ScreenSourcesMultipartDto)
 @Controller("api/v1/projects")
 export class ProjectsController {
   constructor(
     @Inject(ProjectsService) private readonly service: ProjectsService,
+    @Inject(ScreenDraftsService) private readonly drafts: ScreenDraftsService,
   ) {}
   // 플러그인이 업로드할 프로젝트를 고를 때도 쓴다
   @Get()
@@ -347,30 +369,54 @@ export class ProjectsController {
     );
   }
 
-  @Post(":projectId/screens/import")
-  @UseInterceptors(
-    FileInterceptor("file", {
-      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
-    }),
-  )
+  @Post(":projectId/screens/batch")
   @ApiOperation({
-    operationId: "importProjectScreens",
-    summary: "IA 화면 구조 가져오기",
+    operationId: "createProjectScreens",
+    summary: "화면 여러 개 추가",
+  })
+  @ApiBody({ type: CreateScreensDto })
+  @ApiCreatedResponse({ type: CreateScreensResultDto })
+  createScreens(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @Body() dto: CreateScreensDto,
+  ) {
+    return this.service.addScreens(id, dto.items);
+  }
+
+  @Post(":projectId/screens/drafts")
+  @UseInterceptors(sourceFiles)
+  @ApiOperation({
+    operationId: "draftProjectScreens",
+    summary: "자료에서 화면 초안 만들기",
   })
   @ApiConsumes("multipart/form-data")
-  @ApiBody({
-    schema: {
-      type: "object",
-      required: ["file"],
-      properties: { file: { type: "string", format: "binary" } },
-    },
-  })
-  @ApiCreatedResponse({ type: ImportScreensResultDto })
-  importScreens(
+  @ApiBody(sourcesBody)
+  @ApiCreatedResponse({ type: ScreenDraftListDto })
+  screenDrafts(
     @Param("projectId", ParseUUIDPipe) id: string,
-    @UploadedFile() file?: Express.Multer.File,
+    @CurrentAccount() accountId: string,
+    @Body() dto: ScreenSourcesMultipartDto,
+    @UploadedFiles() files: Express.Multer.File[] = [],
   ) {
-    return this.service.importScreens(id, file);
+    return this.drafts.screenDrafts(id, accountId, dto.text ?? "", files);
+  }
+
+  @Post(":projectId/screen-id-rules/drafts")
+  @UseInterceptors(sourceFiles)
+  @ApiOperation({
+    operationId: "draftProjectScreenIdRules",
+    summary: "자료에서 화면 ID 규칙 초안 만들기",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody(sourcesBody)
+  @ApiCreatedResponse({ type: ScreenIdRuleDraftListDto })
+  ruleDrafts(
+    @Param("projectId", ParseUUIDPipe) id: string,
+    @CurrentAccount() accountId: string,
+    @Body() dto: ScreenSourcesMultipartDto,
+    @UploadedFiles() files: Express.Multer.File[] = [],
+  ) {
+    return this.drafts.ruleDrafts(id, accountId, dto.text ?? "", files);
   }
 
   @Get(":projectId/memo")

@@ -18,6 +18,7 @@ import {
   screensQuery,
 } from "@/entities/project";
 import { sdk, toApiFailure } from "@/shared/api";
+import { NewRuleDialog } from "./new-rule-dialog";
 import { ScreenIdRuleDialog } from "./rule-dialog";
 
 const unknownResult = "응답을 받지 못했습니다. 새로 고쳐 결과를 확인하세요.";
@@ -101,9 +102,11 @@ export function ScreenIdRulesEditor({
   const [editing, setEditing] = useState<ScreenIdRule | "new" | null>(null);
   const [deleting, setDeleting] = useState<ScreenIdRule | null>(null);
   const save = (input: ScreenIdRuleInput) => {
-    const done = { onSuccess: () => setEditing(null) };
-    if (editing === "new") actions.create.mutate(input, done);
-    else if (editing) actions.update.mutate({ id: editing.id, ...input }, done);
+    if (editing && editing !== "new")
+      actions.update.mutate(
+        { id: editing.id, ...input },
+        { onSuccess: () => setEditing(null) },
+      );
   };
 
   return (
@@ -184,11 +187,18 @@ export function ScreenIdRulesEditor({
           </button>
         )}
       </div>
+      <NewRuleDialog
+        projectId={projectId}
+        open={editing === "new"}
+        onOpenChange={(open) => !open && setEditing(null)}
+        pending={actions.create.isPending}
+        onCreate={(input) => actions.create.mutateAsync(input)}
+      />
       <ScreenIdRuleDialog
-        open={editing !== null}
+        open={editing !== null && editing !== "new"}
         onOpenChange={(open) => !open && setEditing(null)}
         rule={editing === "new" ? null : editing}
-        pending={actions.create.isPending || actions.update.isPending}
+        pending={actions.update.isPending}
         onSave={save}
       />
       <ConfirmDialog

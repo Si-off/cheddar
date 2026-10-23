@@ -24,5 +24,6 @@ import { AiUsageService } from "./usage.service";
     ProviderService,
     ReviewItemsService,
   ],
+  exports: [ProviderService, AiUsageService],
 })
 export class GenerationModule {}

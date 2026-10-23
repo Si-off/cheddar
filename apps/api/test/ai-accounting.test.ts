@@ -237,7 +237,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
           const [step] = await f.db
             .select()
             .from(generationSteps)
-            .where(eq(generationSteps.id, rows[0].stepId));
+            .where(eq(generationSteps.id, rows[0].stepId as string));
           assert.equal(step.attempts, 2);
           assert.equal(step.repairCount, 1);
           assert.equal(step.inputTokens, 60);
@@ -301,7 +301,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
           const [step] = await f.db
             .select()
             .from(generationSteps)
-            .where(eq(generationSteps.id, rows[0].stepId));
+            .where(eq(generationSteps.id, rows[0].stepId as string));
           assert.equal(step.inputTokens, 14);
           assert.equal(step.outputTokens, 6);
         } finally {
@@ -328,7 +328,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
           const [step] = await f.db
             .select()
             .from(generationSteps)
-            .where(eq(generationSteps.id, rows[0].stepId));
+            .where(eq(generationSteps.id, rows[0].stepId as string));
           assert.equal(step.inputTokens, 10);
           assert.equal(step.outputTokens, 4);
         } finally {
