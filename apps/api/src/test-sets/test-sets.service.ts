@@ -364,18 +364,21 @@ export class TestSetsService {
       "screen_id",
       "steps",
     ]);
+    // 테스트 환경과 테스트 케이스가 끊기면 뒤쪽 병합 열도 끊긴다. 나머지는 서로의 경계를 넘는다.
+    const boundaryKeys = new Set(["test_env", "test_case"]);
     const boundaries = new Set<number>([0, set.cases.length]);
     for (const [index, column] of set.columns.entries()) {
       if (!column.presetKey || !mergeKeys.has(column.presetKey)) continue;
-      const values = set.cases.map((c) =>
-        cellText(c.values[column.id]).replace(/\s/g, ""),
-      );
+      // 화면과 같이 글자가 같은 값만 묶는다.
+      const values = set.cases.map((c) => cellText(c.values[column.id]));
+      const own = boundaryKeys.has(column.presetKey)
+        ? boundaries
+        : new Set(boundaries);
       for (let row = 1; row < values.length; row++)
-        if (!values[row] || values[row] !== values[row - 1])
-          boundaries.add(row);
+        if (!values[row] || values[row] !== values[row - 1]) own.add(row);
       let start = 0;
       for (let end = 1; end <= values.length; end++) {
-        if (!boundaries.has(end)) continue;
+        if (!own.has(end)) continue;
         if (values[start] && end - start > 1)
           sheet.mergeCells(
             start + headerRows + 1,

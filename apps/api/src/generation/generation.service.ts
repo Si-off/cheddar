@@ -26,6 +26,7 @@ import {
 import { TempUploadsService } from "../temp-uploads/temp-uploads.service";
 import { TestSetsStore } from "../test-sets/test-sets.store";
 import { QueueService } from "./queue.service";
+import { STYLE_BLOCK_ROWS, scenarioBlock } from "./scenarios";
 import { isAiColumn } from "./steps/column-rules";
 import { applicableViewpoints } from "./steps/viewpoints";
 import type { GenerationInput } from "./types";
@@ -211,22 +212,25 @@ export class GenerationService {
           // 열 UUID는 세트별로 달라 이름과 형식이 같은 현재 열로 매핑한다.
           const oldColumns = await this.store.columns(set.id, tx);
           const columns = await this.store.columns(testSetId, tx);
-          for (const c of (await this.store.cases(set.id, tx)).slice(0, 3))
-            styleExamples.push({
-              id: c.id,
-              featureGroupId: c.featureGroupId,
-              values: Object.fromEntries(
-                columns.flatMap((column) => {
-                  const old = oldColumns.find(
-                    (o) => o.name === column.name && o.type === column.type,
-                  );
-                  return old && c.values[old.id] !== undefined
-                    ? [[column.id, c.values[old.id]]]
-                    : [];
-                }),
-              ),
-            });
-          if (styleExamples.length >= 6) break;
+          const mapped = (await this.store.cases(set.id, tx)).map((c) => ({
+            id: c.id,
+            featureGroupId: c.featureGroupId,
+            values: Object.fromEntries(
+              columns.flatMap((column) => {
+                const old = oldColumns.find(
+                  (o) => o.name === column.name && o.type === column.type,
+                );
+                return old && c.values[old.id] !== undefined
+                  ? [[column.id, c.values[old.id]]]
+                  : [];
+              }),
+            ),
+          }));
+          // 행을 나누는 방식이 보이도록 여러 행으로 된 시나리오 하나를 통째로 넣는다.
+          styleExamples.push(
+            ...scenarioBlock(columns, mapped).slice(0, STYLE_BLOCK_ROWS),
+          );
+          if (styleExamples.length >= STYLE_BLOCK_ROWS) break;
         }
         const input: GenerationInput = {
           columns: await this.store.columns(testSetId, tx),
@@ -243,7 +247,7 @@ export class GenerationService {
             .from(screenStructureItems)
             .where(eq(screenStructureItems.projectId, row.projectId))
             .orderBy(screenStructureItems.position, screenStructureItems.id),
-          styleExamples: styleExamples.slice(0, 6),
+          styleExamples: styleExamples.slice(0, STYLE_BLOCK_ROWS * 2),
           existingCases:
             dto.kind === "append" ? await this.store.cases(testSetId, tx) : [],
         };

@@ -1374,6 +1374,79 @@ test("실제 PostgreSQL에서 테스트 세트 권한, 양식, 연산, 보기 �
         order.map((c) => c.name),
       );
     });
+    await t.test(
+      "XLSX에서 제목, 화면 ID, 수행 절차는 테스트 케이스 안에서 서로의 경계를 넘어 병합된다",
+      async () => {
+        const set = await sets.create(admin.account.id, {
+          name: "병합 경계",
+          projectId: otherProject.id,
+          memo: "",
+        });
+        const id = (key: string) => {
+          const column = set.columns.find((c) => c.presetKey === key);
+          assert.ok(column);
+          return column.id;
+        };
+        // 현업 시트의 조건 반복: 제목은 행마다 다르고 절차는 같다. 마지막 행은 다른 테스트 케이스다.
+        const rows = [
+          ["가", "Case 1", "S1"],
+          ["가", "Case 2", "S1"],
+          ["가", "Case 2", "S2"],
+          ["나", "Case 3", "S2", "1. 진입"],
+          // 공백만 달라도 화면처럼 다른 값이다.
+          ["나", "Case 4", "S2", "1.진입"],
+        ];
+        const caseIds = rows.map(() => randomUUID());
+        await operations.apply(set.id, admin.account.id, {
+          ops: rows.map(([testCase, title, screen, steps = "1. 진입"], i) => ({
+            type: "add_case",
+            caseId: caseIds[i],
+            afterCaseId: i ? caseIds[i - 1] : null,
+            values: {
+              [id("test_env")]: "APP",
+              [id("test_case")]: testCase,
+              [id("title")]: title,
+              [id("screen_id")]: screen,
+              [id("steps")]: steps,
+            },
+          })),
+        });
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(
+          (await sets.export(set.id, admin.account.id)).data as never,
+        );
+        const merges = workbook.worksheets[0].model.merges ?? [];
+        const letter = (key: string) =>
+          workbook.worksheets[0].getColumn(
+            set.columns.findIndex((c) => c.presetKey === key) + 1,
+          ).letter;
+        const [env, testCase, title, screen, steps] = [
+          "test_env",
+          "test_case",
+          "title",
+          "screen_id",
+          "steps",
+        ].map(letter);
+        assert.deepEqual(
+          merges
+            .filter((m) =>
+              [env, testCase, title, screen, steps].includes(
+                m.replace(/\d.*/, ""),
+              ),
+            )
+            .sort(),
+          [
+            `${env}3:${env}7`,
+            `${testCase}3:${testCase}5`,
+            `${testCase}6:${testCase}7`,
+            `${title}4:${title}5`,
+            `${screen}3:${screen}4`,
+            `${screen}6:${screen}7`,
+            `${steps}3:${steps}5`,
+          ].sort(),
+        );
+      },
+    );
   } finally {
     await app.close();
     await lease.close();

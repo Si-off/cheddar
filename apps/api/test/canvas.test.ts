@@ -345,7 +345,7 @@ test("생성은 그룹 키를 최종 점검과 확인 필요 수락까지 보존
   }
 });
 
-test("최종 점검은 케이스와 그룹 키의 누락·개수 불일치를 거부한다", async () => {
+test("최종 점검은 기능 그룹 키가 없는 시나리오와 확인 필요 항목을 거부한다", async () => {
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
