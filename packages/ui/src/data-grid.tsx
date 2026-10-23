@@ -97,6 +97,8 @@ export interface DataGridProps<Row> {
 const DEFAULT_WIDTH = 160;
 const MIN_WIDTH = 48;
 const ROW_HEIGHT = 32;
+/** 셀의 위아래 안쪽 여백(py-1.5)과 아래 테두리. 높이를 정한 행의 내용을 자를 때 뺀다 */
+const CELL_CHROME = 13;
 const EDGE = 4;
 const KEY_STEP = 8;
 
@@ -211,6 +213,7 @@ export function DataGrid<Row>({
   })();
 
   // 포인터가 셀 경계 근처인지 판단한다. 표 머리글은 세로선만 끈다.
+  // 경계선의 양쪽 셀 모두에서 잡히게 해, 교차점은 어느 쪽에서 눌러도 너비와 높이를 함께 바꾼다.
   const hitTest = (event: {
     target: EventTarget;
     clientX: number;
@@ -218,20 +221,44 @@ export function DataGrid<Row>({
   }): { mode: ResizeMode; columnId?: string; rowId?: string } => {
     const cell = (event.target as Element).closest<HTMLElement>("[data-col]");
     if (!cell) return { mode: null };
+    const self = { columnId: cell.dataset.col, rowId: cell.dataset.row };
     const rect = cell.getBoundingClientRect();
-    const nearRight = rect.right - event.clientX <= EDGE;
-    const nearBottom =
-      cell.dataset.row !== undefined && rect.bottom - event.clientY <= EDGE;
-    const mode: ResizeMode =
-      nearRight && nearBottom
-        ? "both"
-        : nearRight
-          ? "col"
-          : nearBottom
-            ? "row"
-            : null;
-    return { mode, columnId: cell.dataset.col, rowId: cell.dataset.row };
+    const colAt = columns.findIndex((c) => c.id === self.columnId);
+    const rowAt = self.rowId === undefined ? -1 : rowIds.indexOf(self.rowId);
+    // 왼쪽 경계는 앞 열의 오른쪽 경계, 위쪽 경계는 앞 행의 아래쪽 경계다
+    const columnId =
+      rect.right - event.clientX <= EDGE
+        ? self.columnId
+        : event.clientX - rect.left <= EDGE && colAt > 0
+          ? columns[colAt - 1]?.id
+          : undefined;
+    const rowId =
+      rowAt < 0
+        ? undefined
+        : rect.bottom - event.clientY <= EDGE
+          ? self.rowId
+          : event.clientY - rect.top <= EDGE && rowAt > 0
+            ? rowIds[rowAt - 1]
+            : undefined;
+    if (!columnId && !rowId) return { mode: null, ...self };
+    return {
+      mode: columnId && rowId ? "both" : columnId ? "col" : "row",
+      columnId,
+      rowId,
+    };
   };
+
+  // 끌거나 끌 수 있는 경계. 그 열과 행의 경계선을 강조한다.
+  const [guide, setGuide] = useState<{
+    columnId?: string;
+    rowId?: string;
+  } | null>(null);
+  const showGuide = (next: { columnId?: string; rowId?: string } | null) =>
+    setGuide((prev) =>
+      prev?.columnId === next?.columnId && prev?.rowId === next?.rowId
+        ? prev
+        : next,
+    );
 
   const cursorFor: Record<Exclude<ResizeMode, null>, string> = {
     col: "col-resize",
@@ -242,8 +269,16 @@ export function DataGrid<Row>({
   const onPointerMove = (event: PointerEvent<HTMLTableElement>) => {
     const d = drag.current;
     if (!d) {
-      const { mode } = hitTest(event);
+      const { mode, columnId, rowId } = hitTest(event);
       event.currentTarget.style.cursor = mode ? cursorFor[mode] : "";
+      showGuide(
+        mode
+          ? {
+              columnId: mode === "row" ? undefined : columnId,
+              rowId: mode === "col" ? undefined : rowId,
+            }
+          : null,
+      );
       return;
     }
     if (d.mode !== "row" && d.columnId) {
@@ -264,8 +299,15 @@ export function DataGrid<Row>({
   };
 
   const onPointerDown = (event: PointerEvent<HTMLTableElement>) => {
+    if (event.button !== 0) return;
     const { mode, columnId, rowId } = hitTest(event);
     if (!mode) return;
+    // 내용이 길어 기본 높이보다 커진 행은 보이는 높이에서 시작해야 끄는 만큼 바로 바뀐다
+    const rowElement = rowId
+      ? scrollRef.current
+          ?.querySelector(`td[data-row="${CSS.escape(rowId)}"]`)
+          ?.closest("tr")
+      : null;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const column = columns.find((c) => c.id === columnId);
@@ -276,7 +318,9 @@ export function DataGrid<Row>({
       columnId: mode === "row" ? undefined : columnId,
       rowId: mode === "col" ? undefined : rowId,
       width: column ? widthOf(column) : DEFAULT_WIDTH,
-      height: rowId ? heightOf(rowId) : ROW_HEIGHT,
+      height: rowElement
+        ? Math.round(rowElement.getBoundingClientRect().height)
+        : ROW_HEIGHT,
       widths: { ...widths },
       heights: { ...heights },
     };
@@ -286,6 +330,7 @@ export function DataGrid<Row>({
     selecting.current = false;
     if (!drag.current) return;
     drag.current = null;
+    showGuide(null);
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
@@ -465,8 +510,15 @@ export function DataGrid<Row>({
     onColumnReorder?.(ids);
   };
 
+  // 표 너비를 열 너비의 합으로 정해야 열을 넓힐 때 다른 열이 줄지 않고 가로로 스크롤된다
+  const tableWidth =
+    (selectable ? 40 : 0) +
+    (headerEnd ? 40 : 0) +
+    columns.reduce((sum, column) => sum + widthOf(column), 0);
+
   const table = (
     <table
+      style={{ width: tableWidth }}
       tabIndex={selection === "none" ? undefined : 0}
       onKeyDown={onKeyDown}
       aria-label={ariaLabel}
@@ -476,6 +528,9 @@ export function DataGrid<Row>({
       onPointerDown={onPointerDown}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onPointerLeave={() => {
+        if (!drag.current) showGuide(null);
+      }}
       onDoubleClick={onDoubleClick}
     >
       <colgroup>
@@ -533,6 +588,7 @@ export function DataGrid<Row>({
                   </span>
                 )}
               </span>
+              {guide?.columnId === column.id && <GuideLine side="right" />}
               <ColumnResizeHandle
                 onMove={
                   onColumnReorder && !column.fixed
@@ -595,6 +651,7 @@ export function DataGrid<Row>({
                     checked={rowSelected}
                     onCheckedChange={(checked) => toggleRow(rowId, checked)}
                   />
+                  {guide?.rowId === rowId && <GuideLine side="bottom" />}
                 </td>
               )}
               {columns.map((column) => {
@@ -612,6 +669,10 @@ export function DataGrid<Row>({
                   rowIndex <= range.r1 &&
                   rowIndex + span - 1 >= range.r0;
                 const who = presenceAt.get(`${rowId}:${column.id}`);
+                // 높이를 정한 행은 스프레드시트처럼 넘치는 내용을 자른다. 고른 셀은 편집할 수 있게 모두 보인다.
+                const fixedHeight = heights[rowId];
+                const clip = fixedHeight !== undefined && span === 1 && !active;
+                const content = column.cell(row, { active });
                 return (
                   <td
                     key={column.id}
@@ -620,6 +681,8 @@ export function DataGrid<Row>({
                     rowSpan={span > 1 ? span : undefined}
                     aria-current={active ? "true" : undefined}
                     onPointerDown={(event) => {
+                      // 경계를 끌어 크기를 바꿀 때는 셀을 고르지 않는다. 우클릭은 메뉴 대상이 되도록 늘 고른다.
+                      if (event.button === 0 && hitTest(event).mode) return;
                       if (event.button !== 0) {
                         // 오른쪽 클릭이 범위 안이면 범위를 그대로 두고 메뉴를 연다
                         if (!inRange) setActive({ rowId, columnId: column.id });
@@ -655,7 +718,22 @@ export function DataGrid<Row>({
                         ),
                     )}
                   >
-                    {column.cell(row, { active })}
+                    {clip ? (
+                      <div
+                        className="overflow-hidden"
+                        style={{ maxHeight: fixedHeight - CELL_CHROME }}
+                      >
+                        {content}
+                      </div>
+                    ) : (
+                      content
+                    )}
+                    {guide?.columnId === column.id && (
+                      <GuideLine side="right" />
+                    )}
+                    {guide?.rowId === rowId && span === 1 && (
+                      <GuideLine side="bottom" />
+                    )}
                     {who && (
                       <span
                         className={cn(
@@ -673,7 +751,11 @@ export function DataGrid<Row>({
                   </td>
                 );
               })}
-              {headerEnd && <td className={cellBase} />}
+              {headerEnd && (
+                <td className={cellBase}>
+                  {guide?.rowId === rowId && <GuideLine side="bottom" />}
+                </td>
+              )}
             </tr>
           );
         })}
@@ -689,7 +771,7 @@ export function DataGrid<Row>({
         else if (ref) ref.current = node;
       }}
       className={cn(
-        "w-fit max-w-full overflow-auto rounded-lg border border-line bg-surface",
+        "relative w-fit max-w-full overflow-auto rounded-lg border border-line bg-surface",
         className,
       )}
     >
@@ -711,6 +793,21 @@ export function DataGrid<Row>({
           : ""}
       </span>
     </div>
+  );
+}
+
+/** 크기를 바꾸는 경계선 표시. 셀의 테두리 위에 겹쳐 그 열이나 행 전체에 선이 이어진다. */
+function GuideLine({ side }: { side: "right" | "bottom" }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute z-10 bg-accent",
+        side === "right"
+          ? "top-0 -right-px bottom-0 w-0.5"
+          : "right-0 -bottom-px left-0 h-0.5",
+      )}
+    />
   );
 }
 

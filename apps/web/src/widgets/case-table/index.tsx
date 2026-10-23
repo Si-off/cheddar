@@ -888,7 +888,7 @@ export function CaseTable({
       onPointerDownCapture={() => {
         pointerFocus.current = true;
       }}
-      className="min-w-0"
+      className="flex min-h-0 min-w-0 flex-col"
     >
       <DataGrid
         ref={gridRef}
@@ -1169,6 +1169,7 @@ function OutsideMark({ id }: { id?: string }) {
 
 /**
  * 셀을 덮는 글자 입력. Enter로 마치고 Shift+Enter로 줄을 바꾼다.
+ * 스프레드시트처럼 다른 셀을 고르거나 밖을 눌러 편집이 끝나도 입력한 값을 반영한다. Escape만 취소한다.
  * dormant이면 보이지 않게 셀에 미리 있다가, 글자를 치면 같은 칸 그대로 편집을 시작한다.
  */
 function TextEditor({
@@ -1194,6 +1195,8 @@ function TextEditor({
   const done = useRef(false);
   const seedRef = useRef(seed);
   seedRef.current = seed;
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
   // 편집이 시작되거나 끝날 때만 칸의 값을 맞춘다. 편집 중 다른 사람의 변경이 와도 입력을 덮지 않는다.
   // 같은 칸을 쓰므로 조합 중인 글자도 이어진다.
   useLayoutEffect(() => {
@@ -1208,6 +1211,12 @@ function TextEditor({
       el.setSelectionRange(start.length, start.length);
     }
     el.focus();
+    // 다른 셀을 누르면 포커스가 빠지기 전에 편집이 끝나 이 칸이 사라지므로, 끝날 때 남은 입력을 반영한다
+    return () => {
+      if (dormant || done.current) return;
+      done.current = true;
+      onCommitRef.current(el.value);
+    };
   }, [dormant]);
   const commit = (value: string) => {
     if (dormant || done.current) return;
