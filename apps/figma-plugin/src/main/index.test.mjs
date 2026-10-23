@@ -17,7 +17,18 @@ function compile(path) {
 }
 const protocolCode = compile("../protocol/messages.ts");
 const mainCode = compile("./index.ts");
-const screenDocumentCode = compile("./screen-document.ts");
+// 살아 있는 노드의 findAll. 자기 자신은 빼고 하위 노드만 찾는다
+function findAll(predicate) {
+  const found = [];
+  const walk = (node) => {
+    for (const child of node.children ?? []) {
+      if (predicate(child)) found.push(child);
+      walk(child);
+    }
+  };
+  walk(this);
+  return found;
+}
 function setup({
   fileKey = "file-key",
   nodes,
@@ -25,6 +36,8 @@ function setup({
   webBaseUrl = "http://127.0.0.1:5176",
   pluginUiUrl = "",
   children = [],
+  rest,
+  others = [],
 } = {}) {
   const deliveries = [];
   const messages = [];
@@ -41,9 +54,15 @@ function setup({
     height: 844,
     removed: false,
     children,
+    findAll,
     exportAsync: async (options) => {
       exported.push(options);
       const { format } = options;
+      if (format === "JSON_REST_V1")
+        return {
+          document: rest ?? { id: "1:2", type: "FRAME", name: "주문" },
+          components: {},
+        };
       if (format === "PNG" && failPng) throw new Error("private detail");
       return new Uint8Array([137, 80, 78, 71]);
     },
@@ -56,7 +75,7 @@ function setup({
     on: (_type, callback) => pageEvents.add(callback),
     off: (_type, callback) => pageEvents.delete(callback),
   };
-  const lookup = new Map([[frame.id, frame]]);
+  const lookup = new Map([[frame.id, frame], ...others.map((n) => [n.id, n])]);
   const register = (node, parent) => {
     node.parent = parent;
     lookup.set(node.id, node);
@@ -92,13 +111,6 @@ function setup({
     Uint8Array,
     Set,
   });
-  const screenDocument = { exports: {} };
-  vm.runInNewContext(screenDocumentCode, {
-    exports: screenDocument.exports,
-    Set,
-    Map,
-    Object,
-  });
   vm.runInNewContext(mainCode, {
     figma,
     __html__: "",
@@ -106,10 +118,7 @@ function setup({
     __PLUGIN_UI_ORIGIN__: pluginUiUrl ? new URL(pluginUiUrl).origin : "",
     console,
     exports: {},
-    require: (path) =>
-      path.endsWith("screen-document")
-        ? screenDocument.exports
-        : protocol.exports,
+    require: () => protocol.exports,
     Map,
     Uint8Array,
     Error,
@@ -176,10 +185,11 @@ function screen(id, children = []) {
     width: 390,
     height: 844,
     removed: false,
+    findAll,
     exportAsync: async ({ format }) =>
       format === "PNG"
         ? new Uint8Array([137, 80, 78, 71])
-        : { document: { id, type: "FRAME" } },
+        : { document: { id, type: "FRAME", name: `화면 ${id}` } },
   };
   for (const child of children) child.parent = node;
   return node;
@@ -323,11 +333,52 @@ test("a prepared upload survives selection changes and edits elsewhere in the do
     "upload-validated",
   );
 });
-test("exports a screen document and PNG without uploading unselected frames", async () => {
-  const subject = setup({
-    children: [
-      { id: "1:3", type: "TEXT", name: "결제", characters: "결제하기" },
+test("exports the REST source, annotations and outside link names without filtering", async () => {
+  const hidden = { id: "1:4", type: "TEXT", visible: false, annotations: [] };
+  const buy = {
+    id: "1:3",
+    type: "TEXT",
+    annotations: [
+      { label: "명세 참고", labelMarkdown: "[명세](https://x.test)" },
     ],
+  };
+  const rest = {
+    id: "1:2",
+    type: "FRAME",
+    name: "주문",
+    interactions: [
+      { trigger: null, actions: [{ type: "NODE", destinationId: "9:1" }] },
+    ],
+    children: [
+      {
+        id: "1:3",
+        type: "TEXT",
+        name: "결제",
+        characters: "결제하기",
+        interactions: [
+          {
+            trigger: { type: "ON_CLICK" },
+            actions: [
+              { type: "NODE", destinationId: "1:4" },
+              { type: "NODE", destinationId: "9:404" },
+              { type: "BACK" },
+            ],
+          },
+        ],
+      },
+      {
+        id: "1:4",
+        type: "TEXT",
+        name: "숨김",
+        visible: false,
+        characters: "x",
+      },
+    ],
+  };
+  const subject = setup({
+    children: [buy, hidden],
+    rest,
+    others: [{ id: "9:1", type: "FRAME", name: "주문서" }],
   });
   const prepared = await prepare(subject);
   assert.equal(prepared.frames.length, 1);
@@ -338,10 +389,15 @@ test("exports a screen document and PNG without uploading unselected frames", as
     nodeId: "1:2",
   });
   assert.equal(result.type, "frame-exported");
-  const data = JSON.parse(result.data);
-  assert.equal(data.schemaVersion, 2);
-  assert.equal(data.board.name, "주문");
-  assert.deepEqual(data.texts, ["결제하기"]);
+  assert.ok(subject.protocol.isMainToUiMessage(result));
+  // 숨김 노드도 거르지 않고 원본 그대로 넘긴다
+  assert.deepEqual(JSON.parse(result.source.document), rest);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.source.externalNames)), {
+    "9:1": "주문서",
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.source.annotations)), {
+    "1:3": buy.annotations,
+  });
   assert.equal(
     (
       await subject.send({
@@ -418,19 +474,22 @@ test("a removed frame is reported on its own and a released session expires", as
     "SESSION_EXPIRED",
   );
 });
-test("an oversized screen document is shrunk instead of failing, and failed exports stay private", async () => {
+test("an oversized REST source is reduced to the board instead of failing, and failed exports stay private", async () => {
   const oversized = setup({
-    children: [1, 2].map((n) => ({
-      id: `big${n}`,
+    rest: {
+      id: "1:2",
       type: "FRAME",
-      name: `묶음 ${n}`,
-      children: Array.from({ length: 700 }, (_, i) => ({
-        id: `t${n}-${i}`,
-        type: "TEXT",
-        name: "t",
-        characters: `${n}-${i}-${"한".repeat(1990)}`,
-      })),
-    })),
+      name: "주문",
+      absoluteBoundingBox: { x: 0, y: 0, width: 390, height: 844 },
+      children: [
+        {
+          id: "1:3",
+          type: "TEXT",
+          name: "t",
+          characters: "a".repeat(64 * 1024 * 1024),
+        },
+      ],
+    },
   });
   await prepare(oversized);
   const large = await oversized.send({
@@ -440,11 +499,13 @@ test("an oversized screen document is shrunk instead of failing, and failed expo
     nodeId: "1:2",
   });
   assert.equal(large.type, "frame-exported");
-  assert.ok(new TextEncoder().encode(large.data).length <= 5 * 1024 * 1024);
-  const shrunk = JSON.parse(large.data);
-  assert.equal(shrunk.board.name, "주문");
-  assert.deepEqual(shrunk.tree, []);
-  assert.ok(shrunk.texts.length > 0);
+  assert.ok(oversized.protocol.isMainToUiMessage(large));
+  assert.deepEqual(JSON.parse(large.source.document), {
+    id: "1:2",
+    type: "FRAME",
+    name: "주문",
+    absoluteBoundingBox: { x: 0, y: 0, width: 390, height: 844 },
+  });
   const failed = setup({ failPng: true });
   await prepare(failed);
   const result = await failed.send({
@@ -468,6 +529,8 @@ test("an oversized screen document is shrunk instead of failing, and failed expo
 test("a too-large image is drawn again at a smaller scale", async () => {
   const subject = setup();
   subject.frame.exportAsync = async (options) => {
+    if (options.format === "JSON_REST_V1")
+      return { document: { id: "1:2", type: "FRAME", name: "주문" } };
     subject.exported.push(options);
     return options.constraint.value === 1
       ? new Uint8Array(20 * 1024 * 1024 + 1)
@@ -488,14 +551,20 @@ test("a too-large image is drawn again at a smaller scale", async () => {
 });
 
 test("a frame that changes while it is drawn is read again and sent as it is now", async () => {
-  const subject = setup({
-    children: [{ id: "1:3", type: "TEXT", name: "결제", characters: "결제" }],
+  const subject = setup();
+  const rest = (characters) => ({
+    id: "1:2",
+    type: "FRAME",
+    name: "주문",
+    children: [{ id: "1:3", type: "TEXT", name: "결제", characters }],
   });
+  let current = rest("결제");
   let draws = 0;
-  subject.frame.exportAsync = async () => {
+  subject.frame.exportAsync = async ({ format }) => {
+    if (format === "JSON_REST_V1") return { document: current };
     draws += 1;
     // 첫 번째 그리는 사이 글자가 바뀐다
-    if (draws === 1) subject.frame.children[0].characters = "결제하기";
+    if (draws === 1) current = rest("결제하기");
     return new Uint8Array([137, 80, 78, 71]);
   };
   await prepare(subject);
@@ -506,7 +575,7 @@ test("a frame that changes while it is drawn is read again and sent as it is now
     nodeId: "1:2",
   });
   assert.equal(result.type, "frame-exported");
-  assert.deepEqual(JSON.parse(result.data).texts, ["결제하기"]);
+  assert.deepEqual(JSON.parse(result.source.document), rest("결제하기"));
   assert.equal(draws, 2);
 });
 

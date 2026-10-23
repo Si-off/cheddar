@@ -7,7 +7,7 @@ export type FrameState =
   | "failed"
   | "skipped";
 type Extracted = { name: string; document: unknown; images: Blob[] };
-type Exported = { image: Uint8Array; data: string; frame?: SelectedFrame };
+type Exported = { image: Uint8Array; document: unknown; frame?: SelectedFrame };
 
 /** 플러그인과 Figma의 연결이 끊겨 더 읽을 수 없는 경우. 이때만 업로드를 멈춘다. */
 const STOP = ["SESSION_EXPIRED", "DISCONNECTED"];
@@ -74,7 +74,7 @@ export class FrameUpload {
         this.extracted.set(frame.nodeId, {
           // 읽는 사이 이름이 바뀌었으면 지금 이름으로 올린다
           name: read.frame?.name ?? frame.name,
-          document: JSON.parse(read.data),
+          document: read.document,
           images: await slice(read.image),
         });
         this.states.set(frame.nodeId, "done");

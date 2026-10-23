@@ -1,10 +1,16 @@
+import type {
+  FrameNode as RestFrameNode,
+  SubcanvasNode,
+} from "@figma/rest-api-spec";
 import {
   type ExportErrorCode,
+  type FrameAnnotation,
   type FrameSelection,
+  type FrameSource,
   isResourceId,
   isToken,
   isUiToMainMessage,
-  MAX_FRAME_DATA_BYTES,
+  MAX_FRAME_SOURCE_CHARS,
   MAX_IMAGE_BYTES,
   MAX_THUMBNAIL_BYTES,
   type MainToUiMessage,
@@ -12,12 +18,6 @@ import {
   type SelectedFrame,
   type UiToMainMessage,
 } from "../protocol/messages";
-import {
-  buildScreenDocument,
-  linkTargets,
-  type ScreenDocument,
-  type SourceNode,
-} from "./screen-document";
 
 declare const __WEB_BASE_URL__: string;
 /** 원격 UI 빌드에서만 값이 있다 */
@@ -133,26 +133,54 @@ function active(id: string): Session {
   return session;
 }
 /**
- * 화면 문서가 너무 크면 줄인다. 구조 트리, 연결, 주석, 글자 순으로 덜어내고 보드 정보는 남긴다.
- * 막지 않고 올릴 수 있는 만큼 올린다.
+ * 화면 문서는 UI가 만든다. main은 노드를 읽어 원본만 넘기고 거르지 않는다.
+ * UI가 찾을 수 없는 것만 더한다: 프레임 밖 연결 대상의 이름과 REST 원본에 없는 주석 Markdown.
+ * 원본이 상한을 넘으면 보드 정보만 넘긴다. 막지 않고 올릴 수 있는 만큼 올린다.
  */
-function fitDocument(document: ScreenDocument): string {
-  let data = JSON.stringify(document);
-  if (utf8Size(data) <= MAX_FRAME_DATA_BYTES) return data;
-  const smaller: ScreenDocument = { ...document, tree: [] };
-  data = JSON.stringify(smaller);
-  for (const key of ["links", "notes", "texts"] as const) {
-    while (utf8Size(data) > MAX_FRAME_DATA_BYTES && smaller[key].length > 0) {
-      smaller[key] = smaller[key].slice(
-        0,
-        Math.floor(smaller[key].length / 2),
-      ) as never;
-      data = JSON.stringify(smaller);
-    }
+async function frameSource(node: FrameNode): Promise<FrameSource> {
+  const rest = (await node.exportAsync({ format: "JSON_REST_V1" })) as {
+    document: RestFrameNode;
+  };
+  const document = JSON.stringify(rest.document);
+  if (document.length > MAX_FRAME_SOURCE_CHARS) {
+    note("화면 원본이 커서 보드 정보만 올립니다", { frame: node.name });
+    const { id, type, name, absoluteBoundingBox } = rest.document;
+    return {
+      document: JSON.stringify({ id, type, name, absoluteBoundingBox }),
+      annotations: {},
+      externalNames: {},
+    };
   }
-  note("화면 문서를 줄여서 올립니다", { board: document.board.name });
-  return data;
+  const inside = new Set<string>();
+  const targets = new Set<string>();
+  const walk = (item: RestFrameNode | SubcanvasNode) => {
+    inside.add(item.id);
+    if ("interactions" in item)
+      for (const interaction of item.interactions ?? [])
+        for (const action of interaction.actions ?? [])
+          if ("destinationId" in action && action.destinationId)
+            targets.add(action.destinationId);
+    if (item.type === "CONNECTOR" && item.connectorEnd.endpointNodeId)
+      targets.add(item.connectorEnd.endpointNodeId);
+    if ("children" in item) for (const child of item.children) walk(child);
+  };
+  walk(rest.document);
+  const externalNames: Record<string, string> = {};
+  for (const id of targets) {
+    if (inside.has(id)) continue;
+    const target = await figma.getNodeByIdAsync(id);
+    if (target && "name" in target) externalNames[id] = target.name;
+  }
+  const annotations: Record<string, FrameAnnotation[]> = {};
+  for (const item of [node, ...node.findAll((n) => "annotations" in n)])
+    if ("annotations" in item && item.annotations.length)
+      annotations[item.id] = [...item.annotations];
+  return { document, annotations, externalNames };
 }
+const sameSource = (a: FrameSource, b: FrameSource) =>
+  a.document === b.document &&
+  JSON.stringify([a.annotations, a.externalNames]) ===
+    JSON.stringify([b.annotations, b.externalNames]);
 async function exportImage(node: FrameNode) {
   for (const scale of EXPORT_SCALES) {
     const image = await node.exportAsync({
@@ -167,40 +195,21 @@ async function exportImage(node: FrameNode) {
   }
   throw new Error("IMAGE_TOO_LARGE");
 }
-async function readDocument(node: FrameNode) {
-  const source = node as unknown as SourceNode;
-  const external = new Map<string, string>();
-  for (const id of linkTargets(source)) {
-    const target = await figma.getNodeByIdAsync(id);
-    if (target && "name" in target) external.set(id, target.name);
-  }
-  return buildScreenDocument(source, external);
-}
 /**
  * 프레임 하나를 읽는 순간의 모습. 이미지를 그리는 사이 프레임이 바뀌었으면 다시 읽고,
  * 그래도 계속 바뀌면 마지막으로 읽은 모습을 쓴다.
  */
 async function snapshot(node: FrameNode) {
-  let document = await readDocument(node);
+  let source = await frameSource(node);
   let image = await exportImage(node);
   for (let attempt = 1; attempt < SNAPSHOT_ATTEMPTS; attempt += 1) {
-    const after = await readDocument(node);
-    if (JSON.stringify(after) === JSON.stringify(document)) break;
+    const after = await frameSource(node);
+    if (sameSource(after, source)) break;
     note("읽는 사이 프레임이 바뀌어 다시 읽습니다", { frame: node.name });
-    document = after;
+    source = after;
     image = await exportImage(node);
   }
-  return { document, image };
-}
-
-// TextEncoder isn't available in the Figma main sandbox.
-function utf8Size(value: string) {
-  let bytes = 0;
-  for (const character of value) {
-    const code = character.codePointAt(0) ?? 0;
-    bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
-  }
-  return bytes;
+  return { source, image };
 }
 async function handle(
   message: Exclude<
@@ -339,7 +348,7 @@ async function handle(
     note("업로드 중 지워진 프레임은 뺍니다", { nodeId: message.nodeId });
     throw new Error("FRAME_REMOVED");
   }
-  const { document, image } = await snapshot(node);
+  const { source, image } = await snapshot(node);
   send({
     type: "frame-exported",
     requestId: message.requestId,
@@ -350,7 +359,7 @@ async function handle(
       name: (node.name || expected.name).slice(0, 255),
     },
     image,
-    data: fitDocument(document),
+    source,
   });
 }
 figma.on("selectionchange", publishSelection);

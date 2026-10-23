@@ -13,6 +13,7 @@ import { ExternalLink, Frame, RotateCcw, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type MeDto, sdk, toApiFailure } from "@/shared/api";
 import {
+  debugRemoteUi,
   exportSelectedFrame,
   FigmaExportError,
   loadLastProject,
@@ -24,6 +25,7 @@ import {
   useFigmaConnection,
 } from "@/shared/lib/figma-bridge";
 import { FrameUpload } from "@/shared/lib/frame-upload";
+import { readFrameSource } from "@/shared/lib/screen-document";
 import { sliceImage } from "@/shared/lib/tiles";
 import { PluginShell } from "@/shared/ui/plugin-shell";
 import type { FrameSelection } from "../../../protocol/messages";
@@ -82,6 +84,23 @@ function useThumbnails(selection: FrameSelection | null) {
   return urls;
 }
 
+// main이 보낸 REST 원본으로 화면 문서를 만든다. 서버 상한을 넘으면 줄여서 올린다.
+async function exportFrame(sessionId: string, nodeId: string) {
+  const started = performance.now();
+  const { frame, image, source } = await exportSelectedFrame(sessionId, nodeId);
+  const received = performance.now();
+  const { document, reduced } = readFrameSource(source);
+  if (reduced)
+    console.info("[cheddar] 화면 문서를 줄여서 올립니다", {
+      frame: frame.name,
+    });
+  debugRemoteUi("frame read", {
+    sourceChars: source.document.length,
+    exportMs: Math.round(received - started),
+    buildMs: Math.round(performance.now() - received),
+  });
+  return { frame, image, document };
+}
 // 프레임을 올리지 못한 이유를 사용자가 할 수 있는 일로 알려준다. 이유가 섞이면 다시 시도를 안내한다.
 // 큰 이미지는 줄여서 다시 그리므로, 줄여도 20MB를 넘을 때만 나눠 올리라고 한다.
 const failureHint = (code: string | null) =>
@@ -179,7 +198,7 @@ export function UploadPage({
     signal: AbortSignal,
   ) => {
     const failed = await upload.extract(
-      (nodeId) => exportSelectedFrame(upload.sessionId, nodeId),
+      (nodeId) => exportFrame(upload.sessionId, nodeId),
       sliceImage,
       () => rerender((n) => n + 1),
       signal,

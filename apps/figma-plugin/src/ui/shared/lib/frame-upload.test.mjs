@@ -22,7 +22,7 @@ const frames = ["a", "b", "c"].map((id) => ({
   width: 390,
   height: 844,
 }));
-const doc = (id) => JSON.stringify({ board: { name: id } });
+const doc = (id) => ({ board: { name: id } });
 
 test("일시적인 실패는 한 번 더 읽고, 그래도 실패한 프레임만 다시 시도에서 읽는다", async () => {
   const upload = new FrameUpload("s", frames);
@@ -31,7 +31,7 @@ test("일시적인 실패는 한 번 더 읽고, 그래도 실패한 프레임�
   const exportFrame = async (id) => {
     calls.push(id);
     if (id === "b" && failB) throw new Error("EXPORT_FAILED");
-    return { image: new Uint8Array([1]), data: doc(id) };
+    return { image: new Uint8Array([1]), document: doc(id) };
   };
   // c는 타일 두 장
   const slice = async () => (calls.at(-1) === "c" ? ["c1", "c2"] : ["one"]);
@@ -49,11 +49,15 @@ test("일시적인 실패는 한 번 더 읽고, 그래도 실패한 프레임�
   assert.deepEqual(calls, ["a", "b", "b", "c", "b"]);
   const { manifest, images } = upload.payload();
   assert.deepEqual(
-    JSON.parse(manifest).frames.map((f) => [f.name, f.imageCount]),
+    JSON.parse(manifest).frames.map((f) => [
+      f.name,
+      f.document.board.name,
+      f.imageCount,
+    ]),
     [
-      ["화면 a", 1],
-      ["화면 b", 1],
-      ["화면 c", 2],
+      ["화면 a", "a", 1],
+      ["화면 b", "b", 1],
+      ["화면 c", "c", 2],
     ],
   );
   assert.deepEqual(images, ["one", "one", "c1", "c2"]);
@@ -65,7 +69,7 @@ test("지워진 프레임은 건너뛰고 나머지를 읽으며, 연결이 끊�
   const exportFrame = async (id) => {
     calls.push(id);
     if (id === "b") throw new Error("FRAME_REMOVED");
-    return { image: new Uint8Array([1]), data: doc(id) };
+    return { image: new Uint8Array([1]), document: doc(id) };
   };
   const signal = new AbortController().signal;
   assert.equal(
@@ -95,7 +99,7 @@ test("지워진 프레임은 건너뛰고 나머지를 읽으며, 연결이 끊�
     async (id) => {
       lostCalls.push(id);
       if (id === "b") throw new Error("DISCONNECTED");
-      return { image: new Uint8Array([1]), data: doc(id) };
+      return { image: new Uint8Array([1]), document: doc(id) };
     },
     async () => ["x"],
     () => {},
@@ -115,7 +119,7 @@ test("읽는 사이 바뀐 이름으로 올린다", async () => {
   await upload.extract(
     async () => ({
       image: new Uint8Array([1]),
-      data: doc("a"),
+      document: doc("a"),
       frame: { ...frames[0], name: "새 이름" },
     }),
     async () => ["x"],

@@ -294,6 +294,9 @@ importers:
       '@figma/plugin-typings':
         specifier: 1.141.0
         version: 1.141.0
+      '@figma/rest-api-spec':
+        specifier: 0.45.0
+        version: 0.45.0
       '@hey-api/openapi-ts':
         specifier: 0.99.0
         version: 0.99.0(typescript@5.9.3)
@@ -1089,6 +1092,9 @@ packages:
 
   '@figma/plugin-typings@1.141.0':
     resolution: {integrity: sha512-i+6AsBmiwGNpH4I6sgIvj5RX1dMWExzS7h33HGrU++//wPKotlIzJuGhG15woCQY1V1ctG/k5uW9HgfkTyTaWg==}
+
+  '@figma/rest-api-spec@0.45.0':
+    resolution: {integrity: sha512-MnovFeiLW49e+oBdvb9t8kRhO0B47ucaroEdRqQT7NkYua0BHlpA49twNuXC7v8mPt2rAxqxP396vDhpoXP9Nw==}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -4061,6 +4067,8 @@ snapshots:
       lodash.uniq: 4.5.0
 
   '@figma/plugin-typings@1.141.0': {}
+
+  '@figma/rest-api-spec@0.45.0': {}
 
   '@floating-ui/core@1.8.0':
     dependencies:
