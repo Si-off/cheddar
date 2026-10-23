@@ -224,7 +224,11 @@ test("화면 ID 규칙 추가: 파일을 넣으면 AI 초안을 고르고 고친
     "0101",
   );
   // 고른 부분의 코드 뜻을 그 자리에서 고친다
-  await dialog.getByRole("button", { name: "CS 영역" }).press("Enter");
+  // 한 글자 부분도 가운데를 눌러 고를 수 있다(모서리 메뉴가 가리지 않는다)
+  const channel = dialog.getByRole("button", { name: "U 채널" });
+  await channel.click();
+  await expect(channel).toHaveAttribute("aria-pressed", "true");
+  await dialog.getByRole("button", { name: "CS 영역" }).click();
   await dialog.getByRole("button", { name: "뜻 고객지원" }).click();
   await dialog.getByRole("textbox", { name: "뜻 입력" }).fill("고객 지원");
   await dialog.getByRole("textbox", { name: "뜻 입력" }).press("Enter");

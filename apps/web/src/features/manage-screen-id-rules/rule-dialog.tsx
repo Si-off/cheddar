@@ -315,7 +315,7 @@ export function RuleParts({
                         setOver(null);
                       }}
                       className={cn(
-                        "group/part relative flex cursor-grab flex-col items-center gap-1 border-line border-r px-4 pt-2.5 pb-2 transition-colors duration-fast last:border-r-0",
+                        "group/part relative flex min-w-16 cursor-grab flex-col items-center gap-1 border-line border-r px-4 pt-2.5 pb-2 transition-colors duration-fast last:border-r-0",
                         on &&
                           "bg-selected shadow-[inset_0_-2px_0_var(--color-accent)]",
                         drag === index && "opacity-40",
@@ -368,7 +368,7 @@ export function RuleParts({
                           <IconButton
                             icon={MoreHorizontal}
                             label={`${part.name || "부분"} 작업`}
-                            size="sm"
+                            size="xs"
                           />
                         }
                       />
