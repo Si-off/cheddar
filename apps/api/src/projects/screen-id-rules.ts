@@ -10,7 +10,7 @@ const firstValue = (part: ScreenIdRulePartDto) =>
 export const example = (rule: Rule) =>
   rule.parts.map(firstValue).join(rule.separator);
 
-const accepts = (part: ScreenIdRulePartDto, value: string) =>
+export const accepts = (part: ScreenIdRulePartDto, value: string) =>
   part.kind === "list"
     ? part.codes.some((item) => item.code === value)
     : part.kind === "fixed"

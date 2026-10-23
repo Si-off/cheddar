@@ -145,3 +145,24 @@ export function screenIdExampleParts(rule: Pick<ScreenIdRule, "parts">) {
         : "1".padStart(Math.max(1, part.digits), "0"),
   );
 }
+
+/** 자료에서 AI가 찾은 규칙. 저장하기 전 초안이다. */
+export type ScreenIdRuleDraft = ScreenIdRuleInput & { example: string };
+
+/** 자료에서 찾은 화면. 저장하기 전 초안이며 key로 상위 초안을 가리킨다. */
+export interface ScreenDraft {
+  key: string;
+  screenId: string;
+  name: string;
+  type: ScreenType;
+  parentKey: string | null;
+  description: string;
+  /** 결과 확인에서 묶는 이름(엑셀은 모듈) */
+  group: string;
+  /** 같은 화면 ID가 프로젝트에 이미 있다 */
+  exists: boolean;
+  ruleMismatch: boolean;
+}
+
+/** 화면 ID 규칙과 화면을 만들 때 넣을 수 있는 자료 */
+export const screenSourceAccept = ".xlsx,.csv,.tsv,.txt,.md,.png,.jpg,.jpeg";

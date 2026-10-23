@@ -8,6 +8,9 @@ export const STAGES = [
   "rewrite",
 ] as const;
 export type Stage = (typeof STAGES)[number];
+/** 생성 단계와 생성 작업 밖의 단발 호출(파일에서 화면 구조 초안 만들기). */
+export const AI_TASKS = [...STAGES, "structure"] as const;
+export type AiTask = (typeof AI_TASKS)[number];
 /** Claude와 GPT가 함께 받는 effort 값. default는 effort를 보내지 않아 모델 기본값을 쓴다(effort를 받지 않는 모델용). */
 export const EFFORTS = [
   "low",
@@ -25,7 +28,7 @@ export type ModelConfig = {
 };
 export type AiConfig = {
   fake: boolean;
-  models: Record<Stage, ModelConfig>;
+  models: Record<AiTask, ModelConfig>;
   /** 새 작업에 쓸 작성 지침 ID. 환경변수 AI_GUIDE로 바꾼다. */
   guide: string;
 };
@@ -40,12 +43,13 @@ export const MODEL_ALIASES: Record<string, string> = {
 };
 
 /** 단계별 기본 모델과 effort. 환경변수 AI_MODEL_<단계>, AI_EFFORT_<단계>로 바꾼다. */
-const defaults: Record<Stage, { model: string; effort: Effort }> = {
+const defaults: Record<AiTask, { model: string; effort: Effort }> = {
   screens: { model: "terra", effort: "low" },
   flows: { model: "terra", effort: "medium" },
   cases: { model: "terra", effort: "high" },
   finish: { model: "luna", effort: "low" },
   rewrite: { model: "terra", effort: "medium" },
+  structure: { model: "terra", effort: "medium" },
 };
 
 export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
@@ -55,7 +59,7 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   )
     throw new Error("AI_PROVIDER 설정을 확인하세요.");
   const models = Object.fromEntries(
-    STAGES.map((stage) => {
+    AI_TASKS.map((stage) => {
       const name = stage.toUpperCase();
       const value = env[`AI_MODEL_${name}`] ?? defaults[stage].model;
       const match = /^(anthropic|openai):([^\s:]+)$/.exec(
@@ -70,7 +74,7 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
         { provider: match[1], model: match[2], effort: effort as Effort },
       ];
     }),
-  ) as Record<Stage, ModelConfig>;
+  ) as Record<AiTask, ModelConfig>;
   const guide = env.AI_GUIDE || DEFAULT_GUIDE;
   if (!Object.hasOwn(GUIDES, guide))
     throw new Error("AI_GUIDE 설정을 확인하세요.");

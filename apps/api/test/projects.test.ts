@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { request as httpRequest } from "node:http";
 import test from "node:test";
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
@@ -16,7 +17,9 @@ import type {
   MemoDto,
   ProjectDto,
   ProjectListDto,
+  ScreenDraftListDto,
   ScreenDto,
+  ScreenIdRuleDraftListDto,
   ScreenIdRuleDto,
   ScreenIdRuleListDto,
   ScreenListDto,
@@ -27,6 +30,7 @@ import {
   projects,
   projectTemplates,
 } from "../src/database/schema";
+import { readAiConfig } from "../src/generation/model-config";
 import { ProjectsService } from "../src/projects/projects.service";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
@@ -36,7 +40,10 @@ const code = (expected: string) => (error: unknown) =>
 const password = "프로젝트-테스트-비밀번호-12345";
 test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조 계약", async (t) => {
   const lease = await openTestDatabase();
-  const app = await createApp(lease.config, lease.folder);
+  const app = await createApp(
+    { ...lease.config, ai: readAiConfig({ AI_PROVIDER: "fake" }) },
+    lease.folder,
+  );
   try {
     await app.get(LocalStorage).initialize();
     await app.listen(0, "127.0.0.1");
@@ -732,40 +739,53 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
       assert.equal(saved.type, "popup");
     });
     await t.test(
-      "IA XLSX 가져오기: 중복·빈 ID·부모 연결·유형·머리글·롤백",
+      "파일에서 화면 초안: 상위 경로 잇기, 중복, ID 없는 행, 버튼, 기존 화면, 일괄 추가",
       async () => {
         const project = await asJson<ProjectDto>(
           await request("", "POST", { name: "IA 테스트" }),
           201,
         );
         const root = `/${project.id}`;
-        const upload = async (rows: unknown[][], filename = "ia.xlsx") => {
-          const workbook = new ExcelJS.Workbook();
-          workbook.addWorksheet("IA").addRows(rows);
-          workbook.addWorksheet("무시").addRow(["다른 시트"]);
+        const post = async (
+          path: string,
+          files: { name: string; body: Uint8Array | string }[],
+          text?: string,
+        ) => {
           const form = new FormData();
-          form.append(
-            "file",
-            new Blob([new Uint8Array(await workbook.xlsx.writeBuffer())]),
-            filename,
-          );
-          return fetch(`${base}/api/v1/projects${root}/screens/import`, {
+          if (text !== undefined) form.append("text", text);
+          for (const file of files)
+            form.append("files[]", new Blob([file.body]), file.name);
+          return fetch(`${base}/api/v1/projects${root}${path}`, {
             method: "POST",
             headers: { Cookie: adminCookie },
             body: form,
           });
         };
-        const header = [
-          "Screen ID (화면)",
-          "Type",
-          "module",
-          "1Depth",
-          "2Depth",
-          "3Depth",
-          "4Depth",
-          "5Depth",
-          "Note",
-        ];
+        const workbook = new ExcelJS.Workbook();
+        workbook
+          .addWorksheet("IA")
+          .addRows([
+            ["IA 문서"],
+            [
+              "No",
+              "module",
+              "1Depth",
+              "2Depth",
+              "Type",
+              "Screen ID_최종",
+              "Note",
+            ],
+            [1, "홈", "", "", "Page", "U_HOME_PG_001", ""],
+            [2, "", "공지", "", "Page", "U_HOME_PG_002", "목록"],
+            [3, "", "", "상세", "Popup", "U_HOME_PO_001", "설명"],
+            [4, "", "", "다운로드", "Button", "", ""],
+            [5, "", "", "탭", "Tab", "U_HOME_PG_002", ""],
+            [6, "", "알림", "", "Page", "", ""],
+            [7, "", "", "알림 상세", "Bottom sheet", "U_HOME_BT_001", ""],
+            [8, "마이", "", "", "Page", "OLD", ""],
+          ]);
+        workbook.addWorksheet("메모").addRow(["다른 시트"]);
+        const xlsx = new Uint8Array(await workbook.xlsx.writeBuffer());
         await asJson(
           await request(`${root}/screens`, "POST", {
             screenId: "OLD",
@@ -774,79 +794,214 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
           }),
           201,
         );
-        const result = await asJson(
-          await upload([
-            ["IA 문서"],
-            header,
-            ["CHILD", "Pop-up", "모듈", "부모", "자식", "", "", "", "설명"],
-            ["ROOT", "Page", "모듈", "부모"],
-            ["CHILD", "Tab", "중복"],
-            ["OLD", "Page", "중복"],
-            ["", "Page", "ID 없음"],
-            ["BT", "BT", "바텀"],
-            ["BOTTOM", "Bottom sheet", "바텀2"],
-            ["TAB", "Tab", "탭"],
-            ["POP", "Popup", "팝업"],
-            ["DEFAULT", "알 수 없음", "기본"],
+        const drafts = await asJson<ScreenDraftListDto>(
+          await post("/screens/drafts", [
+            { name: "화면 목록.xlsx", body: xlsx },
+            { name: "설명.pdf", body: "pdf" },
           ]),
           201,
         );
-        assert.deepEqual(result, { created: 7, skipped: 3 });
+        assert.deepEqual(drafts.unreadFiles, ["설명.pdf"]);
+        assert.equal(drafts.skipped, 1);
+        const draft = (id: string) => {
+          const row = drafts.items.find((item) => item.screenId === id);
+          assert.ok(row, id);
+          return row;
+        };
+        assert.deepEqual(
+          drafts.items.map((item) => item.screenId),
+          [
+            "U_HOME_PG_001",
+            "U_HOME_PG_002",
+            "U_HOME_PO_001",
+            "U_HOME_BT_001",
+            "OLD",
+          ],
+        );
+        assert.equal(
+          draft("U_HOME_PG_002").parentKey,
+          draft("U_HOME_PG_001").key,
+        );
+        assert.equal(
+          draft("U_HOME_PO_001").parentKey,
+          draft("U_HOME_PG_002").key,
+        );
+        assert.equal(draft("U_HOME_PO_001").name, "상세");
+        assert.equal(draft("U_HOME_PO_001").type, "popup");
+        assert.equal(draft("U_HOME_PO_001").description, "설명");
+        // 상위 행(알림)에 ID가 없으면 그 위 화면에 잇는다.
+        assert.equal(
+          draft("U_HOME_BT_001").parentKey,
+          draft("U_HOME_PG_001").key,
+        );
+        assert.equal(draft("U_HOME_BT_001").type, "bottom_sheet");
+        assert.equal(draft("OLD").exists, true);
+        assert.equal(draft("U_HOME_PG_001").exists, false);
+
+        const keyToId = new Map(drafts.items.map((d) => [d.key, d.screenId]));
+        const result = await asJson(
+          await request(`${root}/screens/batch`, "POST", {
+            items: drafts.items.map((d) => ({
+              screenId: d.screenId,
+              name: d.name,
+              type: d.type,
+              description: d.description,
+              parentScreenId: d.parentKey ? keyToId.get(d.parentKey) : null,
+            })),
+          }),
+          201,
+        );
+        assert.deepEqual(result, { created: 4, skipped: 1 });
         const list = (
           await asJson<ScreenListDto>(await request(`${root}/screens`))
         ).items;
-        const find = (id: string) => {
+        const saved = (id: string) => {
           const row = list.find((item) => item.screenId === id);
-          assert.ok(row);
+          assert.ok(row, id);
           return row;
         };
-        assert.equal(find("CHILD").parentId, find("ROOT").id);
-        assert.equal(find("CHILD").name, "자식");
-        assert.equal(find("CHILD").description, "설명");
-        for (const [id, type] of [
-          ["CHILD", "popup"],
-          ["POP", "popup"],
-          ["BT", "bottom_sheet"],
-          ["BOTTOM", "bottom_sheet"],
-          ["TAB", "tab"],
-          ["DEFAULT", "page"],
-        ])
-          assert.equal(find(id).type, type);
-        await error(
-          await upload([["화면", "유형"]]),
-          400,
-          "IMPORT_HEADER_NOT_FOUND",
-        );
-        await error(await upload([header], "ia.csv"), 400, "VALIDATION_FAILED");
-        await error(
-          await upload([
-            header,
-            ["NEW", "Page", "정상"],
-            ["INVALID", "Page", ""],
-          ]),
-          400,
-          "VALIDATION_FAILED",
-        );
         assert.equal(
-          (await asJson<ScreenListDto>(await request(`${root}/screens`))).items
-            .length,
-          list.length,
+          saved("U_HOME_PO_001").parentId,
+          saved("U_HOME_PG_002").id,
+        );
+        assert.equal(saved("U_HOME_PG_001").parentId, null);
+
+        // 붙여 넣은 글에서도 화면 ID만 뽑는다.
+        const pasted = await asJson<ScreenDraftListDto>(
+          await post(
+            "/screens/drafts",
+            [],
+            "U_HOME_PG_009 새 화면\n제목만 있는 줄",
+          ),
+          201,
+        );
+        assert.deepEqual(
+          pasted.items.map((d) => [d.screenId, d.exists]),
+          [["U_HOME_PG_009", false]],
+        );
+        await error(
+          await post("/screens/drafts", [{ name: "a.pdf", body: "x" }]),
+          422,
+          "SOURCE_UNREADABLE",
+        );
+        await error(
+          await post("/screens/drafts", [], "화면 ID 없음"),
+          422,
+          "SCREEN_IDS_NOT_FOUND",
+        );
+        await error(await post("/screens/drafts", []), 400, "VALIDATION_ERROR");
+        assert.equal(
+          (
+            await post("/screens/drafts", [
+              {
+                name: "large.xlsx",
+                body: new Uint8Array(10 * 1024 * 1024 + 1),
+              },
+            ])
+          ).status,
+          413,
+        );
+        // 서로를 상위로 가리켜도 순환을 저장하지 않는다
+        await asJson(
+          await request(`${root}/screens/batch`, "POST", {
+            items: [
+              {
+                screenId: "LOOP_A",
+                name: "A",
+                description: "",
+                parentScreenId: "LOOP_B",
+              },
+              {
+                screenId: "LOOP_B",
+                name: "B",
+                description: "",
+                parentScreenId: "LOOP_A",
+              },
+            ],
+          }),
+          201,
+        );
+        const looped = (
+          await asJson<ScreenListDto>(await request(`${root}/screens`))
+        ).items.filter((item) => item.screenId.startsWith("LOOP_"));
+        assert.equal(looped.length, 2);
+        assert.equal(looped.filter((item) => item.parentId === null).length, 1);
+        // 파일 합계가 한도를 넘으면 본문을 읽기 전에 막는다
+        const oversized = await new Promise<number>((resolve, reject) => {
+          const req = httpRequest(
+            `${base}/api/v1/projects${root}/screens/drafts`,
+            {
+              method: "POST",
+              headers: {
+                Cookie: adminCookie,
+                "Content-Length": String(32 * 1024 * 1024),
+              },
+            },
+            (res) => {
+              res.resume();
+              res.on("end", () => resolve(res.statusCode ?? 0));
+            },
+          );
+          req.on("error", reject);
+          req.end();
+        });
+        assert.equal(oversized, 413);
+        await error(
+          await request(`${root}/screens/batch`, "POST", { items: [] }),
+          400,
+          "VALIDATION_ERROR",
+        );
+      },
+    );
+    await t.test(
+      "파일에서 화면 ID 규칙 초안: 맞는 ID가 있는 규칙만, 이름 겹침 피하기",
+      async () => {
+        const project = await asJson<ProjectDto>(
+          await request("", "POST", { name: "규칙 초안" }),
+          201,
+        );
+        const root = `/${project.id}`;
+        await asJson(
+          await request(`${root}/screen-id-rules`, "POST", {
+            name: "규칙 1",
+            separator: "_",
+            parts: [
+              { name: "번호", kind: "number", codes: [], value: "", digits: 3 },
+            ],
+          }),
+          201,
         );
         const form = new FormData();
         form.append(
-          "file",
-          new Blob([new Uint8Array(5 * 1024 * 1024 + 1)]),
-          "large.xlsx",
+          "text",
+          "PC_CPN_REG_PG_001 쿠폰 등록\nPC_ORD_LIST_PG_002 주문 목록\nU_SP_0101_PG 스플래시",
         );
-        assert.equal(
-          (
-            await fetch(`${base}/api/v1/projects${root}/screens/import`, {
-              method: "POST",
-              headers: { Cookie: adminCookie },
-              body: form,
-            })
-          ).status,
-          413,
+        const drafts = await asJson<ScreenIdRuleDraftListDto>(
+          await fetch(`${base}/api/v1/projects${root}/screen-id-rules/drafts`, {
+            method: "POST",
+            headers: { Cookie: adminCookie },
+            body: form,
+          }),
+          201,
+        );
+        assert.equal(drafts.items.length, 2);
+        assert.ok(!drafts.items.some((rule) => rule.name === "규칙 1"));
+        const [admin] = drafts.items;
+        assert.equal(admin.parts.length, 5);
+        assert.deepEqual(
+          admin.parts[1].codes.map((c) => c.code),
+          ["CPN", "ORD"],
+        );
+        assert.equal(admin.parts[4].kind, "number");
+        assert.equal(admin.example, "PC_CPN_REG_PG_001");
+        // 초안은 그대로 규칙으로 저장할 수 있다.
+        await asJson(
+          await request(`${root}/screen-id-rules`, "POST", {
+            name: admin.name,
+            separator: admin.separator,
+            parts: admin.parts,
+          }),
+          201,
         );
       },
     );

@@ -515,12 +515,17 @@ export const aiCallUsage = pgTable(
   "ai_call_usage",
   {
     id: uuid("id").primaryKey(),
-    jobId: uuid("job_id")
-      .notNull()
-      .references(() => generationJobs.id, { onDelete: "cascade" }),
-    stepId: uuid("step_id")
-      .notNull()
-      .references(() => generationSteps.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id").references(() => generationJobs.id, {
+      onDelete: "cascade",
+    }),
+    stepId: uuid("step_id").references(() => generationSteps.id, {
+      onDelete: "cascade",
+    }),
+    // 생성 작업 밖의 단발 호출(파일에서 화면 구조 초안 만들기)은 프로젝트에 속한다.
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    purpose: text("purpose"),
     provider: text("provider").notNull(),
     requestedModel: text("requested_model").notNull(),
     responseModel: text("response_model"),
@@ -552,11 +557,16 @@ export const aiCallUsage = pgTable(
       sql`${t.status} in ('running','completed','failed','unknown')`,
     ),
     check(
+      "ai_call_usage_owner",
+      sql`(${t.jobId} is not null and ${t.stepId} is not null and ${t.projectId} is null and ${t.purpose} is null) or (${t.jobId} is null and ${t.stepId} is null and ${t.projectId} is not null and ${t.purpose} is not null)`,
+    ),
+    check(
       "ai_call_usage_provider",
       sql`${t.provider} in ('openai','anthropic','fake')`,
     ),
     index("ai_call_usage_job_idx").on(t.jobId),
     index("ai_call_usage_step_idx").on(t.stepId),
+    index("ai_call_usage_project_idx").on(t.projectId),
     index("ai_call_usage_provider_time_idx").on(t.provider, t.startedAt),
   ],
 );

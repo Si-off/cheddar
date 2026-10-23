@@ -1,0 +1,2 @@
+ALTER TABLE "ai_call_usage" DROP CONSTRAINT "ai_call_usage_owner";--> statement-breakpoint
+ALTER TABLE "ai_call_usage" ADD CONSTRAINT "ai_call_usage_owner" CHECK (("ai_call_usage"."job_id" is not null and "ai_call_usage"."step_id" is not null and "ai_call_usage"."project_id" is null and "ai_call_usage"."purpose" is null) or ("ai_call_usage"."job_id" is null and "ai_call_usage"."step_id" is null and "ai_call_usage"."project_id" is not null and "ai_call_usage"."purpose" is not null));

@@ -4,6 +4,8 @@ import {
   groups,
   project,
   projectSettings,
+  screenDrafts,
+  screenIdRuleDrafts,
   screens,
   template,
 } from "../../shared/testing/project-fixtures";
@@ -177,6 +179,166 @@ test("화면 ID 규칙: 예시 ID를 부분별로 보여주고 메뉴에서 확�
       ),
     )
     .toBe(true);
+});
+
+test("화면 ID 규칙 추가: 파일을 넣으면 AI 초안을 고르고 고친 뒤 고른 규칙만 저장한다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...projectSettings(),
+    "POST /api/v1/projects/p1/screen-id-rules/drafts": screenIdRuleDrafts,
+    "POST /api/v1/projects/p1/screen-id-rules": (
+      _route: unknown,
+      body: unknown,
+    ) => reply(201, { ...(body as object), id: "r9", example: "" }),
+  });
+  await page.goto("/projects/p1/screens");
+  await page.getByRole("button", { name: "규칙 추가" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "규칙 추가" });
+  const make = dialog.getByRole("button", { name: "규칙 만들기" });
+  await expect(make).toBeDisabled();
+  await dialog.locator("input[type=file]").setInputFiles({
+    name: "IA.xlsx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from("xlsx"),
+  });
+  await expect(dialog.getByRole("list", { name: "첨부한 파일" })).toContainText(
+    "IA.xlsx",
+  );
+  await make.click();
+  await expect
+    .poll(
+      () =>
+        calls.find(
+          (c) => c.key === "POST /api/v1/projects/p1/screen-id-rules/drafts",
+        )?.body,
+    )
+    .toContain('filename="IA.xlsx"');
+
+  const found = dialog.getByRole("list", { name: "찾은 규칙" });
+  await expect(found.getByRole("listitem")).toHaveCount(2);
+  await found.getByRole("button", { name: /앱 화면 ID/ }).click();
+  await expect(dialog.getByRole("group", { name: "예시 ID" })).toContainText(
+    "0101",
+  );
+  // 고른 부분의 코드 뜻을 그 자리에서 고친다
+  // 한 글자 부분도 가운데를 눌러 고를 수 있다(모서리 메뉴가 가리지 않는다)
+  const channel = dialog.getByRole("button", { name: "U 채널" });
+  await channel.click();
+  await expect(channel).toHaveAttribute("aria-pressed", "true");
+  await dialog.getByRole("button", { name: "CS 영역" }).click();
+  await dialog.getByRole("button", { name: "뜻 고객지원" }).click();
+  await dialog.getByRole("textbox", { name: "뜻 입력" }).fill("고객 지원");
+  await dialog.getByRole("textbox", { name: "뜻 입력" }).press("Enter");
+  await found.getByRole("checkbox", { name: "관리자 화면 ID 추가" }).click();
+  await dialog.getByRole("button", { name: "규칙 1개 추가" }).click();
+
+  await expect(dialog).toHaveCount(0);
+  const saved = calls.filter(
+    (c) => c.key === "POST /api/v1/projects/p1/screen-id-rules",
+  );
+  expect(saved).toHaveLength(1);
+  expect(saved[0]?.body).toMatchObject({
+    name: "앱 화면 ID",
+    separator: "_",
+  });
+  const { parts } = (saved[0]?.body ?? { parts: [] }) as {
+    parts: { codes: { meaning: string }[] }[];
+  };
+  expect(parts[3]?.codes[0]?.meaning).toBe("고객 지원");
+});
+
+test("화면 ID 규칙 추가: 직접 만들기는 빈 편집기로 가고, 자료가 없으면 오류를 그 자리에 보인다", async ({
+  page,
+}) => {
+  await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...projectSettings(),
+    "POST /api/v1/projects/p1/screen-id-rules/drafts": reply(422, {
+      error: {
+        code: "SCREEN_IDS_NOT_FOUND",
+        message:
+          "화면 ID를 찾지 못했습니다. 화면 ID가 있는 파일을 넣어 주세요.",
+        requestId: "t",
+      },
+    }),
+  });
+  await page.goto("/projects/p1/screens");
+  await page.getByRole("button", { name: "규칙 추가" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "규칙 추가" });
+  await dialog
+    .getByRole("textbox", { name: "화면 ID 자료" })
+    .fill("회원가입 화면");
+  await dialog.getByRole("button", { name: "규칙 만들기" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "화면 ID를 찾지 못했습니다. 화면 ID가 있는 파일을 넣어 주세요.",
+  );
+  await dialog.getByRole("button", { name: "직접 만들기" }).click();
+  await expect(
+    page.getByRole("dialog", { name: /화면 ID 규칙/ }).getByRole("group", {
+      name: "예시 ID",
+    }),
+  ).toBeVisible();
+});
+
+test("화면 가져오기: 모듈별로 고르고, 이미 있는 화면은 빼며, 고르지 않은 상위 화면은 건너뛰어 잇는다", async ({
+  page,
+}) => {
+  const calls = await mockApi(page, {
+    "GET /api/v1/auth/me": me(),
+    ...projectSettings(),
+    "POST /api/v1/projects/p1/screens/drafts": screenDrafts,
+    "POST /api/v1/projects/p1/screens/batch": reply(201, {
+      created: 8,
+      skipped: 0,
+    }),
+  });
+  await page.goto("/projects/p1/screens");
+  await page.getByRole("button", { name: "가져오기" }).click();
+  const dialog = page.getByRole("dialog", { name: "화면 가져오기" });
+  await dialog
+    .getByRole("textbox", { name: "화면 자료" })
+    .fill("U_SP_0103_CS_PG_001 고객지원");
+  await dialog.getByRole("button", { name: "가져오기" }).click();
+
+  const table = dialog.getByRole("table", { name: "가져올 화면" });
+  await expect(
+    dialog.getByText("앱 화면 목록.pdf 파일을 읽지 못했습니다."),
+  ).toBeVisible();
+  await expect(dialog.getByText("ID 없는 화면 13개 제외")).toBeVisible();
+  await expect(
+    table.getByRole("checkbox", { name: "마스터 쿠폰 관리 선택" }),
+  ).toBeDisabled();
+  await expect(table.getByText("있음")).toHaveCount(1);
+  await expect(table.getByText("규칙 불일치")).toHaveCount(1);
+  await expect(
+    dialog.getByRole("button", { name: "화면 9개 추가" }),
+  ).toBeVisible();
+
+  // 묶음을 접어도 고른 상태는 남는다
+  await table.getByRole("button", { name: /^홈/ }).click();
+  await expect(table.getByText("eSIM 사용 가이드")).toHaveCount(0);
+  await table
+    .getByRole("checkbox", { name: "마스터 쿠폰 등록/수정 선택" })
+    .click();
+  await dialog.getByRole("button", { name: "화면 8개 추가" }).click();
+
+  await expect(dialog).toHaveCount(0);
+  const body = calls.find(
+    (c) => c.key === "POST /api/v1/projects/p1/screens/batch",
+  )?.body as { items: { screenId: string; parentScreenId: string | null }[] };
+  expect(body.items.map((i) => i.screenId)).not.toContain("PC_CPN_LIST_PG_001");
+  expect(body.items.map((i) => i.screenId)).not.toContain("PC_CPN_REG_PG_001");
+  expect(
+    body.items.find((i) => i.screenId === "PC_CPN_SELECT_PO_001")
+      ?.parentScreenId,
+  ).toBe("PC_CPN_LIST_PG_001");
+  expect(
+    body.items.find((i) => i.screenId === "U_SP_0103_ES_BT_001")
+      ?.parentScreenId,
+  ).toBe("U_SP_0103_ES_PG_001");
 });
 
 test("메모: 입력을 멈추면 저장하고 저장됨을 보여준다", async ({ page }) => {
