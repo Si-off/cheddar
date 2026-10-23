@@ -10,6 +10,11 @@ import {
 export class FakeProvider implements AiProvider {
   async generate(r: AiRequest): Promise<AiResponse> {
     const { context: input, definition } = r;
+    if (definition.fake)
+      return {
+        text: JSON.stringify(definition.fake(r.sourceData)),
+        usage: emptyUsage(),
+      };
     const source = r.sourceData as {
       screens?: ScreenOutput;
       group?: FlowOutput["groups"][number];

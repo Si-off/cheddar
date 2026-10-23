@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, sql } from "drizzle-orm";
 import {
@@ -10,6 +11,7 @@ import type {
   CreateProjectDto,
   CreateScreenDto,
   CreateScreenIdRuleDto,
+  CreateScreensItemDto,
   FeatureGroupDto,
   MemoDto,
   ProjectDto,
@@ -37,7 +39,6 @@ import {
 } from "../database/schema";
 import { LiveEvents } from "../live/live-events";
 import { example, matches, nextScreenId } from "./screen-id-rules";
-import { readScreens } from "./screens-import";
 import { defaultColumns, validateTemplate } from "./template";
 
 const groupFields = {
@@ -611,68 +612,59 @@ export class ProjectsService {
       ),
     };
   }
-  async importScreens(projectId: string, file?: Express.Multer.File) {
-    if (!file?.originalname.toLowerCase().endsWith(".xlsx"))
-      throw new ApiError(400, "VALIDATION_FAILED", "XLSX 파일을 선택하세요.");
-    if (file.size > 5 * 1024 * 1024)
-      throw new ApiError(
-        413,
-        "PAYLOAD_TOO_LARGE",
-        "파일은 5MB 이하여야 합니다.",
-      );
-    const parsed = await readScreens(file.buffer);
+  /** 확인한 초안을 한 번에 넣는다. 이미 있는 ID는 건너뛰고 상위 화면은 같은 요청이나 기존 화면의 ID로 잇는다. */
+  async addScreens(projectId: string, items: CreateScreensItemDto[]) {
     return this.mutate(projectId, async (tx) => {
       const existing = await tx
-        .select()
+        .select({
+          id: screenStructureItems.id,
+          screenId: screenStructureItems.screenId,
+          parentId: screenStructureItems.parentId,
+          position: screenStructureItems.position,
+        })
         .from(screenStructureItems)
         .where(eq(screenStructureItems.projectId, projectId));
-      const seen = new Set(existing.map((row) => row.screenId));
-      const rows = parsed.rows.filter((row) => {
-        if (seen.has(row.screenId)) return false;
-        seen.add(row.screenId);
-        return true;
+      const idOf = new Map(existing.map((row) => [row.screenId, row.id]));
+      const rows = items.flatMap((item) => {
+        if (idOf.has(item.screenId)) return [];
+        const id = randomUUID();
+        idOf.set(item.screenId, id);
+        return [{ ...item, id }];
       });
+      let position = Math.max(-1, ...existing.map((row) => row.position)) + 1;
+      // 먼저 모두 넣어 하위 화면이 상위 화면보다 앞에 와도 잇는다.
       for (const row of rows)
-        if (
-          row.screenId.length > 100 ||
-          !row.name ||
-          row.name.length > 200 ||
-          row.description.length > 2000
-        )
-          throw new ApiError(
-            400,
-            "VALIDATION_FAILED",
-            "화면 ID, 이름 또는 설명을 확인하세요.",
-          );
-      const position = Math.max(-1, ...existing.map((row) => row.position)) + 1;
-      // 먼저 모두 삽입해 파일에서 부모보다 먼저 나온 자식도 연결한다.
-      for (const [index, row] of rows.entries())
         await tx.insert(screenStructureItems).values({
           id: row.id,
           projectId,
           screenId: row.screenId,
           name: row.name,
-          type: row.type,
+          type: row.type ?? "page",
           description: row.description,
-          position: position + index,
+          position: position++,
         });
-      for (const row of rows) {
-        const parent = rows.find(
-          (candidate) =>
-            candidate.id !== row.id &&
-            candidate.name === row.parentName &&
-            candidate.depth < row.depth,
-        );
-        if (parent)
-          await tx
-            .update(screenStructureItems)
-            .set({ parentId: parent.id })
-            .where(eq(screenStructureItems.id, row.id));
-      }
-      return {
-        created: rows.length,
-        skipped: parsed.skipped + parsed.rows.length - rows.length,
+      const parentOf = new Map(existing.map((row) => [row.id, row.parentId]));
+      // 요청 안에서 서로를 상위로 가리키면 순환이 되지 않는 쪽만 잇는다.
+      const reaches = (from: string | null | undefined, target: string) => {
+        const seen = new Set<string>();
+        for (let at = from; at && !seen.has(at); at = parentOf.get(at)) {
+          if (at === target) return true;
+          seen.add(at);
+        }
+        return false;
       };
+      for (const row of rows) {
+        const parentId = row.parentScreenId
+          ? idOf.get(row.parentScreenId)
+          : undefined;
+        if (!parentId || reaches(parentId, row.id)) continue;
+        parentOf.set(row.id, parentId);
+        await tx
+          .update(screenStructureItems)
+          .set({ parentId })
+          .where(eq(screenStructureItems.id, row.id));
+      }
+      return { created: rows.length, skipped: items.length - rows.length };
     });
   }
   private async memoRow(

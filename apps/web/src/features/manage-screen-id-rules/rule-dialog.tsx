@@ -71,7 +71,7 @@ export function ScreenIdRuleDialog({
   );
 }
 
-function RuleForm({
+export function RuleForm({
   rule,
   pending,
   onSave,
@@ -85,12 +85,103 @@ function RuleForm({
   const [parts, setParts] = useState<ScreenIdRulePart[]>(
     rule?.parts ?? [newPart("list"), newPart("number")],
   );
+  const [renaming, setRenaming] = useState(false);
+  const valid = isValidRule({ name, separator, parts });
+
+  return (
+    <>
+      <Dialog.Header
+        title={
+          <span className="flex items-center gap-3">
+            <span>화면 ID 규칙</span>
+            {renaming ? (
+              <InlineInput
+                value={name}
+                label="규칙 이름"
+                onCommit={(v) => {
+                  if (v.trim()) setName(v.trim());
+                  setRenaming(false);
+                }}
+                onCancel={() => setRenaming(false)}
+                className="w-48"
+              />
+            ) : (
+              <button
+                type="button"
+                onDoubleClick={() => setRenaming(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setRenaming(true);
+                  }
+                }}
+                aria-label={`규칙 이름 ${name} 변경`}
+                className="cursor-text border-0 bg-transparent p-0 text-body-sm text-fg-muted"
+              >
+                {name}
+              </button>
+            )}
+          </span>
+        }
+      />
+      <Dialog.Body className="gap-6 py-6">
+        <RuleParts
+          parts={parts}
+          separator={separator}
+          onPartsChange={setParts}
+        />
+      </Dialog.Body>
+      <Dialog.Footer>
+        <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
+        <Button
+          variant="primary"
+          loading={pending}
+          disabled={!valid}
+          onClick={() => onSave({ name: name.trim(), separator, parts })}
+        >
+          저장
+        </Button>
+      </Dialog.Footer>
+    </>
+  );
+}
+
+/** 저장할 수 있는 규칙인지. 서버의 부분 값 검사와 같다. */
+export function isValidRule({ name, parts }: ScreenIdRuleInput) {
+  return (
+    name.trim().length > 0 &&
+    parts.length > 0 &&
+    parts.every(
+      (p) =>
+        p.name.trim() &&
+        (p.kind === "list"
+          ? p.codes.length > 0 && p.codes.every((c) => c.code.trim())
+          : p.kind === "fixed"
+            ? p.value.trim()
+            : p.digits >= 1),
+    )
+  );
+}
+
+/**
+ * 예시 ID를 부분으로 나눠 보여주고, 고른 부분의 코드 표나 자릿수를 아래에 편다.
+ * 부분을 바꾸면 전체 목록을 돌려준다. 다른 규칙으로 바꿀 때는 key를 바꿔 새로 그린다.
+ */
+export function RuleParts({
+  parts,
+  separator,
+  onPartsChange: setParts,
+}: {
+  parts: ScreenIdRulePart[];
+  separator: string;
+  onPartsChange: (parts: ScreenIdRulePart[]) => void;
+}) {
   const [selected, setSelected] = useState(0);
   // 부분은 이름이 겹칠 수 있어 화면용 식별자를 따로 둔다
   const [keys, setKeys] = useState(() =>
-    (rule?.parts ?? [0, 1]).map((): string => crypto.randomUUID()),
+    parts.map((): string => crypto.randomUUID()),
   );
-  const [renaming, setRenaming] = useState<number | "rule" | null>(null);
+  const [renaming, setRenaming] = useState<number | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const examples = screenIdExampleParts({ parts });
@@ -145,19 +236,6 @@ function RuleForm({
     });
   };
 
-  const valid =
-    name.trim().length > 0 &&
-    parts.length > 0 &&
-    parts.every(
-      (p) =>
-        p.name.trim() &&
-        (p.kind === "list"
-          ? p.codes.length > 0 && p.codes.every((c) => c.code.trim())
-          : p.kind === "fixed"
-            ? p.value.trim()
-            : p.digits >= 1),
-    );
-
   const partMenu = (index: number, part: ScreenIdRulePart) => (
     <>
       <Menu.Item onClick={() => setRenaming(index)}>이름 변경</Menu.Item>
@@ -203,234 +281,187 @@ function RuleForm({
 
   return (
     <>
-      <Dialog.Header
-        title={
-          <span className="flex items-center gap-3">
-            <span>화면 ID 규칙</span>
-            {renaming === "rule" ? (
-              <InlineInput
-                value={name}
-                label="규칙 이름"
-                onCommit={(v) => {
-                  if (v.trim()) setName(v.trim());
-                  setRenaming(null);
-                }}
-                onCancel={() => setRenaming(null)}
-                className="w-48"
-              />
-            ) : (
-              <button
-                type="button"
-                onDoubleClick={() => setRenaming("rule")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setRenaming("rule");
-                  }
-                }}
-                aria-label={`규칙 이름 ${name} 변경`}
-                className="cursor-text border-0 bg-transparent p-0 text-body-sm text-fg-muted"
-              >
-                {name}
-              </button>
-            )}
-          </span>
-        }
-      />
-      <Dialog.Body className="gap-6 py-6">
-        <div className="flex justify-center">
-          <fieldset
-            aria-label="예시 ID"
-            className="m-0 inline-flex rounded-md border border-line bg-surface p-0"
-          >
-            {parts.map((part, index) => {
-              const on = index === selected;
-              return (
-                <ContextMenu.Root key={keys[index]}>
-                  <ContextMenu.Trigger
-                    render={
-                      // biome-ignore lint/a11y/noStaticElementInteractions: 끌기 이벤트만 받는 틀이며 조작은 안쪽 버튼이 맡는다
-                      <div
-                        draggable
-                        onDragStart={(e: DragEvent) => {
-                          e.dataTransfer.effectAllowed = "move";
-                          setDrag(index);
-                        }}
-                        onDragOver={(e: DragEvent) => {
-                          if (drag === null) return;
-                          e.preventDefault();
-                          setOver(index);
-                        }}
-                        onDrop={(e: DragEvent) => {
-                          e.preventDefault();
-                          if (drag !== null) movePart(drag, index);
-                          setDrag(null);
-                          setOver(null);
-                        }}
-                        onDragEnd={() => {
-                          setDrag(null);
-                          setOver(null);
-                        }}
-                        className={cn(
-                          "group/part relative flex cursor-grab flex-col items-center gap-1 border-line border-r px-4 pt-2.5 pb-2 transition-colors duration-fast last:border-r-0",
-                          on &&
-                            "bg-selected shadow-[inset_0_-2px_0_var(--color-accent)]",
-                          drag === index && "opacity-40",
-                          over === index &&
-                            drag !== index &&
-                            "shadow-[inset_2px_0_0_var(--color-accent)]",
-                        )}
-                      />
-                    }
-                  >
-                    <button
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => setSelected(index)}
-                      onDoubleClick={() => setRenaming(index)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 border-0 bg-transparent p-0 outline-none",
-                        on ? "text-accent-text" : "text-fg",
-                      )}
-                    >
-                      <span className="font-mono text-mono text-xl leading-7">
-                        {examples[index] || "…"}
-                      </span>
-                      {renaming === index ? (
-                        <InlineInput
-                          value={part.name}
-                          label="부분 이름"
-                          onCommit={(v) => {
-                            updatePart(index, { name: v.trim() });
-                            setRenaming(null);
-                          }}
-                          onCancel={() => setRenaming(null)}
-                          className="w-16 text-center"
-                        />
-                      ) : (
-                        <span
-                          className={cn(
-                            "min-h-4 text-caption",
-                            on ? "text-accent-text" : "text-fg-muted",
-                          )}
-                        >
-                          {part.name || "이름 없음"}
-                        </span>
-                      )}
-                    </button>
-                    <span className="absolute top-1 right-1 opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/part:opacity-100">
-                      <Menu.Root>
-                        <Menu.Trigger
-                          render={
-                            <IconButton
-                              icon={MoreHorizontal}
-                              label={`${part.name || "부분"} 작업`}
-                              size="sm"
-                            />
-                          }
-                        />
-                        <Menu.Popup align="end">
-                          {partMenu(index, part)}
-                        </Menu.Popup>
-                      </Menu.Root>
-                    </span>
-                  </ContextMenu.Trigger>
-                  <ContextMenu.Popup aria-label={`${part.name || "부분"} 작업`}>
-                    {partMenu(index, part)}
-                  </ContextMenu.Popup>
-                </ContextMenu.Root>
-              );
-            })}
-            <button
-              type="button"
-              aria-label="부분 추가"
-              disabled={parts.length >= MAX_PARTS}
-              onClick={() => insertPart(parts.length)}
-              className="grid w-11 place-items-center border-0 border-line border-l bg-transparent text-fg-muted transition-colors duration-fast hover:text-fg disabled:opacity-50"
-            >
-              <Plus size={16} strokeWidth={1.75} aria-hidden />
-            </button>
-          </fieldset>
-        </div>
-
-        {current && (
-          <fieldset
-            aria-label={current.name || "부분"}
-            className="m-0 flex flex-col gap-4 border-0 p-0"
-          >
-            {current.kind === "number" && (
-              <Select
-                size="sm"
-                aria-label="자릿수"
-                className="w-32"
-                items={digitItems}
-                value={String(current.digits)}
-                onValueChange={(v) =>
-                  updatePart(selected, { digits: Number(v ?? 3) })
-                }
-              />
-            )}
-            {current.kind === "fixed" && (
-              <CodeGrid
-                label="값"
-                columns={["값"]}
-                rows={[[current.value]]}
-                onChange={(_, __, text) =>
-                  updatePart(selected, { value: text.trim() })
-                }
-              />
-            )}
-            {current.kind === "list" && (
-              <CodeGrid
-                label="코드"
-                columns={["코드", "뜻"]}
-                rows={current.codes.map((c) => [c.code, c.meaning])}
-                onChange={(row, col, text) =>
-                  updatePart(selected, {
-                    codes: current.codes.map((c, i) =>
-                      i === row
-                        ? col === 0
-                          ? { ...c, code: text.trim() }
-                          : { ...c, meaning: text.trim() }
-                        : c,
-                    ),
-                  })
-                }
-                onAdd={() =>
-                  updatePart(selected, {
-                    codes: [...current.codes, { code: "", meaning: "" }],
-                  })
-                }
-                onRemove={(row) =>
-                  updatePart(selected, {
-                    codes: current.codes.filter((_, i) => i !== row),
-                  })
-                }
-              />
-            )}
-          </fieldset>
-        )}
-        <span className="sr-only">
-          구분 기호 {separator || "없음"}, 예시 {examples.join(separator)}
-        </span>
-      </Dialog.Body>
-      <Dialog.Footer>
-        <Dialog.Close render={<Button variant="ghost" />}>취소</Dialog.Close>
-        <Button
-          variant="primary"
-          loading={pending}
-          disabled={!valid}
-          onClick={() => onSave({ name: name.trim(), separator, parts })}
+      <div className="flex justify-center">
+        <fieldset
+          aria-label="예시 ID"
+          className="m-0 inline-flex rounded-md border border-line bg-surface p-0"
         >
-          저장
-        </Button>
-      </Dialog.Footer>
+          {parts.map((part, index) => {
+            const on = index === selected;
+            return (
+              <ContextMenu.Root key={keys[index]}>
+                <ContextMenu.Trigger
+                  render={
+                    // biome-ignore lint/a11y/noStaticElementInteractions: 끌기 이벤트만 받는 틀이며 조작은 안쪽 버튼이 맡는다
+                    <div
+                      draggable
+                      onDragStart={(e: DragEvent) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        setDrag(index);
+                      }}
+                      onDragOver={(e: DragEvent) => {
+                        if (drag === null) return;
+                        e.preventDefault();
+                        setOver(index);
+                      }}
+                      onDrop={(e: DragEvent) => {
+                        e.preventDefault();
+                        if (drag !== null) movePart(drag, index);
+                        setDrag(null);
+                        setOver(null);
+                      }}
+                      onDragEnd={() => {
+                        setDrag(null);
+                        setOver(null);
+                      }}
+                      className={cn(
+                        "group/part relative flex cursor-grab flex-col items-center gap-1 border-line border-r px-4 pt-2.5 pb-2 transition-colors duration-fast last:border-r-0",
+                        on &&
+                          "bg-selected shadow-[inset_0_-2px_0_var(--color-accent)]",
+                        drag === index && "opacity-40",
+                        over === index &&
+                          drag !== index &&
+                          "shadow-[inset_2px_0_0_var(--color-accent)]",
+                      )}
+                    />
+                  }
+                >
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSelected(index)}
+                    onDoubleClick={() => setRenaming(index)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 border-0 bg-transparent p-0 outline-none",
+                      on ? "text-accent-text" : "text-fg",
+                    )}
+                  >
+                    <span className="font-mono text-mono text-xl leading-7">
+                      {examples[index] || "…"}
+                    </span>
+                    {renaming === index ? (
+                      <InlineInput
+                        value={part.name}
+                        label="부분 이름"
+                        onCommit={(v) => {
+                          updatePart(index, { name: v.trim() });
+                          setRenaming(null);
+                        }}
+                        onCancel={() => setRenaming(null)}
+                        className="w-16 text-center"
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          "min-h-4 text-caption",
+                          on ? "text-accent-text" : "text-fg-muted",
+                        )}
+                      >
+                        {part.name || "이름 없음"}
+                      </span>
+                    )}
+                  </button>
+                  <span className="absolute top-1 right-1 opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover/part:opacity-100">
+                    <Menu.Root>
+                      <Menu.Trigger
+                        render={
+                          <IconButton
+                            icon={MoreHorizontal}
+                            label={`${part.name || "부분"} 작업`}
+                            size="sm"
+                          />
+                        }
+                      />
+                      <Menu.Popup align="end">
+                        {partMenu(index, part)}
+                      </Menu.Popup>
+                    </Menu.Root>
+                  </span>
+                </ContextMenu.Trigger>
+                <ContextMenu.Popup aria-label={`${part.name || "부분"} 작업`}>
+                  {partMenu(index, part)}
+                </ContextMenu.Popup>
+              </ContextMenu.Root>
+            );
+          })}
+          <button
+            type="button"
+            aria-label="부분 추가"
+            disabled={parts.length >= MAX_PARTS}
+            onClick={() => insertPart(parts.length)}
+            className="grid w-11 place-items-center border-0 border-line border-l bg-transparent text-fg-muted transition-colors duration-fast hover:text-fg disabled:opacity-50"
+          >
+            <Plus size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+        </fieldset>
+      </div>
+
+      {current && (
+        <fieldset
+          aria-label={current.name || "부분"}
+          className="m-0 flex flex-col gap-4 border-0 p-0"
+        >
+          {current.kind === "number" && (
+            <Select
+              size="sm"
+              aria-label="자릿수"
+              className="w-32"
+              items={digitItems}
+              value={String(current.digits)}
+              onValueChange={(v) =>
+                updatePart(selected, { digits: Number(v ?? 3) })
+              }
+            />
+          )}
+          {current.kind === "fixed" && (
+            <CodeGrid
+              label="값"
+              columns={["값"]}
+              rows={[[current.value]]}
+              onChange={(_, __, text) =>
+                updatePart(selected, { value: text.trim() })
+              }
+            />
+          )}
+          {current.kind === "list" && (
+            <CodeGrid
+              label="코드"
+              columns={["코드", "뜻"]}
+              rows={current.codes.map((c) => [c.code, c.meaning])}
+              onChange={(row, col, text) =>
+                updatePart(selected, {
+                  codes: current.codes.map((c, i) =>
+                    i === row
+                      ? col === 0
+                        ? { ...c, code: text.trim() }
+                        : { ...c, meaning: text.trim() }
+                      : c,
+                  ),
+                })
+              }
+              onAdd={() =>
+                updatePart(selected, {
+                  codes: [...current.codes, { code: "", meaning: "" }],
+                })
+              }
+              onRemove={(row) =>
+                updatePart(selected, {
+                  codes: current.codes.filter((_, i) => i !== row),
+                })
+              }
+            />
+          )}
+        </fieldset>
+      )}
+      <span className="sr-only">
+        구분 기호 {separator || "없음"}, 예시 {examples.join(separator)}
+      </span>
     </>
   );
 }
 
 /** 제자리 편집 입력. Enter로 확정, Esc로 취소, 포커스가 나가면 확정한다. */
-function InlineInput({
+export function InlineInput({
   value,
   label,
   onCommit,

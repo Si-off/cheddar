@@ -24,6 +24,7 @@ import {
 } from "../src/contracts/project.dto";
 import { ProjectsController } from "../src/projects/projects.controller";
 import { ProjectsService } from "../src/projects/projects.service";
+import { ScreenDraftsService } from "../src/projects/screen-drafts.service";
 import { defaultColumns, validateTemplate } from "../src/projects/template";
 
 const failed = (error: unknown) =>
@@ -268,6 +269,7 @@ test("실제 HTTP는 DB 없이 DTO 400과 양식 VALIDATION_FAILED, 권한 가�
     controllers: [ProjectsController],
     providers: [
       { provide: ProjectsService, useValue: service },
+      { provide: ScreenDraftsService, useValue: {} },
       {
         provide: AuthService,
         useValue: { authenticate: async () => randomUUID() },
