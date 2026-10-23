@@ -171,7 +171,16 @@ export class TestSetsStore {
       .where(eq(testSetColumns.testSetId, id))
       .orderBy(testSetColumns.position, testSetColumns.id);
     return rows.map(
-      ({ id, systemKey, presetKey, name, type, description, options }) => ({
+      ({
+        id,
+        systemKey,
+        presetKey,
+        name,
+        type,
+        description,
+        options,
+        colors,
+      }) => ({
         id,
         presetKey,
         systemKey: systemKey as TestSetColumnDto["systemKey"],
@@ -179,6 +188,7 @@ export class TestSetsStore {
         type,
         description,
         options,
+        colors: colors ?? {},
       }),
     );
   }

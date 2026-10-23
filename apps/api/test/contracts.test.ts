@@ -57,6 +57,11 @@ test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 �
       ajv.addSchema(schema, `#/components/schemas/${name}`);
     for (const name of Object.keys(components))
       assert.ok(ajv.getSchema(`#/components/schemas/${name}`), name);
+    for (const name of ["TestSetColumnDto", "TemplateResponseColumnDto"]) {
+      const schema = components[name];
+      assert.ok(schema && !("$ref" in schema));
+      assert.ok(schema.required?.includes("colors"));
+    }
     const recent =
       document.paths["/api/v1/projects/{projectId}/recent-test-set-template"]
         .get;
@@ -102,7 +107,7 @@ test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 �
     assert.ok(ops);
     const caseId = defaultColumns()[0].id,
       columnId = defaultColumns()[1].id;
-    for (const value of ["텍스트", null, false, ["태그"]])
+    for (const value of ["텍스트", null, false, ["태그"], { image: columnId }])
       assert.equal(
         ops({ ops: [{ type: "set_cell", caseId, columnId, value }] }),
         true,

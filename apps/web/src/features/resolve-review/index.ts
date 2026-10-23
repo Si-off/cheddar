@@ -12,7 +12,9 @@ import {
   subscribeGeneration,
 } from "@/entities/generation";
 import {
+  type CellImage,
   type CellValue,
+  isCellImage,
   type TestSet,
   testSetQuery,
 } from "@/entities/test-set";
@@ -20,6 +22,12 @@ import { sdk, toApiFailure } from "@/shared/api";
 
 const unknownResult =
   "응답을 받지 못했습니다. 새로 고쳐 처리됐는지 확인하세요.";
+
+/** 확인 필요의 초안은 AI가 채운 글자와 선택 값이다. 이미지는 셀에서만 넣으므로 보내지 않는다. */
+const draftOnly = (draft: Record<string, CellValue>) =>
+  Object.fromEntries(
+    Object.entries(draft).filter(([, v]) => !isCellImage(v)),
+  ) as Record<string, Exclude<CellValue, CellImage>>;
 
 type ReviewPatch = {
   answer?: string;
@@ -124,7 +132,10 @@ export function useReviewActions(testSetId: string) {
       enqueue(item.id, () =>
         sdk.updateReviewItem({
           path: { itemId: item.id },
-          body: patch,
+          body: {
+            ...patch,
+            draft: patch.draft && draftOnly(patch.draft),
+          },
           throwOnError: true,
         }),
       ),
@@ -142,7 +153,7 @@ export function useReviewActions(testSetId: string) {
       enqueue(item.id, () =>
         sdk.acceptReviewItem({
           path: { itemId: item.id },
-          body: { draft: item.draft },
+          body: { draft: draftOnly(item.draft) },
           throwOnError: true,
         }),
       ),

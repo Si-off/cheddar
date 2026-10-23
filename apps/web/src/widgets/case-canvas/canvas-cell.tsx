@@ -1,10 +1,13 @@
-import { Badge, Checkbox, Menu } from "@cheddar/ui";
+import { Checkbox, Menu } from "@cheddar/ui";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
+  CellImageThumb,
   type CellValue,
   type Column,
+  cellImage,
   cellText,
   emptyValue,
+  OptionChip,
   readCell,
 } from "@/entities/test-set";
 
@@ -24,6 +27,9 @@ export function CanvasCell({
   readOnly?: boolean;
   onChange: (value: CellValue) => void;
 }) {
+  // 이미지는 카드에서 보기만 한다. 넣고 바꾸기는 표의 셀 도구로 한다.
+  const image = cellImage(column, value);
+  if (image) return <CellImageThumb imageId={image.image} />;
   if (readOnly)
     return (
       <span className="whitespace-pre-wrap break-words">
@@ -113,12 +119,16 @@ function OptionCell({
     column.type === "tags" ? (
       <span className="flex flex-wrap gap-1">
         {tags.map((t) =>
-          inList(t) ? <Badge key={t}>{t}</Badge> : <span key={t}>{t}</span>,
+          inList(t) ? (
+            <OptionChip key={t} column={column} option={t} />
+          ) : (
+            <span key={t}>{t}</span>
+          ),
         )}
       </span>
     ) : typeof current === "string" && current ? (
       inList(current) ? (
-        <Badge>{current}</Badge>
+        <OptionChip column={column} option={current} />
       ) : (
         <span>{current}</span>
       )

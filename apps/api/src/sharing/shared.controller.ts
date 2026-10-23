@@ -6,14 +6,19 @@ import {
   HttpCode,
   Inject,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Req,
   Res,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiHeader,
   ApiOkResponse,
@@ -23,6 +28,7 @@ import {
 } from "@nestjs/swagger";
 import type { Request, Response } from "express";
 import { Public } from "../authorization/guards";
+import { CellImageDto, IMAGE_UPLOAD_SCHEMA } from "../contracts/cell-image.dto";
 import { SharedTestSetDto } from "../contracts/sharing.dto";
 import {
   AddCaseOpDto,
@@ -34,6 +40,8 @@ import {
   TestSetViewDto,
 } from "../contracts/test-set.dto";
 import { CaseOperationsService } from "../test-sets/case-operations.service";
+import { CellImageUploadInterceptor } from "../test-sets/cell-image-upload.interceptor";
+import { CellImagesService } from "../test-sets/cell-images.service";
 import { SharedService } from "./shared.service";
 
 @Public()
@@ -42,6 +50,7 @@ import { SharedService } from "./shared.service";
 @Controller("api/v1/shared/:linkToken")
 export class SharedController {
   constructor(
+    @Inject(CellImagesService) private readonly images: CellImagesService,
     @Inject(SharedService) private readonly shared: SharedService,
     @Inject(CaseOperationsService)
     private readonly operations: CaseOperationsService,
@@ -116,6 +125,48 @@ export class SharedController {
       dto,
     );
   }
+  @Post("images")
+  @UseInterceptors(CellImageUploadInterceptor)
+  @ApiOperation({
+    operationId: "uploadSharedTestSetImage",
+    summary: "공개 링크의 셀 이미지 업로드",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({ schema: IMAGE_UPLOAD_SCHEMA })
+  @ApiCreatedResponse({ type: CellImageDto })
+  async uploadImage(
+    @Param("linkToken") token: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.images.upload(
+      "",
+      await this.shared.subject(token, req, res),
+      file,
+    );
+  }
+  @Get("images/:imageId")
+  @ApiOperation({
+    operationId: "getSharedTestSetImage",
+    summary: "공개 링크의 셀 이미지 조회",
+  })
+  @ApiProduces("image/png", "image/jpeg", "image/gif", "image/webp")
+  @ApiOkResponse({ schema: { type: "string", format: "binary" } })
+  async image(
+    @Param("linkToken") token: string,
+    @Param("imageId", ParseUUIDPipe) imageId: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.images.download(
+      "",
+      await this.shared.subject(token, req, res),
+      imageId,
+      res,
+    );
+  }
+
   @Get("export")
   @ApiOperation({
     operationId: "exportSharedTestSet",

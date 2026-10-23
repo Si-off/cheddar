@@ -14,7 +14,9 @@ import type {
 } from "./model";
 
 export * from "./cell-field";
+export * from "./cell-image";
 export * from "./model";
+export * from "./option-chip";
 
 export const testSetsQuery = (filter: TestSetFilter, search: string) =>
   queryOptions({

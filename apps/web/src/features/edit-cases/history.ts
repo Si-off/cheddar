@@ -3,10 +3,10 @@ import { type QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import {
   type CaseOp,
-  cellText,
   invertOps,
   type Reversal,
   type SheetState,
+  sameValue,
   type TestSet,
 } from "@/entities/test-set";
 
@@ -101,8 +101,7 @@ function guard(state: SheetState, entry: Reversal) {
       }
       if (
         expected &&
-        cellText(column, target.values[op.columnId]) !==
-          cellText(column, expected.value)
+        !sameValue(column, target.values[op.columnId], expected.value)
       ) {
         skipped = true;
         continue;

@@ -176,7 +176,10 @@ export class ProjectsService {
       .from(projectTemplates)
       .where(eq(projectTemplates.projectId, projectId));
     if (!row) throw notFound();
-    return { revision: row.revision, columns: row.columns };
+    return {
+      revision: row.revision,
+      columns: row.columns.map((c) => ({ ...c, colors: c.colors ?? {} })),
+    };
   }
   async saveTemplate(projectId: string, input: unknown): Promise<TemplateDto> {
     const dto = validateTemplate(input);
@@ -197,7 +200,10 @@ export class ProjectsService {
         .returning();
       if (!row)
         throw conflict("TEMPLATE_CONFLICT", "다른 사람이 먼저 저장했습니다.");
-      return { revision: row.revision, columns: row.columns };
+      return {
+        revision: row.revision,
+        columns: row.columns.map((c) => ({ ...c, colors: c.colors ?? {} })),
+      };
     });
   }
   private rules(projectId: string, db: IdentityDatabase = this.database.db) {

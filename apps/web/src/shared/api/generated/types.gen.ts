@@ -121,7 +121,10 @@ export type UpdateProjectDto = {
     description?: string;
 };
 
-export type TemplateColumnDto = {
+export type TemplateResponseColumnDto = {
+    colors: {
+        [key: string]: 'gray' | 'red' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple';
+    };
     presetKey: string | null;
     enabled: boolean;
     id: string;
@@ -137,7 +140,24 @@ export type TemplateColumnDto = {
 
 export type TemplateDto = {
     revision: number;
-    columns: Array<TemplateColumnDto>;
+    columns: Array<TemplateResponseColumnDto>;
+};
+
+export type TemplateColumnDto = {
+    colors?: {
+        [key: string]: 'gray' | 'red' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple';
+    };
+    presetKey: string | null;
+    enabled: boolean;
+    id: string;
+    systemKey: 'test_id' | 'title' | null;
+    name: string;
+    type: 'text' | 'select' | 'checkbox' | 'tags';
+    description: string;
+    /**
+     * 선택과 태그는 공백 제거 후 1~50개, 각 1~100자이며 중복 불가. 텍스트와 체크박스는 빈 배열로 저장
+     */
+    options: Array<string>;
 };
 
 export type UpdateTemplateDto = {
@@ -262,7 +282,9 @@ export type SetCellOpDto = {
     type: 'set_cell';
     caseId: string;
     columnId: string;
-    value: string | null | boolean | Array<string>;
+    value: {
+        image: string;
+    } | string | null | boolean | Array<string>;
 };
 
 export type SetFeatureGroupOpDto = {
@@ -277,7 +299,9 @@ export type AddCaseOpDto = {
     afterCaseId: string | null;
     featureGroupId?: string | null;
     values?: {
-        [key: string]: string | null | boolean | Array<string>;
+        [key: string]: {
+            image: string;
+        } | string | null | boolean | Array<string>;
     };
 };
 
@@ -293,6 +317,9 @@ export type MoveCaseOpDto = {
 };
 
 export type AddColumnDefinitionDto = {
+    colors?: {
+        [key: string]: 'gray' | 'red' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple';
+    };
     presetKey: string | null;
     name: string;
     type: 'text' | 'select' | 'checkbox' | 'tags';
@@ -321,6 +348,10 @@ export type ReorderColumnsOpDto = {
 };
 
 export type UpdateColumnOpDto = {
+    colors?: {
+        [key: string]: 'gray' | 'red' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple';
+    };
+    columnType?: 'select';
     type: 'update_column';
     columnId: string;
     name: string;
@@ -378,6 +409,9 @@ export type TestSetAccessDto = {
 };
 
 export type TestSetColumnDto = {
+    colors: {
+        [key: string]: 'gray' | 'red' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple';
+    };
     presetKey: string | null;
     id: string;
     systemKey: 'test_id' | 'title' | null;
@@ -394,7 +428,9 @@ export type CaseDto = {
     id: string;
     featureGroupId: string | null;
     values: {
-        [key: string]: string | null | boolean | Array<string>;
+        [key: string]: {
+            image: string;
+        } | string | null | boolean | Array<string>;
     };
 };
 
@@ -444,6 +480,12 @@ export type TestSetViewDto = {
     rowHeights: {
         [key: string]: number;
     };
+};
+
+export type CellImageDto = {
+    id: string;
+    width: number;
+    height: number;
 };
 
 export type SharingDto = {
@@ -3183,6 +3225,113 @@ export type UpdateTestSetViewResponses = {
 
 export type UpdateTestSetViewResponse = UpdateTestSetViewResponses[keyof UpdateTestSetViewResponses];
 
+export type UploadTestSetImageData = {
+    body: {
+        file: Blob | File;
+    };
+    path: {
+        testSetId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/images';
+};
+
+export type UploadTestSetImageErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UploadTestSetImageError = UploadTestSetImageErrors[keyof UploadTestSetImageErrors];
+
+export type UploadTestSetImageResponses = {
+    201: CellImageDto;
+};
+
+export type UploadTestSetImageResponse = UploadTestSetImageResponses[keyof UploadTestSetImageResponses];
+
+export type GetTestSetImageData = {
+    body?: never;
+    path: {
+        testSetId: string;
+        imageId: string;
+    };
+    query?: never;
+    url: '/api/v1/test-sets/{testSetId}/images/{imageId}';
+};
+
+export type GetTestSetImageErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetTestSetImageError = GetTestSetImageErrors[keyof GetTestSetImageErrors];
+
+export type GetTestSetImageResponses = {
+    200: Blob | File;
+};
+
+export type GetTestSetImageResponse = GetTestSetImageResponses[keyof GetTestSetImageResponses];
+
 export type ExportTestSetData = {
     body?: never;
     path: {
@@ -3601,6 +3750,113 @@ export type UpdateSharedTestSetViewResponses = {
 };
 
 export type UpdateSharedTestSetViewResponse = UpdateSharedTestSetViewResponses[keyof UpdateSharedTestSetViewResponses];
+
+export type UploadSharedTestSetImageData = {
+    body: {
+        file: Blob | File;
+    };
+    path: {
+        linkToken: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}/images';
+};
+
+export type UploadSharedTestSetImageErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type UploadSharedTestSetImageError = UploadSharedTestSetImageErrors[keyof UploadSharedTestSetImageErrors];
+
+export type UploadSharedTestSetImageResponses = {
+    201: CellImageDto;
+};
+
+export type UploadSharedTestSetImageResponse = UploadSharedTestSetImageResponses[keyof UploadSharedTestSetImageResponses];
+
+export type GetSharedTestSetImageData = {
+    body?: never;
+    path: {
+        linkToken: string;
+        imageId: string;
+    };
+    query?: never;
+    url: '/api/v1/shared/{linkToken}/images/{imageId}';
+};
+
+export type GetSharedTestSetImageErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetSharedTestSetImageError = GetSharedTestSetImageErrors[keyof GetSharedTestSetImageErrors];
+
+export type GetSharedTestSetImageResponses = {
+    200: Blob | File;
+};
+
+export type GetSharedTestSetImageResponse = GetSharedTestSetImageResponses[keyof GetSharedTestSetImageResponses];
 
 export type ExportSharedTestSetData = {
     body?: never;
