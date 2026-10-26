@@ -35,7 +35,7 @@ import {
 import { FakeProvider } from "../src/generation/providers/fake";
 import { flattenScenarios } from "../src/generation/scenarios";
 import { heartbeat, jobEvent } from "../src/generation/sse";
-import { boundedMap } from "../src/generation/stage-runner";
+import { boundedMap, StageRunner } from "../src/generation/stage-runner";
 import { DEFINITIONS } from "../src/generation/steps";
 import type { GenerationInput, ScenarioOutput } from "../src/generation/types";
 import { validatedOutput } from "../src/generation/validated-output";
@@ -97,6 +97,47 @@ const request = (context = input()): AiRequest => ({
   context,
   sourceData: {},
   images: [],
+});
+test("사용 흐름이 화면에 적힌 화면 ID를 쓰면 frameId를 쓰라고 다시 요청하고 고친 출력을 받는다", async () => {
+  // 화면 ID 열 규칙의 "화면 ID"와 screenIds의 frameId를 모델이 헷갈린 실제 실패(2026-10-26)의 재발 방지.
+  const context = input();
+  const frameId = context.frames[0].id;
+  const group = (screenIds: string[]) => ({
+    groups: [
+      {
+        key: "가입",
+        name: "가입",
+        description: "",
+        screenIds,
+        flows: ["가입을 완료한다"],
+      },
+    ],
+  });
+  const corrections: string[] = [];
+  const result = await validatedOutput(
+    {
+      async generate(q) {
+        if (q.repair) corrections.push(q.repair.error);
+        return {
+          text: JSON.stringify(
+            group(q.repair ? [frameId] : ["U_SP_0103_ES_PG_010"]),
+          ),
+          usage: emptyUsage(),
+        };
+      },
+    },
+    {
+      ...request(context),
+      definition: DEFINITIONS.flows,
+      schema: DEFINITIONS.flows.schema(context),
+    },
+    (value) =>
+      StageRunner.prototype.validate.call(undefined, "flows", context, value),
+  );
+  assert.equal(result.repairCount, 1);
+  assert.deepEqual(result.value, group([frameId]));
+  assert.equal(corrections.length, 1);
+  assert.match(corrections[0], /frameId/);
 });
 test("생성과 확인 필요 DTO는 종류, UUID, 길이, null과 알 수 없는 항목을 검증", async () => {
   for (const [ctor, value] of [
