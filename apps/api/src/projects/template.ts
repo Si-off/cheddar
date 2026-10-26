@@ -93,7 +93,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "테스트 ID",
         type: "text",
-        description: "각 테스트 케이스를 구분하는 번호입니다.",
+        description: "",
         options: [],
       },
       {
@@ -102,8 +102,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "테스트 환경",
         type: "text",
-        description:
-          "APP, WEB, ADMIN처럼 적고 같은 값이 이어지면 첫 행에만 씁니다.",
+        description: "",
         options: [],
       },
       {
@@ -112,8 +111,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "테스트 케이스",
         type: "text",
-        description:
-          "화면과 기능을 쓰고 경우가 나뉘면 Case 1. 정상 등록처럼 번호를 붙입니다.",
+        description: "시나리오 이름",
         options: [],
       },
       {
@@ -122,7 +120,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "제목",
         type: "text",
-        description: "확인할 작업이나 조건을 한 문장으로 적습니다.",
+        description: "테스트 케이스 안의 하위 시나리오 이름",
         options: [],
       },
       {
@@ -131,8 +129,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "사용자/관리자",
         type: "select",
-        description:
-          "테스트를 수행할 계정 유형을 고릅니다. 확인되지 않으면 비워둡니다.",
+        description: "",
         options: ["사용자", "관리자"],
       },
       {
@@ -141,7 +138,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "화면 ID 또는 URL",
         type: "text",
-        description: "화면 구조에 있는 ID만 쓰고 없으면 추후 채번으로 둡니다.",
+        description: "",
         options: [],
       },
       {
@@ -150,8 +147,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "수행 절차",
         type: "text",
-        description:
-          "번호 목록으로 쓰고 버튼은 [등록하기]로 감싸며 같은 테스트 케이스 안에서 번호를 이어 씁니다.",
+        description: "",
         options: [],
       },
       {
@@ -160,8 +156,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "예상 결과",
         type: "text",
-        description:
-          "`- `로 시작해 `~되는지 확인`으로 끝내고 문구와 버튼은 `문구 : `, `버튼 : ` 뒤에 원문 그대로 적습니다.",
+        description: "",
         options: [],
       },
       {
@@ -170,7 +165,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "QA 결과",
         type: "select",
-        description: "생성 시 비웁니다.",
+        description: "",
         options: ["Pass", "Fail", "Deferred", "N/A", "-", "추가 요청"],
         colors: {
           Pass: "green",
@@ -187,7 +182,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "QA 담당자",
         type: "text",
-        description: "생성 시 비웁니다.",
+        description: "",
         options: [],
       },
       {
@@ -196,7 +191,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "결과 및 의견",
         type: "text",
-        description: "생성 시 비웁니다.",
+        description: "",
         options: [],
       },
       {
@@ -205,7 +200,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "개발 진행 상태",
         type: "select",
-        description: "생성 시 비웁니다.",
+        description: "",
         options: ["완료", "수정중", "수정 완료", "보류", "기타", "-"],
         colors: {
           완료: "green",
@@ -222,7 +217,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: true,
         name: "개발 담당자",
         type: "text",
-        description: "생성 시 비웁니다.",
+        description: "",
         options: [],
       },
       {
@@ -231,7 +226,7 @@ export const PRESET_COLUMNS: readonly Readonly<
         enabled: false,
         name: "추가 정보",
         type: "text",
-        description: "생성 시 비웁니다.",
+        description: "",
         options: [],
       },
     ] satisfies Omit<TemplateColumnDto, "id">[]

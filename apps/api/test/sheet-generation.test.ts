@@ -16,6 +16,7 @@ import {
 } from "../src/database/schema";
 import {
   applicableViewpoints,
+  columnRule,
   DEFAULT_GUIDE,
   GUIDES,
   guideOf,
@@ -80,7 +81,7 @@ test("AI 스키마는 세트의 모든 작성 열과 규칙을 포함하고 QA �
       assert.ok(schema.required?.includes(c.id));
       assert.ok(
         schema.properties?.[c.id].description?.includes(
-          c.presetKey ? guide.columns[c.presetKey] : "근거가 없으면 빈 값",
+          c.presetKey ? columnRule(c, guide) : "근거가 없으면 빈 값",
         ),
       );
     }
@@ -94,7 +95,7 @@ test("AI 스키마는 세트의 모든 작성 열과 규칙을 포함하고 QA �
     images: [],
   };
   const instructions = stableInstructions(request);
-  assert.ok(instructions.includes("화면 구조에 있는 ID만"));
+  assert.ok(instructions.includes("화면 ID를 새로 만들지 않는다"));
   assert.ok(!instructions.includes('"presetKey":"qa_result"'));
 });
 

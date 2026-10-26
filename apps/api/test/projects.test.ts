@@ -32,6 +32,7 @@ import {
 } from "../src/database/schema";
 import { readAiConfig } from "../src/generation/model-config";
 import { ProjectsService } from "../src/projects/projects.service";
+import { findPresetColumn } from "../src/projects/template";
 import { LocalStorage } from "../src/storage/local-storage";
 import { openTestDatabase } from "./database";
 
@@ -169,7 +170,13 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
             },
           ],
         );
-        assert.ok(template.columns.every((c) => c.description.length > 0));
+        assert.ok(
+          template.columns.every(
+            (c) =>
+              c.description ===
+              findPresetColumn(c.presetKey ?? "")?.description,
+          ),
+        );
         assert.equal(new Set(template.columns.map((c) => c.id)).size, 14);
         assert.equal(
           new Set(template.columns.map((c) => c.presetKey)).size,

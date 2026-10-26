@@ -120,6 +120,13 @@
       "when": 1792734478360,
       "tag": "0016_exclusive_ai_usage_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792972421890,
+      "tag": "0017_scenario_columns",
+      "breakpoints": true
     }
   ]
 }
