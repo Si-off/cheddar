@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { TestSetColumnDto } from "../../contracts/test-set.dto";
 import { sheetV1 } from "./sheet-v1";
 import { sheetV2 } from "./sheet-v2";
+import { sheetV3 } from "./sheet-v3";
 import type { Guide } from "./types";
 
 export type { DecompositionRule, Guide, Viewpoint } from "./types";
@@ -10,9 +11,10 @@ export type { DecompositionRule, Guide, Viewpoint } from "./types";
 export const GUIDES: Readonly<Record<string, Guide>> = {
   [sheetV1.id]: sheetV1,
   [sheetV2.id]: sheetV2,
+  [sheetV3.id]: sheetV3,
 };
 /** 새 작업의 기본 지침. */
-export const DEFAULT_GUIDE = sheetV2.id;
+export const DEFAULT_GUIDE = sheetV3.id;
 /** 지침을 기록하기 전에 만든 작업은 그때의 지침으로 이어서 실행한다. 바꾸지 않는다. */
 export const LEGACY_GUIDE = sheetV1.id;
 
