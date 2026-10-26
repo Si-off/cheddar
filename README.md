@@ -15,6 +15,8 @@
 
 ## 개발 환경
 
+기존 생성기를 유지하면서 pi 에이전트를 비교하는 방법은 [pi 생성](docs/pi-experiment.md)을 따른다. 프로젝트 기준 QA 문서는 한 번 등록하고 이후 프레임 선택으로 생성한다. 실험 브랜치에서만 활성화한다.
+
 - Node 24.22.0 LTS(`.nvmrc`), pnpm 12.11.2(`packageManager`), Biome
 - PostgreSQL 17(로컬)
 - 사내 배포 환경과 절차는 추후 결정
@@ -47,7 +49,7 @@ pnpm install --frozen-lockfile
 | `AI_MODEL_SCREENS` 등 | 단계별 모델. 짧은 이름 `haiku`, `sonnet`, `opus`, `luna`, `terra` 또는 `anthropic:<모델>`, `openai:<모델>`. 기본값은 `apps/api/src/generation/model-config.ts` |
 | `AI_EFFORT_SCREENS` 등 | 단계별 effort. `low`, `medium`, `high`, `xhigh`, `max`. Claude와 GPT 모두에 적용. effort를 받지 않는 모델은 `default`(보내지 않음) |
 | `AI_GUIDE` | 새 작업에 쓸 작성 지침 ID. 비우면 기본 지침. 목록은 `apps/api/src/generation/guides/index.ts` |
-| `AI_GENERATION_CONCURRENCY` | 서버 전체 동시 생성 작업 수. 기본 2, 1~8. 최초 생성, 추가 생성과 다시 작성에 적용 |
+| `AI_GENERATION_CONCURRENCY` | API 프로세스당 큐 실행 수. 기본 2, 1~8. 최초/추가 생성, 다시 작성, 열 채우기에 적용하며 초과 요청은 대기 |
 | `OPENAI_ADMIN_KEY`, `OPENAI_COST_PROJECT_ID` | OpenAI 비용 동기화용 관리자 키와 프로젝트 ID. 함께 설정 |
 | `ANTHROPIC_ADMIN_KEY`, `ANTHROPIC_COST_WORKSPACE_ID` | Anthropic 비용 동기화용 관리자 키와 워크스페이스 ID. 함께 설정, 기본 워크스페이스는 `default` |
 | `AI_COST_SYNC_INTERVAL_SECONDS` | 비용 동기화 주기. 기본 3600초, 60~86400초. 테스트와 fake에서는 자동 동기화하지 않음 |

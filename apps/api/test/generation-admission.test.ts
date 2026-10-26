@@ -11,11 +11,9 @@ import { generationJobs, reviewItems } from "../src/database/schema";
 import { GenerationService } from "../src/generation/generation.service";
 import { QueueService } from "../src/generation/queue.service";
 import { ReviewItemsService } from "../src/review-items/review-items.service";
-import { TempUploadsService } from "../src/temp-uploads/temp-uploads.service";
-import { TestSetsStore } from "../src/test-sets/test-sets.store";
 import { generationFixture } from "./generation-fixture";
 
-test("전역 한도와 공급자 관리 키 환경변수는 원본 범위를 검증한다", () => {
+test("실행 동시성과 공급자 관리 키 환경변수는 원본 범위를 검증한다", () => {
   const base = {
     DATABASE_URL: "postgresql://test@127.0.0.1/test",
     FILE_STORAGE_ROOT: tmpdir(),
@@ -52,9 +50,9 @@ test("전역 한도와 공급자 관리 키 환경변수는 원본 범위를 검
   }
 });
 
-test("독립 API 풀의 동시 요청은 전역 한도를 공유하고 재전송은 같은 작업을 반환한다", {
+test("독립 API 풀에서 실행 수보다 많은 요청도 접수하고 재전송은 같은 작업을 반환한다", {
   timeout: 30000,
-}, async (t) => {
+}, async () => {
   const f = await generationFixture();
   const other = await createApp(f.config, f.lease.folder);
   other.get(QueueService).enqueue = async () => undefined;
@@ -75,16 +73,7 @@ test("독립 API 풀의 동시 요청은 전역 한도를 공유하고 재전송
     const accepted = results.flatMap((r, index) =>
       r.status === "fulfilled" ? [{ index, ...r.value }] : [],
     );
-    const rejected = results.findIndex((r) => r.status === "rejected");
-    assert.equal(accepted.length, 2);
-    assert.ok(rejected >= 0);
-    const reason = results[rejected];
-    assert.ok(
-      reason.status === "rejected" &&
-        reason.reason instanceof ApiError &&
-        reason.reason.code === "GENERATION_CAPACITY" &&
-        reason.reason.getStatus() === 429,
-    );
+    assert.equal(accepted.length, 3);
     await f.db
       .update(generationJobs)
       .set({ status: "running" })
@@ -117,62 +106,16 @@ test("독립 API 풀의 동시 요청은 전역 한도를 공유하고 재전송
         e.getStatus() === 409 &&
         e.code === "GENERATION_RUNNING",
     );
-    const uploads = t.mock.method(
-      f.app.get(TempUploadsService),
-      "owned",
-      async () => {
-        throw new Error("입장 전 업로드를 읽음");
-      },
-    );
-    const columns = t.mock.method(
-      f.app.get(TestSetsStore),
-      "columns",
-      async () => {
-        throw new Error("입장 전 양식을 읽음");
-      },
-    );
-    const post = (path: string, body: unknown) =>
-      fetch(`${f.base}${path}`, {
-        method: "POST",
-        headers: { Cookie: f.cookie, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    for (const body of [
-      { kind: "initial", uploadId: randomUUID() },
-      { kind: "append", memo: "설명" },
-    ]) {
-      const response = await post(
-        `/test-sets/${sets[rejected].id}/generations`,
-        body,
-      );
-      assert.equal(response.status, 429);
-      const error = (
-        (await response.json()) as { error: { code: string; message: string } }
-      ).error;
-      assert.equal(error.code, "GENERATION_CAPACITY");
-      assert.equal(
-        error.message,
-        "현재 생성 요청이 많습니다. 잠시 후 다시 시도해주세요.",
-      );
-    }
     const [item] = await f.db
       .insert(reviewItems)
       .values({
-        testSetId: sets[rejected].id,
+        testSetId: sets[2].id,
         screenDescription: "화면",
         questions: [],
         draft: {},
       })
       .returning();
-    const rewriteResponse = await post(`/review-items/${item.id}/rewrite`, {
-      answer: "답변",
-      clientRequestId: randomUUID(),
-    });
-    assert.equal(rewriteResponse.status, 429);
-    assert.equal(uploads.mock.callCount(), 0);
-    assert.equal(columns.mock.callCount(), 0);
-    uploads.mock.restore();
-    columns.mock.restore();
+    await f.generation.fail(accepted[2].jobId, "TEST_FINISHED");
     await f.generation.fail(first.jobId, "TEST_FINISHED");
     const rewriteRequest = { answer: "답변", clientRequestId: randomUUID() };
     const rewrites = await Promise.all([
@@ -192,13 +135,6 @@ test("독립 API 풀의 동시 요청은 전역 한도를 공유하고 재전송
       (await f.reviews.rewrite(item.id, f.accountId, rewriteRequest)).jobId,
       rewrites[0].jobId,
     );
-    const retry = await services[1].create(
-      sets[rejected].id,
-      f.accountId,
-      requests[rejected],
-    );
-    assert.ok(retry.jobId);
-    await f.generation.fail(retry.jobId, "TEST_FINISHED");
     await f.generation.fail(accepted[1].jobId, "TEST_FINISHED");
     // 빈 한도에서도 같은 요청이 동시에 오면 한 작업만 만든다.
     const same = {

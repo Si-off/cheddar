@@ -3,6 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { and, eq, sql } from "drizzle-orm";
+import { ApiError } from "../common/errors";
 import type { CellValue } from "../contracts/test-set.dto";
 import {
   featureGroups,
@@ -19,6 +20,8 @@ import { GenerationService, jobFinished } from "./generation.service";
 import { guideOf, promptVersion } from "./guides";
 import type { Stage } from "./model-config";
 import { validateDraft } from "./output-schema";
+import { PiInfrastructureError } from "./pi/errors";
+import { PiGenerationService } from "./pi/pi.service";
 import { AiFailure, type AiRequest } from "./providers/ai-provider";
 import { ProviderService } from "./providers/provider.service";
 import {
@@ -92,6 +95,7 @@ export class StageRunner implements OnModuleDestroy {
     @Inject(LocalStorage) private readonly storage: LocalStorage,
     @Inject(CaseOperationsService)
     private readonly operations: CaseOperationsService,
+    @Inject(PiGenerationService) private readonly pi: PiGenerationService,
   ) {}
   get db() {
     return this.generation.store.database.db;
@@ -331,8 +335,21 @@ export class StageRunner implements OnModuleDestroy {
         await this.generation.cleanupJob(jobId);
         return;
       }
-      if (job.currentStage !== stage) return;
-      if (job.expiresAt <= new Date()) {
+      if (job.currentStage !== stage) {
+        // pi는 한 큐 작업 안에서 cases로 진행하므로 최초 screens 작업의 재시도를 허용한다.
+        const [piStep] = await this.db
+          .select({ id: generationSteps.id })
+          .from(generationSteps)
+          .where(
+            and(
+              eq(generationSteps.jobId, jobId),
+              eq(generationSteps.workKey, "pi-agent"),
+            ),
+          );
+        if (!(piStep && stage === "screens" && job.currentStage === "cases"))
+          return;
+      }
+      if (job.status === "running" && job.expiresAt <= new Date()) {
         await this.generation.fail(jobId, "GENERATION_EXPIRED");
         return;
       }
@@ -357,6 +374,21 @@ export class StageRunner implements OnModuleDestroy {
           expiresAt: new Date(Date.now() + 600_000),
         })
         .where(eq(generationJobs.id, jobId));
+      if (
+        input.pi?.engine === "pi" &&
+        ["initial", "append"].includes(job.kind)
+      ) {
+        const output = await this.pi.run(jobId, input, this.shutdown.signal);
+        try {
+          await this.finish(job, input, output);
+        } catch (error) {
+          if (error instanceof ApiError || error instanceof AiFailure)
+            throw error;
+          throw new PiInfrastructureError(error);
+        }
+        await this.generation.cleanupJob(jobId);
+        return;
+      }
       const outputs = async <T>(key: Stage): Promise<T[]> =>
         (
           await this.db
@@ -503,6 +535,7 @@ export class StageRunner implements OnModuleDestroy {
           .update(generationJobs)
           .set({
             currentStage: next,
+            status: "pending",
             updatedAt: new Date(),
             expiresAt: new Date(Date.now() + 600_000),
           })
@@ -511,6 +544,7 @@ export class StageRunner implements OnModuleDestroy {
       } else await this.generation.cleanupJob(jobId);
     } catch (error) {
       if (this.shutdown.signal.aborted) return;
+      if (error instanceof PiInfrastructureError) throw error;
       await this.generation.fail(
         jobId,
         error instanceof AiFailure ? error.code : "GENERATION_FAILED",

@@ -9,6 +9,8 @@ saveExact: true
 pmOnFail: error
 runtimeOnFail: error
 allowBuilds:
+  '@google/genai': false
+  protobufjs: false
   '@scarf/scarf': false
   '@tailwindcss/oxide': true
   esbuild: true

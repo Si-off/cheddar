@@ -25,7 +25,10 @@ export class GenerationWorker implements OnApplicationBootstrap {
     };
     await this.queue.boss.work<{ jobId: string; stage: string }>(
       GENERATION_QUEUE,
-      options,
+      {
+        ...options,
+        localConcurrency: this.queue.env.generationConcurrency ?? 2,
+      },
       async (jobs) => {
         for (const job of jobs)
           if (STAGES.includes(job.data.stage as Stage))

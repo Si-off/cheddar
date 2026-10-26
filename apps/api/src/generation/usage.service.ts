@@ -12,7 +12,7 @@ import {
   type ProviderObservation,
   type Usage,
 } from "./providers/ai-provider";
-import { normalizeUsage } from "./usage";
+import { type CallObservation, normalizeUsage } from "./usage";
 
 export type UsageTarget =
   | { jobId: string; stepId: string; fake: boolean }
@@ -113,10 +113,14 @@ export class AiUsageService {
         : supplied &&
           (request.model.provider === "openai"
             ? {
-                input_tokens: supplied.inputTokens + supplied.cacheReadTokens,
+                input_tokens:
+                  supplied.inputTokens +
+                  supplied.cacheReadTokens +
+                  supplied.cacheCreationTokens,
                 output_tokens: supplied.outputTokens,
                 input_tokens_details: {
                   cached_tokens: supplied.cacheReadTokens,
+                  cache_write_tokens: supplied.cacheCreationTokens,
                 },
               }
             : {
@@ -179,6 +183,72 @@ export class AiUsageService {
       // 단계 합계는 생성 작업의 호출에만 있다.
       if ("stepId" in target) await this.stepTotals(target, id);
     }
+  }
+
+  /** pi의 실제 스트림 시작/종료를 동일한 호출 ID로 저장한다. DB 실패는 재시도 대상으로 전파한다. */
+  async recordObserved(
+    target: Extract<UsageTarget, { stepId: string }>,
+    model: { provider: "openai" | "anthropic"; model: string },
+    call: { id: string; startedAt: number; observation?: CallObservation },
+  ) {
+    const observed = call.observation;
+    const usage = normalizeUsage(model.provider, observed?.usage);
+    const known = Boolean(observed?.usageComplete && usage.known);
+    const counts: Usage | null = known
+      ? {
+          inputTokens:
+            (usage.inputTokens as number) -
+            (usage.cachedInputTokens as number) -
+            (usage.cacheWriteTokens as number),
+          outputTokens: usage.outputTokens as number,
+          cacheReadTokens: usage.cachedInputTokens as number,
+          cacheCreationTokens: usage.cacheWriteTokens as number,
+        }
+      : null;
+    const responseModel = `${model.provider}:${observed?.responseModel ?? model.model}`;
+    const standard =
+      model.provider === "anthropic" ||
+      ["default", "standard"].includes(observed?.serviceTier ?? "");
+    const cost =
+      counts && standard ? costFor(responseModel, counts, target.fake) : null;
+    const values = {
+      id: call.id,
+      ...owner(target),
+      provider: target.fake ? "fake" : model.provider,
+      requestedModel: model.model,
+      startedAt: new Date(call.startedAt),
+      status: observed?.status ?? "running",
+      finishedAt: observed ? new Date(observed.finishedAt) : undefined,
+      durationMs: observed?.durationMs,
+      requestId: observed?.requestId,
+      responseId: observed?.responseId,
+      responseModel: observed?.responseModel,
+      serviceTier: observed?.serviceTier,
+      httpStatus: observed?.httpStatus,
+      errorCode: observed?.errorCode,
+      usageKnown: known,
+      rawUsage: usage.raw,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cachedInputTokens: usage.cachedInputTokens,
+      cacheWriteTokens: usage.cacheWriteTokens,
+      reasoningTokens: usage.reasoningTokens,
+      calculatedCostUsd: cost,
+      pricing:
+        counts && cost !== null ? pricingFor(responseModel, counts) : null,
+    };
+    // 시작 기록을 재전송해도 기존 종료 결과를 덮어쓰지 않는다.
+    if (!observed)
+      await this.database.db
+        .insert(aiCallUsage)
+        .values(values)
+        .onConflictDoNothing();
+    else
+      await this.database.db
+        .insert(aiCallUsage)
+        .values(values)
+        .onConflictDoUpdate({ target: aiCallUsage.id, set: values });
+    await this.stepTotals(target, call.id);
   }
 
   private async stepTotals(

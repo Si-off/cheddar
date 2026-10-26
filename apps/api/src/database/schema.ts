@@ -20,6 +20,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import type { ScreenIdRulePartDto } from "../contracts/project.dto";
+import type { QaReference } from "../generation/pi/reference";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const created = () =>
@@ -662,3 +663,12 @@ export const cellImages = pgTable(
     ),
   ],
 );
+
+/** 프로젝트에 한 번 등록하는 기준 QA 문서. 생성 작업에는 사본을 고정한다. */
+export const projectQaReferences = pgTable("project_qa_references", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  document: jsonb("document").$type<QaReference>().notNull(),
+  updatedAt: updated(),
+});

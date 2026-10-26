@@ -14,17 +14,21 @@ import { ReviewItemsService } from "../src/review-items/review-items.service";
 import { TestSetsService } from "../src/test-sets/test-sets.service";
 import { openTestDatabase } from "./database";
 
-export async function generationFixture() {
+export async function generationFixture(
+  options: { workers?: boolean; concurrency?: number } = {},
+) {
   const lease = await openTestDatabase();
   const config = {
     ...lease.config,
     ai: readAiConfig({ AI_PROVIDER: "fake" }),
-    workersEnabled: false,
+    workersEnabled: options.workers ?? false,
+    generationConcurrency: options.concurrency ?? 2,
+    queuePollingSeconds: 0.5,
   };
   const app = await createApp(config, lease.folder);
   try {
     // 영속 큐 전달은 기존 pg-boss 통합 테스트가 검증한다. 여기서는 단계와 입장을 직접 제어한다.
-    app.get(QueueService).enqueue = async () => undefined;
+    if (!options.workers) app.get(QueueService).enqueue = async () => undefined;
     await app.listen(0, "127.0.0.1");
     const admin = await createFirstAdministrator(
       app.get(AuthorizationService),

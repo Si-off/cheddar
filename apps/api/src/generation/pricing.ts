@@ -1,6 +1,6 @@
 import type { Usage } from "./providers/ai-provider";
 
-// USD / 100만 토큰. 2026-10-20 공식 표 기준. 알 수 없는 모델은 0으로 추정하지 않는다.
+// USD / 100만 토큰. 2026-10-26 공식 표 기준. 알 수 없는 모델은 0으로 추정하지 않는다.
 // https://platform.claude.com/docs/en/about-claude/pricing
 // https://developers.openai.com/api/docs/pricing
 type Rates = [
@@ -12,6 +12,10 @@ type Rates = [
 type Price = { rates: Rates; long?: { above: number; rates: Rates } };
 const OPENAI_LONG = 272000;
 export const PRICING: Record<string, Price> = {
+  "openai:gpt-6.1-sol": {
+    rates: [2, 10, 0.1, 2.5],
+    long: { above: OPENAI_LONG, rates: [4, 15, 0.2, 5] },
+  },
   "anthropic:claude-opus-5-5": { rates: [4, 20, 0.2, 5] },
   "anthropic:claude-sonnet-5-5": { rates: [2, 10, 0.2, 2.5] },
   "anthropic:claude-haiku-5-5": {
@@ -40,7 +44,7 @@ export function pricingFor(model: string, usage: Usage) {
   const rates = longContext && price.long ? price.long.rates : price.rates;
   const openai = model.startsWith("openai:");
   return {
-    version: "2026-10-20",
+    version: model === "openai:gpt-6.1-sol" ? "2026-10-26" : "2026-10-20",
     model,
     currency: "USD",
     unit: "usd_per_million_tokens",

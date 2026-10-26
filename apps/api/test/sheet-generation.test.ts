@@ -191,7 +191,7 @@ async function addColumn(
   return columnId;
 }
 
-test("열 채우기는 rewrite 한도와 세트 잠금을 공유하고 저장 직전 기존 값을 보호한다", async () => {
+test("열 채우기도 대기열에 접수하고 세트 잠금과 저장 직전 기존 값을 보호한다", async () => {
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
@@ -270,10 +270,17 @@ test("열 채우기는 rewrite 한도와 세트 잠금을 공유하고 저장 �
       answer: "답변",
     });
     const third = await f.makeSet();
-    await assert.rejects(
-      f.generation.fillColumn(third.id, third.columns[1].id, f.accountId),
-      apiError("GENERATION_CAPACITY"),
+    const thirdColumn = await addColumn(f, third.id, third.columns[0].id);
+    const queued = await f.generation.fillColumn(
+      third.id,
+      thirdColumn,
+      f.accountId,
     );
+    assert.equal(
+      (await f.generation.current(third.id, f.accountId))?.status,
+      "queued",
+    );
+    await f.generation.fail(queued.jobId, "TEST_FINISHED");
     await operations.apply(set.id, f.accountId, {
       ops: [
         { type: "set_cell", caseId: ids[1], columnId, value: "생성 중 입력" },
