@@ -18,6 +18,7 @@ import {
   generationJobs,
   generationSteps,
   projectMemos,
+  projectQaReferences,
   reviewItems,
   screenStructureItems,
   tempUploads,
@@ -256,6 +257,14 @@ export class GenerationService {
           existingCases:
             dto.kind === "append" ? await this.store.cases(testSetId, tx) : [],
         };
+        if (this.queue.env.pi?.engine === "pi") {
+          input.pi = this.queue.env.pi;
+          const [reference] = await tx
+            .select()
+            .from(projectQaReferences)
+            .where(eq(projectQaReferences.projectId, row.projectId));
+          input.qaReference = reference?.document;
+        }
         input.viewpoints = applicableViewpoints(
           guideOf(input),
           input.frames,

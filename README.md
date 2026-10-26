@@ -15,6 +15,8 @@
 
 ## 개발 환경
 
+기존 생성기를 유지하면서 pi 에이전트를 비교하는 방법은 [pi 생성 실험](docs/pi-experiment.md)을 따른다. 프로젝트 기준 QA 문서는 한 번 등록하고 이후 프레임 선택으로 생성한다. 실험 브랜치에서만 활성화한다.
+
 - Node 24.22.0 LTS(`.nvmrc`), pnpm 12.11.2(`packageManager`), Biome
 - PostgreSQL 17(로컬)
 - 사내 배포 환경과 절차는 추후 결정

@@ -1,7 +1,7 @@
 import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
 import { type AiConfig, readAiConfig } from "../generation/model-config";
-
+import { type PiConfig, readPiConfig } from "../generation/pi/config";
 import type { CostSource } from "../generation/provider-costs";
 
 export const API_ENV = Symbol("API_ENV");
@@ -25,6 +25,7 @@ export interface ApiEnv {
     intervalMs: number;
   };
   ai?: AiConfig;
+  pi?: PiConfig;
   queuePollingSeconds?: number;
   workersEnabled?: boolean;
 }
@@ -138,6 +139,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       intervalMs: interval * 1000,
     },
     ai: readAiConfig(env),
+    pi: readPiConfig(env),
   };
 }
 

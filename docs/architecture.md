@@ -11,6 +11,12 @@
 - 개발 도구: Claude Code(오케스트레이션과 UI 구현), Codex(백엔드 위임과 리뷰). 역할 분담은 루트 `AGENTS.md`.
 - 초기 환경: 개발자 PC에서 백엔드와 DB를 로컬로 실행한다. 사내 배포 방식은 추후 결정한다.
 
+## pi 실험 엔진
+
+`apps/api/src/generation/pi/`에 pi SDK 기반 에이전트와 제한된 자료 조회·초안 편집 도구를 둔다. `AI_GENERATION_ENGINE=pi`인 최초/추가 생성 요청은 엔진 설정과 `project_qa_references` 기준 문서를 입력에 고정한다. 기존 pg-boss 워커가 실행하고 대화·초안은 PostgreSQL 체크포인트로 저장한다. 기본 `staged` 엔진과 기존 최종 저장/권한 검사를 유지한다. 저장 장애는 큐 재시도 대상으로 남기며 모델 제한에 의한 부분 완료와 구분한다.
+
+실험의 배포 목표는 Vercel 웹과 Render API다. 현재 워커는 API 프로세스 내에서 실행되고 업로드는 LocalStorage를 사용하므로 Render 영속 디스크가 필요하다. 워커 서비스 분리에는 공유 객체 저장소와 별도 진입점이 추가로 필요하다. 실제 배포는 수행하지 않는다. 제한과 실행 방법은 [pi 생성 실험](pi-experiment.md)을 따른다.
+
 ## 기술 선택
 
 | 영역 | 선택 |

@@ -4,10 +4,15 @@ import type {
   TestSetColumnDto,
 } from "../contracts/test-set.dto";
 import type { AiTask, Stage } from "./model-config";
+import type { PiConfig } from "./pi/config";
+import type { QaReference } from "./pi/reference";
 export type Draft = Record<string, CellValue>;
 export type GenerationInput = {
   /** 작업을 만들 때 고른 작성 지침 ID. 재시도와 이어하기도 같은 지침을 쓴다. */
   guide?: string;
+  /** 생성 요청 때 고정한다. 과거 작업은 기존 단계 실행기를 사용한다. */
+  pi?: PiConfig;
+  qaReference?: QaReference;
   columns: TestSetColumnDto[];
   memo: string;
   frames: {
