@@ -248,20 +248,32 @@ export class StageRunner implements OnModuleDestroy {
         new Set(screens.map((s) => s.frameId)).size !== screens.length ||
         screens.some((s) => !input.frames.some((f) => f.id === s.frameId))
       )
-        throw new Error("입력 화면 ID를 그대로 사용하세요.");
+        throw new Error("frameId에는 입력 프레임의 ID를 그대로 쓰세요.");
     } else if (stage === "flows") {
       const groups = (value as FlowOutput).groups;
+      // 다시 쓰기 요청에 그대로 들어가므로 어느 값을 고칠지 알 수 있게 쓴다.
+      if (
+        groups.some((g) =>
+          g.screenIds.some((id) => !input.frames.some((f) => f.id === id)),
+        )
+      )
+        throw new Error(
+          "screenIds에는 화면에 적힌 화면 ID가 아니라 입력 화면 카드의 frameId만 쓰세요.",
+        );
       if (
         new Set(groups.map((g) => g.key)).size !== groups.length ||
         groups.some(
           (g) =>
             !g.key ||
-            g.screenIds.some((id) => !input.frames.some((f) => f.id === id)) ||
             (input.featureGroups.length &&
               !input.featureGroups.some((f) => f.id === g.key)),
         )
       )
-        throw new Error("기능 그룹과 화면 ID를 확인하세요.");
+        throw new Error(
+          input.featureGroups.length
+            ? "그룹 key에는 프로젝트 기능 그룹 ID를 겹치지 않게 쓰세요."
+            : "그룹 key를 비우지 말고 겹치지 않게 쓰세요.",
+        );
     } else if (stage === "rewrite") {
       if (input.fillColumn) {
         for (const cell of Object.values(value as Record<string, CellValue>))
