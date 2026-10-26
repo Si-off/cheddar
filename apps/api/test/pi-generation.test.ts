@@ -88,11 +88,29 @@ test("pi 도구는 선택한 화면과 기준 문서만 읽고, 초안을 수정
     frameId: source.frames[0].id,
   });
   assert.match(JSON.stringify(raw), /STRIKETHROUGH/);
-  await call(workspace, "save_cases", {
-    cases: [{ key: "order-1", values: row(source) }],
+  await call(workspace, "save_requirements", {
+    requirements: [
+      {
+        id: "order",
+        rule: "주문 조회",
+        certainty: "confirmed",
+        reason: "",
+        sources: [{ frameId: source.frames[0].id, quote: "최대 5개" }],
+        variants: [],
+      },
+    ],
   });
   await call(workspace, "save_cases", {
-    cases: [{ key: "order-1", values: row(source, "주문 조회 수정") }],
+    cases: [{ key: "order-1", values: row(source), covers: [{ id: "order" }] }],
+  });
+  await call(workspace, "save_cases", {
+    cases: [
+      {
+        key: "order-1",
+        values: row(source, "주문 조회 수정"),
+        covers: [{ id: "order" }],
+      },
+    ],
   });
   assert.equal(workspace.output().cases.length, 1);
   const qa = source.columns.find((c) => c.presetKey === "qa_result");
@@ -418,4 +436,263 @@ test("최종 저장 장애 후 완료 초안으로 재시도하며 모델을 재
   } finally {
     await f.close();
   }
+});
+
+test("프레임 첫 조각·검색만으로 전체 읽기를 인정하지 않고 이어 읽은 구간만 합친다", async () => {
+  const source = input(),
+    state = emptyPiDraft();
+  source.frames[0].screenDocument = `앞부분${"가".repeat(48000)}마지막 규칙`;
+  const workspace = new PiWorkspace(
+    source,
+    state,
+    async () => ({ data: "", mimeType: "image/png" }),
+    async () => {},
+  );
+  await call(workspace, "search_frames", { query: "마지막" });
+  await call(workspace, "read_frame", { frameId: source.frames[0].id });
+  assert.equal(state.readFrames.length, 0);
+  await call(workspace, "read_frame", {
+    frameId: source.frames[0].id,
+    offset: 48000,
+  });
+  assert.equal(state.readFrames.length, 0);
+  await call(workspace, "read_frame", {
+    frameId: source.frames[0].id,
+    offset: 24000,
+  });
+  assert.deepEqual(state.readFrames, [source.frames[0].id]);
+});
+
+test("확정 선택값은 각각 테스트가 필요하며 모호한 규칙은 별도 검토로 남긴다", async () => {
+  const source = input(),
+    state = emptyPiDraft();
+  const workspace = new PiWorkspace(
+    source,
+    state,
+    async () => ({ data: "", mimeType: "image/png" }),
+    async () => {},
+  );
+  const requirement = {
+    id: "limit",
+    rule: "수량",
+    certainty: "confirmed",
+    reason: "",
+    sources: [{ frameId: source.frames[0].id, quote: "최대 5개" }],
+    variants: [
+      { key: "one", label: "1개" },
+      { key: "five", label: "5개" },
+    ],
+  };
+  await assert.rejects(
+    call(workspace, "save_requirements", {
+      requirements: [
+        {
+          ...requirement,
+          sources: [
+            {
+              frameId: source.frames[0].id,
+              nodeId: "없는 노드",
+              quote: "최대 5개",
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  await call(workspace, "save_requirements", {
+    requirements: [
+      requirement,
+      {
+        ...requirement,
+        id: "unknown",
+        certainty: "uncertain",
+        reason: "초과 시 동작 미정",
+        variants: [],
+      },
+    ],
+  });
+  await call(workspace, "read_frame", { frameId: source.frames[0].id });
+  await call(workspace, "save_reviews", {
+    reviews: [
+      {
+        key: "review",
+        values: {},
+        covers: [{ id: "limit" }, { id: "unknown" }],
+        reason: "초과 정책",
+        question: "초과 시 동작은?",
+        screenDescription: "최대 5개",
+      },
+    ],
+  });
+  assert.equal(
+    workspace.coverage().filter((r) => r.status === "missing").length,
+    2,
+  );
+  await assert.rejects(
+    call(workspace, "save_case_variants", {
+      baseValues: row(source),
+      rows: [
+        { key: "one", values: {}, covers: [{ id: "limit", variant: "one" }] },
+        { key: "bad", values: {}, covers: [{ id: "limit", variant: "six" }] },
+      ],
+    }),
+  );
+  assert.equal(
+    state.cases.length,
+    0,
+    "묶음 중 오류가 있으면 일부 행도 저장하지 않는다",
+  );
+  await assert.rejects(
+    call(workspace, "save_cases", {
+      cases: [
+        {
+          key: "all",
+          values: row(source),
+          covers: [
+            { id: "limit", variant: "one" },
+            { id: "limit", variant: "five" },
+          ],
+        },
+      ],
+    }),
+    /독립적으로/,
+  );
+  await assert.rejects(
+    call(workspace, "save_case_variants", {
+      baseValues: row(source),
+      rows: [
+        {
+          key: "duplicate-one",
+          values: {},
+          covers: [{ id: "limit", variant: "one" }],
+        },
+        {
+          key: "duplicate-five",
+          values: {},
+          covers: [{ id: "limit", variant: "five" }],
+        },
+      ],
+    }),
+    /내용이 같습니다/,
+  );
+  await call(workspace, "save_case_variants", {
+    baseValues: row(source),
+    rows: [
+      { key: "one", values: {}, covers: [{ id: "limit", variant: "one" }] },
+      {
+        key: "five",
+        values: row(source, "5개 조회"),
+        covers: [{ id: "limit", variant: "five" }],
+      },
+    ],
+  });
+  assert.equal(
+    workspace.coverage().filter((r) => r.status === "covered").length,
+    2,
+  );
+  await call(workspace, "remove_drafts", {
+    keys: ["five"],
+    reason: "예상 결과를 다시 확인",
+  });
+  assert.equal(state.deletions?.[0].reason, "예상 결과를 다시 확인");
+  await assert.rejects(
+    call(workspace, "complete", {
+      audit: "확정된 규칙과 모호한 조건을 구분하고 범위를 확인했습니다.",
+    }),
+    /누락/,
+  );
+  await call(workspace, "save_cases", {
+    cases: [
+      {
+        key: "five",
+        values: row(source, "5개 조회"),
+        covers: [{ id: "limit", variant: "five" }],
+      },
+    ],
+  });
+  await call(workspace, "complete", {
+    audit: "확정된 규칙과 모호한 조건을 구분하고 범위를 확인했습니다.",
+  });
+  assert.equal(state.outcome, "complete");
+  assert.equal(
+    workspace.coverage().filter((r) => r.status === "review").length,
+    1,
+  );
+});
+
+test("요약 사용량 저장 실패 후 재시도할 때 유실하거나 중복 합산하지 않는다", async () => {
+  const state = newCheckpoint();
+  let attempts = 0;
+  const options = {
+    state,
+    usage: async () => {
+      if (++attempts === 1) throw new Error("저장 장애");
+    },
+  } as unknown as PiRunOptions;
+  const entries = [
+    { type: "compaction", id: "summary", usage: { totalTokens: 123 } },
+  ] as unknown as PiRunOptions["state"]["entries"];
+  await assert.rejects(accountSessionUsage(options, entries));
+  assert.equal(state.tokens, 0);
+  await accountSessionUsage(options, entries);
+  await accountSessionUsage(options, entries);
+  assert.equal(state.tokens, 123);
+  assert.equal(attempts, 2);
+});
+
+test("완료 체크포인트의 영수증 저장 장애는 재시도 대상으로 남고 모델을 호출하지 않는다", async () => {
+  const source = input(),
+    state = newCheckpoint();
+  state.draft.complete = true;
+  state.draft.cases = [{ key: "order", values: row(source) }];
+  state.observations = [{ id: randomUUID(), startedAt: Date.now() }];
+  const { runPi } = await import("../src/generation/pi/runtime");
+  const options: PiRunOptions = {
+    input: source,
+    state,
+    signal: new AbortController().signal,
+    checkpoint: async () => {},
+    image: async () => {
+      throw new Error("이미지 재조회 불필요");
+    },
+    usage: async () => {
+      throw new Error("모델 재호출 불필요");
+    },
+    observe: async () => {
+      throw new Error("영수증 DB 저장 장애");
+    },
+  };
+  await assert.rejects(runPi(options), PiInfrastructureError);
+  let receipts = 0;
+  const output = await runPi({
+    ...options,
+    observe: async () => {
+      receipts++;
+    },
+  });
+  assert.equal(receipts, 1);
+  assert.equal(output.cases.length, 1);
+});
+
+test("재시도해도 최초 실행의 시간 예산을 초기화하지 않는다", async () => {
+  const source = input(),
+    state = newCheckpoint();
+  state.startedAt = Date.now() - (source.pi?.timeoutMs ?? 0) - 100;
+  const { runPi } = await import("../src/generation/pi/runtime");
+  await assert.rejects(
+    runPi({
+      input: source,
+      state,
+      signal: new AbortController().signal,
+      checkpoint: async () => {},
+      image: async () => {
+        throw new Error("시간 만료 이후 조회 금지");
+      },
+      usage: async () => {
+        throw new Error("시간 만료 이후 호출 금지");
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AiFailure && error.code === "AI_AGENT_TIMEOUT",
+  );
 });
