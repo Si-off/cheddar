@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq } from "drizzle-orm";
 import { DatabaseService } from "../../database/database.service";
@@ -55,7 +54,7 @@ export class PiGenerationService {
         jobId,
         stage: "cases",
         workKey: "pi-agent",
-        promptVersion: "pi-agent-2",
+        promptVersion: "pi-agent-1",
         model: `${config.model.provider}:${config.model.model}`,
         status: "running",
         startedAt: new Date(),
@@ -79,31 +78,10 @@ export class PiGenerationService {
           .set({
             output: state,
             requiredCoverage: {
-              version: 2,
-              inputSha256: createHash("sha256")
-                .update(JSON.stringify(input))
-                .digest("hex"),
-              referenceSha256: input.qaReference?.sha256 ?? null,
-              outcome: state.draft.outcome ?? "running",
-              failureCode: state.draft.failureCode ?? null,
-              requirements: state.draft.requirements ?? [],
-              coverage: new PiWorkspace(
-                input,
-                state.draft,
-                async () => {
-                  throw new Error("감사 기록은 이미지를 읽지 않습니다.");
-                },
-                async () => {},
-              ).coverage(),
-              readRanges: state.draft.readRanges ?? {},
-              deletions: state.draft.deletions ?? [],
-              cases: state.draft.cases.map((c) => ({
-                key: c.key,
-                covers: c.covers ?? [],
-                sha256: createHash("sha256")
-                  .update(JSON.stringify(c.values))
-                  .digest("hex"),
-              })),
+              version: 1,
+              complete: state.draft.complete,
+              cases: state.draft.cases.length,
+              reviews: state.draft.reviews.length,
             },
           })
           .where(eq(generationSteps.id, step.id));
@@ -180,7 +158,7 @@ export class PiGenerationService {
                 definition: {
                   key: "cases",
                   displayStage: "cases",
-                  version: "pi-agent-2",
+                  version: "pi-agent-1",
                   prompt: "",
                   maxTokens: config.maxTokens,
                   timeoutMs: config.timeoutMs,
@@ -236,8 +214,6 @@ export class PiGenerationService {
           });
         }
       state.draft.complete = true;
-      state.draft.outcome = "partial";
-      state.draft.failureCode = error.code;
       state.draft.audit =
         "전체 검토 미완료: 작성 초안과 원문을 확인 필요 항목으로 보존함";
       await persist();

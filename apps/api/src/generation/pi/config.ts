@@ -9,7 +9,7 @@ export type PiConfig = {
 };
 
 export function readPiConfig(env: NodeJS.ProcessEnv = process.env): PiConfig {
-  const engine = env.AI_GENERATION_ENGINE || "staged";
+  const engine = env.AI_GENERATION_ENGINE || "pi";
   if (engine !== "staged" && engine !== "pi")
     throw new Error("AI_GENERATION_ENGINE은 staged 또는 pi여야 합니다.");
   const match = /^(openai|anthropic):([^\s:]+)$/.exec(

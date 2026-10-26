@@ -139,7 +139,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       intervalMs: interval * 1000,
     },
     ai: readAiConfig(env),
-    pi: readPiConfig(env),
+    pi: readPiConfig({
+      ...env,
+      AI_GENERATION_ENGINE:
+        env.AI_GENERATION_ENGINE ||
+        (env.AI_PROVIDER === "fake" ? "staged" : "pi"),
+    }),
   };
 }
 

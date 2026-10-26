@@ -11,7 +11,8 @@ export class DatabaseService implements OnModuleDestroy {
   constructor(@Inject(API_ENV) env: ApiEnv) {
     this.pool = new Pool({
       connectionString: env.databaseUrl,
-      max: 5,
+      // 실행 잠금용 연결 외에 요청과 체크포인트를 처리할 여유를 둔다.
+      max: 5 + (env.generationConcurrency ?? 2),
       connectionTimeoutMillis: 3000,
       statement_timeout: 5000,
     });

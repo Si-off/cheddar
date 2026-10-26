@@ -9,7 +9,8 @@ import {
 import { PgBoss } from "pg-boss";
 import { API_ENV, type ApiEnv } from "../config/env";
 
-export const GENERATION_QUEUE = "cheddar-generation-stage";
+// 기존 큐의 policy는 변경할 수 없어 새 이름을 사용한다. 미완료 작업은 DB에서 복구한다.
+export const GENERATION_QUEUE = "cheddar-generation-stage-v2";
 export const CLEANUP_QUEUE = "cheddar-temp-cleanup";
 @Injectable()
 export class QueueService implements OnModuleInit, OnModuleDestroy {
@@ -24,6 +25,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     if (this.env.workersEnabled === false) return;
     await this.boss.start();
     await this.boss.createQueue(GENERATION_QUEUE, {
+      policy: "exclusive",
       retryLimit: 2,
       retryDelay: 1,
       retryBackoff: true,
@@ -36,7 +38,13 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     });
   }
   async enqueue(jobId: string, stage: string) {
-    await this.boss.send(GENERATION_QUEUE, { jobId, stage });
+    await this.boss.send(
+      GENERATION_QUEUE,
+      { jobId, stage },
+      {
+        singletonKey: `${jobId}:${stage}`,
+      },
+    );
   }
   async onModuleDestroy() {
     await this.boss.stop({ graceful: true, timeout: 10000 });

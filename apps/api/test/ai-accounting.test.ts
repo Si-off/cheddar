@@ -180,7 +180,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
         });
         await f.db
           .update(generationJobs)
-          .set({ expiresAt: new Date(Date.now() - 1000) })
+          .set({ status: "running", expiresAt: new Date(Date.now() - 1000) })
           .where(eq(generationJobs.id, jobId));
         const next = await start();
         assert.notEqual(next.jobId, jobId);
@@ -783,7 +783,7 @@ test("실제 PostgreSQL 호출 계측은 모든 시도와 종료를 보존한다
         });
         await f.db
           .update(generationJobs)
-          .set({ expiresAt: new Date(Date.now() - 1000) })
+          .set({ status: "running", expiresAt: new Date(Date.now() - 1000) })
           .where(eq(generationJobs.id, other.jobId));
         const lease = await f.lease.database.pool.connect();
         try {

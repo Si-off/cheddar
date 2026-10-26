@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, ne, sql } from "drizzle-orm";
 import {
   activeAccount,
   type IdentityDatabase,
@@ -86,19 +86,6 @@ export class GenerationService {
   get guide() {
     return this.env.ai?.guide ?? DEFAULT_GUIDE;
   }
-  async admission(tx: DatabaseTransaction) {
-    await tx.execute(sql`select pg_advisory_xact_lock(31015433)`);
-    const [active] = await tx
-      .select({ count: count() })
-      .from(generationJobs)
-      .where(inArray(generationJobs.status, ["pending", "running"]));
-    if (active.count >= (this.env.generationConcurrency ?? 2))
-      throw new ApiError(
-        429,
-        "GENERATION_CAPACITY",
-        "현재 생성 요청이 많습니다. 잠시 후 다시 시도해주세요.",
-      );
-  }
   requestHash(testSetId: string, request: object) {
     return createHash("sha256")
       .update(JSON.stringify({ testSetId, ...request }))
@@ -166,7 +153,6 @@ export class GenerationService {
         );
         if (repeated) return repeated;
         await this.assertIdle(testSetId, tx);
-        await this.admission(tx);
         if (!dto.uploadId && (!dto.memo?.trim() || dto.kind === "initial"))
           throw invalid();
         if (dto.frameIds?.length && !dto.uploadId) throw invalid();
@@ -294,7 +280,6 @@ export class GenerationService {
       "canEdit",
       async (tx, row) => {
         await this.assertIdle(testSetId, tx);
-        await this.admission(tx);
         const columns = await this.store.columns(testSetId, tx);
         const column = columns.find((c) => c.id === columnId.toLowerCase());
         if (!column) throw notFound();
@@ -424,7 +409,7 @@ export class GenerationService {
       .from(generationJobs)
       .where(
         and(
-          inArray(generationJobs.status, ["pending", "running"]),
+          eq(generationJobs.status, "running"),
           lte(generationJobs.expiresAt, new Date()),
         ),
       );
@@ -440,10 +425,13 @@ export class GenerationService {
         ).rows[0].locked;
         if (locked) {
           const [fresh] = await this.store.database.db
-            .select({ expiresAt: generationJobs.expiresAt })
+            .select({
+              expiresAt: generationJobs.expiresAt,
+              status: generationJobs.status,
+            })
             .from(generationJobs)
             .where(eq(generationJobs.id, job.id));
-          if (fresh && fresh.expiresAt <= new Date())
+          if (fresh?.status === "running" && fresh.expiresAt <= new Date())
             await this.fail(job.id, "GENERATION_EXPIRED");
         }
       } finally {

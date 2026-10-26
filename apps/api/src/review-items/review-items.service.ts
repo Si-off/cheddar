@@ -168,7 +168,6 @@ export class ReviewItemsService {
         );
         if (repeated) return repeated;
         await this.generation.assertIdle(route.testSetId, tx);
-        await this.generation.admission(tx);
         const [row] = await tx
           .select()
           .from(reviewItems)

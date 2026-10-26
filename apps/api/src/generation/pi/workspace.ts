@@ -2,22 +2,8 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { validateDraft, validateSchema } from "../output-schema";
 import { emptyCell, isAiColumn } from "../steps/column-rules";
 import type { CaseOutput, Draft, GenerationInput, JsonSchema } from "../types";
-import {
-  addReadRange,
-  type CoverageLink,
-  coverage,
-  type ReadRange,
-  type Requirement,
-  validateLinks,
-  validateRequirement,
-} from "./evidence";
 
-export type PiCase = {
-  key: string;
-  values: Draft;
-  groupKey?: string;
-  covers?: CoverageLink[];
-};
+export type PiCase = { key: string; values: Draft; groupKey?: string };
 export type PiReview = {
   key: string;
   reason: string;
@@ -25,7 +11,6 @@ export type PiReview = {
   screenDescription: string;
   values: Draft;
   groupKey?: string;
-  covers?: CoverageLink[];
 };
 export type PiDraft = {
   cases: PiCase[];
@@ -34,11 +19,6 @@ export type PiDraft = {
   readReference: boolean;
   complete: boolean;
   audit: string;
-  requirements?: Requirement[];
-  readRanges?: Record<string, ReadRange[]>;
-  deletions?: { keys: string[]; reason: string }[];
-  outcome?: "complete" | "partial";
-  failureCode?: string;
 };
 export const emptyPiDraft = (): PiDraft => ({
   cases: [],
@@ -65,7 +45,6 @@ export class PiWorkspace {
       index: number,
     ) => Promise<{ data: string; mimeType: string }>,
     private readonly persist: () => Promise<void>,
-    private readonly budget: () => unknown = () => null,
   ) {}
 
   form() {
@@ -117,52 +96,6 @@ export class PiWorkspace {
     return key;
   }
 
-  coverage() {
-    return coverage(
-      this.draft.requirements ?? [],
-      this.draft.cases,
-      this.draft.reviews,
-    );
-  }
-
-  private saveCases(cases: PiCase[]) {
-    const prepared = cases.map((c) => ({
-      ...c,
-      values: this.values(c.values),
-      groupKey: this.group(c.groupKey),
-      covers: validateLinks(this.draft.requirements ?? [], c.covers),
-    }));
-    const next = this.draft.cases.filter(
-      (c) => !prepared.some((p) => p.key === c.key),
-    );
-    for (const value of prepared) {
-      // 최종 저장의 같은 그룹·동일 AI 열 중복 제거와 일치시킨다.
-      const signature = (row: PiCase) =>
-        JSON.stringify([
-          row.groupKey ?? null,
-          this.input.columns.filter(isAiColumn).map((c) => {
-            const cell = row.values[c.id];
-            return Array.isArray(cell) ? [...cell].sort() : (cell ?? null);
-          }),
-        ]);
-      if (next.some((c) => signature(c) === signature(value)))
-        throw new Error(
-          "서로 다른 테스트 행의 내용이 같습니다. 선택값별 절차와 예상 결과를 구분하거나 중복 행을 제거하세요.",
-        );
-      next.push(value);
-    }
-    for (const value of prepared) {
-      const index = this.draft.cases.findIndex((c) => c.key === value.key);
-      if (index < 0) this.draft.cases.push(value);
-      else this.draft.cases[index] = value;
-    }
-    return {
-      saved: prepared.length,
-      total: this.draft.cases.length,
-      budget: this.budget(),
-    };
-  }
-
   tools(): ToolDefinition[] {
     const tool = (
       name: string,
@@ -187,17 +120,11 @@ export class PiWorkspace {
         };
       },
     });
-    const covers = {
-      type: "array",
-      maxItems: 30,
-      items: schema({ id: str, variant: str }, ["id"]),
-    };
     const item = schema(
       {
         key: { ...str, minLength: 1, maxLength: 100 },
         values: { type: "object" },
         groupKey: str,
-        covers,
       },
       ["key", "values"],
     );
@@ -207,7 +134,6 @@ export class PiWorkspace {
         "선택한 화면, 기준 QA 문서의 시트, 출력 열, 기존 케이스 수를 확인한다.",
         schema({}),
         () => ({
-          budget: this.budget(),
           frames: this.input.frames.map((f) => ({
             id: f.id,
             name: f.name,
@@ -235,20 +161,10 @@ export class PiWorkspace {
         ({ frameId, offset = 0 }) => {
           const frame = this.input.frames.find((f) => f.id === frameId);
           if (!frame) throw new Error("선택한 화면을 찾을 수 없습니다.");
-          const start = Number(offset),
-            end = Math.min(start + 24000, frame.screenDocument.length);
-          if (start > frame.screenDocument.length)
-            throw new Error("원문 길이 안의 offset을 사용하세요.");
-          this.draft.readRanges ??= {};
-          const ranges = this.draft.readRanges;
-          ranges[frame.id] = addReadRange(ranges[frame.id] ?? [], start, end);
-          if (
-            ranges[frame.id].some(
-              (r) => r[0] === 0 && r[1] >= frame.screenDocument.length,
-            ) &&
-            !this.draft.readFrames.includes(frame.id)
-          )
+          if (!this.draft.readFrames.includes(frame.id))
             this.draft.readFrames.push(frame.id);
+          const start = Number(offset),
+            end = start + 24000;
           return {
             data: frame.screenDocument.slice(start, end),
             nextOffset: end < frame.screenDocument.length ? end : null,
@@ -346,22 +262,21 @@ export class PiWorkspace {
         schema({
           cases: { type: "array", items: item, minItems: 1, maxItems: 50 },
         }),
-        ({ cases }) => this.saveCases(cases as PiCase[]),
-      ),
-      tool(
-        "save_case_variants",
-        "공통 열을 baseValues에, 선택값별 차이를 rows에 전달해 독립적으로 판정할 테스트 행을 저장한다. 서버가 공통 열과 차이를 합친 뒤 전체 묶음을 검증한다. 임의 코드나 문자열 치환은 실행하지 않는다.",
-        schema({
-          baseValues: { type: "object" },
-          rows: { type: "array", minItems: 1, maxItems: 50, items: item },
-        }),
-        ({ baseValues, rows }) =>
-          this.saveCases(
-            (rows as PiCase[]).map((row) => ({
-              ...row,
-              values: { ...(baseValues as Draft), ...row.values },
-            })),
-          ),
+        ({ cases }) => {
+          const prepared = (cases as PiCase[]).map((c) => ({
+            key: c.key,
+            values: this.values(c.values),
+            groupKey: this.group(c.groupKey),
+          }));
+          for (const value of prepared) {
+            const index = this.draft.cases.findIndex(
+              (c) => c.key === value.key,
+            );
+            if (index < 0) this.draft.cases.push(value);
+            else this.draft.cases[index] = value;
+          }
+          return { saved: prepared.length, total: this.draft.cases.length };
+        },
       ),
       tool(
         "save_reviews",
@@ -386,11 +301,6 @@ export class PiWorkspace {
           const prepared = (reviews as PiReview[]).map((r) => ({
             ...r,
             values: this.values(r.values, true),
-            covers: validateLinks(
-              this.draft.requirements ?? [],
-              r.covers,
-              true,
-            ),
             groupKey: this.group(r.groupKey),
           }));
           for (const value of prepared) {
@@ -420,12 +330,7 @@ export class PiWorkspace {
           keys: { type: "array", items: str, maxItems: 50 },
           reason: { ...str, minLength: 1 },
         }),
-        ({ keys, reason }) => {
-          this.draft.deletions ??= [];
-          this.draft.deletions.push({
-            keys: keys as string[],
-            reason: String(reason),
-          });
+        ({ keys }) => {
           const removed = new Set(keys as string[]);
           this.draft.cases = this.draft.cases.filter(
             (c) => !removed.has(c.key),
@@ -438,87 +343,6 @@ export class PiWorkspace {
             reviews: this.draft.reviews.length,
           };
         },
-      ),
-      tool(
-        "save_requirements",
-        "원문 근거가 있는 검증 규칙을 저장한다. 확정/불확실/폐기를 분리한다. 공통 동작의 선택값은 variants에 모두 등록한다. source의 quote는 해당 노드의 정확한 인용문이어야 한다. 메모 근거는 frameId=$memo. 한 규칙의 일부만 모호하면 확정 부분과 별도 규칙으로 나눈다.",
-        schema({
-          requirements: {
-            type: "array",
-            minItems: 1,
-            maxItems: 50,
-            items: schema({
-              id: { ...str, minLength: 1, maxLength: 100 },
-              rule: { ...str, minLength: 1 },
-              certainty: {
-                type: "string",
-                enum: ["confirmed", "uncertain", "excluded"],
-              },
-              reason: str,
-              sources: {
-                type: "array",
-                minItems: 1,
-                maxItems: 10,
-                items: schema(
-                  {
-                    frameId: str,
-                    nodeId: str,
-                    quote: { ...str, minLength: 1, maxLength: 4000 },
-                  },
-                  ["frameId", "quote"],
-                ),
-              },
-              variants: {
-                type: "array",
-                maxItems: 150,
-                items: schema({
-                  key: { ...str, minLength: 1 },
-                  label: { ...str, minLength: 1 },
-                }),
-              },
-            }),
-          },
-        }),
-        ({ requirements }) => {
-          const prepared = (requirements as Requirement[]).map((r) =>
-            validateRequirement(this.input, r),
-          );
-          const next = [...(this.draft.requirements ?? [])];
-          for (const rule of prepared) {
-            const index = next.findIndex((r) => r.id === rule.id);
-            if (index < 0) next.push(rule);
-            else next[index] = rule;
-          }
-          for (const row of this.draft.cases) validateLinks(next, row.covers);
-          for (const row of this.draft.reviews)
-            validateLinks(next, row.covers, true);
-          this.draft.requirements = next;
-          return {
-            saved: prepared.length,
-            total: next.length,
-            budget: this.budget(),
-          };
-        },
-      ),
-      tool(
-        "check_coverage",
-        "규칙별 작성 상태와 누락을 다시 계산한다. 확정 규칙은 확인 필요 항목만 있어도 누락이다. 불확실 규칙은 확인 필요 항목으로 관리한다. 변경된 행만 보완하고 다시 확인한다.",
-        schema({ missingOnly: { type: "boolean" } }, []),
-        ({ missingOnly }) => ({
-          coverage: this.coverage().filter(
-            (r) => !missingOnly || r.status === "missing",
-          ),
-          unreadFrames: this.input.frames
-            .filter((f) => !this.draft.readFrames.includes(f.id))
-            .map((f) => ({
-              id: f.id,
-              ranges: this.draft.readRanges?.[f.id] ?? [],
-            })),
-          unlinkedCases: this.draft.cases
-            .filter((c) => !c.covers?.length)
-            .map((c) => c.key),
-          budget: this.budget(),
-        }),
       ),
       tool(
         "complete",
@@ -536,27 +360,6 @@ export class PiWorkspace {
             throw new Error("기준 QA 작성 예시를 먼저 확인하세요.");
           if (!this.draft.cases.length && !this.draft.reviews.length)
             throw new Error("작성한 테스트 또는 확인 필요 항목이 없습니다.");
-          if (this.input.frames.length) {
-            const rules = this.draft.requirements ?? [];
-            if (
-              this.input.frames.some(
-                (f) =>
-                  !rules.some((r) => r.sources.some((s) => s.frameId === f.id)),
-              )
-            )
-              throw new Error(
-                "각 화면의 검증 규칙 또는 근거가 있는 제외 이유를 등록하세요.",
-              );
-            if (this.draft.cases.some((c) => !c.covers?.length))
-              throw new Error(
-                "근거 규칙에 연결하지 않은 테스트 행이 있습니다.",
-              );
-          }
-          if (this.coverage().some((r) => r.status === "missing"))
-            throw new Error(
-              "누락된 규칙 또는 선택값이 있습니다. check_coverage로 확인하고 해당 행을 보완하세요.",
-            );
-          this.draft.outcome = "complete";
           this.draft.audit = String(audit);
           this.draft.complete = true;
           return {

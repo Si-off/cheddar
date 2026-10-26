@@ -349,7 +349,7 @@ export class StageRunner implements OnModuleDestroy {
         if (!(piStep && stage === "screens" && job.currentStage === "cases"))
           return;
       }
-      if (job.expiresAt <= new Date()) {
+      if (job.status === "running" && job.expiresAt <= new Date()) {
         await this.generation.fail(jobId, "GENERATION_EXPIRED");
         return;
       }
@@ -535,6 +535,7 @@ export class StageRunner implements OnModuleDestroy {
           .update(generationJobs)
           .set({
             currentStage: next,
+            status: "pending",
             updatedAt: new Date(),
             expiresAt: new Date(Date.now() + 600_000),
           })
