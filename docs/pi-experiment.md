@@ -26,7 +26,7 @@ Node와 pnpm은 `.nvmrc`, 루트 `package.json`의 버전을 쓴다. 별도 Post
 AI_GENERATION_ENGINE=pi
 AI_PI_MODEL=openai:gpt-6.1-sol
 AI_PI_MAX_TURNS=80
-AI_PI_MAX_TOKENS=300000
+AI_PI_MAX_TOKENS=1000000
 AI_PI_TIMEOUT_SECONDS=1200
 ```
 

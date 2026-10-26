@@ -256,6 +256,7 @@ test("완료 초안 체크포인트로 복구하면 모델을 다시 호출하�
 
 test("pi 기본 설정은 기존 엔진을 유지하고 잘못된 예산을 거절한다", () => {
   assert.equal(readPiConfig({}).engine, "staged");
+  assert.equal(readPiConfig({}).maxTokens, 1000000);
   assert.throws(() => readPiConfig({ AI_PI_MAX_TURNS: "0" }));
   assert.throws(() => readPiConfig({ AI_GENERATION_ENGINE: "unknown" }));
 });

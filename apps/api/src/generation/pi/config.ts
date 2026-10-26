@@ -31,6 +31,6 @@ export function readPiConfig(env: NodeJS.ProcessEnv = process.env): PiConfig {
     },
     maxTurns: number("AI_PI_MAX_TURNS", 80, 1, 200),
     timeoutMs: number("AI_PI_TIMEOUT_SECONDS", 1200, 10, 1500) * 1000,
-    maxTokens: number("AI_PI_MAX_TOKENS", 300000, 1000, 2000000),
+    maxTokens: number("AI_PI_MAX_TOKENS", 1000000, 1000, 2000000),
   };
 }
