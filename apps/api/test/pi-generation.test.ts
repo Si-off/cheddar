@@ -264,7 +264,7 @@ test("pi 기본 설정은 Sonnet medium과 검증한 실행 한도를 사용한�
     model: "claude-sonnet-5-5",
     effort: "medium",
   });
-  assert.equal(config.maxTokens, 2000000);
+  assert.equal(config.maxCostUsd, 3);
   assert.equal(config.maxTurns, 80);
   assert.equal(config.timeoutMs, 1500000);
   assert.throws(() => readPiConfig({ AI_PI_MAX_TURNS: "0" }));

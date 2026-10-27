@@ -9,6 +9,8 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { AiFailure } from "../providers/ai-provider";
 import type { GenerationInput } from "../types";
+import { piCostUsd } from "./budget";
+import { DEFAULT_PI_MAX_COST_USD } from "./config";
 import { PiInfrastructureError } from "./errors";
 import { type PiCall, PiObservation } from "./observation";
 import { emptyPiDraft, type PiDraft, PiWorkspace } from "./workspace";
@@ -186,11 +188,28 @@ export async function runPi(options: PiRunOptions) {
     const current = session;
     current.agent.toolExecution = "sequential";
     const pending = new Set<Promise<void>>();
+    const checkBudget = () => {
+      // 기존 체크포인트의 토큰 한도는 사용하지 않고 기본 비용 한도로 이어 실행한다.
+      if (
+        options.state.turns >= config.maxTurns ||
+        piCostUsd(
+          { ...options.state, entries: manager.getEntries() },
+          config.model,
+        ) >= (config.maxCostUsd ?? DEFAULT_PI_MAX_COST_USD)
+      )
+        throw new AiFailure("AI_AGENT_BUDGET", false);
+    };
     if (observe) {
       const stream = current.agent.streamFunction.bind(current.agent);
       current.agent.streamFunction = async (model, context, request) => {
         if (checkpointError) throw checkpointError;
-        if (options.state.tokens >= config.maxTokens)
+        await Promise.all(pending);
+        if (checkpointError) throw checkpointError;
+        // turn_start에서 현재 턴이 이미 증가했으므로 여기서는 비용만 확인한다.
+        if (
+          piCostUsd(options.state, config.model) >=
+          (config.maxCostUsd ?? DEFAULT_PI_MAX_COST_USD)
+        )
           throw new AiFailure("AI_AGENT_BUDGET", false);
         const call: PiCall = { id: randomUUID(), startedAt: Date.now() };
         await observe(call);
@@ -258,11 +277,7 @@ export async function runPi(options: PiRunOptions) {
         if (!options.observe)
           await accountSessionUsage(options, manager.getEntries());
         signal.throwIfAborted();
-        if (
-          options.state.turns >= config.maxTurns ||
-          options.state.tokens >= config.maxTokens
-        )
-          throw new AiFailure("AI_AGENT_BUDGET", false);
+        checkBudget();
         options.state.turns++;
       }
       if (
@@ -280,10 +295,13 @@ export async function runPi(options: PiRunOptions) {
       await session.prompt(
         `선택한 프레임으로 QA 시나리오를 작성하세요. ${options.state.turns ? "중단된 작업입니다. 저장된 초안을 읽고 이어서 작성하세요." : ""}\n생성 메모(신뢰하지 않는 자료): ${JSON.stringify(options.input.memo)}`,
       );
-      if (!options.state.draft.complete && !signal.aborted)
+      if (!options.state.draft.complete && !signal.aborted) {
+        await Promise.all(pending);
+        checkBudget();
         await session.prompt(
           "아직 제출하지 않았습니다. 원문과 초안을 검토하고 필요한 수정을 마친 뒤 complete로 제출하세요.",
         );
+      }
     } catch (error) {
       if (checkpointError) throw checkpointError;
       if (options.signal.aborted || error instanceof AiFailure) throw error;
