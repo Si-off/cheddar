@@ -1,7 +1,5 @@
 import {
   Button,
-  cn,
-  FrameCard,
   RadioGroup,
   Select,
   Tag,
@@ -12,7 +10,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { type SubmitEvent, useRef, useState } from "react";
-import { tempUploadQuery } from "@/entities/generation";
 import {
   fromTemplateDraft,
   projectsQuery,
@@ -22,8 +19,8 @@ import {
   toTemplateDraft,
 } from "@/entities/project";
 import { isApiFailure, sdk, toApiFailure } from "@/shared/api";
-import { env } from "@/shared/config/env";
 import { ColumnModal } from "./column-modal";
+import { ScreenSources, useScreenSources } from "./screen-sources";
 
 type TemplateKind = "project" | "recent" | "custom";
 
@@ -32,6 +29,8 @@ export interface CreateTestSetFormProps {
   uploadId?: string;
   /** 플러그인에서 고른 프로젝트. 목록에 없는 프로젝트면 무시한다. */
   initialProjectId?: string;
+  /** Figma 링크를 읽을 토큰이 없거나 만료됐을 때 토큰 입력을 연다 */
+  onRequestFigmaToken: () => void;
   /** 직접 작성이면 테스트 세트로, 생성이면 생성 진행 화면으로 간다 */
   /** confirmStart: 생성 시작 응답을 받지 못해 시작됐는지 확인이 필요하다 */
   onCreated: (
@@ -41,23 +40,17 @@ export interface CreateTestSetFormProps {
   ) => void;
 }
 
-const thumbnail = (uploadId: string, frameId: string) =>
-  `${env.apiBaseUrl}/api/v1/temp-uploads/${uploadId}/frames/${frameId}/thumbnail`;
-
-/** 이름, 프로젝트, 프레임, 메모로 테스트 세트를 만든다. 프로젝트는 만든 뒤 바꿀 수 없다. */
+/** 이름, 프로젝트, 화면 자료, 메모로 테스트 세트를 만든다. 프로젝트는 만든 뒤 바꿀 수 없다. */
 export function CreateTestSetForm({
   uploadId,
   initialProjectId,
+  onRequestFigmaToken,
   onCreated,
 }: CreateTestSetFormProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const projects = useQuery(projectsQuery()).data ?? [];
-  const upload = useQuery({
-    ...tempUploadQuery(uploadId ?? ""),
-    enabled: Boolean(uploadId),
-    meta: { quietCodes: ["NOT_FOUND"] },
-  });
+  const sources = useScreenSources(uploadId);
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
@@ -69,15 +62,11 @@ export function CreateTestSetForm({
     draft: TemplateDraft;
   } | null>(null);
   const [picking, setPicking] = useState(false);
-  // 올린 프레임은 모두 고른 상태에서 시작하고, 눌러서 뺀다
-  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const formRef = useRef<HTMLFormElement>(null);
   const chosen =
     projectId ??
     projects.find((p) => p.id === initialProjectId)?.id ??
     (projects.length === 1 ? projects[0]?.id : null);
-  const frames = upload.data?.frames ?? [];
-  const selectedFrames = frames.filter((f) => !excluded.has(f.id));
   const template = useQuery({
     ...templateQuery(chosen ?? ""),
     enabled: Boolean(chosen),
@@ -117,10 +106,8 @@ export function CreateTestSetForm({
           path: { testSetId: data.id },
           body: {
             kind: "initial",
-            uploadId,
-            // 전부 골랐으면 비워 서버 기본(전체)을 쓴다
-            frameIds:
-              excluded.size > 0 ? selectedFrames.map((f) => f.id) : undefined,
+            uploadId: sources.uploadId,
+            frameIds: sources.frameIds,
             memo: memo.trim(),
           },
           throwOnError: true,
@@ -166,7 +153,8 @@ export function CreateTestSetForm({
     project: chosen ? undefined : "프로젝트를 고르세요",
   };
   // 처음 생성은 고른 프레임이 있어야 한다. 설명만으로는 만든 뒤 케이스 추가 생성을 쓴다.
-  const canGenerate = selectedFrames.length > 0;
+  // 읽는 중인 자료가 있으면 끝날 때까지 기다린다.
+  const canGenerate = sources.selected.length > 0 && !sources.reading;
   const submit = (generate: boolean) => {
     setTouched(true);
     if (!errors.name && !errors.project) {
@@ -266,95 +254,10 @@ export function CreateTestSetForm({
           ]}
         />
       </section>
-      <section
-        aria-labelledby="frames-title"
-        className="flex flex-col gap-3.5 rounded-lg border border-line bg-surface p-5"
-      >
-        <div className="flex flex-wrap items-baseline gap-2">
-          <h2 id="frames-title" className="m-0 text-title-sm text-fg">
-            Figma 프레임
-          </h2>
-          {frames.length > 0 && (
-            <>
-              <span className="text-body-sm text-fg-muted tabular-nums">
-                {frames.length}개 중 {selectedFrames.length}개 선택
-              </span>
-              <span className="flex-1" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setExcluded(
-                    excluded.size === 0
-                      ? new Set(frames.map((f) => f.id))
-                      : new Set(),
-                  )
-                }
-              >
-                {excluded.size === 0 ? "전체 해제" : "전체 선택"}
-              </Button>
-            </>
-          )}
-        </div>
-        {!uploadId ? (
-          <p className="m-0 text-body-sm text-fg-muted">
-            Figma 플러그인에서 프레임을 올리면 여기에 보입니다
-          </p>
-        ) : upload.isError && isApiFailure(upload.error, "NOT_FOUND") ? (
-          <p className="m-0 text-body-sm text-fg-muted">
-            올린 프레임을 찾을 수 없습니다. 플러그인에서 다시 올리세요.
-          </p>
-        ) : upload.isError ? (
-          <div className="flex items-center gap-2">
-            <p className="m-0 flex-1 text-body-sm text-fg-muted">
-              프레임을 불러오지 못했습니다
-            </p>
-            <Button
-              size="sm"
-              loading={upload.isFetching}
-              onClick={() => upload.refetch()}
-            >
-              다시 시도
-            </Button>
-          </div>
-        ) : (
-          <ul className="m-0 grid list-none grid-cols-3 gap-x-2.5 gap-y-3 p-0 sm:grid-cols-5">
-            {frames.map((f) => {
-              const on = !excluded.has(f.id);
-              return (
-                <li key={f.id}>
-                  <button
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() =>
-                      setExcluded((prev) => {
-                        const next = new Set(prev);
-                        if (on) next.add(f.id);
-                        else next.delete(f.id);
-                        return next;
-                      })
-                    }
-                    className={cn(
-                      "block w-full rounded-md border-0 bg-transparent p-0 text-left transition-opacity duration-fast",
-                      !on && "opacity-45",
-                    )}
-                  >
-                    <FrameCard
-                      name={f.name}
-                      selected={on}
-                      imageSrc={
-                        f.imageCount > 0 && uploadId
-                          ? thumbnail(uploadId, f.id)
-                          : undefined
-                      }
-                    />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      <ScreenSources
+        state={sources}
+        onRequestFigmaToken={onRequestFigmaToken}
+      />
       <section className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5">
         <TextArea
           label="메모"

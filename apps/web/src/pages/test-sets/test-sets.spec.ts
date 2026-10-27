@@ -209,9 +209,9 @@ test("프레임 없이는 케이스 생성을 시작할 수 없고 직접 작성
     page.getByRole("button", { name: "케이스 생성" }),
   ).toBeDisabled();
   await expect(page.getByRole("button", { name: "직접 작성" })).toBeEnabled();
-  await expect(
-    page.getByText("Figma 플러그인에서 프레임을 올리면 여기에 보입니다"),
-  ).toBeVisible();
+  // 플러그인 없이도 링크나 이미지로 화면 자료를 넣을 수 있다
+  await expect(page.getByRole("textbox", { name: "Figma 링크" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "이미지 첨부" })).toBeVisible();
 });
 
 test("이름을 비운 채 만들기를 누르면 이름 칸으로 옮겨 바로 고칠 수 있다", async ({

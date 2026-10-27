@@ -10,6 +10,8 @@ export interface FieldOwnProps {
   error?: ReactNode;
   /** 예: "12/100" */
   counter?: ReactNode;
+  /** 레이블 줄 오른쪽에 두는 링크나 버튼(예: 발급 방법) */
+  labelAction?: ReactNode;
   required?: boolean;
   disabled?: boolean;
 }
@@ -25,6 +27,7 @@ export function Field({
   description,
   error,
   counter,
+  labelAction,
   required,
   disabled,
   className,
@@ -36,7 +39,7 @@ export function Field({
       disabled={disabled}
       className={cn("flex min-w-0 flex-col gap-1.5", className)}
     >
-      {(label || counter) && (
+      {(label || counter || labelAction) && (
         <div className="flex items-baseline gap-2">
           {label && (
             <BaseField.Label className="text-label text-fg">
@@ -51,6 +54,11 @@ export function Field({
           {counter && (
             <span className="ml-auto font-mono text-caption text-fg-muted tabular-nums">
               {counter}
+            </span>
+          )}
+          {labelAction && (
+            <span className={cn("text-caption", !counter && "ml-auto")}>
+              {labelAction}
             </span>
           )}
         </div>

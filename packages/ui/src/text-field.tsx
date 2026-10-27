@@ -26,6 +26,7 @@ export function TextField({
   description,
   error,
   counter,
+  labelAction,
   required,
   disabled,
   size = "md",
@@ -40,6 +41,7 @@ export function TextField({
       description={description}
       error={error}
       counter={counter}
+      labelAction={labelAction}
       required={required}
       disabled={disabled}
       className={className}

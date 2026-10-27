@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type ServerSentEventsResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptReviewItemData, AcceptReviewItemErrors, AcceptReviewItemResponses, ApplySharedTestSetOpsData, ApplySharedTestSetOpsErrors, ApplySharedTestSetOpsResponses, ApplyTestSetOpsData, ApplyTestSetOpsErrors, ApplyTestSetOpsResponses, ApprovePluginConnectionData, ApprovePluginConnectionErrors, ApprovePluginConnectionResponses, ChangeMyPasswordData, ChangeMyPasswordErrors, ChangeMyPasswordResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateGenerationData, CreateGenerationErrors, CreateGenerationResponses, CreatePluginConnectionData, CreatePluginConnectionErrors, CreatePluginConnectionResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenIdRuleData, CreateProjectScreenIdRuleErrors, CreateProjectScreenIdRuleResponses, CreateProjectScreenResponses, CreateProjectScreensData, CreateProjectScreensErrors, CreateProjectScreensResponses, CreateTempUploadData, CreateTempUploadErrors, CreateTempUploadResponses, CreateTestSetData, CreateTestSetErrors, CreateTestSetResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenIdRuleData, DeleteProjectScreenIdRuleErrors, DeleteProjectScreenIdRuleResponses, DeleteProjectScreenResponses, DeleteTestSetData, DeleteTestSetErrors, DeleteTestSetResponses, DraftProjectScreenIdRulesData, DraftProjectScreenIdRulesErrors, DraftProjectScreenIdRulesResponses, DraftProjectScreensData, DraftProjectScreensErrors, DraftProjectScreensResponses, ExchangePluginConnectionData, ExchangePluginConnectionErrors, ExchangePluginConnectionResponses, ExportSharedTestSetData, ExportSharedTestSetErrors, ExportSharedTestSetResponses, ExportTestSetData, ExportTestSetErrors, ExportTestSetResponses, FillTestSetColumnData, FillTestSetColumnErrors, FillTestSetColumnResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetCurrentGenerationData, GetCurrentGenerationErrors, GetCurrentGenerationResponses, GetGenerationEventsData, GetGenerationEventsErrors, GetGenerationEventsResponse, GetGenerationEventsResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetPluginConnectionRequestData, GetPluginConnectionRequestErrors, GetPluginConnectionRequestResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectNextScreenIdData, GetProjectNextScreenIdErrors, GetProjectNextScreenIdResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRecentTestSetTemplateData, GetRecentTestSetTemplateErrors, GetRecentTestSetTemplateResponses, GetSharedTestSetData, GetSharedTestSetErrors, GetSharedTestSetImageData, GetSharedTestSetImageErrors, GetSharedTestSetImageResponses, GetSharedTestSetResponses, GetSharedTestSetViewData, GetSharedTestSetViewErrors, GetSharedTestSetViewResponses, GetTempFrameThumbnailData, GetTempFrameThumbnailErrors, GetTempFrameThumbnailResponses, GetTempUploadData, GetTempUploadErrors, GetTempUploadResponses, GetTestSetData, GetTestSetErrors, GetTestSetImageData, GetTestSetImageErrors, GetTestSetImageResponses, GetTestSetResponses, GetTestSetSharingData, GetTestSetSharingErrors, GetTestSetSharingResponses, GetTestSetViewData, GetTestSetViewErrors, GetTestSetViewResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectScreenIdRulesData, ListProjectScreenIdRulesErrors, ListProjectScreenIdRulesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReviewItemsData, ListReviewItemsErrors, ListReviewItemsResponses, ListTestSetsData, ListTestSetsErrors, ListTestSetsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ReorderProjectScreenIdRulesData, ReorderProjectScreenIdRulesErrors, ReorderProjectScreenIdRulesResponses, ReplaceTestSetLinkData, ReplaceTestSetLinkErrors, ReplaceTestSetLinkResponses, ResetAccountPasswordData, ResetAccountPasswordErrors, ResetAccountPasswordResponses, RevokePluginConnectionData, RevokePluginConnectionErrors, RevokePluginConnectionResponses, RewriteReviewItemData, RewriteReviewItemErrors, RewriteReviewItemResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenIdRuleData, UpdateProjectScreenIdRuleErrors, UpdateProjectScreenIdRuleResponses, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateReviewItemData, UpdateReviewItemErrors, UpdateReviewItemResponses, UpdateSharedTestSetViewData, UpdateSharedTestSetViewErrors, UpdateSharedTestSetViewResponses, UpdateTestSetData, UpdateTestSetErrors, UpdateTestSetResponses, UpdateTestSetSharingData, UpdateTestSetSharingErrors, UpdateTestSetSharingResponses, UpdateTestSetViewData, UpdateTestSetViewErrors, UpdateTestSetViewResponses, UploadSharedTestSetImageData, UploadSharedTestSetImageErrors, UploadSharedTestSetImageResponses, UploadTestSetImageData, UploadTestSetImageErrors, UploadTestSetImageResponses } from './types.gen';
+import type { AcceptReviewItemData, AcceptReviewItemErrors, AcceptReviewItemResponses, AddFigmaLinkToUploadData, AddFigmaLinkToUploadErrors, AddFigmaLinkToUploadResponses, AddImagesToUploadData, AddImagesToUploadErrors, AddImagesToUploadResponses, ApplySharedTestSetOpsData, ApplySharedTestSetOpsErrors, ApplySharedTestSetOpsResponses, ApplyTestSetOpsData, ApplyTestSetOpsErrors, ApplyTestSetOpsResponses, ApprovePluginConnectionData, ApprovePluginConnectionErrors, ApprovePluginConnectionResponses, ChangeMyPasswordData, ChangeMyPasswordErrors, ChangeMyPasswordResponses, CreateAccountData, CreateAccountErrors, CreateAccountResponses, CreateGenerationData, CreateGenerationErrors, CreateGenerationResponses, CreatePluginConnectionData, CreatePluginConnectionErrors, CreatePluginConnectionResponses, CreateProjectData, CreateProjectErrors, CreateProjectFeatureGroupData, CreateProjectFeatureGroupErrors, CreateProjectFeatureGroupResponses, CreateProjectResponses, CreateProjectScreenData, CreateProjectScreenErrors, CreateProjectScreenIdRuleData, CreateProjectScreenIdRuleErrors, CreateProjectScreenIdRuleResponses, CreateProjectScreenResponses, CreateProjectScreensData, CreateProjectScreensErrors, CreateProjectScreensResponses, CreateTempUploadData, CreateTempUploadErrors, CreateTempUploadResponses, CreateTestSetData, CreateTestSetErrors, CreateTestSetResponses, DeactivateAccountData, DeactivateAccountErrors, DeactivateAccountResponses, DeleteFigmaTokenData, DeleteFigmaTokenErrors, DeleteFigmaTokenResponses, DeleteProjectFeatureGroupData, DeleteProjectFeatureGroupErrors, DeleteProjectFeatureGroupResponses, DeleteProjectScreenData, DeleteProjectScreenErrors, DeleteProjectScreenIdRuleData, DeleteProjectScreenIdRuleErrors, DeleteProjectScreenIdRuleResponses, DeleteProjectScreenResponses, DeleteTestSetData, DeleteTestSetErrors, DeleteTestSetResponses, DraftProjectScreenIdRulesData, DraftProjectScreenIdRulesErrors, DraftProjectScreenIdRulesResponses, DraftProjectScreensData, DraftProjectScreensErrors, DraftProjectScreensResponses, ExchangePluginConnectionData, ExchangePluginConnectionErrors, ExchangePluginConnectionResponses, ExportSharedTestSetData, ExportSharedTestSetErrors, ExportSharedTestSetResponses, ExportTestSetData, ExportTestSetErrors, ExportTestSetResponses, FillTestSetColumnData, FillTestSetColumnErrors, FillTestSetColumnResponses, GetAccountData, GetAccountErrors, GetAccountResponses, GetCurrentGenerationData, GetCurrentGenerationErrors, GetCurrentGenerationResponses, GetFigmaTokenData, GetFigmaTokenErrors, GetFigmaTokenResponses, GetGenerationEventsData, GetGenerationEventsErrors, GetGenerationEventsResponse, GetGenerationEventsResponses, GetLivenessData, GetLivenessErrors, GetLivenessResponses, GetMeData, GetMeErrors, GetMeResponses, GetPluginConnectionRequestData, GetPluginConnectionRequestErrors, GetPluginConnectionRequestResponses, GetProjectData, GetProjectErrors, GetProjectMemoData, GetProjectMemoErrors, GetProjectMemoResponses, GetProjectNextScreenIdData, GetProjectNextScreenIdErrors, GetProjectNextScreenIdResponses, GetProjectResponses, GetProjectTemplateData, GetProjectTemplateErrors, GetProjectTemplateResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetRecentTestSetTemplateData, GetRecentTestSetTemplateErrors, GetRecentTestSetTemplateResponses, GetSharedTestSetData, GetSharedTestSetErrors, GetSharedTestSetImageData, GetSharedTestSetImageErrors, GetSharedTestSetImageResponses, GetSharedTestSetResponses, GetSharedTestSetViewData, GetSharedTestSetViewErrors, GetSharedTestSetViewResponses, GetTempFrameThumbnailData, GetTempFrameThumbnailErrors, GetTempFrameThumbnailResponses, GetTempUploadData, GetTempUploadErrors, GetTempUploadResponses, GetTestSetData, GetTestSetErrors, GetTestSetImageData, GetTestSetImageErrors, GetTestSetImageResponses, GetTestSetResponses, GetTestSetSharingData, GetTestSetSharingErrors, GetTestSetSharingResponses, GetTestSetViewData, GetTestSetViewErrors, GetTestSetViewResponses, ListAccountsData, ListAccountsErrors, ListAccountsResponses, ListProjectFeatureGroupsData, ListProjectFeatureGroupsErrors, ListProjectFeatureGroupsResponses, ListProjectScreenIdRulesData, ListProjectScreenIdRulesErrors, ListProjectScreenIdRulesResponses, ListProjectScreensData, ListProjectScreensErrors, ListProjectScreensResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListReviewItemsData, ListReviewItemsErrors, ListReviewItemsResponses, ListTestSetsData, ListTestSetsErrors, ListTestSetsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, ReactivateAccountData, ReactivateAccountErrors, ReactivateAccountResponses, ReorderProjectFeatureGroupsData, ReorderProjectFeatureGroupsErrors, ReorderProjectFeatureGroupsResponses, ReorderProjectScreenIdRulesData, ReorderProjectScreenIdRulesErrors, ReorderProjectScreenIdRulesResponses, ReplaceTestSetLinkData, ReplaceTestSetLinkErrors, ReplaceTestSetLinkResponses, ResetAccountPasswordData, ResetAccountPasswordErrors, ResetAccountPasswordResponses, RevokePluginConnectionData, RevokePluginConnectionErrors, RevokePluginConnectionResponses, RewriteReviewItemData, RewriteReviewItemErrors, RewriteReviewItemResponses, SaveFigmaTokenData, SaveFigmaTokenErrors, SaveFigmaTokenResponses, UpdateAccountData, UpdateAccountErrors, UpdateAccountResponses, UpdateProjectData, UpdateProjectErrors, UpdateProjectFeatureGroupData, UpdateProjectFeatureGroupErrors, UpdateProjectFeatureGroupResponses, UpdateProjectMemoData, UpdateProjectMemoErrors, UpdateProjectMemoResponses, UpdateProjectResponses, UpdateProjectScreenData, UpdateProjectScreenErrors, UpdateProjectScreenIdRuleData, UpdateProjectScreenIdRuleErrors, UpdateProjectScreenIdRuleResponses, UpdateProjectScreenResponses, UpdateProjectTemplateData, UpdateProjectTemplateErrors, UpdateProjectTemplateResponses, UpdateReviewItemData, UpdateReviewItemErrors, UpdateReviewItemResponses, UpdateSharedTestSetViewData, UpdateSharedTestSetViewErrors, UpdateSharedTestSetViewResponses, UpdateTestSetData, UpdateTestSetErrors, UpdateTestSetResponses, UpdateTestSetSharingData, UpdateTestSetSharingErrors, UpdateTestSetSharingResponses, UpdateTestSetViewData, UpdateTestSetViewErrors, UpdateTestSetViewResponses, UploadSharedTestSetImageData, UploadSharedTestSetImageErrors, UploadSharedTestSetImageResponses, UploadTestSetImageData, UploadTestSetImageErrors, UploadTestSetImageResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -902,6 +902,49 @@ export const getRecentTestSetTemplate = <ThrowOnError extends boolean = false>(o
 });
 
 /**
+ * Figma 토큰 삭제
+ */
+export const deleteFigmaToken = <ThrowOnError extends boolean = false>(options?: Options<DeleteFigmaTokenData, ThrowOnError>): RequestResult<DeleteFigmaTokenResponses, DeleteFigmaTokenErrors, ThrowOnError> => (options?.client ?? client).delete<DeleteFigmaTokenResponses, DeleteFigmaTokenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/figma-token',
+    ...options
+});
+
+/**
+ * 내 Figma 토큰 보기
+ */
+export const getFigmaToken = <ThrowOnError extends boolean = false>(options?: Options<GetFigmaTokenData, ThrowOnError>): RequestResult<GetFigmaTokenResponses, GetFigmaTokenErrors, ThrowOnError> => (options?.client ?? client).get<GetFigmaTokenResponses, GetFigmaTokenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/figma-token',
+    ...options
+});
+
+/**
+ * Figma 토큰 등록과 바꾸기
+ */
+export const saveFigmaToken = <ThrowOnError extends boolean = false>(options: Options<SaveFigmaTokenData, ThrowOnError>): RequestResult<SaveFigmaTokenResponses, SaveFigmaTokenErrors, ThrowOnError> => (options.client ?? client).put<SaveFigmaTokenResponses, SaveFigmaTokenErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/figma-token',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * 프레임 임시 업로드
  */
 export const createTempUpload = <ThrowOnError extends boolean = false>(options: Options<CreateTempUploadData, ThrowOnError>): RequestResult<CreateTempUploadResponses, CreateTempUploadErrors, ThrowOnError> => (options.client ?? client).post<CreateTempUploadResponses, CreateTempUploadErrors, ThrowOnError>({
@@ -912,6 +955,41 @@ export const createTempUpload = <ThrowOnError extends boolean = false>(options: 
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/v1/temp-uploads',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Figma 링크의 프레임 붙이기
+ */
+export const addFigmaLinkToUpload = <ThrowOnError extends boolean = false>(options: Options<AddFigmaLinkToUploadData, ThrowOnError>): RequestResult<AddFigmaLinkToUploadResponses, AddFigmaLinkToUploadErrors, ThrowOnError> => (options.client ?? client).post<AddFigmaLinkToUploadResponses, AddFigmaLinkToUploadErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/temp-uploads/figma',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 화면 이미지 붙이기
+ */
+export const addImagesToUpload = <ThrowOnError extends boolean = false>(options: Options<AddImagesToUploadData, ThrowOnError>): RequestResult<AddImagesToUploadResponses, AddImagesToUploadErrors, ThrowOnError> => (options.client ?? client).post<AddImagesToUploadResponses, AddImagesToUploadErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'cheddar_session',
+            type: 'apiKey'
+        }],
+    url: '/api/v1/temp-uploads/images',
     ...options,
     headers: {
         'Content-Type': null,

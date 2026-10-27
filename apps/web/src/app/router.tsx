@@ -15,6 +15,7 @@ import { Suspense } from "react";
 import { currentAccountQuery, isAdmin } from "@/entities/account";
 import { AdminAccountPage } from "@/pages/admin-account";
 import { AdminAccountsPage } from "@/pages/admin-accounts";
+import { FigmaTokenGuidePage } from "@/pages/figma-token-guide";
 import { LoginPage } from "@/pages/login";
 import { NoAccessPage } from "@/pages/no-access";
 import { PluginConnectPage } from "@/pages/plugin-connect";
@@ -310,6 +311,12 @@ const pluginConnectRoute = createRoute({
   },
 });
 
+const figmaTokenGuideRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/guides/figma-token",
+  component: FigmaTokenGuidePage,
+});
+
 const noAccessRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/no-access",
@@ -368,6 +375,7 @@ const routeTree = rootRoute.addChildren([
       projectMemoRoute,
     ]),
     pluginConnectRoute,
+    figmaTokenGuideRoute,
     noAccessRoute,
     adminRoute.addChildren([
       adminIndexRoute,
