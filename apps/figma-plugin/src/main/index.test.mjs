@@ -474,7 +474,7 @@ test("a removed frame is reported on its own and a released session expires", as
     "SESSION_EXPIRED",
   );
 });
-test("an oversized REST source is reduced to the board instead of failing, and failed exports stay private", async () => {
+test("큰 REST 원본도 끝까지 보존하고 내보내기 실패의 내부 정보는 노출하지 않는다", async () => {
   const oversized = setup({
     rest: {
       id: "1:2",
@@ -486,7 +486,7 @@ test("an oversized REST source is reduced to the board instead of failing, and f
           id: "1:3",
           type: "TEXT",
           name: "t",
-          characters: "a".repeat(64 * 1024 * 1024),
+          characters: `${"a".repeat(64 * 1024 * 1024)}마지막 규칙`,
         },
       ],
     },
@@ -500,12 +500,12 @@ test("an oversized REST source is reduced to the board instead of failing, and f
   });
   assert.equal(large.type, "frame-exported");
   assert.ok(oversized.protocol.isMainToUiMessage(large));
-  assert.deepEqual(JSON.parse(large.source.document), {
-    id: "1:2",
-    type: "FRAME",
-    name: "주문",
-    absoluteBoundingBox: { x: 0, y: 0, width: 390, height: 844 },
-  });
+  const document = JSON.parse(large.source.document);
+  assert.equal(
+    document.children[0].characters.length,
+    64 * 1024 * 1024 + "마지막 규칙".length,
+  );
+  assert.ok(document.children[0].characters.endsWith("마지막 규칙"));
   const failed = setup({ failPng: true });
   await prepare(failed);
   const result = await failed.send({

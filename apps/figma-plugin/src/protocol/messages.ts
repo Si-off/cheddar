@@ -14,14 +14,6 @@ export const isResourceId = (value: unknown): value is string =>
   );
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-/** UI가 만든 화면 문서 하나의 UTF-8 크기 상한. 서버도 같은 값을 쓴다 */
-export const MAX_FRAME_DATA_BYTES = 5 * 1024 * 1024;
-/**
- * main이 보내는 REST 원본 JSON 글자 수 상한. 2026-10-20 실측에서 3652×5528 보드(노드 2,336개)가
- * 300만 자였고 화면 문서는 원본의 2~5% 크기였다.
- */
-export const MAX_FRAME_SOURCE_CHARS = 64 * 1024 * 1024;
-
 /** Plugin API의 주석. REST 원본에는 labelMarkdown이 없어 main이 노드 ID별로 따로 보낸다 */
 export type FrameAnnotation = { label?: string; labelMarkdown?: string };
 export type FrameSource = {
@@ -166,7 +158,6 @@ function source(value: unknown): value is FrameSource {
     object(value) &&
     typeof value.document === "string" &&
     value.document.length > 0 &&
-    value.document.length <= MAX_FRAME_SOURCE_CHARS &&
     record(
       value.annotations,
       (entry): entry is FrameAnnotation[] =>

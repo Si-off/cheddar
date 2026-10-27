@@ -84,16 +84,12 @@ function useThumbnails(selection: FrameSelection | null) {
   return urls;
 }
 
-// main이 보낸 REST 원본으로 화면 문서를 만든다. 서버 상한을 넘으면 줄여서 올린다.
+// main이 보낸 REST 원본으로 화면 문서를 만든다.
 async function exportFrame(sessionId: string, nodeId: string) {
   const started = performance.now();
   const { frame, image, source } = await exportSelectedFrame(sessionId, nodeId);
   const received = performance.now();
-  const { document, reduced } = readFrameSource(source);
-  if (reduced)
-    console.info("[cheddar] 화면 문서를 줄여서 올립니다", {
-      frame: frame.name,
-    });
+  const { document } = readFrameSource(source);
   debugRemoteUi("frame read", {
     sourceChars: source.document.length,
     exportMs: Math.round(received - started),

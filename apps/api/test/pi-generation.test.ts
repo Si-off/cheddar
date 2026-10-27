@@ -5,6 +5,7 @@ import test from "node:test";
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import {
+  featureGroups,
   generationSteps,
   projectQaReferences,
   reviewItems,
@@ -23,6 +24,7 @@ import { AiFailure } from "../src/generation/providers/ai-provider";
 import { QueueService } from "../src/generation/queue.service";
 import type { GenerationInput } from "../src/generation/types";
 import { defaultColumns } from "../src/projects/template";
+import { LocalStorage } from "../src/storage/local-storage";
 import { generationFixture } from "./generation-fixture";
 
 function input(): GenerationInput {
@@ -617,4 +619,190 @@ test("재시도해도 최초 실행의 시간 예산을 초기화하지 않는�
     (error: unknown) =>
       error instanceof AiFailure && error.code === "AI_AGENT_TIMEOUT",
   );
+});
+
+test("pi는 같은 그룹의 중복만 합치고 다른 그룹 및 미분류의 동일 행은 보존한다", async () => {
+  const f = await generationFixture();
+  try {
+    const set = await f.makeSet();
+    const groups = [randomUUID(), randomUUID()];
+    await f.db.insert(featureGroups).values(
+      groups.map((id, position) => ({
+        id,
+        projectId: set.project.id,
+        name: `메뉴 ${position}`,
+        position,
+      })),
+    );
+    f.app.get(QueueService).env.pi = readPiConfig({
+      AI_GENERATION_ENGINE: "pi",
+    });
+    let groupKeys: (string | undefined)[] = [groups[0], groups[0]];
+    f.app.get(PiGenerationService).execute = async (options) => {
+      const workspace = new PiWorkspace(
+        options.input,
+        options.state.draft,
+        options.image,
+        options.checkpoint,
+      );
+      await call(workspace, "save_cases", {
+        cases: groupKeys.map((groupKey, index) => ({
+          key: `case-${index}`,
+          values: row(options.input),
+          ...(groupKey ? { groupKey } : {}),
+        })),
+      });
+      return workspace.output();
+    };
+    const generate = async () => {
+      const { jobId } = await f.generation.create(set.id, f.accountId, {
+        kind: "append",
+        memo: "메뉴별 조회",
+      });
+      await f.runner.process(jobId, "screens");
+      return f.generation.current(set.id, f.accountId);
+    };
+    assert.equal((await generate())?.addedCount, 1);
+    // 이미 있는 A와 같은 값이어도 새 그룹 B와 미분류는 각각 보존한다.
+    groupKeys = [groups[0], groups[1], groups[1], undefined, undefined];
+    assert.equal((await generate())?.addedCount, 2);
+    const saved = await f.generation.store.cases(set.id);
+    assert.deepEqual(
+      saved.map((c) => c.featureGroupId),
+      [groups[0], groups[1], null],
+    );
+    assert.equal((await generate())?.addedCount, 0);
+  } finally {
+    await f.close();
+  }
+});
+
+test("pi 실행 중 삭제된 기능 그룹은 실제 저장될 미분류 그룹 안에서 중복을 합친다", async () => {
+  const f = await generationFixture();
+  try {
+    const set = await f.makeSet();
+    const groupId = randomUUID();
+    await f.db.insert(featureGroups).values({
+      id: groupId,
+      projectId: set.project.id,
+      name: "삭제 예정",
+      position: 0,
+    });
+    f.app.get(QueueService).env.pi = readPiConfig({
+      AI_GENERATION_ENGINE: "pi",
+    });
+    const { jobId } = await f.generation.create(set.id, f.accountId, {
+      kind: "append",
+      memo: "조회",
+    });
+    f.app.get(PiGenerationService).execute = async (options) => {
+      const workspace = new PiWorkspace(
+        options.input,
+        options.state.draft,
+        options.image,
+        options.checkpoint,
+      );
+      await call(workspace, "save_cases", {
+        cases: [
+          { key: "group", groupKey: groupId, values: row(options.input) },
+          { key: "ungrouped", values: row(options.input) },
+        ],
+      });
+      await f.db.delete(featureGroups).where(eq(featureGroups.id, groupId));
+      return workspace.output();
+    };
+    await f.runner.process(jobId, "screens");
+    const saved = await f.generation.store.cases(set.id);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].featureGroupId, null);
+  } finally {
+    await f.close();
+  }
+});
+
+test("5MB 초과 문서를 HTTP 업로드한 뒤 pi가 마지막 원문과 같은 프레임의 이미지를 읽는다", async () => {
+  const f = await generationFixture();
+  try {
+    const set = await f.makeSet();
+    await f.app.get(LocalStorage).initialize();
+    f.app.get(QueueService).env.pi = readPiConfig({
+      AI_GENERATION_ENGINE: "pi",
+    });
+    const document = {
+      schemaVersion: 2,
+      board: { id: "figma-board", name: "큰 화면", width: 390, height: 844 },
+      tree: [
+        {
+          id: "rules",
+          parentId: "figma-board",
+          kind: "text",
+          text: `${"가".repeat(2 * 1024 * 1024)}마지막 필수 규칙`,
+          textStyles: [{ start: 0, end: 1, decoration: "STRIKETHROUGH" }],
+        },
+      ],
+    };
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    const form = new FormData();
+    form.append(
+      "manifest",
+      JSON.stringify({
+        frames: [{ name: "큰 화면", document, imageCount: 1 }],
+      }),
+    );
+    form.append(
+      "images[]",
+      new Blob([png], { type: "image/png" }),
+      "frame.png",
+    );
+    const response = await fetch(`${f.base}/temp-uploads`, {
+      method: "POST",
+      headers: { Cookie: f.cookie },
+      body: form,
+    });
+    assert.equal(response.status, 201, await response.clone().text());
+    const upload = (await response.json()) as {
+      id: string;
+      frames: { id: string }[];
+    };
+    assert.equal(upload.frames.length, 1);
+    let read = false;
+    f.app.get(PiGenerationService).execute = async (options) => {
+      assert.equal(options.input.frames.length, 1);
+      const frame = options.input.frames[0];
+      assert.equal(frame.screenDocument, JSON.stringify(document));
+      const workspace = new PiWorkspace(
+        options.input,
+        options.state.draft,
+        options.image,
+        options.checkpoint,
+      );
+      const tail = await call(workspace, "read_frame", {
+        frameId: frame.id,
+        offset: frame.screenDocument.length - 200,
+      });
+      assert.match(JSON.stringify(tail), /마지막 필수 규칙/);
+      assert.match(JSON.stringify(tail), /STRIKETHROUGH/);
+      assert.equal(
+        (await options.image(frame.id, 0)).data,
+        Buffer.from(png).toString("base64"),
+      );
+      read = true;
+      await call(workspace, "save_cases", {
+        cases: [{ key: "large", values: row(options.input) }],
+      });
+      return workspace.output();
+    };
+    const { jobId } = await f.generation.create(set.id, f.accountId, {
+      kind: "initial",
+      uploadId: upload.id,
+    });
+    await f.runner.process(jobId, "screens");
+    assert.equal(read, true);
+    assert.equal(
+      (await f.generation.current(set.id, f.accountId))?.addedCount,
+      1,
+    );
+  } finally {
+    await f.close();
+  }
 });
