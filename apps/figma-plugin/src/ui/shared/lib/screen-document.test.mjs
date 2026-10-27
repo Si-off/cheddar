@@ -21,7 +21,14 @@ function load(path, require = () => ({})) {
   );
   return module.exports;
 }
-const { buildScreenDocument, readFrameSource } = load("./screen-document.ts");
+// 변환은 서버와 함께 쓰는 @cheddar/contracts에 있다
+const contracts = load(
+  "../../../../../../packages/contracts/src/screen-document.ts",
+);
+const { buildScreenDocument, readFrameSource } = load(
+  "./screen-document.ts",
+  (name) => (name === "@cheddar/contracts" ? contracts : {}),
+);
 
 // exportAsync({ format: "JSON_REST_V1" })의 document 모양. 보이는 노드는 visible을 생략한다
 const at = (x, y, width = 100, height = 20) => ({

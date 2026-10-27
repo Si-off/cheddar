@@ -23,7 +23,8 @@
     "zustand": "5.0.15",
     "motion": "14.2.0",
     "@cheddar/ui": "workspace:*",
-    "@cheddar/design-tokens": "workspace:*"
+    "@cheddar/design-tokens": "workspace:*",
+    "@cheddar/contracts": "workspace:*"
   },
   "devDependencies": {
     "vite": "7.3.7",

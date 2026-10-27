@@ -6,6 +6,7 @@ import { AuthorizationModule } from "./authorization/authorization.module";
 import { AccessGuard } from "./authorization/guards";
 import { type ApiEnv, configModule } from "./config/env";
 import { DatabaseModule } from "./database/database.module";
+import { FigmaModule } from "./figma/figma.module";
 import { GenerationModule } from "./generation/generation.module";
 import { QueueModule } from "./generation/queue.service";
 import {
@@ -38,6 +39,7 @@ export function appModule(
       ProjectsModule,
       TestSetsModule,
       QueueModule,
+      FigmaModule,
       TempUploadsModule,
       GenerationModule,
     ],

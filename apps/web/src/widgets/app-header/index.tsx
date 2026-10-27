@@ -1,7 +1,7 @@
 import { Icon, Menu, NavTab, NavTabs } from "@cheddar/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, KeyRound, LogOut, Shield } from "lucide-react";
+import { ChevronDown, Frame, KeyRound, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 import {
   accountRoleLabel,
@@ -9,6 +9,7 @@ import {
   isAdmin,
 } from "@/entities/account";
 import { ChangePasswordDialog, useLogout } from "@/features/auth";
+import { FigmaTokenDialog } from "@/features/figma-token";
 
 /** 상단 바: 주요 메뉴와 계정 메뉴. 관리 진입은 관리자에게만 보인다. */
 export function AppHeader() {
@@ -18,6 +19,7 @@ export function AppHeader() {
   const logout = useLogout(() => navigate({ to: "/login" }));
   const canManage = isAdmin(account);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [figmaToken, setFigmaToken] = useState(false);
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-6 border-b border-line bg-surface px-6">
@@ -66,6 +68,9 @@ export function AppHeader() {
           <Menu.Item icon={KeyRound} onClick={() => setChangingPassword(true)}>
             비밀번호 바꾸기
           </Menu.Item>
+          <Menu.Item icon={Frame} onClick={() => setFigmaToken(true)}>
+            Figma 토큰
+          </Menu.Item>
           <Menu.Separator />
           <Menu.Item icon={LogOut} onClick={() => logout.mutate()}>
             로그아웃
@@ -76,6 +81,7 @@ export function AppHeader() {
         open={changingPassword}
         onOpenChange={setChangingPassword}
       />
+      <FigmaTokenDialog open={figmaToken} onOpenChange={setFigmaToken} />
     </header>
   );
 }

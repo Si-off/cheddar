@@ -4,7 +4,14 @@ import { test } from "node:test";
 import ts from "typescript";
 
 const code = ts.transpileModule(
-  readFileSync(new URL("./tiles.ts", import.meta.url), "utf8"),
+  // 나누는 규칙은 서버와 함께 쓰는 @cheddar/contracts에 있다
+  readFileSync(
+    new URL(
+      "../../../../../../packages/contracts/src/tiles.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
   {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,

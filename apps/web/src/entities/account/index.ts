@@ -3,6 +3,7 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   type AccountDto,
   getAccountQueryKey,
+  getFigmaTokenQueryKey,
   getMeQueryKey,
   listAccountsQueryKey,
   type MeDto,
@@ -71,6 +72,23 @@ export const currentAccountQuery = () =>
       toAccount((await sdk.getMe({ signal, throwOnError: true })).data),
     staleTime: 60_000,
     retry: false,
+  });
+
+/** 내 Figma 토큰. 원문은 서버만 가진다 */
+export interface FigmaToken {
+  /** 토큰을 만든 Figma 계정 이름 */
+  handle: string;
+  email: string;
+  /** 토큰 끝 네 글자 */
+  tokenSuffix: string;
+}
+
+export const figmaTokenQuery = () =>
+  queryOptions({
+    queryKey: getFigmaTokenQueryKey(),
+    queryFn: async ({ signal }): Promise<FigmaToken | null> =>
+      (await sdk.getFigmaToken({ signal, throwOnError: true })).data.token ??
+      null,
   });
 
 export interface AccountFilters {

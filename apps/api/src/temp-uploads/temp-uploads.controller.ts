@@ -25,15 +25,21 @@ import {
 } from "@nestjs/swagger";
 import { AllowPluginToken, CurrentAccount } from "../authorization/guards";
 import {
+  AddFigmaLinkDto,
+  AddImagesMultipartDto,
+  TempUploadAddedDto,
+} from "../contracts/figma.dto";
+import {
   TempUploadDto,
   UploadMultipartDto,
 } from "../contracts/temp-upload.dto";
-import { MAX_IMAGE_BYTES, MAX_UPLOAD_BYTES } from "./manifest";
+import { MAX_SOURCE_IMAGE_BYTES } from "./images";
+import { MAX_FRAMES, MAX_IMAGE_BYTES, MAX_UPLOAD_BYTES } from "./manifest";
 import { TempUploadsService } from "./temp-uploads.service";
 
 @ApiTags("임시 업로드")
 @ApiCookieAuth()
-@ApiExtraModels(UploadMultipartDto)
+@ApiExtraModels(UploadMultipartDto, AddImagesMultipartDto)
 @Controller("api/v1/temp-uploads")
 export class TempUploadsController {
   constructor(
@@ -79,6 +85,51 @@ export class TempUploadsController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.service.create(accountId, dto.manifest, files ?? []);
+  }
+  @Post("figma")
+  @ApiOperation({
+    operationId: "addFigmaLinkToUpload",
+    summary: "Figma 링크의 프레임 붙이기",
+  })
+  @ApiBody({ type: AddFigmaLinkDto })
+  @ApiCreatedResponse({ type: TempUploadAddedDto })
+  addFigmaLink(
+    @CurrentAccount() accountId: string,
+    @Body() dto: AddFigmaLinkDto,
+  ) {
+    return this.service.addFigmaLink(accountId, dto.uploadId, dto.url);
+  }
+  @Post("images")
+  @UseInterceptors(
+    FilesInterceptor("images[]", MAX_FRAMES, {
+      limits: { fileSize: MAX_SOURCE_IMAGE_BYTES, fields: 1 },
+    }),
+  )
+  @ApiOperation({
+    operationId: "addImagesToUpload",
+    summary: "화면 이미지 붙이기",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["images[]"],
+      properties: {
+        uploadId: { type: "string", format: "uuid" },
+        "images[]": {
+          type: "array",
+          items: { type: "string", format: "binary" },
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: TempUploadAddedDto })
+  addImages(
+    @CurrentAccount() accountId: string,
+    @Body() dto: AddImagesMultipartDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.service.addImages(accountId, dto.uploadId, files ?? []);
   }
   @Get(":uploadId")
   @ApiOperation({

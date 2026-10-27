@@ -93,7 +93,8 @@ Figma 저장 원문은 바꾸지 않고 `pi/frame-material.ts`에서 조회용 �
 | test-sets | 목록(전체, 내가 만든), 만들기(양식 복사), 이름 변경, 삭제(만든 사람과 관리자), 양식 편집, 사람별 보기 설정 |
 | collaboration | 테스트 세트별 WebSocket 방, 셀과 행 연산 적용과 전파, 접속자와 셀 선택, 권한 변경 때 연결 끊기 |
 | sharing | 공개 링크 켜고 끄기, 링크 권한, 링크 토큰 재발급, 방문자 세션과 자동 이름 |
-| temp-uploads | 프로젝트 없는 임시 업로드, 사용 표시, 만료 삭제 |
+| temp-uploads | 프로젝트 없는 임시 업로드, Figma 링크와 화면 이미지 이어 붙이기, 사용 표시, 만료 삭제 |
+| figma | 계정별 Figma 개인 액세스 토큰(암호화 저장, Figma에서 확인), Figma REST API로 링크의 보드를 화면 문서와 이미지로 읽기 |
 | generation | 단계 실행기, 단계 이벤트(SSE), 확인 필요 항목, 답변으로 다시 작성 |
 | exports | XLSX 내보내기 |
 | plugin-connections | 플러그인 연결 요청, 브라우저 승인, 토큰 발급과 폐기 |
@@ -114,7 +115,7 @@ Figma 저장 원문은 바꾸지 않고 `pi/frame-material.ts`에서 조회용 �
 | 테스트 세트 | test_sets(소유자, 프로젝트, 공개 범위, 링크 권한, 링크 토큰), test_set_columns, test_cases, test_case_values, view_preferences |
 | 생성 | generation_jobs, generation_steps, review_items, ai_call_usage, ai_provider_costs |
 | 임시 자료 | temp_uploads, temp_frames(파일은 만료 삭제) |
-| 연결 | visitor_sessions, plugin_connections |
+| 연결 | visitor_sessions, plugin_connections, figma_tokens |
 
 - 필수 시스템 항목은 테스트 ID와 제목이다. 사용자 항목은 UUID, 이름, 형식, 선택 항목, 항목 설명을 가진다. 값은 항목 UUID로 연결하므로 이름과 순서를 바꿔도 값이 유지된다.
 - 케이스와 프레임, 요구사항, 화면 구조의 연결은 저장하지 않는다.
@@ -166,6 +167,8 @@ Figma 저장 원문은 바꾸지 않고 `pi/frame-material.ts`에서 조회용 �
 - 열 저장 트랜잭션에서 모든 상태의 확인 필요 초안도 케이스와 같은 값 정리 규칙을 적용한다. 삭제된 열은 제거하고, 선택지와 형식 변경은 유효한 값만 보존하거나 텍스트로 변환한다. 만료 정리는 `.incoming`의 수정 시각이 1시간 이상 지난 UUID 일반 파일도 제거하며 최근 스테이징과 게시된 파일은 보존한다. SSE의 반복 조회는 계정 활성 상태와 만료 시각도 확인하며 더 이상 유효하지 않으면 연결을 닫는다.
 
 - `temp-uploads`, `generation`, `review-items`가 임시 업로드, 생성 시작과 최근 작업, SSE, 확인 필요 목록과 수정, 제외와 복원, 케이스 추가와 다시 작성을 제공한다. 기존 세트의 보기와 편집 권한을 재사용한다. 보이지 않는 세트와 다른 계정의 업로드는 404, 보이지만 편집할 수 없는 세트는 403이다. 업로드 만들기는 모든 활성 계정이 한다.
+- 플러그인 없이 화면 자료를 넣는다(2026-10-27). `POST /api/v1/temp-uploads/figma`(`url`, 선택 `uploadId`)는 요청자의 Figma 토큰으로 링크를 읽고, `POST /api/v1/temp-uploads/images`(multipart `images[]`, 선택 `uploadId`)는 PNG, JPEG, WebP(장당 20MB)를 받는다. `uploadId`가 없으면 새 업로드를 만들고, 있으면 생성이 가져가지 않은 내 업로드에 프레임을 이어 붙이며 만료를 1시간 뒤로 미룬다. 응답은 업로드 전체, 이번에 붙인 프레임 ID, 링크 이름, 한도(업로드당 200프레임, 문서와 이미지 합계 200MB)를 넘어 넣지 못한 개수다. 이미지 요청 본문도 200MB에서 막는다. 실패하면 이번에 기록한 파일만 지운다.
+- Figma 링크는 파일 키와 `node-id`로 읽는다(브랜치 링크는 브랜치 파일). 프레임, 컴포넌트, 인스턴스는 그대로, 섹션과 페이지는 안의 보드로 펼치고 파일 링크는 모든 페이지의 최상위 보드를 읽는다. 보드 원본은 `GET /v1/files/:key/nodes`로 받아 플러그인과 같은 `buildScreenDocument`(`@cheddar/contracts`)로 화면 문서를 만든다. 이미지는 `GET /v1/images`의 PNG를 1, 0.5, 0.25배 순서로 받아 플러그인과 같은 타일 규칙(`tileRects`)으로 나누고, 이미지를 받지 못한 보드는 문서만 올린다. 사람이 올린 이미지는 PNG로 바꿔 같은 규칙으로 나누고 글자 구조가 빈 화면 문서와 함께 둔다. Figma 오류는 토큰 없음 `FIGMA_TOKEN_REQUIRED`(409), 토큰 만료 `FIGMA_TOKEN_INVALID`(409, 등록 때는 400), 링크 형식 `FIGMA_LINK_INVALID`(400), 볼 수 없는 링크 `FIGMA_LINK_UNAVAILABLE`(404), 연결 실패 `FIGMA_UNAVAILABLE`(503)이다. `FIGMA_API_BASE_URL`은 테스트에서만 바꾼다.
 - multipart는 `manifest` JSON 문자열과 프레임 순서의 `images[]`를 받는다. 프레임은 1~200개이며 `imageCount` 합계가 파일 수와 같아야 한다. 화면 문서는 플러그인 UI가 만들므로 서버는 가공하지 않고 `schemaVersion: 2`를 확인한다. 문서별 5MB 제한은 두지 않고 이미지와 합친 전체 업로드 상한을 적용한다. PNG/JPEG 서명과 MIME, 장당 10MB, multipart 본문 전체 200MB를 검사한다. 인증을 기다리는 동안 크기 검사기가 본문을 소비하지 않도록 스트림을 멈추고 multer가 준비되면 재개한다. 파일은 기존 로컬 저장소의 UUID 경로에 저장한다. 업로드 행을 파일보다 먼저 기록해 기록 중 종료된 요청도 만료 정리가 찾을 수 있게 한다.
 - 셀 이미지는 `POST /test-sets/:id/images`와 `POST /shared/:token/images`(multipart `file`, 편집 권한)로 올리고 `GET …/images/:imageId`(볼 권한, 다른 세트 id는 404, `private, max-age=31536000, immutable`)로 읽는다. PNG, JPEG, GIF, WebP와 10MB를 서명으로 검사하고 크기는 `sharp`로 읽는다. 파일은 임시 업로드와 나뉜 로컬 저장소의 영구 경로에 둔다. `set_cell`과 케이스 값 검증은 `{ image }`를 텍스트 열에서, 그 세트에 있는 이미지 id일 때만 받는다.
 - 열 항목 색은 `test_set_columns.colors`와 양식 열의 `colors`(항목 이름 → gray/red/yellow/green/teal/blue/purple)에 둔다. `update_column`의 `colors`는 목록에 없는 이름을 버리고 저장하며, `columnType: "select"`는 사용자 텍스트 열에만 받아 형식을 바꾸고 그 열의 이미지 값을 비운다. XLSX의 색은 웹 라이트 테마의 soft 배경과 글자 토큰 값을 쓴다.
@@ -206,6 +209,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 | temp_uploads | 업로드 계정, 기본 1시간 만료, 사용 시작 시각. 프로젝트·업로드 이름 없음 |
 | temp_frames | 임시 업로드, 이름, 화면 문서, 이미지 저장 키 배열, 순서. 업로드 삭제 시 행 삭제 |
 | visitor_sessions | 세트, 브라우저 토큰 해시, 표시 이름. 같은 세트의 브라우저·이름 각각 유일 |
+| figma_tokens | 계정당 1행, AES-256-GCM으로 암호화한 토큰, 끝 네 글자, Figma 계정 이름과 이메일. 키는 `FILE_STORAGE_ROOT/.secrets/figma-token.key`에 처음 쓸 때 만들어 DB와 따로 둔다. 파일 저장소가 재시작 때 지워지는 배포(Render 무료 서비스)에서는 키도 사라져 토큰을 다시 등록해야 한다 |
 | plugin_connections | 요청 토큰 해시, 승인 계정, 계정 토큰 해시, pending/approved/revoked, 만료·승인·폐기 시각 |
 
 - 7단계 플러그인 연결은 10분 요청을 브라우저 세션으로 승인하고 30일 Bearer 토큰을 한 번 발급한다(`token_expires_at` 별도 저장). Bearer는 `GET /api/v1/auth/me`, `GET /api/v1/projects`, `POST /api/v1/temp-uploads`, `DELETE /api/v1/plugin-connections/current`만 허용하며, 계정 비활성화·비밀번호 변경 시 함께 폐기한다. 업로드는 전체 `plugin.upload` 권한을 요구한다.

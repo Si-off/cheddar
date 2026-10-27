@@ -581,11 +581,35 @@ export type RecentTemplateDto = {
     columns: Array<TestSetColumnDto>;
 };
 
+export type FigmaTokenDto = {
+    /**
+     * 토큰을 만든 Figma 계정 이름
+     */
+    handle: string;
+    email: string;
+    /**
+     * 토큰 끝 네 글자
+     */
+    tokenSuffix: string;
+};
+
+export type FigmaTokenStatusDto = {
+    token: FigmaTokenDto | null;
+};
+
+export type SaveFigmaTokenDto = {
+    token: string;
+};
+
 export type UploadMultipartDto = {
     /**
      * JSON: { frames: [{ name, document, imageCount }] }
      */
     manifest: string;
+};
+
+export type AddImagesMultipartDto = {
+    uploadId?: string;
 };
 
 export type TempFrameDto = {
@@ -598,6 +622,30 @@ export type TempUploadDto = {
     id: string;
     expiresAt: string;
     frames: Array<TempFrameDto>;
+};
+
+export type AddFigmaLinkDto = {
+    /**
+     * Figma 파일, 페이지, 프레임 링크
+     */
+    url: string;
+    /**
+     * 이어 붙일 임시 업로드. 없으면 새로 만든다
+     */
+    uploadId?: string;
+};
+
+export type TempUploadAddedDto = {
+    upload: TempUploadDto;
+    addedFrameIds: Array<string>;
+    /**
+     * Figma 링크가 가리키는 페이지, 섹션, 프레임이나 파일 이름
+     */
+    title?: string;
+    /**
+     * 업로드 한도를 넘어 넣지 못한 프레임 수
+     */
+    omittedCount: number;
 };
 
 export type GenerationCurrentDto = {
@@ -4116,6 +4164,156 @@ export type GetRecentTestSetTemplateResponses = {
 
 export type GetRecentTestSetTemplateResponse = GetRecentTestSetTemplateResponses[keyof GetRecentTestSetTemplateResponses];
 
+export type DeleteFigmaTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/figma-token';
+};
+
+export type DeleteFigmaTokenErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type DeleteFigmaTokenError = DeleteFigmaTokenErrors[keyof DeleteFigmaTokenErrors];
+
+export type DeleteFigmaTokenResponses = {
+    204: void;
+};
+
+export type DeleteFigmaTokenResponse = DeleteFigmaTokenResponses[keyof DeleteFigmaTokenResponses];
+
+export type GetFigmaTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/figma-token';
+};
+
+export type GetFigmaTokenErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type GetFigmaTokenError = GetFigmaTokenErrors[keyof GetFigmaTokenErrors];
+
+export type GetFigmaTokenResponses = {
+    200: FigmaTokenStatusDto;
+};
+
+export type GetFigmaTokenResponse = GetFigmaTokenResponses[keyof GetFigmaTokenResponses];
+
+export type SaveFigmaTokenData = {
+    body: SaveFigmaTokenDto;
+    path?: never;
+    query?: never;
+    url: '/api/v1/figma-token';
+};
+
+export type SaveFigmaTokenErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type SaveFigmaTokenError = SaveFigmaTokenErrors[keyof SaveFigmaTokenErrors];
+
+export type SaveFigmaTokenResponses = {
+    200: FigmaTokenStatusDto;
+};
+
+export type SaveFigmaTokenResponse = SaveFigmaTokenResponses[keyof SaveFigmaTokenResponses];
+
 export type CreateTempUploadData = {
     body: {
         /**
@@ -4171,6 +4369,109 @@ export type CreateTempUploadResponses = {
 };
 
 export type CreateTempUploadResponse = CreateTempUploadResponses[keyof CreateTempUploadResponses];
+
+export type AddFigmaLinkToUploadData = {
+    body: AddFigmaLinkDto;
+    path?: never;
+    query?: never;
+    url: '/api/v1/temp-uploads/figma';
+};
+
+export type AddFigmaLinkToUploadErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type AddFigmaLinkToUploadError = AddFigmaLinkToUploadErrors[keyof AddFigmaLinkToUploadErrors];
+
+export type AddFigmaLinkToUploadResponses = {
+    201: TempUploadAddedDto;
+};
+
+export type AddFigmaLinkToUploadResponse = AddFigmaLinkToUploadResponses[keyof AddFigmaLinkToUploadResponses];
+
+export type AddImagesToUploadData = {
+    body: {
+        uploadId?: string;
+        'images[]': Array<Blob | File>;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/temp-uploads/images';
+};
+
+export type AddImagesToUploadErrors = {
+    /**
+     * 입력 오류
+     */
+    400: ErrorResponseDto;
+    /**
+     * 인증 필요
+     */
+    401: ErrorResponseDto;
+    /**
+     * 접근 권한 또는 Origin 거부
+     */
+    403: ErrorResponseDto;
+    /**
+     * 항목 없음
+     */
+    404: ErrorResponseDto;
+    /**
+     * 업무 규칙 위반 또는 중복
+     */
+    409: ErrorResponseDto;
+    /**
+     * 사용할 수 없는 토큰
+     */
+    410: ErrorResponseDto;
+    /**
+     * 서버 오류
+     */
+    500: ErrorResponseDto;
+    /**
+     * 의존 서비스 오류
+     */
+    503: ErrorResponseDto;
+};
+
+export type AddImagesToUploadError = AddImagesToUploadErrors[keyof AddImagesToUploadErrors];
+
+export type AddImagesToUploadResponses = {
+    201: TempUploadAddedDto;
+};
+
+export type AddImagesToUploadResponse = AddImagesToUploadResponses[keyof AddImagesToUploadResponses];
 
 export type GetTempUploadData = {
     body?: never;
