@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
   Button,
@@ -12,8 +13,7 @@ import {
   TextArea,
   TextField,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import {
   ChevronDown,
   LayoutList,

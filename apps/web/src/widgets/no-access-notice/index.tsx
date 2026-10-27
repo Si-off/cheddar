@@ -1,4 +1,4 @@
-import { Button, EmptyState } from "@cheddar/ui";
+import { Button, EmptyState } from "@workspace/ui";
 import { Lock } from "lucide-react";
 import type { ReactElement } from "react";
 

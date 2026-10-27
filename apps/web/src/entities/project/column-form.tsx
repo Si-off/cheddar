@@ -6,7 +6,7 @@ import {
   SortableList,
   TextArea,
   TextField,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import { Plus, X } from "lucide-react";
 import { type ReactNode, type SubmitEvent, useState } from "react";
 import {

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import ts from "typescript";
 
 const code = ts.transpileModule(
-  // 나누는 규칙은 서버와 함께 쓰는 @cheddar/contracts에 있다
+  // 나누는 규칙은 서버와 함께 쓰는 @workspace/contracts에 있다
   readFileSync(
     new URL(
       "../../../../../../packages/contracts/src/tiles.ts",

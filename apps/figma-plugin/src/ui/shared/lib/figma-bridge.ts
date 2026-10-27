@@ -16,9 +16,9 @@ const FIGMA_ORIGIN = "https://www.figma.com";
 // 토큰 값은 남기지 않도록 메시지 종류와 키 이름만 적는다
 export function debugRemoteUi(label: string, detail: Record<string, unknown>) {
   if (!env.pluginUiDebug) return;
-  console.info(`[cheddar:bridge] ${label}`, detail);
+  console.info(`[plugin:bridge] ${label}`, detail);
   // 시험 중 Figma 콘솔을 열지 않아도 개발 서버에서 읽을 수 있게 보낸다
-  void fetch("/__cheddar/log", {
+  void fetch("/__plugin/log", {
     method: "POST",
     body: JSON.stringify({ label, ...detail }),
     keepalive: true,

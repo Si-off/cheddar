@@ -1,12 +1,12 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useBlocker } from "@tanstack/react-router";
 import {
   Button,
   type SaveState,
   SaveStatus,
   TextArea,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useBlocker } from "@tanstack/react-router";
+} from "@workspace/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Memo, memoQuery } from "@/entities/project";
 import { sdk, toApiFailure } from "@/shared/api";

@@ -1,5 +1,5 @@
 name = "ux-writing-review"
-description = "Cheddar UI 문구의 독립 검수. 변경된 문구와 표시 조건을 코드 기반으로 검수하고 정책 위반과 수정 제안을 반환한다."
+description = "테스트 케이스 제네레이터 UI 문구의 독립 검수. 변경된 문구와 표시 조건을 코드 기반으로 검수하고 정책 위반과 수정 제안을 반환한다."
 model = "gpt-6-luna"
 model_reasoning_effort = "high"
 developer_instructions = '''

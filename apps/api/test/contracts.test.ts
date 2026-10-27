@@ -22,7 +22,7 @@ test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 �
   const app = await createApp(
     {
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
-      storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
+      storageRoot: resolve(tmpdir(), "app-contract-unused"),
       port: 3101,
       host: "127.0.0.1",
       corsOrigins: [],

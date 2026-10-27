@@ -152,7 +152,7 @@ export class TestSetsController {
   @ApiBody({ type: ApplyOpsDto })
   @ApiOkResponse({ type: OpsResultDto })
   @ApiHeader({
-    name: "x-cheddar-connection",
+    name: "x-connection-id",
     required: false,
     schema: { type: "string", format: "uuid" },
   })
@@ -160,7 +160,7 @@ export class TestSetsController {
     @Param("testSetId", ParseUUIDPipe) id: string,
     @CurrentAccount() accountId: string,
     @Body() dto: ApplyOpsDto,
-    @Headers("x-cheddar-connection") connectionId?: string,
+    @Headers("x-connection-id") connectionId?: string,
   ) {
     return this.operations.apply(id, accountId, dto, connectionId ?? null);
   }

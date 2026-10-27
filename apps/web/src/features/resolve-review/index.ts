@@ -1,9 +1,9 @@
-import { useToast } from "@cheddar/ui";
 import {
   type QueryClient,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useToast } from "@workspace/ui";
 import { useEffect, useRef } from "react";
 import {
   currentGenerationQuery,

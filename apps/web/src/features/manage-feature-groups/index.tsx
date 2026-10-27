@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   ConfirmDialog,
@@ -8,8 +9,7 @@ import {
   TextArea,
   TextField,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import { type FeatureGroup, featureGroupsQuery } from "@/entities/project";

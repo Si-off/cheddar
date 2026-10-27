@@ -1,5 +1,5 @@
 {
-  "name": "cheddar",
+  "name": "test-case-generator",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,20 +10,20 @@
   },
   "scripts": {
     "dev": "pnpm dev:web",
-    "dev:web": "pnpm --filter @cheddar/web dev",
-    "dev:plugin": "pnpm --filter @cheddar/figma-plugin dev",
-    "dev:plugin:remote": "pnpm --filter @cheddar/figma-plugin dev:remote",
+    "dev:web": "pnpm --filter @workspace/web dev",
+    "dev:plugin": "pnpm --filter @workspace/figma-plugin dev",
+    "dev:plugin:remote": "pnpm --filter @workspace/figma-plugin dev:remote",
     "build": "pnpm -r --if-present run build",
     "typecheck": "pnpm -r --if-present run typecheck",
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm build",
-    "gen:api:web": "pnpm --filter @cheddar/web gen:api",
-    "gen:api:plugin": "pnpm --filter @cheddar/figma-plugin gen:api",
-    "dev:api": "pnpm --filter @cheddar/api dev",
-    "test:api": "pnpm --filter @cheddar/api test",
-    "db:migrate": "pnpm --filter @cheddar/api db:migrate",
-    "openapi:export": "pnpm --filter @cheddar/api openapi:export"
+    "gen:api:web": "pnpm --filter @workspace/web gen:api",
+    "gen:api:plugin": "pnpm --filter @workspace/figma-plugin gen:api",
+    "dev:api": "pnpm --filter @workspace/api dev",
+    "test:api": "pnpm --filter @workspace/api test",
+    "db:migrate": "pnpm --filter @workspace/api db:migrate",
+    "openapi:export": "pnpm --filter @workspace/api openapi:export"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

@@ -24,7 +24,7 @@ test("로그인하지 않으면 로그인 화면으로 가고, 로그인하면 �
 
   await page
     .getByRole("textbox", { name: "아이디" })
-    .fill("haneul.choi@cheddar.app");
+    .fill("haneul.choi@example.com");
   await page
     .locator("input[autocomplete=current-password]")
     .fill("long-password-1");
@@ -49,7 +49,7 @@ test("로그인에 실패하면 서버가 알려준 이유를 보여준다", asy
   await page.goto("/login");
   await page
     .getByRole("textbox", { name: "아이디" })
-    .fill("someone@cheddar.app");
+    .fill("someone@example.com");
   await page.locator("input[autocomplete=current-password]").fill("wrong-pass");
   await page.getByRole("button", { name: "로그인" }).click();
   await expect(
@@ -111,7 +111,7 @@ test("로그인 후 돌아갈 주소가 다른 사이트면 테스트 세트 목
   await page.goto("/login?redirect=%2F%2Fevil.example%2Fsteal");
   await page
     .getByRole("textbox", { name: "아이디" })
-    .fill("haneul.choi@cheddar.app");
+    .fill("haneul.choi@example.com");
   await page
     .locator("input[autocomplete=current-password]")
     .fill("long-password-1");

@@ -1,5 +1,5 @@
-import { useToast } from "@cheddar/ui";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@workspace/ui";
 import { useCallback, useRef, useState } from "react";
 import {
   type CaseOp,

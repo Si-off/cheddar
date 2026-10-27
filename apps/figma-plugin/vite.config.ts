@@ -13,17 +13,16 @@ const cacheKey = createHash("sha256").update(root).digest("hex").slice(0, 12);
 
 // 원격 UI 개발 서버 전용. Figma 안의 UI가 보낸 진단 로그를 저장소 밖 파일에 남긴다
 function remoteUiLog(): Plugin {
-  const file = join(tmpdir(), "cheddar-plugin-ui.log");
+  const file = join(tmpdir(), "figma-plugin-ui.log");
   const write = (detail: string) =>
     appendFileSync(file, `${new Date().toISOString()} ${detail}\n`);
   return {
-    name: "cheddar-remote-ui-log",
+    name: "remote-ui-log",
     apply: "serve",
     configureServer(server) {
       server.config.logger.info(`  원격 UI 진단 로그: ${file}`);
       server.middlewares.use((req, res, next) => {
-        if (req.method !== "POST" || req.url !== "/__cheddar/log")
-          return next();
+        if (req.method !== "POST" || req.url !== "/__plugin/log") return next();
         let body = "";
         req.on("data", (chunk: Buffer) => {
           body += chunk.toString().slice(0, 8000);
@@ -51,7 +50,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       remoteBase ? remoteUiLog() : viteSingleFile(),
     ],
-    cacheDir: join(tmpdir(), "cheddar-vite", cacheKey, "plugin-ui"),
+    cacheDir: join(tmpdir(), "app-vite", cacheKey, "plugin-ui"),
     resolve: {
       alias: { "@": fileURLToPath(new URL("./src/ui", import.meta.url)) },
     },

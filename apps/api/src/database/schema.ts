@@ -1,4 +1,4 @@
-import type { CellValue, OptionColor } from "@cheddar/contracts";
+import type { CellValue, OptionColor } from "@workspace/contracts";
 import { sql } from "drizzle-orm";
 import {
   bigint,

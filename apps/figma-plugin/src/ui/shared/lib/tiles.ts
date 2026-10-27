@@ -1,4 +1,4 @@
-import { tileRects } from "@cheddar/contracts";
+import { tileRects } from "@workspace/contracts";
 
 export {
   SINGLE_MAX_HEIGHT,
@@ -6,7 +6,7 @@ export {
   TILE_OVERLAP,
   type TileRect,
   tileRects,
-} from "@cheddar/contracts";
+} from "@workspace/contracts";
 
 /** PNG 한 장을 타일 PNG 목록으로 나눈다 */
 export async function sliceImage(png: Uint8Array): Promise<Blob[]> {

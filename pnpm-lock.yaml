@@ -178,7 +178,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: 0.135.0
         version: 0.135.0
-      '@cheddar/contracts':
+      '@workspace/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@earendil-works/pi-ai':
@@ -275,13 +275,13 @@ importers:
 
   apps/figma-plugin:
     dependencies:
-      '@cheddar/contracts':
+      '@workspace/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@cheddar/design-tokens':
+      '@workspace/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
-      '@cheddar/ui':
+      '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@tanstack/react-query':
@@ -339,13 +339,13 @@ importers:
 
   apps/web:
     dependencies:
-      '@cheddar/contracts':
+      '@workspace/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@cheddar/design-tokens':
+      '@workspace/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
-      '@cheddar/ui':
+      '@workspace/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@tanstack/react-query':

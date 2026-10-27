@@ -1,9 +1,9 @@
+import { Inject, Injectable } from "@nestjs/common";
 import {
   buildScreenDocument,
   type ScreenDocument,
   type SourceNode,
-} from "@cheddar/contracts";
-import { Inject, Injectable } from "@nestjs/common";
+} from "@workspace/contracts";
 import { eq, sql } from "drizzle-orm";
 import { AuthorizationService } from "../authorization/authorization.service";
 import { ApiError, invalid } from "../common/errors";

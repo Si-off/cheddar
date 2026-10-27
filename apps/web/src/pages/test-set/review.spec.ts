@@ -230,7 +230,7 @@ for (const width of [1440, 390, 320]) {
       panel.getByRole("button", { name: "테스트 세트에 추가" }),
     ).toBeInViewport();
     await expect(panel.getByRole("button", { name: "닫기" })).toBeInViewport();
-    await page.screenshot({ path: `/tmp/cheddar-review-drawer-${width}.png` });
+    await page.screenshot({ path: `/tmp/review-drawer-${width}.png` });
     await page.keyboard.press("Escape");
     await expect(panel).not.toBeVisible();
     await expect(trigger).toBeFocused();

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable } from "@nestjs/common";
+import { isCellImage } from "@workspace/contracts";
 import { and, desc, eq, sql } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import sharp from "sharp";

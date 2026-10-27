@@ -6,7 +6,7 @@ import {
   isClientMessage,
   isServerMessage,
   type ServerMessage,
-} from "@cheddar/contracts";
+} from "@workspace/contracts";
 import { and, eq } from "drizzle-orm";
 import { WebSocket } from "ws";
 import { AccountsService } from "../src/accounts/accounts.service";
@@ -210,7 +210,7 @@ test("실제 PostgreSQL에서 공유, 링크 방문자와 WebSocket 공동 편�
         headers: {
           Cookie: cookie,
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-          ...(connectionId ? { "x-cheddar-connection": connectionId } : {}),
+          ...(connectionId ? { "x-connection-id": connectionId } : {}),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });

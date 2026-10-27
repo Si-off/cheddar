@@ -1,5 +1,5 @@
-import type { Actor, CaseOp } from "@cheddar/contracts";
 import { Global, Injectable, Module } from "@nestjs/common";
+import type { Actor, CaseOp } from "@workspace/contracts";
 
 export type LiveChange =
   | { type: "resync"; testSetId: string; reason?: string; closeLinks?: boolean }

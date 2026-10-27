@@ -1,4 +1,4 @@
-import { Button, EmptyState, useToast } from "@cheddar/ui";
+import { Button, EmptyState, useToast } from "@workspace/ui";
 import { ExternalLink, Loader2, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type MeDto, sdk, toApiFailure } from "@/shared/api";
@@ -106,7 +106,7 @@ export function LoginPage({
             compact
             icon={UserRound}
             title="로그인"
-            description="Cheddar 계정으로 로그인하세요."
+            description="테스트 케이스 제네레이터 계정으로 로그인하세요."
           />
         )}
       </div>

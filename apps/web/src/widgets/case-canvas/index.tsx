@@ -1,4 +1,4 @@
-import { Badge, cn, IconButton, type Tone } from "@cheddar/ui";
+import { Badge, cn, IconButton, type Tone } from "@workspace/ui";
 import { Minus, Plus } from "lucide-react";
 import {
   type DragEvent,

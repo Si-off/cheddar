@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   Button,
   ConfirmDialog,
@@ -7,8 +8,7 @@ import {
   Switch,
   TextField,
   useToast,
-} from "@cheddar/ui";
-import { useQuery } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { Copy, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import {

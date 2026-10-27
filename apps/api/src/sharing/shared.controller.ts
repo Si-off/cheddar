@@ -75,7 +75,7 @@ export class SharedController {
     summary: "공개 링크의 케이스 편집",
   })
   @ApiHeader({
-    name: "x-cheddar-connection",
+    name: "x-connection-id",
     required: false,
     schema: { type: "string", format: "uuid" },
   })
@@ -86,7 +86,7 @@ export class SharedController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() dto: ApplyOpsDto,
-    @Headers("x-cheddar-connection") connectionId?: string,
+    @Headers("x-connection-id") connectionId?: string,
   ) {
     const subject = await this.shared.subject(token, req, res);
     return this.operations.apply("", subject, dto, connectionId ?? null);

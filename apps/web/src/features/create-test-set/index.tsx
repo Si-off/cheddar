@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   RadioGroup,
@@ -6,8 +7,7 @@ import {
   TextArea,
   TextField,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { Sparkles } from "lucide-react";
 import { type SubmitEvent, useRef, useState } from "react";
 import {

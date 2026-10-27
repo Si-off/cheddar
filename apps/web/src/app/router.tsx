@@ -1,4 +1,3 @@
-import { Button, EmptyState } from "@cheddar/ui";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -10,6 +9,7 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
+import { Button, EmptyState } from "@workspace/ui";
 import { CircleAlert, FileQuestion } from "lucide-react";
 import { Suspense } from "react";
 import { currentAccountQuery, isAdmin } from "@/entities/account";

@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Banner,
   Button,
@@ -7,8 +8,7 @@ import {
   Tag,
   TextField,
   useToast,
-} from "@cheddar/ui";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { Image, Link2, Loader2 } from "lucide-react";
 import {
   type ClipboardEvent,

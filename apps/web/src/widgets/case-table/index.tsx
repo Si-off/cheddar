@@ -12,7 +12,7 @@ import {
   Menu,
   Popover,
   useToast,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import {
   ChevronDown,
   MoreHorizontal,

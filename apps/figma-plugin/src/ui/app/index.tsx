@@ -1,5 +1,5 @@
-import { Button, EmptyState } from "@cheddar/ui";
 import { useQueryClient } from "@tanstack/react-query";
+import { Button, EmptyState } from "@workspace/ui";
 import { CircleAlert, CloudOff, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LoginPage } from "@/pages/login";
@@ -69,7 +69,7 @@ function Root() {
             compact
             icon={CircleAlert}
             title="플러그인 업데이트가 필요합니다"
-            description="Figma에서 Cheddar를 닫았다가 다시 실행하세요."
+            description="플러그인을 닫았다가 다시 실행하세요."
           />
         </div>
       </PluginShell>

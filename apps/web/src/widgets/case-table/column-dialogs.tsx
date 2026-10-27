@@ -1,4 +1,4 @@
-import { Button, Dialog, Switch, TextField } from "@cheddar/ui";
+import { Button, Dialog, Switch, TextField } from "@workspace/ui";
 import { type SubmitEvent, useState } from "react";
 import {
   type ColumnDraft,

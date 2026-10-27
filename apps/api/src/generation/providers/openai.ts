@@ -42,7 +42,7 @@ export class OpenAiProvider implements AiProvider {
           text: {
             format: {
               type: "json_schema",
-              name: `cheddar_${r.definition.key}`,
+              name: `stage_${r.definition.key}`,
               strict: true,
               schema: requestSchema(r.schema) as Record<string, unknown>,
             },

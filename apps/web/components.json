@@ -12,8 +12,8 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/shared/ui",
-    "ui": "@cheddar/ui",
-    "utils": "@cheddar/ui/utils",
+    "ui": "@workspace/ui",
+    "utils": "@workspace/ui/utils",
     "lib": "@/shared/ui",
     "hooks": "@/shared/ui"
   }

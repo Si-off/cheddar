@@ -1,10 +1,10 @@
-import { Banner, Button, LoadError, SaveStatus } from "@cheddar/ui";
 import {
   type UseQueryResult,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
+import { Banner, Button, LoadError, SaveStatus } from "@workspace/ui";
 import { type ReactNode, useState } from "react";
 import {
   featureGroupsQuery,

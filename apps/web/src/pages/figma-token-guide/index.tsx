@@ -1,4 +1,4 @@
-import { Button } from "@cheddar/ui";
+import { Button } from "@workspace/ui";
 import { Fragment, type ReactNode, useState } from "react";
 import { FigmaTokenDialog } from "@/features/figma-token";
 
@@ -25,14 +25,14 @@ function Path({ items, tail }: { items: string[]; tail?: ReactNode }) {
 }
 
 const scopes: [string, string][] = [
-  ["이름", "Cheddar"],
+  ["이름", "테스트 케이스 제네레이터"],
   ["만료", "최대 90일"],
   ["File content", "Read-only"],
   ["Current user", "Read-only"],
   ["나머지 범위", "No access"],
 ];
 
-/** Figma 개인 액세스 토큰을 만들어 Cheddar에 등록하는 순서 */
+/** Figma 개인 액세스 토큰을 만들어 테스트 케이스 제네레이터에 등록하는 순서 */
 export function FigmaTokenGuidePage() {
   const [registering, setRegistering] = useState(false);
   const steps: { title: string; body: ReactNode }[] = [
@@ -84,7 +84,7 @@ export function FigmaTokenGuidePage() {
       ),
     },
     {
-      title: "Cheddar에 등록",
+      title: "테스트 케이스 제네레이터에 등록",
       body: <Path items={["계정 메뉴", "Figma 토큰"]} />,
     },
   ];

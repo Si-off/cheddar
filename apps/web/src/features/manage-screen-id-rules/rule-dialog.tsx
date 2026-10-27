@@ -6,7 +6,7 @@ import {
   IconButton,
   Menu,
   Select,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import { MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import {
   type DragEvent,

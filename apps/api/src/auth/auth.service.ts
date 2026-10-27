@@ -16,7 +16,7 @@ import {
 } from "./credentials";
 import { revokeAccountPluginTokens } from "./plugin-tokens";
 
-export const SESSION_COOKIE = "cheddar_session";
+export const SESSION_COOKIE = "session";
 export const SESSION_SECONDS = 30 * 24 * 60 * 60;
 export const unauthenticated = () =>
   new ApiError(401, "UNAUTHENTICATED", "로그인이 필요합니다.");

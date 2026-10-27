@@ -1,5 +1,5 @@
 {
-  "name": "@cheddar/web",
+  "name": "@workspace/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@cheddar/contracts": "workspace:*",
-    "@cheddar/design-tokens": "workspace:*",
-    "@cheddar/ui": "workspace:*",
+    "@workspace/contracts": "workspace:*",
+    "@workspace/design-tokens": "workspace:*",
+    "@workspace/ui": "workspace:*",
     "@tanstack/react-query": "5.104.2",
     "@tanstack/react-router": "1.170.44",
     "lucide-react": "1.56.0",

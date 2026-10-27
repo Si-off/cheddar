@@ -1,5 +1,5 @@
-import { type Actor, type CaseOp, isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable } from "@nestjs/common";
+import { type Actor, type CaseOp, isCellImage } from "@workspace/contracts";
 import { isUUID } from "class-validator";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { ApiError, notFound } from "../common/errors";

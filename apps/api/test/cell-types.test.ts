@@ -2,7 +2,7 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { type CaseOp, isCellImage } from "@cheddar/contracts";
+import { type CaseOp, isCellImage } from "@workspace/contracts";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import ExcelJS from "exceljs";
 import sharp from "sharp";

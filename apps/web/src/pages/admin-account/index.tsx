@@ -1,6 +1,6 @@
-import { Badge, Button, IconButton, LoadError, Menu } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { Badge, Button, IconButton, LoadError, Menu } from "@workspace/ui";
 import { KeyRound, MoreHorizontal } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import {

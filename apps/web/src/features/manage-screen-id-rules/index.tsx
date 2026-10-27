@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   ConfirmDialog,
@@ -6,8 +7,7 @@ import {
   Menu,
   SortableList,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {

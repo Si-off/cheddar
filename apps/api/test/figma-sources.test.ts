@@ -190,7 +190,7 @@ test("Figma 토큰과 링크, 화면 이미지로 플러그인 없이 임시 업
         code,
       );
     const link = (nodeId?: string, key = FILE) =>
-      `https://www.figma.com/design/${key}/Cheddar${nodeId ? `?node-id=${nodeId.replace(":", "-")}` : ""}`;
+      `https://www.figma.com/design/${key}/Sample${nodeId ? `?node-id=${nodeId.replace(":", "-")}` : ""}`;
 
     // 토큰은 Figma에서 확인한 뒤 암호화해 저장하고 끝 네 글자만 보인다
     assert.deepEqual(
@@ -408,13 +408,13 @@ test("Figma 토큰과 링크, 화면 이미지로 플러그인 없이 임시 업
 test("Figma 링크에서 파일 키와 노드 ID를 읽는다", () => {
   assert.deepEqual(
     parseFigmaLink(
-      "https://www.figma.com/design/AbCdEf1234567/Cheddar?node-id=12-34&t=x",
+      "https://www.figma.com/design/AbCdEf1234567/Sample?node-id=12-34&t=x",
     ),
     { fileKey: "AbCdEf1234567", nodeId: "12:34" },
   );
   assert.deepEqual(
     parseFigmaLink(
-      "https://www.figma.com/design/AbCdEf1234567/branch/BrAnCh123456/Cheddar",
+      "https://www.figma.com/design/AbCdEf1234567/branch/BrAnCh123456/Sample",
     ),
     { fileKey: "BrAnCh123456", nodeId: null },
   );

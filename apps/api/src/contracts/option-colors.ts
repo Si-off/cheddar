@@ -1,4 +1,4 @@
-import { OPTION_COLORS, type OptionColor } from "@cheddar/contracts";
+import { OPTION_COLORS, type OptionColor } from "@workspace/contracts";
 import { registerDecorator } from "class-validator";
 
 export const COLORS_SCHEMA = {

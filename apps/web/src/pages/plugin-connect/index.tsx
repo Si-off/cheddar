@@ -1,6 +1,6 @@
-import { Button, buttonVariants, EmptyState, LoadError } from "@cheddar/ui";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { Button, buttonVariants, EmptyState, LoadError } from "@workspace/ui";
 import { Frame, TimerOff } from "lucide-react";
 import { currentAccountQuery } from "@/entities/account";
 import { sdk, toApiFailure } from "@/shared/api";

@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   Avatars,
   Badge,
@@ -8,9 +10,7 @@ import {
   SaveStatus,
   TextField,
   Toolbar,
-} from "@cheddar/ui";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+} from "@workspace/ui";
 import { Download, Eye, FileX, Link2Off, Search } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {

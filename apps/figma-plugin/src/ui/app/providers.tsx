@@ -1,5 +1,5 @@
-import { createToaster, ToastProvider } from "@cheddar/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createToaster, ToastProvider } from "@workspace/ui";
 import { MotionConfig } from "motion/react";
 import type { PropsWithChildren } from "react";
 import { configureApiClient } from "@/shared/api";

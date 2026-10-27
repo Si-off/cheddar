@@ -5918,7 +5918,7 @@
             }
           },
           {
-            "name": "x-cheddar-connection",
+            "name": "x-connection-id",
             "required": false,
             "in": "header",
             "schema": {
@@ -7163,7 +7163,7 @@
             }
           },
           {
-            "name": "x-cheddar-connection",
+            "name": "x-connection-id",
             "required": false,
             "in": "header",
             "schema": {
@@ -9973,7 +9973,7 @@
     }
   },
   "info": {
-    "title": "Cheddar API",
+    "title": "테스트 케이스 제네레이터 API",
     "description": "계정, 세션 인증, 프로젝트 설정과 테스트 세트 API. 활성 계정은 모든 프로젝트와 테스트 세트를 편집하고 관리자는 계정을 관리합니다.",
     "version": "2.0.0",
     "contact": {}
@@ -9985,7 +9985,7 @@
       "cookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "cheddar_session"
+        "name": "session"
       },
       "bearer": {
         "scheme": "bearer",

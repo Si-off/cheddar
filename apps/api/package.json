@@ -1,5 +1,5 @@
 {
-  "name": "@cheddar/api",
+  "name": "@workspace/api",
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",
@@ -9,7 +9,7 @@
     "typecheck": "tsc -p ../../packages/contracts/tsconfig.json && tsc -p tsconfig.json --noEmit",
     "start": "node --env-file-if-exists=.env.local dist/src/main.js",
     "dev": "pnpm build && pnpm start",
-    "test": "pnpm --filter @cheddar/contracts build && node --env-file-if-exists=.env.local scripts/test.mjs",
+    "test": "pnpm --filter @workspace/contracts build && node --env-file-if-exists=.env.local scripts/test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "pnpm build && node --env-file-if-exists=.env.local dist/scripts/migrate.js",
     "openapi:export": "pnpm build && node dist/scripts/export-openapi.js",
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
-    "@cheddar/contracts": "workspace:*",
+    "@workspace/contracts": "workspace:*",
     "@earendil-works/pi-ai": "1.4.0",
     "@earendil-works/pi-coding-agent": "1.4.0",
     "@nestjs/common": "12.1.3",

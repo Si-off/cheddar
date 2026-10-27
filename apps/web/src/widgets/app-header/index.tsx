@@ -1,6 +1,6 @@
-import { Icon, Menu, NavTab, NavTabs } from "@cheddar/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { Icon, Menu, NavTab, NavTabs } from "@workspace/ui";
 import { ChevronDown, Frame, KeyRound, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 import {

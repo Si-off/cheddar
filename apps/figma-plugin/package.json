@@ -1,5 +1,5 @@
 {
-  "name": "@cheddar/figma-plugin",
+  "name": "@workspace/figma-plugin",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -22,9 +22,9 @@
     "@tanstack/react-query": "5.104.2",
     "zustand": "5.0.15",
     "motion": "14.2.0",
-    "@cheddar/ui": "workspace:*",
-    "@cheddar/design-tokens": "workspace:*",
-    "@cheddar/contracts": "workspace:*"
+    "@workspace/ui": "workspace:*",
+    "@workspace/design-tokens": "workspace:*",
+    "@workspace/contracts": "workspace:*"
   },
   "devDependencies": {
     "vite": "7.3.7",

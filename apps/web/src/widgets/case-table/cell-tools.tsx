@@ -4,7 +4,7 @@ import {
   Menu,
   ToolbarMenu,
   ToolbarSeparator,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import {
   ArrowDown,
   ArrowDownFromLine,

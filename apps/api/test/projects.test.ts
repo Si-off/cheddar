@@ -211,7 +211,7 @@ test("실제 PostgreSQL에서 프로젝트 설정·권한·충돌·화면 구조
     await t.test("하위 설정 저장 실패 시 프로젝트 생성도 롤백", async () => {
       const name = randomUUID();
       const before = await db.select({ id: projects.id }).from(projects);
-      const fault = `cheddar_test_${randomUUID().replaceAll("-", "")}`;
+      const fault = `app_test_${randomUUID().replaceAll("-", "")}`;
       // 프로젝트와 양식 삽입 후 메모 저장이 실패해도 전체 생성이 롤백되어야 한다.
       await lease.database.pool.query(
         `CREATE FUNCTION "${fault}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'TEST_MEMO_WRITE_FAILED'; END $$`,

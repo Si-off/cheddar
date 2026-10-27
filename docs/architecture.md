@@ -127,7 +127,7 @@ Figma 저장 원문은 바꾸지 않고 `pi/frame-material.ts`에서 조회용 �
 - 계정은 이름, 로그인 아이디, 등급(`admin | member`), 상태(`active | inactive`), 비밀번호 해시를 가진다. 활성 계정은 비밀번호 해시가 필수다. 계정 삭제 API는 없다.
 - 로그인 아이디는 공백 제거·소문자화 후 유일하다. 새로 정하는 아이디는 영문 소문자, 숫자, `._-@`로 된 3~64자이며 이메일일 필요는 없다(메일 발송이 없다). 이 형식 이전의 이메일 계정이 막히지 않도록 로그인 요청과 컬럼(254자)은 형식을 강제하지 않는다.
 - 비밀번호는 Node 내장 `crypto.scrypt`(N=32768, r=8, p=1, 임의 16바이트 salt, 64바이트 결과)로 해시한다. 길이는 12~128자다.
-- 세션은 임의 32바이트 토큰을 `cheddar_session` 쿠키로 발급한다. `HttpOnly; SameSite=Lax; Path=/`, 운영(`NODE_ENV=production`)에서는 `Secure`다. 공유 방문자 쿠키도 `SameSite=Lax`다. 웹과 API는 같은 사이트(같은 등록 도메인)에 둔다. 쓰기 요청은 Origin 허용 목록으로 막는다. 고정 유효기간은 30일이며 연장하지 않는다. DB에는 SHA-256만 저장하고, 매 요청에 계정 상태를 확인한다.
+- 세션은 임의 32바이트 토큰을 `session` 쿠키로 발급한다. `HttpOnly; SameSite=Lax; Path=/`, 운영(`NODE_ENV=production`)에서는 `Secure`다. 공유 방문자 쿠키도 `SameSite=Lax`다. 웹과 API는 같은 사이트(같은 등록 도메인)에 둔다. 쓰기 요청은 Origin 허용 목록으로 막는다. 고정 유효기간은 30일이며 연장하지 않는다. DB에는 SHA-256만 저장하고, 매 요청에 계정 상태를 확인한다.
 - 관리자가 계정을 만들 때 처음 비밀번호를 정한다(`POST /api/v1/accounts`). 비밀번호 다시 정하기(`PUT /api/v1/accounts/:id/password`)와 비활성화는 그 계정의 세션과 플러그인 토큰을 폐기하고 live 연결을 끊는다. 내 비밀번호 바꾸기(`POST /api/v1/auth/password`)는 현재 비밀번호를 확인하고 지금 세션만 남긴다.
 - `@Public()` 외 컨트롤러는 전역 Guard에서 세션을 검사한다. 계정 API는 `@AdminOnly`다. 프로젝트, 테스트 세트, 생성, 확인 필요, 업로드, 내보내기, 공개 링크 설정은 모든 활성 계정이 쓴다.
 - 계정 변경은 공통 트랜잭션 advisory lock으로 직렬화하고, 커밋 전에 활성 관리자가 한 명 남는지 확인한다. 마지막 관리자를 구성원으로 바꾸거나 비활성화하면 거부한다.
@@ -168,7 +168,7 @@ Figma 저장 원문은 바꾸지 않고 `pi/frame-material.ts`에서 조회용 �
 
 - `temp-uploads`, `generation`, `review-items`가 임시 업로드, 생성 시작과 최근 작업, SSE, 확인 필요 목록과 수정, 제외와 복원, 케이스 추가와 다시 작성을 제공한다. 기존 세트의 보기와 편집 권한을 재사용한다. 보이지 않는 세트와 다른 계정의 업로드는 404, 보이지만 편집할 수 없는 세트는 403이다. 업로드 만들기는 모든 활성 계정이 한다.
 - 플러그인 없이 화면 자료를 넣는다(2026-10-27). `POST /api/v1/temp-uploads/figma`(`url`, 선택 `uploadId`)는 요청자의 Figma 토큰으로 링크를 읽고, `POST /api/v1/temp-uploads/images`(multipart `images[]`, 선택 `uploadId`)는 PNG, JPEG, WebP(장당 20MB)를 받는다. `uploadId`가 없으면 새 업로드를 만들고, 있으면 생성이 가져가지 않은 내 업로드에 프레임을 이어 붙이며 만료를 1시간 뒤로 미룬다. 응답은 업로드 전체, 이번에 붙인 프레임 ID, 링크 이름, 한도(업로드당 200프레임, 문서와 이미지 합계 200MB)를 넘어 넣지 못한 개수다. 이미지 요청 본문도 200MB에서 막는다. 실패하면 이번에 기록한 파일만 지운다.
-- Figma 링크는 파일 키와 `node-id`로 읽는다(브랜치 링크는 브랜치 파일). 프레임, 컴포넌트, 인스턴스는 그대로, 섹션과 페이지는 안의 보드로 펼치고 파일 링크는 모든 페이지의 최상위 보드를 읽는다. 보드 원본은 `GET /v1/files/:key/nodes`로 받아 플러그인과 같은 `buildScreenDocument`(`@cheddar/contracts`)로 화면 문서를 만든다. 이미지는 `GET /v1/images`의 PNG를 1, 0.5, 0.25배 순서로 받아 플러그인과 같은 타일 규칙(`tileRects`)으로 나누고, 이미지를 받지 못한 보드는 문서만 올린다. 사람이 올린 이미지는 PNG로 바꿔 같은 규칙으로 나누고 글자 구조가 빈 화면 문서와 함께 둔다. Figma 오류는 토큰 없음 `FIGMA_TOKEN_REQUIRED`(409), 토큰 만료 `FIGMA_TOKEN_INVALID`(409, 등록 때는 400), 링크 형식 `FIGMA_LINK_INVALID`(400), 볼 수 없는 링크 `FIGMA_LINK_UNAVAILABLE`(404), 연결 실패 `FIGMA_UNAVAILABLE`(503)이다. `FIGMA_API_BASE_URL`은 테스트에서만 바꾼다.
+- Figma 링크는 파일 키와 `node-id`로 읽는다(브랜치 링크는 브랜치 파일). 프레임, 컴포넌트, 인스턴스는 그대로, 섹션과 페이지는 안의 보드로 펼치고 파일 링크는 모든 페이지의 최상위 보드를 읽는다. 보드 원본은 `GET /v1/files/:key/nodes`로 받아 플러그인과 같은 `buildScreenDocument`(`@workspace/contracts`)로 화면 문서를 만든다. 이미지는 `GET /v1/images`의 PNG를 1, 0.5, 0.25배 순서로 받아 플러그인과 같은 타일 규칙(`tileRects`)으로 나누고, 이미지를 받지 못한 보드는 문서만 올린다. 사람이 올린 이미지는 PNG로 바꿔 같은 규칙으로 나누고 글자 구조가 빈 화면 문서와 함께 둔다. Figma 오류는 토큰 없음 `FIGMA_TOKEN_REQUIRED`(409), 토큰 만료 `FIGMA_TOKEN_INVALID`(409, 등록 때는 400), 링크 형식 `FIGMA_LINK_INVALID`(400), 볼 수 없는 링크 `FIGMA_LINK_UNAVAILABLE`(404), 연결 실패 `FIGMA_UNAVAILABLE`(503)이다. `FIGMA_API_BASE_URL`은 테스트에서만 바꾼다.
 - multipart는 `manifest` JSON 문자열과 프레임 순서의 `images[]`를 받는다. 프레임은 1~200개이며 `imageCount` 합계가 파일 수와 같아야 한다. 화면 문서는 플러그인 UI가 만들므로 서버는 가공하지 않고 `schemaVersion: 2`를 확인한다. 문서별 5MB 제한은 두지 않고 이미지와 합친 전체 업로드 상한을 적용한다. PNG/JPEG 서명과 MIME, 장당 10MB, multipart 본문 전체 200MB를 검사한다. 인증을 기다리는 동안 크기 검사기가 본문을 소비하지 않도록 스트림을 멈추고 multer가 준비되면 재개한다. 파일은 기존 로컬 저장소의 UUID 경로에 저장한다. 업로드 행을 파일보다 먼저 기록해 기록 중 종료된 요청도 만료 정리가 찾을 수 있게 한다.
 - 셀 이미지는 `POST /test-sets/:id/images`와 `POST /shared/:token/images`(multipart `file`, 편집 권한)로 올리고 `GET …/images/:imageId`(볼 권한, 다른 세트 id는 404, `private, max-age=31536000, immutable`)로 읽는다. PNG, JPEG, GIF, WebP와 10MB를 서명으로 검사하고 크기는 `sharp`로 읽는다. 파일은 임시 업로드와 나뉜 로컬 저장소의 영구 경로에 둔다. `set_cell`과 케이스 값 검증은 `{ image }`를 텍스트 열에서, 그 세트에 있는 이미지 id일 때만 받는다.
 - 열 항목 색은 `test_set_columns.colors`와 양식 열의 `colors`(항목 이름 → gray/red/yellow/green/teal/blue/purple)에 둔다. `update_column`의 `colors`는 목록에 없는 이름을 버리고 저장하며, `columnType: "select"`는 사용자 텍스트 열에만 받아 형식을 바꾸고 그 열의 이미지 값을 비운다. XLSX의 색은 웹 라이트 테마의 soft 배경과 글자 토큰 값을 쓴다.
@@ -220,7 +220,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 ## 공동 편집
 
-- 셀 값 설정과 행 추가·삭제·이동은 기존 HTTP ops로 저장하고 WebSocket은 커밋 뒤 전파와 접속자·선택 표시에 쓴다. 웹의 대기열·재전송·결과 불명 처리를 재사용하며 같은 셀은 나중에 온 값이 이긴다. 단일 API 프로세스에서 test_sets.version과 방별 최근 500묶음으로 누락을 복구하고, 열·이름·메모·AI·확인 필요·공유 변경은 resync로 다시 읽는다. 전송 계약은 @cheddar/contracts의 빌드 결과를 공유한다.
+- 셀 값 설정과 행 추가·삭제·이동은 기존 HTTP ops로 저장하고 WebSocket은 커밋 뒤 전파와 접속자·선택 표시에 쓴다. 웹의 대기열·재전송·결과 불명 처리를 재사용하며 같은 셀은 나중에 온 값이 이긴다. 단일 API 프로세스에서 test_sets.version과 방별 최근 500묶음으로 누락을 복구하고, 열·이름·메모·AI·확인 필요·공유 변경은 resync로 다시 읽는다. 전송 계약은 @workspace/contracts의 빌드 결과를 공유한다.
 - 서버는 연산마다 권한을 확인하고 정규화된 테이블에 바로 저장한 뒤 같은 방에 전파한다. 연산에는 순번을 붙여 재연결 때 빠진 연산을 받는다.
 - 접속자와 셀 선택은 저장하지 않고 방 안에서만 전파한다.
 - 권한 변경, 링크 재발급, 비공개 전환, 계정 비활성화가 일어나면 해당 연결을 바로 끊는다.
@@ -249,7 +249,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 - 호출별 계산 비용은 `numeric(24,12)` USD이며 `generation/pricing.ts`의 호출 당시 단가, 버전과 조건을 함께 저장한다. Sonnet 5.5의 캐시 읽기는 100만 토큰당 $0.10이며 단가 버전은 2026-10-27이다. 단가 수정은 이후 계산에 적용하며 과거 호출 비용을 일괄 재계산하지 않는다. 이 브랜치의 모델별 표준 단가와 긴 문맥 요금을 사용하고 알 수 없는 응답 모델과 비표준 tier는 미확인으로 둔다. fake는 외부 호출 없이 합성 사용량과 비용 0을 기록한다. 단계 합계는 기존 형식을 유지한다.
 - `generation_jobs`는 요청 등록부터 종료까지의 시간을 기록한다. 대기 상태에서는 `expires_at`을 검사하지 않는다. 실행 시작 시 복구 유효기간을 갱신하고 staged의 다음 단계는 다시 pending으로 전환한다. 중단된 running 작업의 유효기간이 지나고 실행 잠금이 풀려 있으면 실패 처리한다. 실행 중 잠금이 있는 작업은 정리하지 않는다. pi의 자체 실행 제한은 처음 실행된 시점부터 계산한다. 만료와 재개에서 남은 running 호출은 unknown으로 표시한다.
 - 공급자 관리자 키와 해당 프로젝트 또는 워크스페이스 ID를 함께 설정하면 시작 시와 기본 1시간 간격으로 오늘을 포함한 최근 7 UTC 일의 비용 집계를 `ai_provider_costs`에 동기화한다. 테스트와 `AI_PROVIDER=fake`에서는 자동 동기화하지 않으며 fake 설정은 명시 동기화도 외부 호출 없이 끝낸다. 호출별 계산 비용과 공급자 집계는 별개이고 오늘 집계는 잠정 값이다.
-- 모든 페이지를 검증한 후 해당 공급자, scope와 기간만 advisory 트랜잭션 잠금 안에서 교체한다. 수정과 삭제된 집계를 반영하고 중복 집계를 피하며, 실패한 공급자는 기존 값을 보존한다. `pnpm --filter @cheddar/api ai:costs:sync [UTC_FROM_DATE UTC_UNTIL_DATE_EXCLUSIVE]`로 최근 7일 또는 지정한 1~31일을 동기화한다. 키와 scope의 짝, scope 형식과 주기 60~86400초를 시작 시 검증한다.
+- 모든 페이지를 검증한 후 해당 공급자, scope와 기간만 advisory 트랜잭션 잠금 안에서 교체한다. 수정과 삭제된 집계를 반영하고 중복 집계를 피하며, 실패한 공급자는 기존 값을 보존한다. `pnpm --filter @workspace/api ai:costs:sync [UTC_FROM_DATE UTC_UNTIL_DATE_EXCLUSIVE]`로 최근 7일 또는 지정한 1~31일을 동기화한다. 키와 scope의 짝, scope 형식과 주기 60~86400초를 시작 시 검증한다.
 - `ai_provider_cost_syncs`는 공급자, scope와 UTC 일별 동기화 워터마크를 비용 행과 같은 트랜잭션에 저장한다. 빈 보고서에도 워터마크를 남겨 다른 API 프로세스에서 먼저 시작한 동기화가 최신 빈 결과를 덮어쓰지 못하게 한다. 기간이 겹치면 최신 워터마크가 있는 오래된 요청 전체를 건너뛴다.
 - 최초/추가 생성, 다시 작성, 열 채우기는 기존 PostgreSQL 큐에 접수한다. `config/env.ts`의 `GENERATION_CONCURRENCY`(2)는 pg-boss의 프로세스당 localConcurrency이며 접수 개수 제한이 아니다. 큐 작업은 기본 생성 시각 순서로 가져오며 완료 순서는 실행 시간에 따라 다르다. API DB 풀은 실행 잠금용 연결 수에 요청·체크포인트용 5개를 더한다. 같은 세트의 진행 중 작업은 기존 409 GENERATION_RUNNING으로 보호한다.
 - 생성과 다시 작성 DTO의 선택형 `clientRequestId`는 요청 계정별로 유일하다. 같은 ID와 요청 내용이면 기존 작업을 반환하고, 대상 세트나 내용이 다르면 409 `REQUEST_REUSED`로 거절한다. ID를 생략한 기존 요청은 그대로 지원한다. 사용량의 화면과 외부 조회 API는 추가하지 않으며 웹과 플러그인 SDK도 생성하지 않는다.
@@ -259,7 +259,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 - 직접 선택한 Frame과 선택한 Section 안의 최상위 Frame을 모은다. 중복은 한 번만 포함한다.
 - AI에는 원본 JSON 대신 보드별 화면 문서를 보낸다. 남기는 것: 모든 반복 항목의 글자 원문과 줄바꿈, 프레임과 인스턴스 이름, 컴포넌트 속성 값, 연결선, Dev Mode 주석, 노드 ID·부모 ID·좌표, 글자의 취소선·밑줄 구간. 숨김 노드와 일반 벡터 장식은 제외하고 추가·삭제·닫기·화살표처럼 기능을 나타내는 아이콘 및 인스턴스는 남긴다.
-- 업로드 일관성은 프레임 단위다. main은 페이지 변화를 지켜보지 않는다. `prepare-upload`는 그 순간의 선택에서 프레임 목록만 잡고(선택 버전, 지원하지 않는 레이어, 빈 Section, 파일 키로 막지 않는다), `export-frame`은 REST 원본을 읽고 이미지를 그린 뒤 다시 읽어 같지 않으면 최대 3번까지 다시 읽고 마지막 모습을 쓴다. 이미지는 20MB를 넘으면 배율 0.5, 0.25로 다시 그리고, 화면 문서와 REST 원본은 크기에 따라 내용을 삭제하지 않는다. 기존 프레임과 이미지 연결을 유지하며 pi는 노드 단위 텍스트 조회·검색을 기본으로 사용하고 필요할 때 `read_frame(mode=raw)`의 24,000자 범위 읽기로 원본 구조를 확인한다. 전체 업로드 200MB 제한은 서버가 적용한다. 지워진 프레임만 `FRAME_REMOVED`로 알리며 UI는 그 프레임을 빼고 나머지를 올린다. UI는 일시적인 실패(응답 없음 포함)를 한 번 더 시도한다. 세션이 없거나 Figma와 연결이 끊기면 남은 프레임은 읽지 않지만, 이미 읽은 프레임은 그대로 올린다. 이름이 255자를 넘게 바뀌면 잘라서 보낸다. 다시 읽기, 이미지 축소, 건너뛰기는 사용자에게 띄우지 않고 main의 `[cheddar]` 로그로 남긴다. 프로토콜 버전 3.
+- 업로드 일관성은 프레임 단위다. main은 페이지 변화를 지켜보지 않는다. `prepare-upload`는 그 순간의 선택에서 프레임 목록만 잡고(선택 버전, 지원하지 않는 레이어, 빈 Section, 파일 키로 막지 않는다), `export-frame`은 REST 원본을 읽고 이미지를 그린 뒤 다시 읽어 같지 않으면 최대 3번까지 다시 읽고 마지막 모습을 쓴다. 이미지는 20MB를 넘으면 배율 0.5, 0.25로 다시 그리고, 화면 문서와 REST 원본은 크기에 따라 내용을 삭제하지 않는다. 기존 프레임과 이미지 연결을 유지하며 pi는 노드 단위 텍스트 조회·검색을 기본으로 사용하고 필요할 때 `read_frame(mode=raw)`의 24,000자 범위 읽기로 원본 구조를 확인한다. 전체 업로드 200MB 제한은 서버가 적용한다. 지워진 프레임만 `FRAME_REMOVED`로 알리며 UI는 그 프레임을 빼고 나머지를 올린다. UI는 일시적인 실패(응답 없음 포함)를 한 번 더 시도한다. 세션이 없거나 Figma와 연결이 끊기면 남은 프레임은 읽지 않지만, 이미 읽은 프레임은 그대로 올린다. 이름이 255자를 넘게 바뀌면 잘라서 보낸다. 다시 읽기, 이미지 축소, 건너뛰기는 사용자에게 띄우지 않고 main의 `[plugin]` 로그로 남긴다. 프로토콜 버전 3.
 - 미리보기는 플러그인 창(출처 없는 문서)이 blob 주소를 불러오지 못하므로 data 주소로 넣는다.
 - 이미지는 보드 단위로 렌더하고, 큰 보드는 겹치게 타일로 자른다. 높이 2000px까지는 한 장, 넘으면 1600px 타일을 200px씩 겹친다(플러그인 UI의 canvas에서 자른다).
 - 화면 문서 형식은 `schemaVersion: 2`의 `{ board, texts, tree, links, notes }`다. board에도 원본 ID를 남겨 최상위 노드의 부모를 식별한다. 찾지 못한 연결은 버린다.
@@ -274,7 +274,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 ## 시트 개선안 (2026-10-21 확정·구현)
 
-제품 계약은 [제품 정의](product.md)의 프로젝트, 테스트 세트, AI 생성 절이다. 시안은 [Cheddar 화면 시안](https://claude.ai/artifact/LBfqbThAA8AGkkAYd8BNdA)의 테스트 세트·프로젝트 설정 페이지에 있다. 아래는 그 계약을 구현한 구조다.
+제품 계약은 [제품 정의](product.md)의 프로젝트, 테스트 세트, AI 생성 절이다. 시안은 [테스트 케이스 제네레이터 화면 시안](https://claude.ai/artifact/LBfqbThAA8AGkkAYd8BNdA)의 테스트 세트·프로젝트 설정 페이지에 있다. 아래는 그 계약을 구현한 구조다.
 
 ### 데이터 모델
 
@@ -305,7 +305,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 ### 웹
 
 - pages: `test-set-new`가 양식 선택(프로젝트 양식, 최근 테스트 세트와 같게, 직접 고르기)과 프레임 토글을 가진다. `project-settings` 탭은 양식, 기능 그룹, 화면 구조(규칙 목록 + 화면 목록), 메모다. 브레드크럼은 없고 저장 상태는 오른쪽이다.
-- entities: `project`에 `presetKey`·`enabled`·화면 유형·규칙 타입과 `ColumnForm`(열 이름·형식·작성 기준 폼, 양식 탭과 열 추가가 함께 씀). `test-set`의 `CaseOp`는 `@cheddar/contracts`를 그대로 쓰고 `applyOps`가 열 연산을 낙관 반영한다. `mergeable`이 병합 표시 대상 열을, `mergeBounds`가 뒤쪽 병합 열의 경계가 되는 열(테스트 환경, 테스트 케이스)을 정한다.
+- entities: `project`에 `presetKey`·`enabled`·화면 유형·규칙 타입과 `ColumnForm`(열 이름·형식·작성 기준 폼, 양식 탭과 열 추가가 함께 씀). `test-set`의 `CaseOp`는 `@workspace/contracts`를 그대로 쓰고 `applyOps`가 열 연산을 낙관 반영한다. `mergeable`이 병합 표시 대상 열을, `mergeBounds`가 뒤쪽 병합 열의 경계가 되는 열(테스트 환경, 테스트 케이스)을 정한다.
 - features: `manage-template-columns`(`edit-template` 대체), `manage-screen-id-rules`(목록 + `rule-dialog.tsx`의 편집기 `RuleParts` + `new-rule-dialog.tsx`의 자료 넣기와 AI 초안), `manage-screens`(유형, 규칙 불일치, 다음 ID 채운 추가, `import-dialog.tsx`의 자료 넣기와 결과 확인), `create-test-set`(양식 3택 + `column-modal.tsx`). `manage-required-cases`, `edit-test-set-columns`는 없다.
 - widgets: `column-picker`(프로젝트 양식 탭의 열 목록), `case-table`(병합 표시와 셀 나누기, 머리글 끌기와 되돌리기 토스트, 머리글 ⋯ 메뉴, 머리글 `+`, 셀 우클릭 메뉴, `column-dialogs.tsx`의 열 추가·이름 변경, `options-panel.tsx`의 선택 항목 편집. 고르기는 `Menu.Popup`의 `footer`에 연필을 두고, 편집은 같은 셀이나 머리글에 붙는 `Popover`로 연다). `columns-editor`는 없다. 열 연산은 모두 `onOps`로 보내며 별도 feature를 두지 않는다.
 - `packages/ui`: `Tabs`의 미끄러지는 선택 표시줄, `ContextMenu`, `DataGrid`의 `mergeKey`·`mergeBounds`(false면 뒤쪽 병합 열을 끊지 않음)·`fixed`·`headerAction`·`onColumnReorder`·`headerEnd`·`cellMenu`, 토스트 `action`.
@@ -313,7 +313,7 @@ UUID를 주 키로 쓰고 시각은 timezone이 있는 timestamp로 저장한다
 
 ## 파일에서 화면 구조 초안 (2026-10-23)
 
-제품 계약은 [제품 정의](product.md)의 화면 구조와 화면 ID 규칙 항목이다. 시안은 [Cheddar 화면 시안](https://claude.ai/artifact/LBfqbThAA8AGkkAYd8BNdA) 프로젝트 설정 페이지의 "파일로 만들기" 줄에 있다.
+제품 계약은 [제품 정의](product.md)의 화면 구조와 화면 ID 규칙 항목이다. 시안은 [테스트 케이스 제네레이터 화면 시안](https://claude.ai/artifact/LBfqbThAA8AGkkAYd8BNdA) 프로젝트 설정 페이지의 "파일로 만들기" 줄에 있다.
 
 - API: `POST /projects/:id/screen-id-rules/drafts`, `POST /projects/:id/screens/drafts`는 multipart(`text`, `files[]` 최대 10개, 파일당 10MB, 합계 30MB. 합계는 `Content-Length`로 본문을 읽기 전에 막는다)를 받아 저장하지 않은 초안을 돌려준다. 저장은 기존 규칙 추가와 새 `POST /projects/:id/screens/batch`(이미 있는 ID 건너뜀, `parentScreenId`로 같은 요청이나 기존 화면에 잇기)로 한다. 기존 `screens/import`는 없앴다.
 - 자료 읽기(`projects/screen-sources.ts`): XLSX는 보이는 시트를 셀 글자로(서식 글자, 링크, 수식 결과 포함), CSV와 TSV는 표로, TXT와 MD는 글로, PNG와 JPG는 이미지로 나눈다. 읽지 못한 파일은 이름만 `unreadFiles`로 돌려주고 나머지로 진행한다. 이미지는 8장까지 읽고 넘는 이미지도 `unreadFiles`로 알린다.

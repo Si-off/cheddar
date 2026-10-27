@@ -52,7 +52,7 @@ export async function mockApi(
       "access-control-allow-origin": new URL(page.url() || "http://127.0.0.1")
         .origin,
       "access-control-allow-credentials": "true",
-      "access-control-allow-headers": "content-type, x-cheddar-connection",
+      "access-control-allow-headers": "content-type, x-connection-id",
     };
     if (request.method() === "OPTIONS")
       return route.fulfill({ status: 204, headers });

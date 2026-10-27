@@ -1,4 +1,4 @@
-import { Button, Checkbox, Dialog, TextField } from "@cheddar/ui";
+import { Button, Checkbox, Dialog, TextField } from "@workspace/ui";
 import { useState } from "react";
 import {
   type CaseOp,

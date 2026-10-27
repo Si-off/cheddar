@@ -11,7 +11,7 @@
 기준 문서 등록은 이번 실험에서 CLI로 제공한다. 프로젝트 설정에 등록 화면을 추가하는 작업은 포함하지 않았다.
 
 ```sh
-pnpm --filter @cheddar/api qa:reference --project <프로젝트-UUID> --file /절대/경로/기준-QA.xlsx --sheet '916 QA'
+pnpm --filter @workspace/api qa:reference --project <프로젝트-UUID> --file /절대/경로/기준-QA.xlsx --sheet '916 QA'
 ```
 
 `--sheet`는 여러 번 지정할 수 있고 생략하면 모든 시트를 등록한다. 같은 프로젝트에 다시 실행하면 이후 생성에 사용할 기준 문서를 교체한다. 진행 중인 작업은 요청 당시 사본을 계속 쓴다. `--project <UUID> --remove`는 연결을 해제한다. 문서 등록은 프로젝트의 열을 자동 변경하지 않는다.
@@ -27,7 +27,7 @@ Node와 pnpm은 `.nvmrc`, 루트 `package.json`의 버전을 쓴다. 별도 Post
 ```sh
 pnpm install --frozen-lockfile
 pnpm db:migrate
-pnpm --filter @cheddar/api admin:create --login-id pi-demo --name "실험 관리자"
+pnpm --filter @workspace/api admin:create --login-id pi-demo --name "실험 관리자"
 pnpm dev:api
 pnpm dev:web
 pnpm dev:plugin

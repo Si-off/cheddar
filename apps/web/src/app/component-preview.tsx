@@ -31,7 +31,7 @@ import {
   ToolbarMenu,
   ToolbarSeparator,
   useToast,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import {
   Copy,
   Download,
@@ -562,7 +562,7 @@ function Preview() {
                 <TextField
                   aria-label="공유 링크"
                   readOnly
-                  defaultValue="cheddar.app/s/7Kq2xVm"
+                  defaultValue="example.com/s/7Kq2xVm"
                 />
               </Dialog.Body>
               <Dialog.Footer>

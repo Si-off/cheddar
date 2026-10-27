@@ -12,7 +12,7 @@ import {
   TestSetsStore,
 } from "../test-sets/test-sets.store";
 
-export const VISITOR_COOKIE = "cheddar_visitor";
+export const VISITOR_COOKIE = "visitor";
 export function cookie(request: IncomingMessage, name: string) {
   return request.headers.cookie
     ?.split(";")

@@ -1,6 +1,6 @@
-import { createToaster } from "@cheddar/ui";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
+import { createToaster } from "@workspace/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProviders } from "./app/providers";

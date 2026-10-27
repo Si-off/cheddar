@@ -28,7 +28,7 @@ export const getReadiness = <ThrowOnError extends boolean = false>(options?: Opt
 export const listAccounts = <ThrowOnError extends boolean = false>(options?: Options<ListAccountsData, ThrowOnError>): RequestResult<ListAccountsResponses, ListAccountsErrors, ThrowOnError> => (options?.client ?? client).get<ListAccountsResponses, ListAccountsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts',
@@ -41,7 +41,7 @@ export const listAccounts = <ThrowOnError extends boolean = false>(options?: Opt
 export const createAccount = <ThrowOnError extends boolean = false>(options: Options<CreateAccountData, ThrowOnError>): RequestResult<CreateAccountResponses, CreateAccountErrors, ThrowOnError> => (options.client ?? client).post<CreateAccountResponses, CreateAccountErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts',
@@ -58,7 +58,7 @@ export const createAccount = <ThrowOnError extends boolean = false>(options: Opt
 export const getAccount = <ThrowOnError extends boolean = false>(options: Options<GetAccountData, ThrowOnError>): RequestResult<GetAccountResponses, GetAccountErrors, ThrowOnError> => (options.client ?? client).get<GetAccountResponses, GetAccountErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts/{accountId}',
@@ -71,7 +71,7 @@ export const getAccount = <ThrowOnError extends boolean = false>(options: Option
 export const updateAccount = <ThrowOnError extends boolean = false>(options: Options<UpdateAccountData, ThrowOnError>): RequestResult<UpdateAccountResponses, UpdateAccountErrors, ThrowOnError> => (options.client ?? client).patch<UpdateAccountResponses, UpdateAccountErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts/{accountId}',
@@ -88,7 +88,7 @@ export const updateAccount = <ThrowOnError extends boolean = false>(options: Opt
 export const deactivateAccount = <ThrowOnError extends boolean = false>(options: Options<DeactivateAccountData, ThrowOnError>): RequestResult<DeactivateAccountResponses, DeactivateAccountErrors, ThrowOnError> => (options.client ?? client).post<DeactivateAccountResponses, DeactivateAccountErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts/{accountId}/deactivate',
@@ -101,7 +101,7 @@ export const deactivateAccount = <ThrowOnError extends boolean = false>(options:
 export const reactivateAccount = <ThrowOnError extends boolean = false>(options: Options<ReactivateAccountData, ThrowOnError>): RequestResult<ReactivateAccountResponses, ReactivateAccountErrors, ThrowOnError> => (options.client ?? client).post<ReactivateAccountResponses, ReactivateAccountErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts/{accountId}/reactivate',
@@ -114,7 +114,7 @@ export const reactivateAccount = <ThrowOnError extends boolean = false>(options:
 export const resetAccountPassword = <ThrowOnError extends boolean = false>(options: Options<ResetAccountPasswordData, ThrowOnError>): RequestResult<ResetAccountPasswordResponses, ResetAccountPasswordErrors, ThrowOnError> => (options.client ?? client).put<ResetAccountPasswordResponses, ResetAccountPasswordErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/accounts/{accountId}/password',
@@ -148,7 +148,7 @@ export const logout = <ThrowOnError extends boolean = false>(options?: Options<L
 export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/v1/auth/me',
@@ -161,7 +161,7 @@ export const getMe = <ThrowOnError extends boolean = false>(options?: Options<Ge
 export const changeMyPassword = <ThrowOnError extends boolean = false>(options: Options<ChangeMyPasswordData, ThrowOnError>): RequestResult<ChangeMyPasswordResponses, ChangeMyPasswordErrors, ThrowOnError> => (options.client ?? client).post<ChangeMyPasswordResponses, ChangeMyPasswordErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/auth/password',
@@ -183,7 +183,7 @@ export const createPluginConnection = <ThrowOnError extends boolean = false>(opt
 export const getPluginConnectionRequest = <ThrowOnError extends boolean = false>(options: Options<GetPluginConnectionRequestData, ThrowOnError>): RequestResult<GetPluginConnectionRequestResponses, GetPluginConnectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetPluginConnectionRequestResponses, GetPluginConnectionRequestErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/plugin-connections/requests/{requestToken}',
@@ -196,7 +196,7 @@ export const getPluginConnectionRequest = <ThrowOnError extends boolean = false>
 export const approvePluginConnection = <ThrowOnError extends boolean = false>(options: Options<ApprovePluginConnectionData, ThrowOnError>): RequestResult<ApprovePluginConnectionResponses, ApprovePluginConnectionErrors, ThrowOnError> => (options.client ?? client).post<ApprovePluginConnectionResponses, ApprovePluginConnectionErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/plugin-connections/requests/{requestToken}/approve',
@@ -230,7 +230,7 @@ export const revokePluginConnection = <ThrowOnError extends boolean = false>(opt
 export const listProjects = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsData, ThrowOnError>): RequestResult<ListProjectsResponses, ListProjectsErrors, ThrowOnError> => (options?.client ?? client).get<ListProjectsResponses, ListProjectsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/v1/projects',
@@ -243,7 +243,7 @@ export const listProjects = <ThrowOnError extends boolean = false>(options?: Opt
 export const createProject = <ThrowOnError extends boolean = false>(options: Options<CreateProjectData, ThrowOnError>): RequestResult<CreateProjectResponses, CreateProjectErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectResponses, CreateProjectErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects',
@@ -260,7 +260,7 @@ export const createProject = <ThrowOnError extends boolean = false>(options: Opt
 export const getProject = <ThrowOnError extends boolean = false>(options: Options<GetProjectData, ThrowOnError>): RequestResult<GetProjectResponses, GetProjectErrors, ThrowOnError> => (options.client ?? client).get<GetProjectResponses, GetProjectErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}',
@@ -273,7 +273,7 @@ export const getProject = <ThrowOnError extends boolean = false>(options: Option
 export const updateProject = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectData, ThrowOnError>): RequestResult<UpdateProjectResponses, UpdateProjectErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectResponses, UpdateProjectErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}',
@@ -290,7 +290,7 @@ export const updateProject = <ThrowOnError extends boolean = false>(options: Opt
 export const getProjectTemplate = <ThrowOnError extends boolean = false>(options: Options<GetProjectTemplateData, ThrowOnError>): RequestResult<GetProjectTemplateResponses, GetProjectTemplateErrors, ThrowOnError> => (options.client ?? client).get<GetProjectTemplateResponses, GetProjectTemplateErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/template',
@@ -303,7 +303,7 @@ export const getProjectTemplate = <ThrowOnError extends boolean = false>(options
 export const updateProjectTemplate = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectTemplateData, ThrowOnError>): RequestResult<UpdateProjectTemplateResponses, UpdateProjectTemplateErrors, ThrowOnError> => (options.client ?? client).put<UpdateProjectTemplateResponses, UpdateProjectTemplateErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/template',
@@ -320,7 +320,7 @@ export const updateProjectTemplate = <ThrowOnError extends boolean = false>(opti
 export const listProjectFeatureGroups = <ThrowOnError extends boolean = false>(options: Options<ListProjectFeatureGroupsData, ThrowOnError>): RequestResult<ListProjectFeatureGroupsResponses, ListProjectFeatureGroupsErrors, ThrowOnError> => (options.client ?? client).get<ListProjectFeatureGroupsResponses, ListProjectFeatureGroupsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/feature-groups',
@@ -333,7 +333,7 @@ export const listProjectFeatureGroups = <ThrowOnError extends boolean = false>(o
 export const createProjectFeatureGroup = <ThrowOnError extends boolean = false>(options: Options<CreateProjectFeatureGroupData, ThrowOnError>): RequestResult<CreateProjectFeatureGroupResponses, CreateProjectFeatureGroupErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectFeatureGroupResponses, CreateProjectFeatureGroupErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/feature-groups',
@@ -350,7 +350,7 @@ export const createProjectFeatureGroup = <ThrowOnError extends boolean = false>(
 export const deleteProjectFeatureGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectFeatureGroupData, ThrowOnError>): RequestResult<DeleteProjectFeatureGroupResponses, DeleteProjectFeatureGroupErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectFeatureGroupResponses, DeleteProjectFeatureGroupErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/feature-groups/{groupId}',
@@ -363,7 +363,7 @@ export const deleteProjectFeatureGroup = <ThrowOnError extends boolean = false>(
 export const updateProjectFeatureGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectFeatureGroupData, ThrowOnError>): RequestResult<UpdateProjectFeatureGroupResponses, UpdateProjectFeatureGroupErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectFeatureGroupResponses, UpdateProjectFeatureGroupErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/feature-groups/{groupId}',
@@ -380,7 +380,7 @@ export const updateProjectFeatureGroup = <ThrowOnError extends boolean = false>(
 export const reorderProjectFeatureGroups = <ThrowOnError extends boolean = false>(options: Options<ReorderProjectFeatureGroupsData, ThrowOnError>): RequestResult<ReorderProjectFeatureGroupsResponses, ReorderProjectFeatureGroupsErrors, ThrowOnError> => (options.client ?? client).put<ReorderProjectFeatureGroupsResponses, ReorderProjectFeatureGroupsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/feature-groups/order',
@@ -397,7 +397,7 @@ export const reorderProjectFeatureGroups = <ThrowOnError extends boolean = false
 export const listProjectScreenIdRules = <ThrowOnError extends boolean = false>(options: Options<ListProjectScreenIdRulesData, ThrowOnError>): RequestResult<ListProjectScreenIdRulesResponses, ListProjectScreenIdRulesErrors, ThrowOnError> => (options.client ?? client).get<ListProjectScreenIdRulesResponses, ListProjectScreenIdRulesErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules',
@@ -410,7 +410,7 @@ export const listProjectScreenIdRules = <ThrowOnError extends boolean = false>(o
 export const createProjectScreenIdRule = <ThrowOnError extends boolean = false>(options: Options<CreateProjectScreenIdRuleData, ThrowOnError>): RequestResult<CreateProjectScreenIdRuleResponses, CreateProjectScreenIdRuleErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectScreenIdRuleResponses, CreateProjectScreenIdRuleErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules',
@@ -427,7 +427,7 @@ export const createProjectScreenIdRule = <ThrowOnError extends boolean = false>(
 export const deleteProjectScreenIdRule = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectScreenIdRuleData, ThrowOnError>): RequestResult<DeleteProjectScreenIdRuleResponses, DeleteProjectScreenIdRuleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectScreenIdRuleResponses, DeleteProjectScreenIdRuleErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}',
@@ -440,7 +440,7 @@ export const deleteProjectScreenIdRule = <ThrowOnError extends boolean = false>(
 export const updateProjectScreenIdRule = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectScreenIdRuleData, ThrowOnError>): RequestResult<UpdateProjectScreenIdRuleResponses, UpdateProjectScreenIdRuleErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectScreenIdRuleResponses, UpdateProjectScreenIdRuleErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}',
@@ -457,7 +457,7 @@ export const updateProjectScreenIdRule = <ThrowOnError extends boolean = false>(
 export const reorderProjectScreenIdRules = <ThrowOnError extends boolean = false>(options: Options<ReorderProjectScreenIdRulesData, ThrowOnError>): RequestResult<ReorderProjectScreenIdRulesResponses, ReorderProjectScreenIdRulesErrors, ThrowOnError> => (options.client ?? client).put<ReorderProjectScreenIdRulesResponses, ReorderProjectScreenIdRulesErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules/order',
@@ -474,7 +474,7 @@ export const reorderProjectScreenIdRules = <ThrowOnError extends boolean = false
 export const listProjectScreens = <ThrowOnError extends boolean = false>(options: Options<ListProjectScreensData, ThrowOnError>): RequestResult<ListProjectScreensResponses, ListProjectScreensErrors, ThrowOnError> => (options.client ?? client).get<ListProjectScreensResponses, ListProjectScreensErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screens',
@@ -487,7 +487,7 @@ export const listProjectScreens = <ThrowOnError extends boolean = false>(options
 export const createProjectScreen = <ThrowOnError extends boolean = false>(options: Options<CreateProjectScreenData, ThrowOnError>): RequestResult<CreateProjectScreenResponses, CreateProjectScreenErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectScreenResponses, CreateProjectScreenErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screens',
@@ -504,7 +504,7 @@ export const createProjectScreen = <ThrowOnError extends boolean = false>(option
 export const deleteProjectScreen = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectScreenData, ThrowOnError>): RequestResult<DeleteProjectScreenResponses, DeleteProjectScreenErrors, ThrowOnError> => (options.client ?? client).delete<DeleteProjectScreenResponses, DeleteProjectScreenErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screens/{itemId}',
@@ -517,7 +517,7 @@ export const deleteProjectScreen = <ThrowOnError extends boolean = false>(option
 export const updateProjectScreen = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectScreenData, ThrowOnError>): RequestResult<UpdateProjectScreenResponses, UpdateProjectScreenErrors, ThrowOnError> => (options.client ?? client).patch<UpdateProjectScreenResponses, UpdateProjectScreenErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screens/{itemId}',
@@ -534,7 +534,7 @@ export const updateProjectScreen = <ThrowOnError extends boolean = false>(option
 export const getProjectNextScreenId = <ThrowOnError extends boolean = false>(options: Options<GetProjectNextScreenIdData, ThrowOnError>): RequestResult<GetProjectNextScreenIdResponses, GetProjectNextScreenIdErrors, ThrowOnError> => (options.client ?? client).get<GetProjectNextScreenIdResponses, GetProjectNextScreenIdErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules/{ruleId}/next',
@@ -547,7 +547,7 @@ export const getProjectNextScreenId = <ThrowOnError extends boolean = false>(opt
 export const createProjectScreens = <ThrowOnError extends boolean = false>(options: Options<CreateProjectScreensData, ThrowOnError>): RequestResult<CreateProjectScreensResponses, CreateProjectScreensErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectScreensResponses, CreateProjectScreensErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screens/batch',
@@ -565,7 +565,7 @@ export const draftProjectScreens = <ThrowOnError extends boolean = false>(option
     ...formDataBodySerializer,
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screens/drafts',
@@ -583,7 +583,7 @@ export const draftProjectScreenIdRules = <ThrowOnError extends boolean = false>(
     ...formDataBodySerializer,
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/screen-id-rules/drafts',
@@ -600,7 +600,7 @@ export const draftProjectScreenIdRules = <ThrowOnError extends boolean = false>(
 export const getProjectMemo = <ThrowOnError extends boolean = false>(options: Options<GetProjectMemoData, ThrowOnError>): RequestResult<GetProjectMemoResponses, GetProjectMemoErrors, ThrowOnError> => (options.client ?? client).get<GetProjectMemoResponses, GetProjectMemoErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/memo',
@@ -613,7 +613,7 @@ export const getProjectMemo = <ThrowOnError extends boolean = false>(options: Op
 export const updateProjectMemo = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectMemoData, ThrowOnError>): RequestResult<UpdateProjectMemoResponses, UpdateProjectMemoErrors, ThrowOnError> => (options.client ?? client).put<UpdateProjectMemoResponses, UpdateProjectMemoErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/memo',
@@ -630,7 +630,7 @@ export const updateProjectMemo = <ThrowOnError extends boolean = false>(options:
 export const listTestSets = <ThrowOnError extends boolean = false>(options?: Options<ListTestSetsData, ThrowOnError>): RequestResult<ListTestSetsResponses, ListTestSetsErrors, ThrowOnError> => (options?.client ?? client).get<ListTestSetsResponses, ListTestSetsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets',
@@ -643,7 +643,7 @@ export const listTestSets = <ThrowOnError extends boolean = false>(options?: Opt
 export const createTestSet = <ThrowOnError extends boolean = false>(options: Options<CreateTestSetData, ThrowOnError>): RequestResult<CreateTestSetResponses, CreateTestSetErrors, ThrowOnError> => (options.client ?? client).post<CreateTestSetResponses, CreateTestSetErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets',
@@ -660,7 +660,7 @@ export const createTestSet = <ThrowOnError extends boolean = false>(options: Opt
 export const deleteTestSet = <ThrowOnError extends boolean = false>(options: Options<DeleteTestSetData, ThrowOnError>): RequestResult<DeleteTestSetResponses, DeleteTestSetErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTestSetResponses, DeleteTestSetErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}',
@@ -673,7 +673,7 @@ export const deleteTestSet = <ThrowOnError extends boolean = false>(options: Opt
 export const getTestSet = <ThrowOnError extends boolean = false>(options: Options<GetTestSetData, ThrowOnError>): RequestResult<GetTestSetResponses, GetTestSetErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetResponses, GetTestSetErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}',
@@ -686,7 +686,7 @@ export const getTestSet = <ThrowOnError extends boolean = false>(options: Option
 export const updateTestSet = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetData, ThrowOnError>): RequestResult<UpdateTestSetResponses, UpdateTestSetErrors, ThrowOnError> => (options.client ?? client).patch<UpdateTestSetResponses, UpdateTestSetErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}',
@@ -703,7 +703,7 @@ export const updateTestSet = <ThrowOnError extends boolean = false>(options: Opt
 export const applyTestSetOps = <ThrowOnError extends boolean = false>(options: Options<ApplyTestSetOpsData, ThrowOnError>): RequestResult<ApplyTestSetOpsResponses, ApplyTestSetOpsErrors, ThrowOnError> => (options.client ?? client).post<ApplyTestSetOpsResponses, ApplyTestSetOpsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/ops',
@@ -720,7 +720,7 @@ export const applyTestSetOps = <ThrowOnError extends boolean = false>(options: O
 export const getTestSetView = <ThrowOnError extends boolean = false>(options: Options<GetTestSetViewData, ThrowOnError>): RequestResult<GetTestSetViewResponses, GetTestSetViewErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetViewResponses, GetTestSetViewErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/view',
@@ -733,7 +733,7 @@ export const getTestSetView = <ThrowOnError extends boolean = false>(options: Op
 export const updateTestSetView = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetViewData, ThrowOnError>): RequestResult<UpdateTestSetViewResponses, UpdateTestSetViewErrors, ThrowOnError> => (options.client ?? client).put<UpdateTestSetViewResponses, UpdateTestSetViewErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/view',
@@ -751,7 +751,7 @@ export const uploadTestSetImage = <ThrowOnError extends boolean = false>(options
     ...formDataBodySerializer,
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/images',
@@ -768,7 +768,7 @@ export const uploadTestSetImage = <ThrowOnError extends boolean = false>(options
 export const getTestSetImage = <ThrowOnError extends boolean = false>(options: Options<GetTestSetImageData, ThrowOnError>): RequestResult<GetTestSetImageResponses, GetTestSetImageErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetImageResponses, GetTestSetImageErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/images/{imageId}',
@@ -781,7 +781,7 @@ export const getTestSetImage = <ThrowOnError extends boolean = false>(options: O
 export const exportTestSet = <ThrowOnError extends boolean = false>(options: Options<ExportTestSetData, ThrowOnError>): RequestResult<ExportTestSetResponses, ExportTestSetErrors, ThrowOnError> => (options.client ?? client).get<ExportTestSetResponses, ExportTestSetErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/export',
@@ -794,7 +794,7 @@ export const exportTestSet = <ThrowOnError extends boolean = false>(options: Opt
 export const getTestSetSharing = <ThrowOnError extends boolean = false>(options: Options<GetTestSetSharingData, ThrowOnError>): RequestResult<GetTestSetSharingResponses, GetTestSetSharingErrors, ThrowOnError> => (options.client ?? client).get<GetTestSetSharingResponses, GetTestSetSharingErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/sharing',
@@ -807,7 +807,7 @@ export const getTestSetSharing = <ThrowOnError extends boolean = false>(options:
 export const updateTestSetSharing = <ThrowOnError extends boolean = false>(options: Options<UpdateTestSetSharingData, ThrowOnError>): RequestResult<UpdateTestSetSharingResponses, UpdateTestSetSharingErrors, ThrowOnError> => (options.client ?? client).patch<UpdateTestSetSharingResponses, UpdateTestSetSharingErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/sharing',
@@ -824,7 +824,7 @@ export const updateTestSetSharing = <ThrowOnError extends boolean = false>(optio
 export const replaceTestSetLink = <ThrowOnError extends boolean = false>(options: Options<ReplaceTestSetLinkData, ThrowOnError>): RequestResult<ReplaceTestSetLinkResponses, ReplaceTestSetLinkErrors, ThrowOnError> => (options.client ?? client).post<ReplaceTestSetLinkResponses, ReplaceTestSetLinkErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/sharing/link',
@@ -894,7 +894,7 @@ export const exportSharedTestSet = <ThrowOnError extends boolean = false>(option
 export const getRecentTestSetTemplate = <ThrowOnError extends boolean = false>(options: Options<GetRecentTestSetTemplateData, ThrowOnError>): RequestResult<GetRecentTestSetTemplateResponses, GetRecentTestSetTemplateErrors, ThrowOnError> => (options.client ?? client).get<GetRecentTestSetTemplateResponses, GetRecentTestSetTemplateErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/projects/{projectId}/recent-test-set-template',
@@ -907,7 +907,7 @@ export const getRecentTestSetTemplate = <ThrowOnError extends boolean = false>(o
 export const deleteFigmaToken = <ThrowOnError extends boolean = false>(options?: Options<DeleteFigmaTokenData, ThrowOnError>): RequestResult<DeleteFigmaTokenResponses, DeleteFigmaTokenErrors, ThrowOnError> => (options?.client ?? client).delete<DeleteFigmaTokenResponses, DeleteFigmaTokenErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/figma-token',
@@ -920,7 +920,7 @@ export const deleteFigmaToken = <ThrowOnError extends boolean = false>(options?:
 export const getFigmaToken = <ThrowOnError extends boolean = false>(options?: Options<GetFigmaTokenData, ThrowOnError>): RequestResult<GetFigmaTokenResponses, GetFigmaTokenErrors, ThrowOnError> => (options?.client ?? client).get<GetFigmaTokenResponses, GetFigmaTokenErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/figma-token',
@@ -933,7 +933,7 @@ export const getFigmaToken = <ThrowOnError extends boolean = false>(options?: Op
 export const saveFigmaToken = <ThrowOnError extends boolean = false>(options: Options<SaveFigmaTokenData, ThrowOnError>): RequestResult<SaveFigmaTokenResponses, SaveFigmaTokenErrors, ThrowOnError> => (options.client ?? client).put<SaveFigmaTokenResponses, SaveFigmaTokenErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/figma-token',
@@ -951,7 +951,7 @@ export const createTempUpload = <ThrowOnError extends boolean = false>(options: 
     ...formDataBodySerializer,
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }, { scheme: 'bearer', type: 'http' }],
     url: '/api/v1/temp-uploads',
@@ -968,7 +968,7 @@ export const createTempUpload = <ThrowOnError extends boolean = false>(options: 
 export const addFigmaLinkToUpload = <ThrowOnError extends boolean = false>(options: Options<AddFigmaLinkToUploadData, ThrowOnError>): RequestResult<AddFigmaLinkToUploadResponses, AddFigmaLinkToUploadErrors, ThrowOnError> => (options.client ?? client).post<AddFigmaLinkToUploadResponses, AddFigmaLinkToUploadErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/temp-uploads/figma',
@@ -986,7 +986,7 @@ export const addImagesToUpload = <ThrowOnError extends boolean = false>(options:
     ...formDataBodySerializer,
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/temp-uploads/images',
@@ -1003,7 +1003,7 @@ export const addImagesToUpload = <ThrowOnError extends boolean = false>(options:
 export const getTempUpload = <ThrowOnError extends boolean = false>(options: Options<GetTempUploadData, ThrowOnError>): RequestResult<GetTempUploadResponses, GetTempUploadErrors, ThrowOnError> => (options.client ?? client).get<GetTempUploadResponses, GetTempUploadErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/temp-uploads/{uploadId}',
@@ -1016,7 +1016,7 @@ export const getTempUpload = <ThrowOnError extends boolean = false>(options: Opt
 export const getTempFrameThumbnail = <ThrowOnError extends boolean = false>(options: Options<GetTempFrameThumbnailData, ThrowOnError>): RequestResult<GetTempFrameThumbnailResponses, GetTempFrameThumbnailErrors, ThrowOnError> => (options.client ?? client).get<GetTempFrameThumbnailResponses, GetTempFrameThumbnailErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/temp-uploads/{uploadId}/frames/{frameId}/thumbnail',
@@ -1029,7 +1029,7 @@ export const getTempFrameThumbnail = <ThrowOnError extends boolean = false>(opti
 export const createGeneration = <ThrowOnError extends boolean = false>(options: Options<CreateGenerationData, ThrowOnError>): RequestResult<CreateGenerationResponses, CreateGenerationErrors, ThrowOnError> => (options.client ?? client).post<CreateGenerationResponses, CreateGenerationErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/generations',
@@ -1046,7 +1046,7 @@ export const createGeneration = <ThrowOnError extends boolean = false>(options: 
 export const fillTestSetColumn = <ThrowOnError extends boolean = false>(options: Options<FillTestSetColumnData, ThrowOnError>): RequestResult<FillTestSetColumnResponses, FillTestSetColumnErrors, ThrowOnError> => (options.client ?? client).post<FillTestSetColumnResponses, FillTestSetColumnErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/test-set-columns/{columnId}/fill',
@@ -1059,7 +1059,7 @@ export const fillTestSetColumn = <ThrowOnError extends boolean = false>(options:
 export const getCurrentGeneration = <ThrowOnError extends boolean = false>(options: Options<GetCurrentGenerationData, ThrowOnError>): RequestResult<GetCurrentGenerationResponses, GetCurrentGenerationErrors, ThrowOnError> => (options.client ?? client).get<GetCurrentGenerationResponses, GetCurrentGenerationErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/generations/current',
@@ -1072,7 +1072,7 @@ export const getCurrentGeneration = <ThrowOnError extends boolean = false>(optio
 export const getGenerationEvents = <ThrowOnError extends boolean = false>(options: Options<GetGenerationEventsData, ThrowOnError, GetGenerationEventsResponse>): Promise<ServerSentEventsResult<GetGenerationEventsResponses>> => (options.client ?? client).sse.get<GetGenerationEventsResponses, GetGenerationEventsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/generations/{jobId}/events',
@@ -1085,7 +1085,7 @@ export const getGenerationEvents = <ThrowOnError extends boolean = false>(option
 export const listReviewItems = <ThrowOnError extends boolean = false>(options: Options<ListReviewItemsData, ThrowOnError>): RequestResult<ListReviewItemsResponses, ListReviewItemsErrors, ThrowOnError> => (options.client ?? client).get<ListReviewItemsResponses, ListReviewItemsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/test-sets/{testSetId}/review-items',
@@ -1098,7 +1098,7 @@ export const listReviewItems = <ThrowOnError extends boolean = false>(options: O
 export const updateReviewItem = <ThrowOnError extends boolean = false>(options: Options<UpdateReviewItemData, ThrowOnError>): RequestResult<UpdateReviewItemResponses, UpdateReviewItemErrors, ThrowOnError> => (options.client ?? client).patch<UpdateReviewItemResponses, UpdateReviewItemErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/review-items/{itemId}',
@@ -1115,7 +1115,7 @@ export const updateReviewItem = <ThrowOnError extends boolean = false>(options: 
 export const acceptReviewItem = <ThrowOnError extends boolean = false>(options: Options<AcceptReviewItemData, ThrowOnError>): RequestResult<AcceptReviewItemResponses, AcceptReviewItemErrors, ThrowOnError> => (options.client ?? client).post<AcceptReviewItemResponses, AcceptReviewItemErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/review-items/{itemId}/accept',
@@ -1132,7 +1132,7 @@ export const acceptReviewItem = <ThrowOnError extends boolean = false>(options: 
 export const rewriteReviewItem = <ThrowOnError extends boolean = false>(options: Options<RewriteReviewItemData, ThrowOnError>): RequestResult<RewriteReviewItemResponses, RewriteReviewItemErrors, ThrowOnError> => (options.client ?? client).post<RewriteReviewItemResponses, RewriteReviewItemErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
-            name: 'cheddar_session',
+            name: 'session',
             type: 'apiKey'
         }],
     url: '/api/v1/review-items/{itemId}/rewrite',

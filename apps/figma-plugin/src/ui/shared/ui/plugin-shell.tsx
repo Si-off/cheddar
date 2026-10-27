@@ -1,4 +1,4 @@
-import { Avatars, Icon, Menu, useToast } from "@cheddar/ui";
+import { Avatars, Icon, Menu, useToast } from "@workspace/ui";
 import { ChevronDown, ExternalLink, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { openHomeInWeb } from "@/shared/lib/figma-bridge";
@@ -53,7 +53,7 @@ export function PluginShell({
                   )
                 }
               >
-                Cheddar 열기
+                웹 열기
               </Menu.Item>
               <Menu.Separator />
               <Menu.Item icon={LogOut} onClick={onSignOut}>

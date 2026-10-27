@@ -1,3 +1,5 @@
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   Badge,
   buttonVariants,
@@ -8,9 +10,7 @@ import {
   LoadError,
   Tabs,
   TextField,
-} from "@cheddar/ui";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+} from "@workspace/ui";
 import { Globe, ListChecks, Plus, Search } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import {
