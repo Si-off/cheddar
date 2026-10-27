@@ -45,14 +45,20 @@ function note(message: string, detail?: Record<string, unknown>) {
   console.info(`[plugin] ${message}`, detail ?? "");
 }
 async function readStored(key: string): Promise<unknown> {
-  const value: unknown = await figma.clientStorage.getAsync(key);
   const legacy = LEGACY_KEYS[key];
-  if (value !== undefined || !legacy) return value;
+  const value: unknown = await figma.clientStorage.getAsync(key);
+  if (!legacy) return value;
   const old: unknown = await figma.clientStorage.getAsync(legacy);
-  if (old === undefined) return undefined;
-  await figma.clientStorage.setAsync(key, old);
+  if (old === undefined) return value;
+  if (value === undefined) await figma.clientStorage.setAsync(key, old);
   await figma.clientStorage.deleteAsync(legacy);
-  return old;
+  return value ?? old;
+}
+async function writeStored(key: string, value: string | null | undefined) {
+  if (value) await figma.clientStorage.setAsync(key, value);
+  else await figma.clientStorage.deleteAsync(key);
+  const legacy = LEGACY_KEYS[key];
+  if (legacy) await figma.clientStorage.deleteAsync(legacy);
 }
 let selectionVersion = 0;
 let session: Session | undefined;
@@ -255,9 +261,7 @@ async function handle(
     return;
   }
   if (message.type === "save-auth") {
-    if (message.token)
-      await figma.clientStorage.setAsync(AUTH_KEY, message.token);
-    else await figma.clientStorage.deleteAsync(AUTH_KEY);
+    await writeStored(AUTH_KEY, message.token);
     send({ type: "auth-saved", requestId: message.requestId });
     return;
   }
@@ -272,9 +276,7 @@ async function handle(
     return;
   }
   if (message.type === "save-project") {
-    if (message.projectId)
-      await figma.clientStorage.setAsync(PROJECT_KEY, message.projectId);
-    else await figma.clientStorage.deleteAsync(PROJECT_KEY);
+    await writeStored(PROJECT_KEY, message.projectId);
     send({ type: "project-saved", requestId: message.requestId });
     return;
   }
