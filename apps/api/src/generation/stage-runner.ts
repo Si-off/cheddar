@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { isCellImage } from "@cheddar/contracts";
 import { Inject, Injectable, type OnModuleDestroy } from "@nestjs/common";
+import { isCellImage } from "@workspace/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import { ApiError } from "../common/errors";
 import type { CellValue } from "../contracts/test-set.dto";

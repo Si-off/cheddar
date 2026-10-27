@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   buttonVariants,
   Icon,
@@ -5,9 +7,7 @@ import {
   StepList,
   type StepState,
   useToast,
-} from "@cheddar/ui";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+} from "@workspace/ui";
 import { CircleAlert, Sparkles } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 import {

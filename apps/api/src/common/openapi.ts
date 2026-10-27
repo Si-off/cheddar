@@ -3,12 +3,12 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { ErrorResponseDto } from "../contracts/common.dto";
 export function createDocument(app: INestApplication) {
   const config = new DocumentBuilder()
-    .setTitle("Cheddar API")
+    .setTitle("테스트 케이스 제네레이터 API")
     .setVersion("2.0.0")
     .setDescription(
       "계정, 세션 인증, 프로젝트 설정과 테스트 세트 API. 활성 계정은 모든 프로젝트와 테스트 세트를 편집하고 관리자는 계정을 관리합니다.",
     )
-    .addCookieAuth("cheddar_session")
+    .addCookieAuth("session")
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config, {

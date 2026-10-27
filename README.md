@@ -1,4 +1,4 @@
-# Cheddar
+# 테스트 케이스 제네레이터
 
 사람이 수행하는 QA 테스트 케이스를 Figma 기획 자료로부터 AI로 만들고, 여러 사람이 함께 편집하고, 공유하고, XLSX로 내보내는 사내 도구다. Figma 플러그인이 프레임을 올리고, 웹에서 생성과 편집을 하며, 백엔드가 저장과 AI 실행을 맡는다. pnpm workspace 모노레포로 관리하며 Claude Code와 Codex를 함께 사용해 개발한다. 에이전트 지침은 루트 `AGENTS.md`에 있다.
 
@@ -52,7 +52,7 @@ AI 모델·effort·작성 지침·실행 한도·큐 동시성·비용 동기화
 
 ```sh
 pnpm db:migrate
-pnpm --filter @cheddar/api admin:create --login-id admin --name "첫 관리자"
+pnpm --filter @workspace/api admin:create --login-id admin --name "첫 관리자"
 pnpm dev:api
 ```
 
@@ -79,9 +79,9 @@ pnpm dev:plugin
 pnpm dev:plugin:remote
 ```
 
-플러그인 UI를 번들에 넣지 않고 Vite 개발 서버(`http://localhost:5174`)에서 띄운다. UI를 고치면 Figma 안에서 바로 바뀐다. API에는 `PLUGIN_UI_ORIGIN=http://localhost:5174`가 필요하다. UI의 메시지와 API 호출 로그는 OS 임시 경로의 `cheddar-plugin-ui.log`에 쌓인다.
+플러그인 UI를 번들에 넣지 않고 Vite 개발 서버(`http://localhost:5174`)에서 띄운다. UI를 고치면 Figma 안에서 바로 바뀐다. API에는 `PLUGIN_UI_ORIGIN=http://localhost:5174`가 필요하다. UI의 메시지와 API 호출 로그는 OS 임시 경로의 `figma-plugin-ui.log`에 쌓인다.
 
-운영용 원격 UI는 `VITE_PLUGIN_UI_URL`(UI를 올릴 주소), `VITE_API_BASE_URL`, `VITE_WEB_BASE_URL`을 넣고 `pnpm --filter @cheddar/figma-plugin build`로 만든다. `dist/ui/`는 UI 주소에서 제공하고, `dist/index.html`과 `dist/main.js`는 Figma에 배포한다. manifest의 `allowedDomains`가 UI 주소를 허용하지 않으면 빌드가 멈춘다.
+운영용 원격 UI는 `VITE_PLUGIN_UI_URL`(UI를 올릴 주소), `VITE_API_BASE_URL`, `VITE_WEB_BASE_URL`을 넣고 `pnpm --filter @workspace/figma-plugin build`로 만든다. `dist/ui/`는 UI 주소에서 제공하고, `dist/index.html`과 `dist/main.js`는 Figma에 배포한다. manifest의 `allowedDomains`가 UI 주소를 허용하지 않으면 빌드가 멈춘다.
 
 ## 검증
 
@@ -91,12 +91,12 @@ pnpm dev:plugin:remote
 | --- | --- | --- |
 | 정적 검사와 빌드 | `pnpm check` | lint, 타입, 빌드. 동작 테스트는 포함하지 않는다 |
 | API | `pnpm test:api` | 테스트 DB의 실제 PostgreSQL과 pg-boss, 합성 AI 응답. 실제 AI 호출은 제외 |
-| API 명세 | `pnpm --filter @cheddar/api openapi:check` | DTO에서 만든 명세와 `apps/api/openapi.json` 비교 |
+| API 명세 | `pnpm --filter @workspace/api openapi:check` | DTO에서 만든 명세와 `apps/api/openapi.json` 비교 |
 | 웹 | 아래 e2e 명령 | 웹 서버와 Chromium. API 응답과 실시간 연결은 합성한다 |
 | 플러그인 | 아래 Node 명령 | 메시지, 선택, 화면 문서, 타일, 업로드 흐름. 실제 Figma 실행은 제외 |
 
 ```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 pnpm --filter @cheddar/web test:e2e
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 pnpm --filter @workspace/web test:e2e
 ```
 
 ```sh
@@ -113,11 +113,11 @@ node --test apps/figma-plugin/src/main/*.test.mjs apps/figma-plugin/src/ui/share
 pnpm openapi:export
 OPENAPI_INPUT="$PWD/apps/api/openapi.json" pnpm gen:api:web
 OPENAPI_INPUT="$PWD/apps/api/openapi.json" pnpm gen:api:plugin
-pnpm --filter @cheddar/api openapi:check
+pnpm --filter @workspace/api openapi:check
 ```
 
-스키마 변경은 `pnpm --filter @cheddar/api db:generate`로 만든 SQL과 meta를 검토한 뒤 `pnpm db:migrate`로 적용한다.
+스키마 변경은 `pnpm --filter @workspace/api db:generate`로 만든 SQL과 meta를 검토한 뒤 `pnpm db:migrate`로 적용한다.
 
 ## 디자인 토큰과 공통 컴포넌트
 
-토큰 원본은 `packages/design-tokens/src/theme.css`다. 색, 간격, radius, 폰트, 모션은 토큰만 쓴다. `@cheddar/ui`는 Base UI 위에 토큰과 모션 원칙을 적용한 공통 컴포넌트이며 사용법은 [공통 UI 안내](packages/ui/README.md)에 있다.
+토큰 원본은 `packages/design-tokens/src/theme.css`다. 색, 간격, radius, 폰트, 모션은 토큰만 쓴다. `@workspace/ui`는 Base UI 위에 토큰과 모션 원칙을 적용한 공통 컴포넌트이며 사용법은 [공통 UI 안내](packages/ui/README.md)에 있다.

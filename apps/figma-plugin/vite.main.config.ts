@@ -19,7 +19,7 @@ function httpBaseUrl(name: string, configured: string) {
 // 원격 UI 빌드에서 manifest의 ui 파일. Figma가 띄우면 곧바로 원격 UI로 이동한다
 function remoteUiShell(url: string): Plugin {
   return {
-    name: "cheddar-remote-ui-shell",
+    name: "remote-ui-shell",
     generateBundle() {
       this.emitFile({
         type: "asset",
@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
       minify: false,
       lib: {
         entry: fileURLToPath(new URL("./src/main/index.ts", import.meta.url)),
-        name: "CheddarPlugin",
+        name: "FigmaPlugin",
         formats: ["iife"],
         fileName: () => "main.js",
       },

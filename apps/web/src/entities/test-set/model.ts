@@ -4,7 +4,7 @@ import {
   type OptionColor,
   type CaseOp as SharedCaseOp,
   type CellValue as SharedCellValue,
-} from "@cheddar/contracts";
+} from "@workspace/contracts";
 import type { ColumnType, TemplateColumn } from "@/entities/project";
 
 export type { CellImage, OptionColor };

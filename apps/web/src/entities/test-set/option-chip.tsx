@@ -1,4 +1,4 @@
-import { Badge, Icon, type Tone } from "@cheddar/ui";
+import { Badge, Icon, type Tone } from "@workspace/ui";
 import { ChevronDown } from "lucide-react";
 import { type Column, type OptionColor, optionColor } from "./model";
 

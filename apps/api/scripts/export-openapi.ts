@@ -9,7 +9,7 @@ async function main() {
   const app = await createApp(
     {
       databaseUrl: "postgresql://unused:unused@127.0.0.1:1/unused",
-      storageRoot: resolve(tmpdir(), "cheddar-openapi-unused"),
+      storageRoot: resolve(tmpdir(), "app-openapi-unused"),
       port: 3101,
       host: "127.0.0.1",
       corsOrigins: [],

@@ -1,4 +1,4 @@
-import { tileRects } from "@cheddar/contracts";
+import { tileRects } from "@workspace/contracts";
 import sharp from "sharp";
 import { MAX_IMAGE_BYTES } from "./manifest";
 

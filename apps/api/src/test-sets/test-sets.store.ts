@@ -1,5 +1,5 @@
-import type { Actor } from "@cheddar/contracts";
 import { Inject, Injectable } from "@nestjs/common";
+import type { Actor } from "@workspace/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import { hashToken } from "../auth/credentials";
 import {

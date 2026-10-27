@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { copyRuntime } from "./copy-runtime.mjs";
 
 const output = await mkdtemp(
-  join(await realpath(tmpdir()), "cheddar-foundation-tests-"),
+  join(await realpath(tmpdir()), "app-foundation-tests-"),
 );
 try {
   const compile = spawnSync(

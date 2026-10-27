@@ -6,7 +6,7 @@ import {
   Dialog,
   DrawnCheck,
   IconButton,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import {

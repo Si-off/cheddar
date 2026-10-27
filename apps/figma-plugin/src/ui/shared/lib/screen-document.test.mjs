@@ -21,13 +21,13 @@ function load(path, require = () => ({})) {
   );
   return module.exports;
 }
-// 변환은 서버와 함께 쓰는 @cheddar/contracts에 있다
+// 변환은 서버와 함께 쓰는 @workspace/contracts에 있다
 const contracts = load(
   "../../../../../../packages/contracts/src/screen-document.ts",
 );
 const { buildScreenDocument, readFrameSource } = load(
   "./screen-document.ts",
-  (name) => (name === "@cheddar/contracts" ? contracts : {}),
+  (name) => (name === "@workspace/contracts" ? contracts : {}),
 );
 
 // exportAsync({ format: "JSON_REST_V1" })의 document 모양. 보이는 노드는 visible을 생략한다
@@ -208,7 +208,7 @@ test("주석은 main이 보낸 Markdown을 먼저 쓴다", () => {
 
 test("보드 자신의 화면 전환과 주석도 남긴다", () => {
   const doc = buildScreenDocument(
-    board("스플래시", [text("t", "Cheddar", 0, 0)], {
+    board("스플래시", [text("t", "Sample", 0, 0)], {
       interactions: [
         {
           trigger: { type: "AFTER_TIMEOUT", timeout: 2000 },

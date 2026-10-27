@@ -17,8 +17,8 @@ export async function openTestDatabase() {
   const target = new URL(databaseUrl);
   assert.ok(["postgres:", "postgresql:"].includes(target.protocol));
   assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(target.hostname));
-  assert.equal(decodeURIComponent(target.pathname), "/cheddar_stage1_test");
-  assert.equal(decodeURIComponent(target.username), "cheddar_stage1");
+  assert.equal(decodeURIComponent(target.pathname), "/testcase_stage1_test");
+  assert.equal(decodeURIComponent(target.username), "testcase_stage1");
   if (process.env.DATABASE_URL) {
     const runtime = new URL(process.env.DATABASE_URL);
     assert.notEqual(
@@ -28,7 +28,7 @@ export async function openTestDatabase() {
     );
   }
   const storageRoot = await mkdtemp(
-    join(await realpath(tmpdir()), "cheddar-foundation-tests-"),
+    join(await realpath(tmpdir()), "app-foundation-tests-"),
   );
   const config = {
     databaseUrl,
@@ -78,7 +78,7 @@ export async function openTestDatabase() {
     const identity = await lock.query<{ owner: string; superuser: boolean }>(
       "SELECT pg_get_userbyid(datdba) owner, (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) superuser FROM pg_database WHERE datname=current_database()",
     );
-    assert.equal(identity.rows[0].owner, "cheddar_stage1");
+    assert.equal(identity.rows[0].owner, "testcase_stage1");
     assert.equal(identity.rows[0].superuser, false);
     locked = (
       await lock.query<{ locked: boolean }>(

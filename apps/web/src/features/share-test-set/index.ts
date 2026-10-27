@@ -1,9 +1,9 @@
-import { useToast } from "@cheddar/ui";
 import {
   queryOptions,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useToast } from "@workspace/ui";
 import { type SharingDto, sdk, toApiFailure } from "@/shared/api";
 
 export type Sharing = SharingDto;

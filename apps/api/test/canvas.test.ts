@@ -2,7 +2,7 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { isCaseOp, isServerMessage } from "@cheddar/contracts";
+import { isCaseOp, isServerMessage } from "@workspace/contracts";
 import { and, eq } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import type {

@@ -1,12 +1,12 @@
-# Cheddar 에이전트 지침
+# 테스트 케이스 제네레이터 에이전트 지침
 
-Cheddar는 사람이 수행하는 QA 테스트 케이스를 AI로 생성·편집·공유·XLSX 내보내기 하는 제품이다. Figma 플러그인이 프레임을 업로드하고, 웹에서 생성·편집하며, 백엔드가 저장과 AI 실행을 맡는다. 모든 문서와 UI 문구는 한국어로 쓴다.
+테스트 케이스 제네레이터는 사람이 수행하는 QA 테스트 케이스를 AI로 생성·편집·공유·XLSX 내보내기 하는 제품이다. Figma 플러그인이 프레임을 업로드하고, 웹에서 생성·편집하며, 백엔드가 저장과 AI 실행을 맡는다. 모든 문서와 UI 문구는 한국어로 쓴다.
 
 ## 구조와 명령
 
 - `apps/web` 웹(React·Vite·Tailwind·TanStack·Zustand, FSD), `apps/figma-plugin` 플러그인(`main/` 실행 코드, `protocol/` 메시지 계약, `ui/` React), `apps/api` 백엔드(NestJS·Drizzle·PostgreSQL), `packages/ui` 공통 컴포넌트(shadcn/Base UI), `packages/design-tokens` 토큰.
 - Node는 `.nvmrc`, pnpm은 `package.json#packageManager`로 고정. 설치·실행·환경변수는 [README](README.md).
-- 검증: `pnpm check`(= lint → typecheck → build). API 테스트 `pnpm test:api`. 웹 e2e `pnpm --filter @cheddar/web test:e2e`.
+- 검증: `pnpm check`(= lint → typecheck → build). API 테스트 `pnpm test:api`. 웹 e2e `pnpm --filter @workspace/web test:e2e`.
 - `shared/api/generated/`는 `pnpm gen:api:*`로 생성한다. 직접 편집하지 않는다.
 - 임시 파일·로그·스크린샷은 저장소 밖(OS 임시 경로)에 둔다.
 

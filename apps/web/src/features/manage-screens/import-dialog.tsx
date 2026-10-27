@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
   Button,
@@ -7,8 +8,7 @@ import {
   Dialog,
   SourceInput,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { Sparkles, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import {

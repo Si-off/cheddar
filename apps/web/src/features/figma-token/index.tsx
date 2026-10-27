@@ -1,6 +1,6 @@
-import { Button, Dialog, Icon, TextField, useToast } from "@cheddar/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { Button, Dialog, Icon, TextField, useToast } from "@workspace/ui";
 import { Frame } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import { figmaTokenQuery } from "@/entities/account";

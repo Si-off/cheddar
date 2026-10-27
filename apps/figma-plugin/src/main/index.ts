@@ -21,8 +21,13 @@ import {
 declare const __WEB_BASE_URL__: string;
 /** 원격 UI 빌드에서만 값이 있다 */
 declare const __PLUGIN_UI_ORIGIN__: string;
-const AUTH_KEY = "cheddar.pluginToken";
-const PROJECT_KEY = "cheddar.lastProjectId";
+const AUTH_KEY = "plugin.token";
+const PROJECT_KEY = "plugin.lastProjectId";
+// 이전 이름으로 저장한 값은 처음 읽을 때 새 키로 옮긴다
+const LEGACY_KEYS: Record<string, string> = {
+  [AUTH_KEY]: "cheddar.pluginToken",
+  [PROJECT_KEY]: "cheddar.lastProjectId",
+};
 
 // 원격 UI 빌드의 __html__은 원격 주소로 이동하는 짧은 문서다
 figma.showUI(__html__, { width: 360, height: 560, themeColors: true });
@@ -37,7 +42,23 @@ const SNAPSHOT_ATTEMPTS = 3;
 const EXPORT_SCALES = [1, 0.5, 0.25];
 /** 사용자에게 띄우지 않는 기록. Figma 개발 콘솔에서 본다. */
 function note(message: string, detail?: Record<string, unknown>) {
-  console.info(`[cheddar] ${message}`, detail ?? "");
+  console.info(`[plugin] ${message}`, detail ?? "");
+}
+async function readStored(key: string): Promise<unknown> {
+  const legacy = LEGACY_KEYS[key];
+  const value: unknown = await figma.clientStorage.getAsync(key);
+  if (!legacy) return value;
+  const old: unknown = await figma.clientStorage.getAsync(legacy);
+  if (old === undefined) return value;
+  if (value === undefined) await figma.clientStorage.setAsync(key, old);
+  await figma.clientStorage.deleteAsync(legacy);
+  return value ?? old;
+}
+async function writeStored(key: string, value: string | null | undefined) {
+  if (value) await figma.clientStorage.setAsync(key, value);
+  else await figma.clientStorage.deleteAsync(key);
+  const legacy = LEGACY_KEYS[key];
+  if (legacy) await figma.clientStorage.deleteAsync(legacy);
 }
 let selectionVersion = 0;
 let session: Session | undefined;
@@ -231,7 +252,7 @@ async function handle(
   }
   // 플러그인 iframe은 저장소를 쓸 수 없어 계정 토큰은 main의 clientStorage에 둔다
   if (message.type === "load-auth") {
-    const token: unknown = await figma.clientStorage.getAsync(AUTH_KEY);
+    const token: unknown = await readStored(AUTH_KEY);
     send({
       type: "auth-loaded",
       requestId: message.requestId,
@@ -240,15 +261,13 @@ async function handle(
     return;
   }
   if (message.type === "save-auth") {
-    if (message.token)
-      await figma.clientStorage.setAsync(AUTH_KEY, message.token);
-    else await figma.clientStorage.deleteAsync(AUTH_KEY);
+    await writeStored(AUTH_KEY, message.token);
     send({ type: "auth-saved", requestId: message.requestId });
     return;
   }
   // 지난번 고른 프로젝트를 다음 업로드의 기본값으로 쓴다
   if (message.type === "load-project") {
-    const projectId: unknown = await figma.clientStorage.getAsync(PROJECT_KEY);
+    const projectId: unknown = await readStored(PROJECT_KEY);
     send({
       type: "project-loaded",
       requestId: message.requestId,
@@ -257,9 +276,7 @@ async function handle(
     return;
   }
   if (message.type === "save-project") {
-    if (message.projectId)
-      await figma.clientStorage.setAsync(PROJECT_KEY, message.projectId);
-    else await figma.clientStorage.deleteAsync(PROJECT_KEY);
+    await writeStored(PROJECT_KEY, message.projectId);
     send({ type: "project-saved", requestId: message.requestId });
     return;
   }

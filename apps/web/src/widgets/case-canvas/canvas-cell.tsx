@@ -1,4 +1,4 @@
-import { Checkbox, Menu } from "@cheddar/ui";
+import { Checkbox, Menu } from "@workspace/ui";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   CellImageThumb,

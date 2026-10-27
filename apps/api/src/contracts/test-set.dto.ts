@@ -1,6 +1,6 @@
-import type { CellValue, OptionColor } from "@cheddar/contracts";
+import type { CellValue, OptionColor } from "@workspace/contracts";
 
-export type { CellValue } from "@cheddar/contracts";
+export type { CellValue } from "@workspace/contracts";
 
 import {
   ApiProperty,

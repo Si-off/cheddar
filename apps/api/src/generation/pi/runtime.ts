@@ -122,7 +122,7 @@ export async function runPi(options: PiRunOptions) {
   await checkpoint();
   const remainingMs = options.state.startedAt + config.timeoutMs - Date.now();
   if (remainingMs <= 0) throw new AiFailure("AI_AGENT_TIMEOUT", false);
-  const cwd = await mkdtemp(join(tmpdir(), "cheddar-pi-"));
+  const cwd = await mkdtemp(join(tmpdir(), "app-pi-"));
   const deadline = AbortSignal.timeout(remainingMs);
   const signal = AbortSignal.any([options.signal, deadline]);
   let session:

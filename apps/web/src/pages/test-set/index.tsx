@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Avatars,
   Banner,
@@ -14,9 +16,7 @@ import {
   ToolbarMenu,
   ToolbarSeparator,
   useToast,
-} from "@cheddar/ui";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+} from "@workspace/ui";
 import {
   AlignLeft,
   CircleHelp,

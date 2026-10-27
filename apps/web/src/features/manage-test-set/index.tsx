@@ -1,11 +1,11 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   ConfirmDialog,
   Dialog,
   TextField,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { type SubmitEvent, useState } from "react";
 import { type TestSet, testSetQuery } from "@/entities/test-set";
 import { sdk, toApiFailure } from "@/shared/api";

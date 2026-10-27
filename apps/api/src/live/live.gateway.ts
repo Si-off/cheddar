@@ -2,19 +2,19 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import {
-  type Access,
-  isClientMessage,
-  type OpsMessage,
-  type Peer,
-  type ServerMessage,
-} from "@cheddar/contracts";
-import {
   Inject,
   Injectable,
   type OnApplicationBootstrap,
   type OnModuleDestroy,
 } from "@nestjs/common";
 import { HttpAdapterHost } from "@nestjs/core";
+import {
+  type Access,
+  isClientMessage,
+  type OpsMessage,
+  type Peer,
+  type ServerMessage,
+} from "@workspace/contracts";
 import { isUUID } from "class-validator";
 import { eq } from "drizzle-orm";
 import { WebSocket, WebSocketServer } from "ws";

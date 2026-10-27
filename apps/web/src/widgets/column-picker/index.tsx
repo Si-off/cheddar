@@ -7,7 +7,7 @@ import {
   Menu,
   SortableList,
   Switch,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import { MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {

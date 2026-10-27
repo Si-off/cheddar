@@ -10,8 +10,8 @@ import { PgBoss } from "pg-boss";
 import { API_ENV, type ApiEnv } from "../config/env";
 
 // 기존 큐의 policy는 변경할 수 없어 새 이름을 사용한다. 미완료 작업은 DB에서 복구한다.
-export const GENERATION_QUEUE = "cheddar-generation-stage-v2";
-export const CLEANUP_QUEUE = "cheddar-temp-cleanup";
+export const GENERATION_QUEUE = "generation-stage-v2";
+export const CLEANUP_QUEUE = "temp-cleanup";
 @Injectable()
 export class QueueService implements OnModuleInit, OnModuleDestroy {
   readonly boss: PgBoss;

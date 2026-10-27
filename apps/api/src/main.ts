@@ -16,7 +16,7 @@ async function main() {
     app.enableShutdownHooks();
     await app.listen(config.port, config.host);
     process.stdout.write(
-      `Cheddar API listening on http://${config.host}:${config.port}\n`,
+      `API listening on http://${config.host}:${config.port}\n`,
     );
   } catch {
     await app.close();

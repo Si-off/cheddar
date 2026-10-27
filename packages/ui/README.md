@@ -1,6 +1,6 @@
-# @cheddar/ui
+# @workspace/ui
 
-[shadcn/ui Base UI](https://ui.shadcn.com/docs/components)를 바탕으로 Cheddar의 토큰과 표현을 적용한 공통 컴포넌트다. 원본의 출처와 라이선스는 [SHADCN-LICENSE.md](SHADCN-LICENSE.md)에 보존한다. 구성과 접근성 동작은 Base UI를 사용하고 스타일은 `src/styles.css`에서 관리한다.
+[shadcn/ui Base UI](https://ui.shadcn.com/docs/components)를 바탕으로 테스트 케이스 제네레이터의 토큰과 표현을 적용한 공통 컴포넌트다. 원본의 출처와 라이선스는 [SHADCN-LICENSE.md](SHADCN-LICENSE.md)에 보존한다. 구성과 접근성 동작은 Base UI를 사용하고 스타일은 `src/styles.css`에서 관리한다.
 
 ## 사용
 
@@ -8,12 +8,12 @@
 
 ```css
 @import "tailwindcss";
-@import "@cheddar/design-tokens/theme.css";
-@import "@cheddar/ui/styles.css";
+@import "@workspace/design-tokens/theme.css";
+@import "@workspace/ui/styles.css";
 ```
 
 ```tsx
-import { Button, Checkbox, Label } from "@cheddar/ui";
+import { Button, Checkbox, Label } from "@workspace/ui";
 
 <Label><Checkbox name="selected" defaultChecked />항목 선택</Label>
 <Button variant="secondary" type="submit">저장</Button>

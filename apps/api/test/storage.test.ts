@@ -7,7 +7,7 @@ import test from "node:test";
 import { LocalStorage } from "../src/storage/local-storage";
 
 test("프로젝트 없이 임시 업로드 UUID 경로에 저장하고 경로 이탈을 거부", async () => {
-  const root = await mkdtemp(join(tmpdir(), "cheddar-storage-"));
+  const root = await mkdtemp(join(tmpdir(), "app-storage-"));
   const storage = new LocalStorage({
     databaseUrl: "",
     storageRoot: root,

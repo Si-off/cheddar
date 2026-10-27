@@ -1,5 +1,5 @@
-import type { OptionColor } from "@cheddar/contracts";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import type { OptionColor } from "@workspace/contracts";
 import { Transform, Type } from "class-transformer";
 import {
   ArrayMaxSize,

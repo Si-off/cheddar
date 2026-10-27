@@ -1,4 +1,4 @@
-import { isCellImage } from "@cheddar/contracts";
+import { isCellImage } from "@workspace/contracts";
 import { plainToInstance } from "class-transformer";
 import { isUUID, validateSync } from "class-validator";
 import { ApiError } from "../common/errors";

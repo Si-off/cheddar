@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Dialog,
@@ -5,8 +6,7 @@ import {
   RadioGroup,
   TextArea,
   useToast,
-} from "@cheddar/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { Sparkles } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import { currentGenerationQuery } from "@/entities/generation";

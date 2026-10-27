@@ -1,4 +1,4 @@
-import { Checkbox, Select, TextArea, TextField } from "@cheddar/ui";
+import { Checkbox, Select, TextArea, TextField } from "@workspace/ui";
 import { useEffect, useRef, useState } from "react";
 import { CellImageThumb } from "./cell-image";
 import {

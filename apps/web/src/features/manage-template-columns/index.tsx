@@ -1,5 +1,5 @@
-import { useToast } from "@cheddar/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@workspace/ui";
 import {
   fromTemplateDraft,
   projectsQuery,

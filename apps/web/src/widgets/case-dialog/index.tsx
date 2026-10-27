@@ -1,4 +1,4 @@
-import { Button, Dialog } from "@cheddar/ui";
+import { Button, Dialog } from "@workspace/ui";
 import {
   type CaseOp,
   CellField,

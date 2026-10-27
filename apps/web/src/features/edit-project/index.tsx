@@ -1,5 +1,5 @@
-import { Button, Dialog, TextArea, TextField, useToast } from "@cheddar/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button, Dialog, TextArea, TextField, useToast } from "@workspace/ui";
 import { type SubmitEvent, useState } from "react";
 import { type Project, projectQuery, projectsQuery } from "@/entities/project";
 import { sdk, toApiFailure } from "@/shared/api";

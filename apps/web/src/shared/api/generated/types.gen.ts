@@ -3271,7 +3271,7 @@ export type UpdateTestSetResponse = UpdateTestSetResponses[keyof UpdateTestSetRe
 export type ApplyTestSetOpsData = {
     body: ApplyOpsDto;
     headers?: {
-        'x-cheddar-connection'?: string;
+        'x-connection-id'?: string;
     };
     path: {
         testSetId: string;
@@ -3797,7 +3797,7 @@ export type GetSharedTestSetResponse = GetSharedTestSetResponses[keyof GetShared
 export type ApplySharedTestSetOpsData = {
     body: ApplyOpsDto;
     headers?: {
-        'x-cheddar-connection'?: string;
+        'x-connection-id'?: string;
     };
     path: {
         linkToken: string;

@@ -1,5 +1,5 @@
-import { Button, Checkbox, cn, Dialog, SourceInput } from "@cheddar/ui";
 import { useMutation } from "@tanstack/react-query";
+import { Button, Checkbox, cn, Dialog, SourceInput } from "@workspace/ui";
 import { Sparkles, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {

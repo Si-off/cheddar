@@ -6,7 +6,7 @@ import {
   Icon,
   IconButton,
   TextField,
-} from "@cheddar/ui";
+} from "@workspace/ui";
 import {
   ChevronLeft,
   ChevronRight,

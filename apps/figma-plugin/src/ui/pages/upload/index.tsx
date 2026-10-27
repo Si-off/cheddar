@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   Banner,
   Button,
@@ -7,8 +8,7 @@ import {
   Progress,
   Select,
   useToast,
-} from "@cheddar/ui";
-import { useQuery } from "@tanstack/react-query";
+} from "@workspace/ui";
 import { ExternalLink, Frame, RotateCcw, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type MeDto, sdk, toApiFailure } from "@/shared/api";

@@ -1,6 +1,6 @@
-import { Button, EmptyState, LoadError } from "@cheddar/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { Button, EmptyState, LoadError } from "@workspace/ui";
 import { FolderKanban, Plus } from "lucide-react";
 import { useState } from "react";
 import { projectsQuery } from "@/entities/project";

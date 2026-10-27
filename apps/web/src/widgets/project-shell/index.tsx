@@ -1,5 +1,5 @@
-import { IconButton, Menu, NavTab, NavTabs } from "@cheddar/ui";
 import { Link, useMatchRoute } from "@tanstack/react-router";
+import { IconButton, Menu, NavTab, NavTabs } from "@workspace/ui";
 import { MoreHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { Project } from "@/entities/project";

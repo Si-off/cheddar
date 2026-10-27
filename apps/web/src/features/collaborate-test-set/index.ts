@@ -5,7 +5,7 @@ import {
   isServerMessage,
   type OpsMessage,
   type Peer,
-} from "@cheddar/contracts";
+} from "@workspace/contracts";
 import { useEffect, useRef, useState } from "react";
 import { env } from "@/shared/config/env";
 
@@ -46,7 +46,7 @@ export interface LiveHandlers {
 const RETRY_MS = [1000, 2000, 5000, 10000];
 
 /** 연결 ID. 연산 요청 헤더에 실어 내 연산을 구분한다 */
-export const liveConnectionHeader = "x-cheddar-connection";
+export const liveConnectionHeader = "x-connection-id";
 
 /**
  * 테스트 세트의 실시간 방에 붙는다. 다른 사람의 연산과 접속자, 셀 선택을 받는다.
