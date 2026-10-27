@@ -160,7 +160,8 @@ export class PiGenerationService {
                   displayStage: "cases",
                   version: "pi-agent-1",
                   prompt: "",
-                  maxTokens: config.maxTokens,
+                  // 합성 사용량 기록용 요청이며 실제 모델 출력 한도에는 쓰이지 않는다.
+                  maxTokens: 0,
                   timeoutMs: config.timeoutMs,
                   retries: 0,
                   schema: () => ({}),
