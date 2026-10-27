@@ -4,6 +4,7 @@ import {
   type OnApplicationBootstrap,
 } from "@nestjs/common";
 import { and, inArray, sql } from "drizzle-orm";
+import { GENERATION_CONCURRENCY } from "../config/env";
 import { generationJobs, generationSteps } from "../database/schema";
 import { TempUploadsService } from "../temp-uploads/temp-uploads.service";
 import { GenerationService } from "./generation.service";
@@ -27,7 +28,8 @@ export class GenerationWorker implements OnApplicationBootstrap {
       GENERATION_QUEUE,
       {
         ...options,
-        localConcurrency: this.queue.env.generationConcurrency ?? 2,
+        localConcurrency:
+          this.queue.env.generationConcurrency ?? GENERATION_CONCURRENCY,
       },
       async (jobs) => {
         for (const job of jobs)

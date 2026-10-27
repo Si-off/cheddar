@@ -10,32 +10,17 @@ export type PiConfig = {
 
 export const DEFAULT_PI_MAX_COST_USD = 3;
 
-export function readPiConfig(env: NodeJS.ProcessEnv = process.env): PiConfig {
-  const engine = env.AI_GENERATION_ENGINE || "pi";
-  if (engine !== "staged" && engine !== "pi")
-    throw new Error("AI_GENERATION_ENGINE은 staged 또는 pi여야 합니다.");
-  const match = /^(openai|anthropic):([^\s:]+)$/.exec(
-    env.AI_PI_MODEL || "anthropic:claude-sonnet-5-5",
-  );
-  if (!match) throw new Error("AI_PI_MODEL 설정을 확인하세요.");
-  const number = (key: string, fallback: number, min: number, max: number) => {
-    const value = Number(env[key] || fallback);
-    if (!Number.isInteger(value) || value < min || value > max)
-      throw new Error(`${key}는 ${min}~${max} 정수여야 합니다.`);
-    return value;
-  };
-  const maxCostUsd = Number(env.AI_PI_MAX_COST_USD || DEFAULT_PI_MAX_COST_USD);
-  if (!Number.isFinite(maxCostUsd) || maxCostUsd <= 0)
-    throw new Error("AI_PI_MAX_COST_USD는 0보다 큰 달러 금액이어야 합니다.");
+/** 최초/추가 생성 설정. 호출마다 새 객체를 돌려줘 작업별 변경이 서로 번지지 않게 한다. */
+export function piConfig(engine: PiConfig["engine"] = "pi"): PiConfig {
   return {
     engine,
     model: {
-      provider: match[1] as ModelConfig["provider"],
-      model: match[2],
+      provider: "anthropic",
+      model: "claude-sonnet-5-5",
       effort: "medium",
     },
-    maxTurns: number("AI_PI_MAX_TURNS", 80, 1, 200),
-    timeoutMs: number("AI_PI_TIMEOUT_SECONDS", 1500, 10, 1500) * 1000,
-    maxCostUsd,
+    maxTurns: 80,
+    timeoutMs: 1500 * 1000,
+    maxCostUsd: DEFAULT_PI_MAX_COST_USD,
   };
 }

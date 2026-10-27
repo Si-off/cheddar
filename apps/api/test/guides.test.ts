@@ -47,13 +47,9 @@ for (const guide of Object.values(GUIDES))
     assert.ok(guide.decomposition.length > 0);
   });
 
-test("새 작업의 지침은 AI_GUIDE로 고르고 없는 지침은 시작할 때 거부한다", () => {
+test("새 작업은 기본 지침을 쓴다", () => {
   assert.equal(readAiConfig({}).guide, DEFAULT_GUIDE);
-  assert.equal(readAiConfig({ AI_GUIDE: "" }).guide, DEFAULT_GUIDE);
-  for (const id of Object.keys(GUIDES))
-    assert.equal(readAiConfig({ AI_GUIDE: id }).guide, id);
-  assert.throws(() => readAiConfig({ AI_GUIDE: "없는-지침" }), /AI_GUIDE/);
-  assert.throws(() => readAiConfig({ AI_GUIDE: "toString" }), /AI_GUIDE/);
+  assert.ok(Object.hasOwn(GUIDES, DEFAULT_GUIDE));
 });
 
 test("지침을 기록하지 않은 이전 작업은 기본값이 바뀌어도 그때의 지침으로 이어서 실행한다", () => {

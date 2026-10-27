@@ -10,7 +10,7 @@ import {
   projectQaReferences,
   reviewItems,
 } from "../src/database/schema";
-import { readPiConfig } from "../src/generation/pi/config";
+import { piConfig } from "../src/generation/pi/config";
 import { PiInfrastructureError } from "../src/generation/pi/errors";
 import { PiGenerationService } from "../src/generation/pi/pi.service";
 import { readQaReference } from "../src/generation/pi/reference";
@@ -47,7 +47,7 @@ function input(): GenerationInput {
     viewpoints: [],
     existingCases: [],
     styleExamples: [],
-    pi: readPiConfig({ AI_GENERATION_ENGINE: "pi" }),
+    pi: piConfig(),
   };
 }
 function row(source: GenerationInput, title = "주문 조회") {
@@ -132,9 +132,7 @@ test("pi 작업은 프로젝트 기준을 고정하고 설정 변경 후에도 �
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const reference = {
       name: "기준",
       sha256: "old",
@@ -157,7 +155,7 @@ test("pi 작업은 프로젝트 기준을 고정하고 설정 변경 후에도 �
       .update(projectQaReferences)
       .set({ document: { ...reference, sha256: "new" } })
       .where(eq(projectQaReferences.projectId, set.project.id));
-    f.app.get(QueueService).env.pi = readPiConfig({});
+    f.app.get(QueueService).env.pi = piConfig();
     let runs = 0;
     f.app.get(PiGenerationService).execute = async (options) => {
       runs++;
@@ -206,9 +204,7 @@ test("pi 실행 제한 시 작성된 케이스를 보존하고 미완료 범위�
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const { jobId } = await f.generation.create(set.id, f.accountId, {
       kind: "append",
       memo: "주문 조회와 취소",
@@ -257,7 +253,7 @@ test("완료 초안 체크포인트로 복구하면 모델을 다시 호출하�
 });
 
 test("pi 기본 설정은 Sonnet medium과 검증한 실행 한도를 사용한다", () => {
-  const config = readPiConfig({});
+  const config = piConfig();
   assert.equal(config.engine, "pi");
   assert.deepEqual(config.model, {
     provider: "anthropic",
@@ -267,8 +263,6 @@ test("pi 기본 설정은 Sonnet medium과 검증한 실행 한도를 사용한�
   assert.equal(config.maxCostUsd, 3);
   assert.equal(config.maxTurns, 80);
   assert.equal(config.timeoutMs, 1500000);
-  assert.throws(() => readPiConfig({ AI_PI_MAX_TURNS: "0" }));
-  assert.throws(() => readPiConfig({ AI_GENERATION_ENGINE: "unknown" }));
 });
 
 test("pi는 새 작업의 medium과 기존 작업의 high를 실제 요청에 반영한다", async (t) => {
@@ -389,9 +383,7 @@ test("저장 장애는 부분 성공으로 바꾸지 않으며 최초 큐 작업
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const { jobId } = await f.generation.create(set.id, f.accountId, {
       kind: "append",
       memo: "주문",
@@ -438,9 +430,7 @@ test("미완료 확인 항목은 업로드 정리 후에도 긴 화면 원문을
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const { jobId } = await f.generation.create(set.id, f.accountId, {
       kind: "append",
       memo: "조회",
@@ -493,9 +483,7 @@ test("최종 저장 장애 후 완료 초안으로 재시도하며 모델을 재
   const f = await generationFixture();
   try {
     const set = await f.makeSet();
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const { jobId } = await f.generation.create(set.id, f.accountId, {
       kind: "append",
       memo: "주문 조회",
@@ -634,9 +622,7 @@ test("pi는 같은 그룹의 중복만 합치고 다른 그룹 및 미분류의 
         position,
       })),
     );
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     let groupKeys: (string | undefined)[] = [groups[0], groups[0]];
     f.app.get(PiGenerationService).execute = async (options) => {
       const workspace = new PiWorkspace(
@@ -688,9 +674,7 @@ test("pi 실행 중 삭제된 기능 그룹은 실제 저장될 미분류 그룹
       name: "삭제 예정",
       position: 0,
     });
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const { jobId } = await f.generation.create(set.id, f.accountId, {
       kind: "append",
       memo: "조회",
@@ -725,9 +709,7 @@ test("5MB 초과 문서를 HTTP 업로드한 뒤 pi가 마지막 원문과 같�
   try {
     const set = await f.makeSet();
     await f.app.get(LocalStorage).initialize();
-    f.app.get(QueueService).env.pi = readPiConfig({
-      AI_GENERATION_ENGINE: "pi",
-    });
+    f.app.get(QueueService).env.pi = piConfig();
     const document = {
       schemaVersion: 2,
       board: { id: "figma-board", name: "큰 화면", width: 390, height: 844 },

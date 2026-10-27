@@ -6,7 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { eq, inArray } from "drizzle-orm";
 import { generationJobs } from "../src/database/schema";
 import { GenerationWorker } from "../src/generation/generation.worker";
-import { readPiConfig } from "../src/generation/pi/config";
+import { piConfig } from "../src/generation/pi/config";
 import { PiGenerationService } from "../src/generation/pi/pi.service";
 import type { PiRunOptions } from "../src/generation/pi/runtime";
 import { PiWorkspace } from "../src/generation/pi/workspace";
@@ -76,7 +76,7 @@ test("실제 pg-boss에서 pi 5건을 접수하고 2건씩 실행하며 오래 �
     peak = 0;
   const runs = new Map<string, number>();
   try {
-    f.app.get(QueueService).env.pi = readPiConfig({});
+    f.app.get(QueueService).env.pi = piConfig();
     f.app.get(PiGenerationService).execute = async (options) => {
       const memo = options.input.memo;
       runs.set(memo, (runs.get(memo) ?? 0) + 1);
@@ -199,7 +199,7 @@ test("워커가 없을 때 접수한 pi 요청은 시작 시 복구되어 모두
   const f = await generationFixture();
   try {
     const queue = f.app.get(QueueService);
-    queue.env.pi = readPiConfig({});
+    queue.env.pi = piConfig();
     f.app.get(PiGenerationService).execute = generate;
     const sets = await Promise.all([f.makeSet(), f.makeSet(), f.makeSet()]);
     const jobs = await Promise.all(

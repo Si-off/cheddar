@@ -13,7 +13,7 @@ import { QueueService } from "../src/generation/queue.service";
 import { ReviewItemsService } from "../src/review-items/review-items.service";
 import { generationFixture } from "./generation-fixture";
 
-test("실행 동시성과 공급자 관리 키 환경변수는 원본 범위를 검증한다", () => {
+test("실행 설정은 고정값을 쓰고 공급자 관리 키는 범위 ID와 함께 받는다", () => {
   const base = {
     DATABASE_URL: "postgresql://test@127.0.0.1/test",
     FILE_STORAGE_ROOT: tmpdir(),
@@ -21,20 +21,8 @@ test("실행 동시성과 공급자 관리 키 환경변수는 원본 범위를 
   };
   assert.equal(readEnv(base).generationConcurrency, 2);
   assert.equal(readEnv(base).costSync?.intervalMs, 3600000);
-  for (const value of ["0", "9", "1.5", "NaN", ""])
-    assert.throws(() => readEnv({ ...base, AI_GENERATION_CONCURRENCY: value }));
-  for (const value of ["59", "86401", "NaN"])
-    assert.throws(() =>
-      readEnv({ ...base, AI_COST_SYNC_INTERVAL_SECONDS: value }),
-    );
-  assert.equal(
-    readEnv({
-      ...base,
-      AI_GENERATION_CONCURRENCY: "8",
-      AI_COST_SYNC_INTERVAL_SECONDS: "60",
-    }).costSync?.intervalMs,
-    60000,
-  );
+  assert.equal(readEnv(base).pi?.engine, "staged");
+  assert.equal(readEnv({ ...base, AI_PROVIDER: "" }).pi?.engine, "pi");
   for (const [key, scope] of [
     ["OPENAI_ADMIN_KEY", "OPENAI_COST_PROJECT_ID"],
     ["ANTHROPIC_ADMIN_KEY", "ANTHROPIC_COST_WORKSPACE_ID"],
