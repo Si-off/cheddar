@@ -25,7 +25,6 @@ test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 �
       storageRoot: resolve(tmpdir(), "cheddar-contract-unused"),
       port: 3101,
       host: "127.0.0.1",
-      cookieSameSite: "lax",
       corsOrigins: [],
       workersEnabled: false,
     },

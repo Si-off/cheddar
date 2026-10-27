@@ -35,7 +35,6 @@ export async function openTestDatabase() {
     storageRoot,
     port: 3101,
     host: "127.0.0.1",
-    cookieSameSite: "lax" as const,
     corsOrigins: ["http://127.0.0.1:5173"],
     production: false,
   };
