@@ -43,7 +43,6 @@ import { defaultColumns } from "../src/projects/template";
 import { ReviewItemsController } from "../src/review-items/review-items.controller";
 import { ReviewItemsService } from "../src/review-items/review-items.service";
 import {
-  MAX_DOCUMENT_BYTES,
   MAX_IMAGE_BYTES,
   MAX_UPLOAD_BYTES,
   parseManifest,
@@ -412,26 +411,42 @@ test("업로드 manifest는 프레임 수, 이미지 순서 수와 실제 서명
     parseManifest(manifest, [{ ...image, size: MAX_IMAGE_BYTES + 1 }]),
   );
 });
-test("화면 문서는 schemaVersion 2와 프레임당 크기 상한만 확인하고 내용은 가공하지 않음", () => {
+test("화면 문서는 schemaVersion 2를 검사하며 5MB를 넘어도 내용과 프레임을 보존한다", () => {
   const manifest = (document: unknown) =>
     JSON.stringify({ frames: [{ name: "화면", document, imageCount: 0 }] });
   const document = { schemaVersion: 2, texts: ["안내"], extra: { kept: true } };
   assert.deepEqual(parseManifest(manifest(document), [])[0].document, document);
-  const fill = "가".repeat(Math.ceil(MAX_DOCUMENT_BYTES / 3));
+  const fill = `${"가".repeat(2 * 1024 * 1024)}마지막 규칙`;
   for (const value of [
     null,
     { text: "안내" },
     { schemaVersion: 1 },
     { schemaVersion: "2" },
     [{ schemaVersion: 2 }],
-    { schemaVersion: 2, texts: [fill] },
   ])
     assert.throws(() => parseManifest(manifest(value), []));
-  assert.equal(
-    parseManifest(manifest({ schemaVersion: 2, texts: [fill.slice(100)] }), [])
-      .length,
-    1,
+  const large = { schemaVersion: 2, texts: [fill] };
+  const frames = parseManifest(manifest(large), []);
+  assert.equal(frames.length, 1);
+  assert.deepEqual(frames[0].document, large);
+});
+test("문서와 이미지 합계는 기존 전체 업로드 200MB 상한을 따른다", () => {
+  const images = Array.from(
+    { length: 20 },
+    () =>
+      ({
+        buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+        size: MAX_IMAGE_BYTES,
+        mimetype: "image/png",
+      }) as Express.Multer.File,
   );
+  const manifest = JSON.stringify({
+    frames: [{ name: "화면", imageCount: 20, document: { schemaVersion: 2 } }],
+  });
+  // 각 이미지는 허용 크기여도 manifest를 합친 전체가 200MB를 넘는다.
+  assert.throws(() => parseManifest(manifest, images));
+  images[19].size -= Buffer.byteLength(manifest);
+  assert.equal(parseManifest(manifest, images).length, 1);
 });
 test("비용은 캐시 토큰과 Haiku 길이 경계를 반영하고 미등록 모델은 null", () => {
   const u = {

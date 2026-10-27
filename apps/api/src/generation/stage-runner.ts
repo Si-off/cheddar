@@ -658,18 +658,22 @@ export class StageRunner implements OnModuleDestroy {
       const groupId = (key: string | null | undefined) =>
         key && groupIds.has(key) ? key : null;
       const existing = await this.generation.store.cases(job.testSetId, tx);
-      const seen = new Set(existing.map((c) => fingerprint(input, c.values)));
+      // 저장될 그룹을 기준으로 기존 행과 이번 초안을 함께 비교한다.
+      const keyOf = (draft: Draft, featureGroupId: string | null) =>
+        JSON.stringify([featureGroupId, fingerprint(input, draft)]);
+      const seen = new Set(
+        existing.map((c) => keyOf(c.values, groupId(c.featureGroupId))),
+      );
       let merged = 0;
       const cases = output.cases.flatMap((draft, index) => {
-        const key = fingerprint(input, draft);
+        const featureGroupId = groupId(output.caseGroupKeys?.[index]);
+        const key = keyOf(draft, featureGroupId);
         if (seen.has(key)) {
           merged++;
           return [];
         }
         seen.add(key);
-        return [
-          { draft, featureGroupId: groupId(output.caseGroupKeys?.[index]) },
-        ];
+        return [{ draft, featureGroupId }];
       });
       let afterCaseId = existing.at(-1)?.id ?? null;
       const ops = cases.map(({ draft, featureGroupId }) => {

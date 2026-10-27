@@ -1,8 +1,6 @@
 import { invalid } from "../common/errors";
 export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-/** 플러그인 UI가 만든 화면 문서 하나의 상한. 가공은 플러그인이 하고 서버는 모양과 크기만 본다 */
-export const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 export type ManifestFrame = {
   name: string;
   document: unknown;
@@ -65,8 +63,7 @@ function screenDocument(value: unknown) {
     typeof value === "object" &&
     !Array.isArray(value) &&
     "schemaVersion" in value &&
-    value.schemaVersion === 2 &&
-    Buffer.byteLength(JSON.stringify(value)) <= MAX_DOCUMENT_BYTES
+    value.schemaVersion === 2
   );
 }
 export function imageMime(bytes: Buffer): "image/png" | "image/jpeg" | null {

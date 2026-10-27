@@ -1,28 +1,26 @@
 // 보드 하나를 AI가 읽을 화면 문서로 줄인다. 원본 JSON 대신 글자와 구조, 연결만 남긴다.
 // main이 exportAsync({ format: "JSON_REST_V1" })로 보낸 REST 모양 트리를 읽는다.
 import type { FrameNode, SubcanvasNode } from "@figma/rest-api-spec";
-import {
-  type FrameAnnotation,
-  type FrameSource,
-  MAX_FRAME_DATA_BYTES,
-} from "../../../protocol/messages";
+import type { FrameAnnotation, FrameSource } from "../../../protocol/messages";
 
 export type SourceNode = FrameNode | SubcanvasNode;
 
 export type ScreenNode = {
-  kind: "frame" | "instance" | "text";
+  kind: "frame" | "instance" | "text" | "icon";
+  id: string;
+  parentId?: string;
+  bounds?: { x: number; y: number; width: number; height: number };
   name?: string;
   text?: string;
   props?: Record<string, string | boolean>;
   note?: string;
   children?: ScreenNode[];
-  /** 같은 컴포넌트가 이어 반복되어 처음 두 개만 남겼을 때 원래 개수 */
-  repeated?: number;
+  textStyles?: { start: number; end: number; decoration: string }[];
 };
 
 export type ScreenDocument = {
   schemaVersion: 2;
-  board: { name: string; width: number; height: number };
+  board: { id: string; name: string; width: number; height: number };
   /** 읽는 순서의 글자 */
   texts: string[];
   tree: ScreenNode[];
@@ -43,9 +41,6 @@ const DROP = new Set([
   "RECTANGLE",
   "SLICE",
 ]);
-const KEEP_REPEATED = 2;
-const MAX_TEXT = 2000;
-
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
 // 속성 이름 끝의 "#12:3" 같은 내부 ID는 뜻이 없어 지운다
 const propName = (name: string) => name.replace(/#[\d:]+$/, "");
@@ -66,27 +61,6 @@ function readingOrder(nodes: readonly SourceNode[]) {
     if (Math.abs(dy) > 8) return dy;
     return first.x - second.x;
   });
-}
-
-function signature(node: ScreenNode) {
-  return node.kind === "instance" ? `instance:${node.name}` : null;
-}
-
-function collapse(children: ScreenNode[]) {
-  const out: ScreenNode[] = [];
-  for (let i = 0; i < children.length; ) {
-    const key = signature(children[i]);
-    let end = i + 1;
-    while (key && end < children.length && signature(children[end]) === key)
-      end += 1;
-    const run = end - i;
-    if (run > KEEP_REPEATED) {
-      out.push(...children.slice(i, i + KEEP_REPEATED));
-      out[out.length - 1] = { ...out[out.length - 1], repeated: run };
-    } else out.push(...children.slice(i, end));
-    i = end;
-  }
-  return out;
 }
 
 const own = <T>(map: Readonly<Record<string, T>>, key: string) =>
@@ -116,7 +90,7 @@ export function buildScreenDocument(
     const list =
       own(annotations, node.id) ?? (node as Annotated).annotations ?? [];
     for (const a of list) {
-      const text = clean(a.labelMarkdown || a.label || "");
+      const text = (a.labelMarkdown || a.label || "").trim();
       if (text) notes.push({ target: clean(node.name), text });
     }
     for (const r of interactionsOf(node))
@@ -128,10 +102,20 @@ export function buildScreenDocument(
             trigger: r.trigger?.type,
           });
   };
-  const visit = (node: SourceNode): ScreenNode | null => {
+  const visit = (node: SourceNode, parentId: string): ScreenNode | null => {
     // REST 모양은 보이는 노드의 visible을 생략한다
-    if (node.visible === false || DROP.has(node.type)) return null;
+    if (node.visible === false) return null;
+    const bounds = box(node);
+    const provenance = {
+      id: node.id,
+      parentId,
+      ...(bounds ? { bounds } : {}),
+    };
     gather(node);
+    if (DROP.has(node.type))
+      return /plus|minus|close|arrow|추가|삭제|닫기/i.test(node.name)
+        ? { kind: "icon", name: node.name, ...provenance }
+        : null;
     if (node.type === "CONNECTOR") {
       const from = node.connectorStart.endpointNodeId;
       const to = node.connectorEnd.endpointNodeId;
@@ -145,9 +129,28 @@ export function buildScreenDocument(
       return null;
     }
     if (node.type === "TEXT") {
-      const text = clean(node.characters ?? "").slice(0, MAX_TEXT);
-      if (!text) return null;
-      return { kind: "text", text };
+      const text = node.characters ?? "";
+      if (!text.trim()) return null;
+      const textStyles: NonNullable<ScreenNode["textStyles"]> = [];
+      const overrides = node.characterStyleOverrides ?? [];
+      for (let start = 0; start < text.length; ) {
+        const decoration = (index: number) =>
+          node.styleOverrideTable?.[overrides[index]]?.textDecoration ??
+          node.style?.textDecoration ??
+          "NONE";
+        const value = decoration(start);
+        let end = start + 1;
+        while (end < text.length && decoration(end) === value) end++;
+        if (value !== "NONE")
+          textStyles.push({ start, end, decoration: value });
+        start = end;
+      }
+      return {
+        kind: "text",
+        text,
+        ...provenance,
+        ...(textStyles.length ? { textStyles } : {}),
+      };
     }
     const instance = node.type === "INSTANCE";
     const props: Record<string, string | boolean> = {};
@@ -159,23 +162,21 @@ export function buildScreenDocument(
           (typeof p.value === "string" || typeof p.value === "boolean")
         )
           props[propName(key)] = p.value;
-    const children = collapse(
-      readingOrder(childrenOf(node))
-        .map(visit)
-        .filter((c): c is ScreenNode => c !== null),
-    );
+    const children = readingOrder(childrenOf(node))
+      .map((child) => visit(child, node.id))
+      .filter((c): c is ScreenNode => c !== null);
     const hasProps = Object.keys(props).length > 0;
     // 글자도 속성도 없는 묶음은 아이콘이나 장식이라 버린다
-    if (!children.length && !hasProps) return null;
-    // 이름 없는 레이아웃 껍데기는 한 단계로 펼친다
     if (
       !instance &&
-      children.length === 1 &&
-      /^(Frame|Group) \d+$/.test(node.name)
+      !children.length &&
+      !hasProps &&
+      !/plus|minus|close|arrow|추가|삭제|닫기/i.test(node.name)
     )
-      return children[0];
+      return null;
     return {
       kind: instance ? "instance" : "frame",
+      ...provenance,
       name: clean(node.name),
       ...(hasProps ? { props } : {}),
       ...(children.length ? { children } : {}),
@@ -184,9 +185,9 @@ export function buildScreenDocument(
 
   gather(board);
   const tree = readingOrder(childrenOf(board))
-    .map(visit)
+    .map((node) => visit(node, board.id))
     .filter((c): c is ScreenNode => c !== null);
-  // 접힌 반복 항목의 글자는 빼고, 남은 트리 순서대로 모은다
+  // 모든 선택값과 설명의 원문을 읽는 순서대로 보존한다.
   const texts: string[] = [];
   const collect = (node: ScreenNode) => {
     if (node.text) texts.push(node.text);
@@ -211,6 +212,7 @@ export function buildScreenDocument(
   return {
     schemaVersion: 2,
     board: {
+      id: board.id,
       name: clean(board.name),
       width: Math.round(bounds?.width ?? 0),
       height: Math.round(bounds?.height ?? 0),
@@ -222,29 +224,12 @@ export function buildScreenDocument(
   };
 }
 
-const utf8Size = (document: ScreenDocument) =>
-  new TextEncoder().encode(JSON.stringify(document)).length;
-
-/**
- * 화면 문서가 서버 상한보다 크면 줄인다. 구조 트리, 연결, 주석, 글자 순으로 덜어내고 보드 정보는 남긴다.
- * 막지 않고 올릴 수 있는 만큼 올린다.
- */
-export function fitScreenDocument(document: ScreenDocument) {
-  if (utf8Size(document) <= MAX_FRAME_DATA_BYTES)
-    return { document, reduced: false };
-  const smaller: ScreenDocument = { ...document, tree: [] };
-  for (const key of ["links", "notes", "texts"] as const)
-    while (utf8Size(smaller) > MAX_FRAME_DATA_BYTES && smaller[key].length > 0)
-      smaller[key] = smaller[key].slice(
-        0,
-        Math.floor(smaller[key].length / 2),
-      ) as never;
-  return { document: smaller, reduced: true };
-}
-
-/** main이 보낸 원본으로 화면 문서를 만든다. 서버 상한을 넘으면 줄인다. */
+/** main이 보낸 원본으로 화면 문서를 만든다. 크기 때문에 내용을 생략하지 않는다. */
 export function readFrameSource(source: FrameSource) {
-  return fitScreenDocument(
-    buildScreenDocument(JSON.parse(source.document) as SourceNode, source),
-  );
+  return {
+    document: buildScreenDocument(
+      JSON.parse(source.document) as SourceNode,
+      source,
+    ),
+  };
 }

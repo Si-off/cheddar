@@ -10,7 +10,6 @@ import {
   isResourceId,
   isToken,
   isUiToMainMessage,
-  MAX_FRAME_SOURCE_CHARS,
   MAX_IMAGE_BYTES,
   MAX_THUMBNAIL_BYTES,
   type MainToUiMessage,
@@ -135,22 +134,13 @@ function active(id: string): Session {
 /**
  * 화면 문서는 UI가 만든다. main은 노드를 읽어 원본만 넘기고 거르지 않는다.
  * UI가 찾을 수 없는 것만 더한다: 프레임 밖 연결 대상의 이름과 REST 원본에 없는 주석 Markdown.
- * 원본이 상한을 넘으면 보드 정보만 넘긴다. 막지 않고 올릴 수 있는 만큼 올린다.
+ * 큰 원본도 내용을 생략하지 않는다. 전체 업로드 크기는 서버에서 검사한다.
  */
 async function frameSource(node: FrameNode): Promise<FrameSource> {
   const rest = (await node.exportAsync({ format: "JSON_REST_V1" })) as {
     document: RestFrameNode;
   };
   const document = JSON.stringify(rest.document);
-  if (document.length > MAX_FRAME_SOURCE_CHARS) {
-    note("화면 원본이 커서 보드 정보만 올립니다", { frame: node.name });
-    const { id, type, name, absoluteBoundingBox } = rest.document;
-    return {
-      document: JSON.stringify({ id, type, name, absoluteBoundingBox }),
-      annotations: {},
-      externalNames: {},
-    };
-  }
   const inside = new Set<string>();
   const targets = new Set<string>();
   const walk = (item: RestFrameNode | SubcanvasNode) => {
