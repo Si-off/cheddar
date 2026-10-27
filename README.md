@@ -37,9 +37,8 @@ pnpm install --frozen-lockfile
 | `DATABASE_URL` | 실행 DB 연결 |
 | `TEST_DATABASE_URL` | 테스트 DB 연결. superuser가 아닌 role, 실행 DB와 다른 DB |
 | `FILE_STORAGE_ROOT` | 임시 업로드를 둘 저장소 밖의 절대 경로 |
-| `API_PORT` | 기본 3101. 비어 있으면 호스팅 서비스가 주는 `PORT`를 따른다 |
-| `API_HOST` | listen 주소. 기본 `127.0.0.1`, 외부 호스팅에서는 `0.0.0.0` |
-| `COOKIE_SAME_SITE` | 기본 `lax`. 웹과 API의 도메인이 다를 때만 `none`이며 `NODE_ENV=production`이 필요하다 |
+| `API_PORT` | 기본 3101 |
+| `API_HOST` | listen 주소. 기본 `127.0.0.1`, 다른 기기에서 접속해야 하면 `0.0.0.0` |
 | `CORS_ORIGINS` | 웹 origin을 쉼표로 구분. 쿠키 자격 증명을 허용 |
 | `ALLOW_FIGMA_NULL_ORIGIN` | `true`면 development에서 Figma 플러그인(Origin `null`)의 연결과 업로드 경로를 허용 |
 | `PLUGIN_UI_ORIGIN` | 원격으로 띄운 플러그인 UI의 origin. 연결과 업로드 경로만 쿠키 없이 허용. `CORS_ORIGINS`와 겹치면 안 된다 |
@@ -82,7 +81,7 @@ pnpm dev:plugin:remote
 
 플러그인 UI를 번들에 넣지 않고 Vite 개발 서버(`http://localhost:5174`)에서 띄운다. UI를 고치면 Figma 안에서 바로 바뀐다. API에는 `PLUGIN_UI_ORIGIN=http://localhost:5174`가 필요하다. UI의 메시지와 API 호출 로그는 OS 임시 경로의 `cheddar-plugin-ui.log`에 쌓인다.
 
-운영용 원격 UI는 `VITE_PLUGIN_UI_URL`(UI를 올릴 주소), `VITE_API_BASE_URL`, `VITE_WEB_BASE_URL`을 넣고 `pnpm --filter @cheddar/figma-plugin build`로 만든다. `dist/ui/`는 호스팅에 올리고(Vercel 설정 `apps/figma-plugin/vercel.json`), `dist/index.html`과 `dist/main.js`는 Figma에 배포한다. manifest의 `allowedDomains`가 UI 주소를 허용하지 않으면 빌드가 멈춘다.
+운영용 원격 UI는 `VITE_PLUGIN_UI_URL`(UI를 올릴 주소), `VITE_API_BASE_URL`, `VITE_WEB_BASE_URL`을 넣고 `pnpm --filter @cheddar/figma-plugin build`로 만든다. `dist/ui/`는 UI 주소에서 제공하고, `dist/index.html`과 `dist/main.js`는 Figma에 배포한다. manifest의 `allowedDomains`가 UI 주소를 허용하지 않으면 빌드가 멈춘다.
 
 ## 검증
 

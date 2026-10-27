@@ -13,7 +13,6 @@ test("프로젝트 없이 임시 업로드 UUID 경로에 저장하고 경로 �
     storageRoot: root,
     port: 3101,
     host: "127.0.0.1",
-    cookieSameSite: "lax",
     corsOrigins: [],
   });
   try {

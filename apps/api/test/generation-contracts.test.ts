@@ -506,7 +506,6 @@ test("HTTP DTO 검증과 SSE OpenAPI는 DB 없이 확인", async () => {
     storageRoot: "unused",
     port: 3101,
     host: "127.0.0.1",
-    cookieSameSite: "lax",
     corsOrigins: [],
   });
   try {
