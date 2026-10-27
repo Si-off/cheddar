@@ -32,10 +32,6 @@ test("시연 설정은 원본 DB와 경로, fake 및 관리자 키를 사용하�
   assert.equal(readAiConfig(env).fake, false);
   assert.equal(source.AI_PROVIDER, "fake");
   assert.throws(() => demoEnvironment({}), /OPENAI_API_KEY/);
-  assert.throws(
-    () => demoEnvironment({ OPENAI_API_KEY: "test", AI_MODEL_CASES: "sonnet" }),
-    /ANTHROPIC_API_KEY/,
-  );
 });
 
 test("시연 계정은 첫 실행에 로그인 가능하고 재실행은 변경한 계정을 보존한다", async () => {

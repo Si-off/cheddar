@@ -46,15 +46,10 @@ pnpm install --frozen-lockfile
 | `NODE_ENV` | `production`이면 세션 쿠키에 Secure 적용 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | AI 제공자 키. 쓰는 제공자의 키만 넣는다 |
 | `AI_PROVIDER` | `fake`면 외부 호출 없이 합성 결과로 생성한다 |
-| `AI_PI_MODEL` | 최초/추가 생성 모델. 기본 `anthropic:claude-sonnet-5-5`, effort는 medium. `ANTHROPIC_API_KEY` 필요 |
-| `AI_PI_MAX_COST_USD`, `AI_PI_MAX_TURNS`, `AI_PI_TIMEOUT_SECONDS` | pi 실행 한도. 기본 요청당 $3·80턴·1,500초. 비용 도달 시 다음 호출 중단 |
-| `AI_MODEL_SCREENS` 등 | 단계별 모델. 짧은 이름 `haiku`, `sonnet`, `opus`, `luna`, `terra` 또는 `anthropic:<모델>`, `openai:<모델>`. 기본값은 `apps/api/src/generation/model-config.ts` |
-| `AI_EFFORT_SCREENS` 등 | 단계별 effort. `low`, `medium`, `high`, `xhigh`, `max`. Claude와 GPT 모두에 적용. effort를 받지 않는 모델은 `default`(보내지 않음) |
-| `AI_GUIDE` | 새 작업에 쓸 작성 지침 ID. 비우면 기본 지침. 목록은 `apps/api/src/generation/guides/index.ts` |
-| `AI_GENERATION_CONCURRENCY` | API 프로세스당 큐 실행 수. 기본 2, 1~8. 최초/추가 생성, 다시 작성, 열 채우기에 적용하며 초과 요청은 대기 |
 | `OPENAI_ADMIN_KEY`, `OPENAI_COST_PROJECT_ID` | OpenAI 비용 동기화용 관리자 키와 프로젝트 ID. 함께 설정 |
 | `ANTHROPIC_ADMIN_KEY`, `ANTHROPIC_COST_WORKSPACE_ID` | Anthropic 비용 동기화용 관리자 키와 워크스페이스 ID. 함께 설정, 기본 워크스페이스는 `default` |
-| `AI_COST_SYNC_INTERVAL_SECONDS` | 비용 동기화 주기. 기본 3600초, 60~86400초. 테스트와 fake에서는 자동 동기화하지 않음 |
+
+AI 모델·effort·작성 지침·실행 한도·큐 동시성·비용 동기화 주기는 환경변수로 받지 않고 코드 상수로 둔다. 단계별 모델과 effort는 `apps/api/src/generation/model-config.ts`, pi 설정은 `apps/api/src/generation/pi/config.ts`, 동시성과 동기화 주기는 `apps/api/src/config/env.ts`에서 바꾼다.
 
 ```sh
 pnpm db:migrate

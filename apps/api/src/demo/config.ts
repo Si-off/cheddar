@@ -1,17 +1,10 @@
 import { readEnv } from "../config/env";
-import { readAiConfig, STAGES } from "../generation/model-config";
+import { readAiConfig } from "../generation/model-config";
 
 // 원본 설정에서는 AI 실행에 필요한 값만 읽는다. 로컬 DB와 관리자 키는 사용하지 않는다.
 export function demoEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const key of [
-    "OPENAI_API_KEY",
-    "ANTHROPIC_API_KEY",
-    ...STAGES.flatMap((stage) => [
-      `AI_MODEL_${stage.toUpperCase()}`,
-      `AI_EFFORT_${stage.toUpperCase()}`,
-    ]),
-  ]) {
+  for (const key of ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]) {
     if (source[key]?.trim()) env[key] = source[key];
   }
   Object.assign(env, {

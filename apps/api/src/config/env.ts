@@ -1,10 +1,13 @@
 import { isAbsolute, parse, resolve } from "node:path";
 import { type DynamicModule, Global, Module } from "@nestjs/common";
 import { type AiConfig, readAiConfig } from "../generation/model-config";
-import { type PiConfig, readPiConfig } from "../generation/pi/config";
+import { type PiConfig, piConfig } from "../generation/pi/config";
 import type { CostSource } from "../generation/provider-costs";
 
 export const API_ENV = Symbol("API_ENV");
+/** API 프로세스당 큐 실행 수. 초과 요청은 거절하지 않고 기다린다. */
+export const GENERATION_CONCURRENCY = 2;
+const COST_SYNC_INTERVAL_MS = 3600 * 1000;
 export interface ApiEnv {
   databaseUrl: string;
   storageRoot: string;
@@ -109,16 +112,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
       throw new Error(`${key} and ${scope} must be configured together.`);
     return { adminKey, scopeId };
   };
-  const interval = Number(env.AI_COST_SYNC_INTERVAL_SECONDS ?? 3600);
-  const generationConcurrency = Number(env.AI_GENERATION_CONCURRENCY ?? 2);
-  if (
-    !Number.isInteger(generationConcurrency) ||
-    generationConcurrency < 1 ||
-    generationConcurrency > 8
-  )
-    throw new Error("AI_GENERATION_CONCURRENCY must be 1-8.");
-  if (!Number.isInteger(interval) || interval < 60 || interval > 86400)
-    throw new Error("AI_COST_SYNC_INTERVAL_SECONDS must be 60-86400.");
   return {
     databaseUrl: databaseUrl as string,
     storageRoot: resolve(storageRoot),
@@ -129,22 +122,18 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     allowFigmaNullOrigin: allowNullOrigin === "true",
     pluginUiOrigin,
     production: env.NODE_ENV === "production",
-    generationConcurrency,
+    generationConcurrency: GENERATION_CONCURRENCY,
     costSync: {
       openai: costSource("OPENAI_ADMIN_KEY", "OPENAI_COST_PROJECT_ID"),
       anthropic: costSource(
         "ANTHROPIC_ADMIN_KEY",
         "ANTHROPIC_COST_WORKSPACE_ID",
       ),
-      intervalMs: interval * 1000,
+      intervalMs: COST_SYNC_INTERVAL_MS,
     },
     ai: readAiConfig(env),
-    pi: readPiConfig({
-      ...env,
-      AI_GENERATION_ENGINE:
-        env.AI_GENERATION_ENGINE ||
-        (env.AI_PROVIDER === "fake" ? "staged" : "pi"),
-    }),
+    // 외부 호출 없는 fake에서는 이전 단계 생성기를 쓴다
+    pi: piConfig(env.AI_PROVIDER === "fake" ? "staged" : "pi"),
   };
 }
 

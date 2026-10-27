@@ -18,7 +18,12 @@ import {
 import { GenerationController } from "../src/generation/generation.controller";
 import { GenerationService } from "../src/generation/generation.service";
 import { guideOf } from "../src/generation/guides";
-import { readAiConfig, STAGES } from "../src/generation/model-config";
+import {
+  AI_TASKS,
+  EFFORTS,
+  readAiConfig,
+  STAGES,
+} from "../src/generation/model-config";
 import {
   caseSchema,
   formSchema,
@@ -278,51 +283,17 @@ test("출력 검증은 파싱과 열 형식 실패를 한 번만 수정하고 �
   );
   assert.equal(calls, 1);
 });
-test("단계별 모델과 effort는 짧은 이름이나 전체 이름으로 바꾸고 잘못된 값은 거부", () => {
-  const defaults = readAiConfig({});
-  for (const stage of STAGES) {
-    assert.ok(
-      ["anthropic", "openai"].includes(defaults.models[stage].provider),
-    );
-    assert.ok(defaults.models[stage].effort);
+test("단계별 모델은 짧은 이름을 전체 이름으로 풀고 fake 여부만 환경에서 읽는다", () => {
+  const config = readAiConfig({});
+  for (const stage of AI_TASKS) {
+    const { provider, model, effort } = config.models[stage];
+    assert.ok(["anthropic", "openai"].includes(provider));
+    assert.match(model, /^[^\s:]+$/);
+    assert.ok((EFFORTS as readonly string[]).includes(effort));
   }
-  assert.deepEqual(
-    readAiConfig({ AI_MODEL_FLOWS: "luna", AI_EFFORT_FLOWS: "max" }).models
-      .flows,
-    { provider: "openai", model: "gpt-6-luna", effort: "max" },
-  );
-  assert.deepEqual(readAiConfig({ AI_MODEL_SCREENS: "haiku" }).models.screens, {
-    provider: "anthropic",
-    model: "claude-haiku-5-5",
-    effort: defaults.models.screens.effort,
-  });
-  assert.equal(
-    readAiConfig({ AI_MODEL_CASES: "terra" }).models.cases.model,
-    "gpt-5.6-terra",
-  );
-  assert.deepEqual(
-    readAiConfig({
-      AI_MODEL_CASES: "openai:configured-model",
-      AI_PROVIDER: "fake",
-    }).models.cases,
-    {
-      provider: "openai",
-      model: "configured-model",
-      effort: defaults.models.cases.effort,
-    },
-  );
+  assert.equal(config.models.cases.model, "gpt-5.6-terra");
+  assert.equal(config.fake, false);
   assert.equal(readAiConfig({ AI_PROVIDER: "fake" }).fake, true);
-  for (const value of [
-    "",
-    "openai",
-    "other:model",
-    "openai:bad model",
-    "openai:a:b",
-    "gemini",
-  ])
-    assert.throws(() => readAiConfig({ AI_MODEL_CASES: value }));
-  for (const value of ["", "none", "HIGH", "extreme"])
-    assert.throws(() => readAiConfig({ AI_EFFORT_CASES: value }));
   assert.throws(() => readAiConfig({ AI_PROVIDER: "other" }));
 });
 test("fake는 모든 단계에서 결정적인 양식 결과와 확인 필요를 만들고 재작성 답변을 반영", async () => {

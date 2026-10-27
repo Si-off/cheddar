@@ -24,14 +24,6 @@ pnpm --filter @cheddar/api qa:reference --project <프로젝트-UUID> --file /�
 
 Node와 pnpm은 `.nvmrc`, 루트 `package.json`의 버전을 쓴다. 별도 PostgreSQL DB와 파일 저장 경로를 마련하고 `apps/api/.env.local`을 설정한다. 기존 환경은 업데이트 전에 백업하고 새 마이그레이션을 적용한다. 필수 환경변수는 README와 `.env.example`을 따른다.
 
-```dotenv
-AI_GENERATION_ENGINE=pi
-AI_PI_MODEL=anthropic:claude-sonnet-5-5
-AI_PI_MAX_TURNS=80
-AI_PI_MAX_COST_USD=3
-AI_PI_TIMEOUT_SECONDS=1500
-```
-
 ```sh
 pnpm install --frozen-lockfile
 pnpm db:migrate
@@ -43,7 +35,7 @@ pnpm dev:plugin
 
 각 dev 명령은 별도 터미널에서 실행한다. 포트를 기존 개발 환경과 분리하면 웹과 플러그인의 `VITE_API_BASE_URL`, 플러그인의 `VITE_WEB_BASE_URL`, API의 `CORS_ORIGINS`도 맞춘다. Figma에는 **이 워크트리**의 manifest를 개발 플러그인으로 등록한다. 다른 체크아웃의 플러그인은 이전 API 주소를 사용한다.
 
-실제 모델 호출에는 서버의 API 키가 필요하다. `AI_PROVIDER=fake`에서 pi의 실제 실행은 금지되며 테스트는 주입한 합성 실행기로 도구와 저장 동작을 확인한다. 다시 작성과 열 채우기는 기존 생성기를 계속 사용한다. `AI_GENERATION_ENGINE=staged`로 바꾸면 새 최초/추가 생성이 기존 생성기를 사용한다. 진행 중인 pi 작업의 엔진은 바뀌지 않는다.
+실제 모델 호출에는 서버의 API 키가 필요하다. `AI_PROVIDER=fake`에서 pi의 실제 실행은 금지되며 테스트는 주입한 합성 실행기로 도구와 저장 동작을 확인한다. 다시 작성과 열 채우기는 기존 생성기를 계속 사용한다. 엔진·모델·한도는 `apps/api/src/generation/pi/config.ts`의 `piConfig`에서 바꾼다. 진행 중인 pi 작업의 엔진은 바뀌지 않는다.
 
 ## 실행 구조
 
@@ -72,7 +64,7 @@ pnpm dev:plugin
 
 ## 대기열과 검증 범위
 
-`AI_GENERATION_CONCURRENCY=2`는 API 프로세스 안에서 실행하는 큐 작업 수다. 초과 요청은 429로 거절하지 않고 pending으로 보관한다. 대기 중에는 복구 만료 시각을 검사하지 않고 연결된 업로드도 정리하지 않는다. 같은 세트는 작업 하나를 유지하고 같은 요청 ID의 재전송은 기존 작업을 반환한다.
+`GENERATION_CONCURRENCY`(2)는 API 프로세스 안에서 실행하는 큐 작업 수다. 초과 요청은 429로 거절하지 않고 pending으로 보관한다. 대기 중에는 복구 만료 시각을 검사하지 않고 연결된 업로드도 정리하지 않는다. 같은 세트는 작업 하나를 유지하고 같은 요청 ID의 재전송은 기존 작업을 반환한다.
 
 PostgreSQL과 pg-boss 통합 테스트는 HTTP 요청 5건의 접수, 동시 실행 2건, 나머지 요청의 대기 후 완료, 과거 만료 시각의 대기 작업, 중복 전달과 20회 복구 점검의 큐 크기 유지, 한 작업 실패와 결과 분리, 워커 시작 시 미전송 요청 복구를 검증한다. 모델 응답은 합성 실행기로 주입해 작업 처리를 재현한다. 실제 AI 품질이나 공급자 처리량 부하 시험을 대신하지 않는다.
 

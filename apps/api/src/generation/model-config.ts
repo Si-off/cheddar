@@ -1,4 +1,4 @@
-import { DEFAULT_GUIDE, GUIDES } from "./guides";
+import { DEFAULT_GUIDE } from "./guides";
 
 export const STAGES = [
   "screens",
@@ -29,7 +29,7 @@ export type ModelConfig = {
 export type AiConfig = {
   fake: boolean;
   models: Record<AiTask, ModelConfig>;
-  /** 새 작업에 쓸 작성 지침 ID. 환경변수 AI_GUIDE로 바꾼다. */
+  /** 새 작업에 쓸 작성 지침 ID. */
   guide: string;
 };
 
@@ -42,8 +42,8 @@ export const MODEL_ALIASES: Record<string, string> = {
   terra: "openai:gpt-5.6-terra",
 };
 
-/** 단계별 기본 모델과 effort. 환경변수 AI_MODEL_<단계>, AI_EFFORT_<단계>로 바꾼다. */
-const defaults: Record<AiTask, { model: string; effort: Effort }> = {
+/** 단계별 모델과 effort. 바꿀 때는 이 표를 고친다. */
+const STAGE_MODELS: Record<AiTask, { model: string; effort: Effort }> = {
   screens: { model: "terra", effort: "low" },
   flows: { model: "terra", effort: "medium" },
   cases: { model: "terra", effort: "high" },
@@ -60,23 +60,10 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     throw new Error("AI_PROVIDER 설정을 확인하세요.");
   const models = Object.fromEntries(
     AI_TASKS.map((stage) => {
-      const name = stage.toUpperCase();
-      const value = env[`AI_MODEL_${name}`] ?? defaults[stage].model;
-      const match = /^(anthropic|openai):([^\s:]+)$/.exec(
-        MODEL_ALIASES[value] ?? value,
-      );
-      if (!match) throw new Error(`AI_MODEL_${name} 설정을 확인하세요.`);
-      const effort = env[`AI_EFFORT_${name}`] ?? defaults[stage].effort;
-      if (!(EFFORTS as readonly string[]).includes(effort))
-        throw new Error(`AI_EFFORT_${name} 설정을 확인하세요.`);
-      return [
-        stage,
-        { provider: match[1], model: match[2], effort: effort as Effort },
-      ];
+      const { model, effort } = STAGE_MODELS[stage];
+      const [provider, name] = (MODEL_ALIASES[model] ?? model).split(":");
+      return [stage, { provider, model: name, effort }];
     }),
   ) as Record<AiTask, ModelConfig>;
-  const guide = env.AI_GUIDE || DEFAULT_GUIDE;
-  if (!Object.hasOwn(GUIDES, guide))
-    throw new Error("AI_GUIDE 설정을 확인하세요.");
-  return { fake: env.AI_PROVIDER === "fake", models, guide };
+  return { fake: env.AI_PROVIDER === "fake", models, guide: DEFAULT_GUIDE };
 }
