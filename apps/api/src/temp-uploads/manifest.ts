@@ -1,6 +1,8 @@
 import { invalid } from "../common/errors";
 export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/** 업로드 하나에 담는 프레임 수 */
+export const MAX_FRAMES = 200;
 export type ManifestFrame = {
   name: string;
   document: unknown;
@@ -23,7 +25,7 @@ export function parseManifest(
     Object.keys(parsed).some((k) => k !== "frames") ||
     !Array.isArray(parsed.frames) ||
     parsed.frames.length < 1 ||
-    parsed.frames.length > 200
+    parsed.frames.length > MAX_FRAMES
   )
     throw invalid();
   let count = 0;

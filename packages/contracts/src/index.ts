@@ -216,3 +216,5 @@ export function isServerMessage(v: unknown): v is ServerMessage {
       return false;
   }
 }
+export * from "./screen-document.js";
+export * from "./tiles.js";

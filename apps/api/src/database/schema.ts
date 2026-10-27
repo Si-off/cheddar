@@ -512,6 +512,19 @@ export const pluginConnections = pgTable(
   ],
 );
 
+/** 계정마다 하나인 Figma 개인 액세스 토큰. 원문은 저장소 키로 암호화해 둔다 */
+export const figmaTokens = pgTable("figma_tokens", {
+  accountId: uuid("account_id")
+    .primaryKey()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  encryptedToken: text("encrypted_token").notNull(),
+  tokenSuffix: varchar("token_suffix", { length: 8 }).notNull(),
+  figmaHandle: text("figma_handle").notNull(),
+  figmaEmail: text("figma_email").notNull(),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+
 export const aiCallUsage = pgTable(
   "ai_call_usage",
   {

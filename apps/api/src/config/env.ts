@@ -31,6 +31,8 @@ export interface ApiEnv {
   pi?: PiConfig;
   queuePollingSeconds?: number;
   workersEnabled?: boolean;
+  /** Figma REST API 주소. 테스트에서만 바꾼다 */
+  figmaApiBaseUrl?: string;
 }
 
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
@@ -104,6 +106,21 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     if (corsOrigins.includes(pluginUiOrigin))
       throw new Error("PLUGIN_UI_ORIGIN must not be listed in CORS_ORIGINS.");
   }
+  const figmaApiBaseUrl =
+    env.FIGMA_API_BASE_URL?.trim() || "https://api.figma.com";
+  try {
+    const url = new URL(figmaApiBaseUrl);
+    if (
+      url.origin !== figmaApiBaseUrl ||
+      !(
+        url.protocol === "https:" ||
+        (url.protocol === "http:" && env.NODE_ENV !== "production")
+      )
+    )
+      throw new Error();
+  } catch {
+    throw new Error("FIGMA_API_BASE_URL must be an explicit HTTPS origin.");
+  }
   const costSource = (key: string, scope: string): CostSource | undefined => {
     const adminKey = env[key]?.trim();
     const scopeId = env[scope]?.trim();
@@ -134,6 +151,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     ai: readAiConfig(env),
     // 외부 호출 없는 fake에서는 이전 단계 생성기를 쓴다
     pi: piConfig(env.AI_PROVIDER === "fake" ? "staged" : "pi"),
+    figmaApiBaseUrl,
   };
 }
 

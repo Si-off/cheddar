@@ -134,6 +134,13 @@
       "when": 1792979916703,
       "tag": "0018_fine_midnight",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793075588607,
+      "tag": "0019_figma_tokens",
+      "breakpoints": true
     }
   ]
 }

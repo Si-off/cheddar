@@ -42,7 +42,7 @@ test("명세는 DB 없이 생성되며 인증·계정·프로젝트·테스트 �
     assert.deepEqual(document, exported);
     assert.ok(
       Object.keys(document.paths).every((p) =>
-        /^\/(health|api\/v1\/(auth|accounts|projects|test-sets|shared|temp-uploads|generations|review-items|plugin-connections))/.test(
+        /^\/(health|api\/v1\/(auth|accounts|projects|test-sets|shared|temp-uploads|generations|review-items|plugin-connections|figma-token))/.test(
           p,
         ),
       ),

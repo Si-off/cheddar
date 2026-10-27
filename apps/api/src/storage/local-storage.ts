@@ -186,6 +186,21 @@ export class LocalStorage implements FileStorage {
     await this.directory(join(root, testSetId));
     await unlink(join(root, testSetId, imageId));
   }
+  /** 이어 붙이다 실패한 업로드의 파일 하나를 지운다. 업로드의 다른 파일은 그대로 둔다. */
+  async removeUploadFile(uploadId: string, fileId: string) {
+    this.uuid(uploadId);
+    this.uuid(fileId);
+    await this.check();
+    try {
+      await this.directory(join(this.root, uploadId));
+      await unlink(join(this.root, uploadId, fileId));
+    } catch (error) {
+      if (
+        !(error instanceof Error && "code" in error && error.code === "ENOENT")
+      )
+        throw error;
+    }
+  }
   async removeUpload(uploadId: string) {
     this.uuid(uploadId);
     await this.check();

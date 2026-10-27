@@ -40,7 +40,7 @@ export function configureApp(app: INestApplication, config: ApiEnv) {
       res.setHeader("Cache-Control", "no-store");
     if (
       req.method === "POST" &&
-      /^\/api\/v1\/temp-uploads\/?$/i.test(req.path)
+      /^\/api\/v1\/temp-uploads(\/images)?\/?$/i.test(req.path)
     ) {
       let received = 0;
       const reject = () => {
