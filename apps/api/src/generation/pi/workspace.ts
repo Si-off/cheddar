@@ -2,6 +2,7 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { validateDraft, validateSchema } from "../output-schema";
 import { emptyCell, isAiColumn } from "../steps/column-rules";
 import type { CaseOutput, Draft, GenerationInput, JsonSchema } from "../types";
+import { FrameMaterial, materialPage } from "./frame-material";
 
 export type PiCase = { key: string; values: Draft; groupKey?: string };
 export type PiReview = {
@@ -37,6 +38,19 @@ const schema = (
 
 /** 업로드와 기준 문서 사본만 접근한다. 파일 경로, 셸, 네트워크 권한은 모델에 노출하지 않는다. */
 export class PiWorkspace {
+  private readonly materials = new Map<string, FrameMaterial>();
+
+  private material(frameId: string) {
+    let material = this.materials.get(frameId);
+    if (!material) {
+      const frame = this.input.frames.find((f) => f.id === frameId);
+      if (!frame) throw new Error("선택한 화면을 찾을 수 없습니다.");
+      material = new FrameMaterial(frame.screenDocument);
+      this.materials.set(frameId, material);
+    }
+    return material;
+  }
+
   constructor(
     readonly input: GenerationInput,
     readonly draft: PiDraft,
@@ -131,7 +145,7 @@ export class PiWorkspace {
     return [
       tool(
         "list_materials",
-        "선택한 화면, 기준 QA 문서의 시트, 출력 열, 기존 케이스 수를 확인한다.",
+        "선택한 화면의 원문 영역 이름·텍스트 분량·이미지 조각 번호, 기준 QA 시트와 출력 열을 확인한다. imageIndices는 view_frame의 index로 사용한다.",
         schema({}),
         () => ({
           frames: this.input.frames.map((f) => ({
@@ -139,6 +153,8 @@ export class PiWorkspace {
             name: f.name,
             characters: f.screenDocument.length,
             images: f.imageStorageKeys.length,
+            imageIndices: f.imageStorageKeys.map((_, index) => index),
+            ...this.material(f.id).summary(),
           })),
           reference: this.input.qaReference && {
             name: this.input.qaReference.name,
@@ -156,47 +172,49 @@ export class PiWorkspace {
       ),
       tool(
         "read_frame",
-        "화면 원문 JSON을 읽는다. 텍스트, 노드 ID, 위치, 연결, 취소선 정보가 포함된다. nextOffset이 있으면 이어 읽을 수 있다.",
-        schema({ frameId: str, offset: integer }, ["frameId"]),
-        ({ frameId, offset = 0 }) => {
-          const frame = this.input.frames.find((f) => f.id === frameId);
-          if (!frame) throw new Error("선택한 화면을 찾을 수 없습니다.");
-          if (!this.draft.readFrames.includes(frame.id))
-            this.draft.readFrames.push(frame.id);
-          const start = Number(offset),
-            end = start + 24000;
-          return {
-            data: frame.screenDocument.slice(start, end),
-            nextOffset: end < frame.screenDocument.length ? end : null,
-          };
+        "기본 mode=text는 원문 텍스트·속성·주석·연결을 노드 단위로 읽는다. textStyles의 STRIKETHROUGH는 취소선이며 해당 문구도 제공한다. nodeId로 범위를 좁히거나 mode=raw로 위치·구조를 포함한 원본 JSON을 읽는다. offset/nextOffset은 text에서는 항목 번호, raw에서는 글자 위치이며 모드·노드 범위를 바꾸면 0부터 읽는다.",
+        schema(
+          {
+            frameId: str,
+            offset: integer,
+            nodeId: str,
+            mode: { type: "string", enum: ["text", "raw"] },
+          },
+          ["frameId"],
+        ),
+        ({ frameId, offset = 0, nodeId, mode = "text" }) => {
+          const result = this.material(String(frameId)).read(
+            Number(offset),
+            mode as "text" | "raw",
+            nodeId as string | undefined,
+          );
+          if (!this.draft.readFrames.includes(String(frameId)))
+            this.draft.readFrames.push(String(frameId));
+          return result;
         },
       ),
       tool(
         "search_frames",
-        "선택한 화면의 원문에서 단어를 찾아 주변 문맥과 위치를 반환한다. 이후 read_frame으로 자세히 읽는다.",
-        schema({ query: { ...str, minLength: 1 } }),
-        ({ query }) =>
-          this.input.frames
-            .flatMap((f) => {
-              const text = f.screenDocument.toLowerCase(),
-                needle = String(query).toLowerCase();
-              const found = [];
-              for (
-                let pos = text.indexOf(needle);
-                pos >= 0 && found.length < 20;
-                pos = text.indexOf(needle, pos + needle.length)
-              )
-                found.push({
+        "선택 화면의 텍스트·속성·주석·연결에서 검색어를 찾아 일치한 항목 전체와 같은 영역의 앞뒤 항목을 반환한다. frameId로 화면을 좁힐 수 있다. nextOffset은 검색 결과 항목 번호이며 각 결과의 offset은 read_frame(mode=text)의 항목 번호다. nodeId로 원본 상세를 조회할 수 있다.",
+        schema(
+          { query: { ...str, minLength: 1 }, frameId: str, offset: integer },
+          ["query"],
+        ),
+        ({ query, frameId, offset = 0 }) => {
+          if (frameId) this.material(String(frameId));
+          const matches = this.input.frames
+            .filter((f) => !frameId || f.id === frameId)
+            .flatMap((f) =>
+              this.material(f.id)
+                .search(String(query))
+                .map((match) => ({
                   frameId: f.id,
-                  offset: Math.max(0, pos - 150),
-                  excerpt: f.screenDocument.slice(
-                    Math.max(0, pos - 150),
-                    pos + 500,
-                  ),
-                });
-              return found;
-            })
-            .slice(0, 50),
+                  frameName: f.name,
+                  ...match,
+                })),
+            );
+          return materialPage(matches, Number(offset), 20);
+        },
       ),
       {
         name: "view_frame",

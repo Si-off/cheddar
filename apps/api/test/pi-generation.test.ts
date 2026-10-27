@@ -778,6 +778,7 @@ test("5MB 초과 문서를 HTTP 업로드한 뒤 pi가 마지막 원문과 같�
       );
       const tail = await call(workspace, "read_frame", {
         frameId: frame.id,
+        mode: "raw",
         offset: frame.screenDocument.length - 200,
       });
       assert.match(JSON.stringify(tail), /마지막 필수 규칙/);
