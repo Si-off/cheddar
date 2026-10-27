@@ -10,7 +10,7 @@ import {
   generationSteps,
   reviewItems,
 } from "../src/database/schema";
-import { costFor } from "../src/generation/pricing";
+import { costFor, pricingFor } from "../src/generation/pricing";
 import {
   AiFailure,
   type AiRequest,
@@ -83,6 +83,20 @@ test("사용량은 허용된 숫자만 저장하고 캐시와 추론을 중복 �
       cacheCreationTokens: 0,
     }),
     null,
+  );
+});
+
+test("Sonnet 비용은 캐시 읽기 0.10달러 단가로 계산한다", () => {
+  const usage = {
+    inputTokens: 32,
+    outputTokens: 62160,
+    cacheReadTokens: 1215401,
+    cacheCreationTokens: 196967,
+  };
+  assert.equal(costFor("anthropic:claude-sonnet-5-5", usage), "1.2356216000");
+  assert.equal(
+    pricingFor("anthropic:claude-sonnet-5-5", usage)?.version,
+    "2026-10-27",
   );
 });
 
