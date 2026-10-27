@@ -15,7 +15,7 @@
 
 ## 개발 환경
 
-기존 생성기를 유지하면서 pi 에이전트를 비교하는 방법은 [pi 생성](docs/pi-experiment.md)을 따른다. 프로젝트 기준 QA 문서는 한 번 등록하고 이후 프레임 선택으로 생성한다. 실험 브랜치에서만 활성화한다.
+최초/추가 생성은 pi 에이전트(기본 Claude Sonnet 5.5·medium)를 사용한다. 설정은 [pi 생성](docs/pi-experiment.md)을 따른다. 프로젝트 기준 QA 문서는 한 번 등록하고 이후 프레임 선택으로 생성한다.
 
 - Node 24.22.0 LTS(`.nvmrc`), pnpm 12.11.2(`packageManager`), Biome
 - PostgreSQL 17(로컬)
@@ -46,6 +46,8 @@ pnpm install --frozen-lockfile
 | `NODE_ENV` | `production`이면 세션 쿠키에 Secure 적용 |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | AI 제공자 키. 쓰는 제공자의 키만 넣는다 |
 | `AI_PROVIDER` | `fake`면 외부 호출 없이 합성 결과로 생성한다 |
+| `AI_PI_MODEL` | 최초/추가 생성 모델. 기본 `anthropic:claude-sonnet-5-5`, effort는 medium. `ANTHROPIC_API_KEY` 필요 |
+| `AI_PI_MAX_TOKENS`, `AI_PI_MAX_TURNS`, `AI_PI_TIMEOUT_SECONDS` | pi 실행 한도. 기본 200만 토큰·80턴·1,500초 |
 | `AI_MODEL_SCREENS` 등 | 단계별 모델. 짧은 이름 `haiku`, `sonnet`, `opus`, `luna`, `terra` 또는 `anthropic:<모델>`, `openai:<모델>`. 기본값은 `apps/api/src/generation/model-config.ts` |
 | `AI_EFFORT_SCREENS` 등 | 단계별 effort. `low`, `medium`, `high`, `xhigh`, `max`. Claude와 GPT 모두에 적용. effort를 받지 않는 모델은 `default`(보내지 않음) |
 | `AI_GUIDE` | 새 작업에 쓸 작성 지침 ID. 비우면 기본 지침. 목록은 `apps/api/src/generation/guides/index.ts` |

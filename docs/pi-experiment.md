@@ -18,16 +18,18 @@ pnpm --filter @cheddar/api qa:reference --project <프로젝트-UUID> --file /�
 
 기준 문서가 없는 프로젝트에서는 기존에 수집하던 최근 케이스 예시를 참고한다. 자동으로 편집 이력을 학습하거나 다른 프로젝트의 사례를 섞지 않는다.
 
+기본 모델은 Claude Sonnet 5.5, effort는 medium이다. 실제 같은 범위 비교에서 약 147만 토큰을 사용했으므로 기본 실행 한도는 200만 토큰·80턴·25분이다. 새 작업의 모델·effort·실행 한도는 요청 시 고정되며, 진행 중 작업은 기존 설정으로 이어간다.
+
 ## 로컬 실행
 
 Node와 pnpm은 `.nvmrc`, 루트 `package.json`의 버전을 쓴다. 별도 PostgreSQL DB와 파일 저장 경로를 마련하고 `apps/api/.env.local`을 설정한다. 기존 환경은 업데이트 전에 백업하고 새 마이그레이션을 적용한다. 필수 환경변수는 README와 `.env.example`을 따른다.
 
 ```dotenv
 AI_GENERATION_ENGINE=pi
-AI_PI_MODEL=openai:gpt-6.1-sol
+AI_PI_MODEL=anthropic:claude-sonnet-5-5
 AI_PI_MAX_TURNS=80
-AI_PI_MAX_TOKENS=1000000
-AI_PI_TIMEOUT_SECONDS=1200
+AI_PI_MAX_TOKENS=2000000
+AI_PI_TIMEOUT_SECONDS=1500
 ```
 
 ```sh

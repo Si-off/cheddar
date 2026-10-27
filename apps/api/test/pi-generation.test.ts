@@ -254,11 +254,133 @@ test("완료 초안 체크포인트로 복구하면 모델을 다시 호출하�
   assert.equal(result.cases.length, 1);
 });
 
-test("pi 기본 설정은 pi를 사용하고 잘못된 예산을 거절한다", () => {
-  assert.equal(readPiConfig({}).engine, "pi");
-  assert.equal(readPiConfig({}).maxTokens, 1000000);
+test("pi 기본 설정은 Sonnet medium과 검증한 실행 한도를 사용한다", () => {
+  const config = readPiConfig({});
+  assert.equal(config.engine, "pi");
+  assert.deepEqual(config.model, {
+    provider: "anthropic",
+    model: "claude-sonnet-5-5",
+    effort: "medium",
+  });
+  assert.equal(config.maxTokens, 2000000);
+  assert.equal(config.maxTurns, 80);
+  assert.equal(config.timeoutMs, 1500000);
   assert.throws(() => readPiConfig({ AI_PI_MAX_TURNS: "0" }));
   assert.throws(() => readPiConfig({ AI_GENERATION_ENGINE: "unknown" }));
+});
+
+test("pi는 새 작업의 medium과 기존 작업의 high를 실제 요청에 반영한다", async (t) => {
+  const previousKey = process.env.ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_API_KEY = "synthetic-key";
+  t.after(() => {
+    if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = previousKey;
+  });
+  const { runPi } = await import("../src/generation/pi/runtime");
+  for (const effort of ["medium", "high"] as const) {
+    await t.test(effort, async (t) => {
+      const source = input();
+      source.frames = [];
+      assert.ok(source.pi);
+      source.pi.model.effort = effort;
+      const seen: string[] = [];
+      t.mock.method(
+        globalThis,
+        "fetch",
+        async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+          const request = (await new Request(url, init).json()) as {
+            model: string;
+            messages: { role: string; output_config?: { effort?: string } }[];
+            output_config?: { effort?: string };
+          };
+          assert.equal(request.model, "claude-sonnet-5-5");
+          const active =
+            [...request.messages]
+              .reverse()
+              .find(
+                (message: {
+                  role: string;
+                  output_config?: { effort?: string };
+                }) =>
+                  message.role === "system" && message.output_config?.effort,
+              )?.output_config?.effort ?? request.output_config?.effort;
+          assert.ok(active);
+          seen.push(active);
+          const name = seen.length === 1 ? "save_cases" : "complete";
+          const args =
+            name === "save_cases"
+              ? { cases: [{ key: "order", values: row(source) }] }
+              : {
+                  audit:
+                    "입력 메모와 저장한 주문 조회 테스트의 수행 절차 및 예상 결과를 대조했습니다.",
+                };
+          const events = [
+            {
+              type: "message_start",
+              message: {
+                id: `msg_${seen.length}`,
+                type: "message",
+                role: "assistant",
+                model: request.model,
+                content: [],
+                stop_reason: null,
+                stop_sequence: null,
+                usage: { input_tokens: 100, output_tokens: 0 },
+              },
+            },
+            {
+              type: "content_block_start",
+              index: 0,
+              content_block: {
+                type: "tool_use",
+                id: `tool_${seen.length}`,
+                name,
+                input: {},
+              },
+            },
+            {
+              type: "content_block_delta",
+              index: 0,
+              delta: {
+                type: "input_json_delta",
+                partial_json: JSON.stringify(args),
+              },
+            },
+            { type: "content_block_stop", index: 0 },
+            {
+              type: "message_delta",
+              delta: { stop_reason: "tool_use", stop_sequence: null },
+              usage: { output_tokens: 30 },
+            },
+            { type: "message_stop" },
+          ];
+          return new Response(
+            events
+              .map(
+                (event) =>
+                  `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+              )
+              .join(""),
+            {
+              headers: { "content-type": "text/event-stream" },
+            },
+          );
+        },
+      );
+      const result = await runPi({
+        input: source,
+        state: newCheckpoint(),
+        signal: AbortSignal.timeout(10000),
+        image: async () => {
+          throw new Error("이미지 없음");
+        },
+        usage: async () => {},
+        checkpoint: async () => {},
+      });
+      assert.equal(result.cases.length, 1);
+      assert.deepEqual(seen, [effort, effort]);
+    });
+  }
 });
 
 test("저장 장애는 부분 성공으로 바꾸지 않으며 최초 큐 작업 재시도로 초안을 복구한다", async () => {

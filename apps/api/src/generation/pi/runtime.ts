@@ -172,7 +172,8 @@ export async function runPi(options: PiRunOptions) {
       agentDir: cwd,
       model,
       modelRuntime: runtime,
-      thinkingLevel: "high",
+      thinkingLevel:
+        config.model.effort === "default" ? undefined : config.model.effort,
       resourceLoader: loader,
       tools: tools.map((tool) => tool.name),
       customTools: tools,

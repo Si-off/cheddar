@@ -13,7 +13,7 @@ export function readPiConfig(env: NodeJS.ProcessEnv = process.env): PiConfig {
   if (engine !== "staged" && engine !== "pi")
     throw new Error("AI_GENERATION_ENGINE은 staged 또는 pi여야 합니다.");
   const match = /^(openai|anthropic):([^\s:]+)$/.exec(
-    env.AI_PI_MODEL || "openai:gpt-6.1-sol",
+    env.AI_PI_MODEL || "anthropic:claude-sonnet-5-5",
   );
   if (!match) throw new Error("AI_PI_MODEL 설정을 확인하세요.");
   const number = (key: string, fallback: number, min: number, max: number) => {
@@ -27,10 +27,10 @@ export function readPiConfig(env: NodeJS.ProcessEnv = process.env): PiConfig {
     model: {
       provider: match[1] as ModelConfig["provider"],
       model: match[2],
-      effort: "high",
+      effort: "medium",
     },
     maxTurns: number("AI_PI_MAX_TURNS", 80, 1, 200),
-    timeoutMs: number("AI_PI_TIMEOUT_SECONDS", 1200, 10, 1500) * 1000,
-    maxTokens: number("AI_PI_MAX_TOKENS", 1000000, 1000, 2000000),
+    timeoutMs: number("AI_PI_TIMEOUT_SECONDS", 1500, 10, 1500) * 1000,
+    maxTokens: number("AI_PI_MAX_TOKENS", 2000000, 1000, 2000000),
   };
 }
